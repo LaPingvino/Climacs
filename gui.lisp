@@ -289,7 +289,7 @@
 			  :prompt "Find File"))
 	(buffer (make-instance 'climacs-buffer)))
     (setf (buffer (win *application-frame*)) buffer
-	  (filename (buffer (win *application-frame*)) filename))
+	  (filename (buffer (win *application-frame*))) filename)
     (with-open-file (stream filename :direction :input)
       (input-from-stream stream buffer 0))
     (setf (slot-value (win *application-frame*) 'point)
