@@ -40,9 +40,16 @@
 
 (defclass right-sticky-mark (mark) ())
 
+(defgeneric offset (mark))
+(defgeneric (setf offset) new-offset mark)
+
 (defclass mark-mixin ()
   ((buffer :initarg :buffer :reader buffer)
    (offset :initarg :offset :initform 0 :accessor offset)))
+
+(defmethod (setf offset) :before (new-offset (mark mark-mixin))
+  (assert (<= 0 new-offset (size (buffer mark))) ()
+	  (make-condition 'no-such-offset :offset new-offset)))
 
 (defmethod initialize-instance :after ((mark mark-mixin) &rest args)
   (declare (ignore args))

@@ -29,11 +29,9 @@
   (:panes
    (win :application :width 600 :height 400
 	:display-function 'display-win)
-   (int :interactor :width 600 :height 100))
+   (int :interactor :width 600 :height 50))
   (:layouts
    (default
-       (vertically () win))
-   (with-interactor
        (vertically () win int)))
   (:top-level (climacs-top-level)))
 
@@ -131,7 +129,11 @@
 		 (cond ((not item)
 			(beep) (setf gestures '()))
 		       ((eq (command-menu-item-type item) :command)
-			(funcall (command-menu-item-value item))
+			(handler-case 
+			    (funcall (command-menu-item-value item))
+			  (error (condition)
+			    (beep)
+			    (format *error-output* "~a~%" condition)))
 			(setf gestures '()))
 		       (t nil))))
 	     (redisplay-frame-panes frame :force-p t))))
@@ -183,6 +185,9 @@
 	    'with-interactor
 	    'default)))
 
+(define-command com-extended-command ()
+  (accept 'command :prompt "Extended Command"))
+
 (defclass weird () ())
 
 (define-command com-insert-weird-stuff ()
@@ -213,7 +218,7 @@
 (global-set-key '(#\k :control) 'com-kill-line)
 (global-set-key '(#\f :meta) 'com-forward-word)
 (global-set-key '(#\b :meta) 'com-backward-word)
-(global-set-key '(#\x :meta) 'com-toggle-layout)
+(global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\a :meta) 'com-insert-weird-stuff)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
