@@ -124,11 +124,14 @@ characters in the region between offset1 and offset2"
           finally (return column))))
 
 (defgeneric number-of-lines-in-region (mark1 mark2)
-  (:documentation "Return the number of lines (or rather the number of
-Newline characters) in the region between MARK and MARK2.  It is
-acceptable to pass an offset in place of one of the marks"))
+  (:documentation "Return the number of lines (or rather the
+number of Newline characters) in the region between MARK and
+MARK2.  An error is signaled if the two marks are positioned in
+different buffers.  It is acceptable to pass an offset in place of
+one of the marks"))
 
 (defmethod number-of-lines-in-region ((mark1 mark) (mark2 mark))
+  (assert (eq (buffer mark1) (buffer mark2)))
   (buffer-number-of-lines-in-region (buffer mark1) (offset mark1) (offset mark2)))
 
 (defmethod number-of-lines-in-region ((offset integer) (mark mark))
@@ -177,21 +180,15 @@ acceptable to pass an offset in place of one of the marks"))
 
 (defun delete-word (mark)
   "Delete until the end of the word"
-  (loop until (end-of-buffer-p mark)
-	until (constituentp (object-after mark))
-	do (delete-range mark))
-  (loop until (end-of-buffer-p mark)
-	while (constituentp (object-after mark))
-	do (delete-range mark)))
+  (let ((mark2 (clone-mark mark)))
+    (forward-word mark2)
+    (delete-range mark (- (offset mark2) (offset mark)))))
 
 (defun backward-delete-word (mark)
   "Delete until the beginning of the word"
-  (loop until (beginning-of-buffer-p mark)
-	until (constituentp (object-before mark))
-	do (delete-range mark -1))
-  (loop until (beginning-of-buffer-p mark)
-	while (constituentp (object-before mark))
-	do (delete-range mark -1)))
+  (let ((mark2 (clone-mark mark)))
+    (backward-word mark2)
+    (delete-range mark (- (offset mark2) (offset mark)))))
 
 (defun previous-word (mark)
   "Return a freshly allocated sequence, that is word before the mark"
@@ -388,10 +385,10 @@ if tab-width is not nil, otherwise use spaces only."
   (beginning-of-line mark)
   (unless (beginning-of-buffer-p mark)
     (loop until (end-of-buffer-p mark)
-          until (constituentp (object-after mark))
+          while (whitespacep (object-after mark))
           do (delete-range mark 1))
     (loop until (beginning-of-buffer-p mark)
-          until (constituentp (object-before mark))
+          while (whitespacep (object-before mark))
           do (delete-range mark -1))
     (insert-object mark #\Space)))
 
