@@ -339,7 +339,7 @@ insert-buffer-object with the buffer and the position of the mark."))
 (defmethod insert-object ((mark mark-mixin) object)
   (insert-buffer-object (buffer mark) (offset mark) object))
 
-(defgeneric insert-sequence (mark string)
+(defgeneric insert-sequence (mark sequence)
   (:documentation "Insert the objects in the sequence at the mark. This function simply
 calls insert-buffer-sequence with the buffer and the position of the
 mark."))
@@ -482,7 +482,7 @@ acceptable to pass an offset in place of one of the marks."))
 	(min (offset (low-mark buffer)) offset))
   (setf (offset (high-mark buffer))
 	(max (offset (high-mark buffer)) (+ offset n)))
-(setf (slot-value buffer 'modified) t))
+  (setf (slot-value buffer 'modified) t))
 
 (defgeneric clear-modify (buffer))
 
