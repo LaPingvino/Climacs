@@ -36,7 +36,7 @@
 The body is executed for each element, with object being the current object
 (setf-able), and offset being its offset."
   `(symbol-macrolet ((,object (buffer-object ,buffer ,offset)))
-     (loop for ,offset from ,offset1 to ,offset2
+     (loop for ,offset from ,offset1 below ,offset2
            do ,@body)))
 
 (defgeneric backward-object (mark &optional count))
