@@ -92,8 +92,15 @@
   (:export #:syntax #:define-syntax
 	   #:basic-syntax
 	   #:update-syntax #:update-syntax-for-display
-	   #:grammar #:parser #:initial-state
+	   #:grammar #:grammar-rule #:add-rule
+	   #:parser #:initial-state
 	   #:advance-parse
+	   #:parse-tree #:start-offset #:end-offset
+	   #:start-mark ; FIXME remove this
+	   #:lexer #:nb-lexemes #:lexeme #:insert-lexeme
+	   #:incremental-lexer #:next-lexeme
+	   #:delete-invalid-lexemes #:inter-lexeme-object-p
+	   #:skip-inter-lexeme-objects #:update-lex
 	   #:parse-stack-top #:target-parse-tree #:parse-state-empty-p
 	   #:parse-stack-next #:parse-stack-symbol
 	   #:parse-stack-parse-trees #:map-over-parse-trees

@@ -24,92 +24,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; this should really go in syntax.lisp
-
-(defclass parse-tree ()
-  ((start-mark :initarg :start-mark :reader start-mark)
-   (size :initarg :size)))
-
-(defgeneric start-offset (parse-tree))
-
-(defmethod start-offset ((tree parse-tree))
-  (offset (start-mark tree)))
-
-(defgeneric end-offset (parse-tree))
-
-(defmethod end-offset ((tree parse-tree))
-  (with-slots (start-mark size) tree
-     (+ (offset start-mark) size)))
-
-(defclass lexer ()
-  ((buffer :initarg :buffer :reader buffer)))
-
-(defgeneric nb-lexemes (lexer))
-(defgeneric lexeme (lexer pos))
-(defgeneric insert-lexeme (lexer pos lexeme))
-(defgeneric delete-invalid-lexemes (lexer from to))
-(defgeneric inter-lexeme-object-p (lexer object))
-(defgeneric skip-inter-lexeme-objects (lexer scan))
-(defgeneric update-lex (lexer start-pos end))
-
-(defclass incremental-lexer (lexer)
-  ((lexemes :initform (make-instance 'standard-flexichain) :reader lexemes)))
-
-(defmethod nb-lexemes ((lexer incremental-lexer))
-  (nb-elements (lexemes lexer)))
-
-(defmethod lexeme ((lexer incremental-lexer) pos)
-  (element* (lexemes lexer) pos))
-
-(defmethod insert-lexeme ((lexer incremental-lexer) pos lexeme)
-  (insert* (lexemes lexer) pos lexeme))
-
-(defmethod delete-invalid-lexemes ((lexer incremental-lexer) from to)
-  "delete all lexemes between FROM and TO and return the first invalid 
-position in the lexemes of LEXER"
-  (with-slots (lexemes) lexer
-     (let ((start 1)
-	   (end (nb-elements lexemes)))
-       ;; use binary search to find the first lexeme to delete
-       (loop while (< start end)
-	     do (let ((middle (floor (+ start end) 2)))
-		  (if (mark< (end-offset (element* lexemes middle)) from)
-		      (setf start (1+ middle))
-		      (setf end middle))))
-       ;; delete lexemes
-       (loop until (or (= start (nb-elements lexemes))
-		       (mark> (start-mark (element* lexemes start)) to))
-	     do (delete* lexemes start))
-       start)))
-	       
-(defmethod skip-inter-lexeme-objects ((lexer incremental-lexer) scan)
-  (loop until (end-of-buffer-p scan)
-	while (inter-lexeme-object-p lexer (object-after scan))
-	do (forward-object scan)))
-
-(defmethod update-lex ((lexer incremental-lexer) start-pos end)
-  (let ((scan (clone-mark (low-mark (buffer lexer)) :left)))
-    (setf (offset scan)
-	  (end-offset (lexeme lexer (1- start-pos))))
-    (loop do (skip-inter-lexeme-objects lexer scan)
-	  until (if (end-of-buffer-p end)
-		    (end-of-buffer-p scan)
-		    (mark> scan end))
-	  do (let* ((start-mark (clone-mark scan))
-		    (lexeme (next-lexeme scan))
-		    (size (- (offset scan) (offset start-mark))))
-	       (setf (slot-value lexeme 'start-mark) start-mark
-		     (slot-value lexeme 'size) size)
-	       (insert-lexeme lexer start-pos lexeme))
-	     (incf start-pos))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
 ;;; grammar classes
 
 (defclass html-sym (parse-tree)
-  ((badness :initform 0 :initarg :badness :reader badness)
-   (message :initform "" :initarg :message :reader message)))
+  ((badness :initform 0 :initarg :badness :reader badness)))
 
 (defmethod parse-tree-better ((t1 html-sym) (t2 html-sym))
   (and (eq (class-of t1) (class-of t2))
@@ -194,7 +112,7 @@ position in the lexemes of LEXER"
 (defclass word (html-element) ())
 (defclass delimiter (html-element) ())
 
-(defun next-lexeme (scan)
+(defmethod next-lexeme ((lexer html-lexer) scan)
   (flet ((fo () (forward-object scan)))
     (let ((object (object-after scan)))
       (case object
