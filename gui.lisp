@@ -301,14 +301,10 @@
 
 ;;; for some reason, C-c does not seem to arrive as far as CLIM.
 
-(add-command-to-command-table 'com-quit 'c-x-climacs-table
-			      :keystroke '(#\q :control))
+(defun c-x-set-key (gesture command)
+  (add-command-to-command-table command 'c-x-climacs-table
+				:keystroke gesture :errorp nil))
 
-(add-command-to-command-table 'com-find-file 'c-x-climacs-table
-			      :keystroke '(#\f :control))
-
-(add-command-to-command-table 'com-save-buffer 'c-x-climacs-table
-			      :keystroke '(#\s :control))
-
-
-
+(c-x-set-key '(#\q :control) 'com-quit)
+(c-x-set-key '(#\f :control) 'com-find-file)
+(c-x-set-key '(#\s :control) 'com-save-buffer)
