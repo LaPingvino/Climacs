@@ -46,6 +46,11 @@
 
 (defgeneric nb-lexemes (lexer))
 (defgeneric lexeme (lexer pos))
+(defgeneric insert-lexeme (lexer pos lexeme))
+(defgeneric delete-invalid-lexemes (lexer from to))
+(defgeneric inter-lexeme-object-p (lexer object))
+(defgeneric skip-inter-lexeme-objects (lexer scan))
+(defgeneric update-lex (lexer start-pos end))
 
 (defclass incremental-lexer (lexer)
   ((lexemes :initform (make-instance 'standard-flexichain) :reader lexemes)))
@@ -55,6 +60,48 @@
 
 (defmethod lexeme ((lexer incremental-lexer) pos)
   (element* (lexemes lexer) pos))
+
+(defmethod insert-lexeme ((lexer incremental-lexer) pos lexeme)
+  (insert* (lexemes lexer) pos lexeme))
+
+(defmethod delete-invalid-lexemes ((lexer incremental-lexer) from to)
+  "delete all lexemes between FROM and TO and return the first invalid 
+position in the lexemes of LEXER"
+  (with-slots (lexemes) lexer
+     (let ((start 1)
+	   (end (nb-elements lexemes)))
+       ;; use binary search to find the first lexeme to delete
+       (loop while (< start end)
+	     do (let ((middle (floor (+ start end) 2)))
+		  (if (mark< (end-offset (element* lexemes middle)) from)
+		      (setf start (1+ middle))
+		      (setf end middle))))
+       ;; delete lexemes
+       (loop until (or (= start (nb-elements lexemes))
+		       (mark> (start-mark (element* lexemes start)) to))
+	     do (delete* lexemes start))
+       start)))
+	       
+(defmethod skip-inter-lexeme-objects ((lexer incremental-lexer) scan)
+  (loop until (end-of-buffer-p scan)
+	while (inter-lexeme-object-p lexer (object-after scan))
+	do (forward-object scan)))
+
+(defmethod update-lex ((lexer incremental-lexer) start-pos end)
+  (let ((scan (clone-mark (low-mark (buffer lexer)) :left)))
+    (setf (offset scan)
+	  (end-offset (lexeme lexer (1- start-pos))))
+    (loop do (skip-inter-lexeme-objects lexer scan)
+	  until (if (end-of-buffer-p end)
+		    (end-of-buffer-p scan)
+		    (mark> scan end))
+	  do (let* ((start-mark (clone-mark scan))
+		    (lexeme (next-lexeme scan))
+		    (size (- (offset scan) (offset start-mark))))
+	       (setf (slot-value lexeme 'start-mark) start-mark
+		     (slot-value lexeme 'size) size)
+	       (insert-lexeme lexer start-pos lexeme))
+	     (incf start-pos))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -162,8 +209,10 @@
 		 (t
 		  (fo) (make-instance 'delimiter))))))))
 
+(defclass html-lexer (incremental-lexer) ())     
+
 (define-syntax html-syntax ("HTML" (basic-syntax))
-  ((lexemes :initform (make-instance 'standard-flexichain))
+  ((lexer :reader lexer)
    (valid-parse :initform 1)
    (parser)))
 
@@ -272,82 +321,43 @@
 
 (defmethod initialize-instance :after ((syntax html-syntax) &rest args)
   (declare (ignore args))
-  (with-slots (parser lexemes buffer) syntax
+  (with-slots (parser lexer buffer) syntax
      (setf parser (make-instance 'parser
 		     :grammar *html-grammar*
 		     :target 'html))
+     (setf lexer (make-instance 'html-lexer :buffer (buffer syntax)))
      (let ((m (clone-mark (low-mark buffer) :left)))
        (setf (offset m) 0)
-       (insert* lexemes 0 (make-instance 'start-element
-					 :start-mark m
-					 :size 0
-					 :state (initial-state parser))))))
+       (insert-lexeme lexer 0 (make-instance 'start-element
+				 :start-mark m
+				 :size 0
+				 :state (initial-state parser))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; update syntax
 
+
 (defmethod update-syntax-for-display (buffer (syntax html-syntax) top bot)
-  (with-slots (parser lexemes valid-parse) syntax
-     (loop until (= valid-parse (nb-elements lexemes))
-	   while (mark<= (end-offset (element* lexemes valid-parse)) bot)
-	   do (let ((current-token (element* lexemes (1- valid-parse)))
-		    (next-lexeme (element* lexemes valid-parse)))
+  (with-slots (parser lexer valid-parse) syntax
+     (loop until (= valid-parse (nb-lexemes lexer))
+	   while (mark<= (end-offset (lexeme lexer valid-parse)) bot)
+	   do (let ((current-token (lexeme lexer (1- valid-parse)))
+		    (next-lexeme (lexeme lexer valid-parse)))
 		(setf (slot-value next-lexeme 'state)
 		      (advance-parse parser (list next-lexeme) (slot-value current-token 'state))))
 	      (incf valid-parse))))
 
-(defun delete-invalid-lexemes (lexemes from to)
-  "delete all lexemes between FROM and TO and return the first invalid 
-position in LEXEMES"
-  (let ((start 1)
-	(end (nb-elements lexemes)))
-    ;; use binary search to find the first lexeme to delete
-    (loop while (< start end)
-	  do (let ((middle (floor (+ start end) 2)))
-	       (if (mark< (end-offset (element* lexemes middle)) from)
-		   (setf start (1+ middle))
-		   (setf end middle))))
-    ;; delete lexemes
-    (loop until (or (= start (nb-elements lexemes))
-		    (mark> (start-mark (element* lexemes start)) to))
-	  do (delete* lexemes start))
-    start))
-	       
-
-(defun inter-lexeme-object-p (lexemes object)
-  (declare (ignore lexemes))
+(defmethod inter-lexeme-object-p ((lexer html-lexer) object)
   (whitespacep object))
 
-(defun skip-inter-lexeme-objects (lexemes scan)
-  (loop until (end-of-buffer-p scan)
-	while (inter-lexeme-object-p lexemes (object-after scan))
-	do (forward-object scan)))
-
-(defun update-lex (lexemes start-pos end)
-  (let ((scan (clone-mark (low-mark (buffer end)) :left)))
-    ;; FIXME, eventually use the buffer of the lexer
-    (setf (offset scan)
-	  (end-offset (element* lexemes (1- start-pos))))
-    (loop do (skip-inter-lexeme-objects lexemes scan)
-	  until (if (end-of-buffer-p end)
-		    (end-of-buffer-p scan)
-		    (mark> scan end))
-	  do (let* ((start-mark (clone-mark scan))
-		    (lexeme (next-lexeme scan))
-		    (size (- (offset scan) (offset start-mark))))
-	       (setf (slot-value lexeme 'start-mark) start-mark
-		     (slot-value lexeme 'size) size)
-	       (insert* lexemes start-pos lexeme))
-	     (incf start-pos))))
-
 (defmethod update-syntax (buffer (syntax html-syntax))
-  (with-slots (lexemes valid-parse) syntax
+  (with-slots (lexer valid-parse) syntax
      (let* ((low-mark (low-mark buffer))
 	    (high-mark (high-mark buffer))
-	    (first-invalid-position (delete-invalid-lexemes lexemes low-mark high-mark)))
+	    (first-invalid-position (delete-invalid-lexemes lexer low-mark high-mark)))
        (setf valid-parse first-invalid-position)
-       (update-lex lexemes first-invalid-position high-mark))))
+       (update-lex lexer first-invalid-position high-mark))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -473,35 +483,35 @@ position in LEXEMES"
      (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
 	   *current-line* 0
 	   (aref *cursor-positions* 0) (stream-cursor-position pane))
-     (with-slots (lexemes) syntax
-	(let ((average-token-size (max (float (/ (size (buffer pane)) (nb-elements lexemes)))
+     (with-slots (lexer) syntax
+	(let ((average-token-size (max (float (/ (size (buffer pane)) (nb-lexemes lexer)))
 				       1.0)))
 	  ;; find the last token before bot
 	  (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
 	    ;; go back to a token before bot
-	    (loop until (mark<= (end-offset (element* lexemes (1- end-token-index))) bot)
+	    (loop until (mark<= (end-offset (lexeme lexer (1- end-token-index))) bot)
 		  do (decf end-token-index))
 	    ;; go forward to the last token before bot
-	    (loop until (or (= end-token-index (nb-elements lexemes))
-			    (mark> (start-offset (element* lexemes end-token-index)) bot))
+	    (loop until (or (= end-token-index (nb-lexemes lexer))
+			    (mark> (start-offset (lexeme lexer end-token-index)) bot))
 		  do (incf end-token-index))
 	    (let ((start-token-index end-token-index))
 	      ;; go back to the first token after top, or until the previous token
 	      ;; contains a valid parser state
-	      (loop until (or (mark<= (end-offset (element* lexemes (1- start-token-index))) top)
+	      (loop until (or (mark<= (end-offset (lexeme lexer (1- start-token-index))) top)
 			      (not (parse-state-empty-p 
-				    (slot-value (element* lexemes (1- start-token-index)) 'state))))
+				    (slot-value (lexeme lexer (1- start-token-index)) 'state))))
 		    do (decf start-token-index))
 	      (let ((*white-space-start* (offset top)))
 		;; display the parse tree if any
-		(unless (parse-state-empty-p (slot-value (element* lexemes (1- start-token-index)) 'state))
-		  (display-parse-state (slot-value (element* lexemes (1- start-token-index)) 'state)
+		(unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
+		  (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
 				       syntax
 				       pane))
 		;; display the lexemes
 		(with-drawing-options (pane :ink +red+)
 		  (loop while (< start-token-index end-token-index)
-			do (let ((token (element* lexemes start-token-index)))
+			do (let ((token (lexeme lexer start-token-index)))
 			     (display-parse-tree token syntax pane))
 			   (incf start-token-index))))))))
      (let* ((cursor-line (number-of-lines-in-region top (point pane)))

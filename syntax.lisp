@@ -23,7 +23,7 @@
 (in-package :climacs-syntax)
 
 (defclass syntax (name-mixin)
-  ((buffer :initarg :buffer)))
+  ((buffer :initarg :buffer :reader buffer)))
 
 (defgeneric update-syntax (buffer syntax))
 
