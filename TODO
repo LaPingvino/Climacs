@@ -1,6 +1,6 @@
-- modify standard-buffer to use obinseq with leafs containing
-  flexichain-based lines
+- modify standard-buffer to use an obinseq-based structure for faster
+  line operations
 
-- upgrade persistent buffer based on binseq2 to an undoable buffer
+- speed up com-goto-line (when possible)
 
 - replace the use of the scroller pane by custom pane
