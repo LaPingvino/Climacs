@@ -163,10 +163,13 @@
 	     (multiple-value-bind (x y) (stream-cursor-position pane)
 	       (setf cursor-x x
 		     cursor-y y)))
-	   (draw-line* pane
-		       cursor-x (- cursor-y (* 0.2 height))
-		       cursor-x (+ cursor-y (* 0.8 height))
-		       :ink +red+))))))
+	   (maybe-updating-output (pane :all-new t :fixed-position t)
+	      (draw-line* pane
+			  ;; cursors with odd x-positions were invisible
+			  ;; so we strip off the low bit to make them even.
+			  (logand -2 cursor-x) (- cursor-y (* 0.2 height))
+			  (logand -2 cursor-x) (+ cursor-y (* 0.8 height))
+			  :ink +red+)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
