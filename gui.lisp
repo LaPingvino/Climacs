@@ -53,40 +53,38 @@
 	 (buffer (buffer frame))
 	 (size (size (buffer frame)))
 	 (offset 0)
+	 (offset1 nil)
 	 (cursor-x nil)
 	 (cursor-y nil))
-    (flet ((display-line ()
-	     (loop with offset1 = nil
-		   when (= offset (offset (point frame)))
+    (labels ((present-contents ()
+	     (unless (null offset1)
+	       (present (coerce (buffer-sequence buffer offset1 offset) 'string)
+			'string
+			:stream pane)
+	       (setf offset1 nil)))
+	   (display-line ()
+	     (loop when (= offset (offset (point frame)))
 		     do (multiple-value-bind (x y) (stream-cursor-position pane)
 			  (setf cursor-x (+ x (if (null offset1)
 						  0
 						  (* width (- offset offset1))))
 				cursor-y y))
 		   when (= offset size)
-		     do (unless (null offset1)
-			  (present (buffer-sequence buffer offset1 offset) 'string :stream pane)
-			  (setf offset1 nil))
+		     do (present-contents)
 			(return)
 		   until (eql (buffer-object buffer offset) #\Newline)
 		   do (let ((obj (buffer-object buffer offset)))
 			(cond ((eql obj #\Space)
-			       (unless (null offset1)
-				 (princ (buffer-sequence buffer offset1 offset) pane)
-				 (setf offset1 nil))
+			       (present-contents)
 			       (princ obj pane))
 			      ((constituentp obj)
 			       (when (null offset1)
 				 (setf offset1 offset)))
 			      (t
-			       (unless (null offset1)
-				 (princ (buffer-sequence buffer offset1 offset) pane)
-				 (setf offset1 nil))
+			       (present-contents)
 			       (princ obj pane))))
 		      (incf offset)
-		   finally (unless (null offset1)
-			     (princ (buffer-sequence buffer offset1 offset) pane)
-			     (setf offset1 nil))
+		   finally (present-contents)
 			   (incf offset)
 			   (terpri pane))))
       (loop while (< offset size)
@@ -193,6 +191,98 @@
 (define-command com-insert-weird-stuff ()
   (insert-object (point *application-frame*) (make-instance 'weird)))
 
+(define-command com-insert-number ()
+  (insert-sequence (point *application-frame*)
+		   (format nil "~a" (accept 'number :prompt "Insert Number"))))
+
+(define-presentation-type completable-pathname ()
+  :inherit-from 'pathname)
+
+(defun filename-completer (so-far mode)
+  (flet ((remove-trail (s)
+	   (subseq s 0 (let ((pos (position #\/ s :from-end t)))
+			 (if pos (1+ pos) 0)))))
+    (let* ((directory-prefix
+	    (if (and (plusp (length so-far)) (eql (aref so-far 0) #\/))
+		""
+		(namestring #+sbcl (car (directory ".")) #+cmu (ext:default-directory))))
+	   (full-so-far (concatenate 'string directory-prefix so-far))
+	   (pathnames
+	    (loop with length = (length full-so-far)
+		  for path in (directory (concatenate 'string
+						       (remove-trail so-far)
+						      "*.*"))
+		  when (let ((mismatch (mismatch (namestring path) full-so-far)))
+			 (or (null mismatch) (= mismatch length)))
+		    collect path))
+	   (strings (mapcar #'namestring pathnames))
+	   (first-string (car strings))
+	   (length-common-prefix nil)
+	   (completed-string nil)
+	   (full-completed-string nil))
+      (unless (null pathnames)
+	(setf length-common-prefix
+	      (loop with length = (length first-string)
+		    for string in (cdr strings)
+		    do (setf length (min length (or (mismatch string first-string) length)))
+		    finally (return length))))
+      (unless (null pathnames)
+	(setf completed-string
+	      (subseq first-string (length directory-prefix)
+		      (if (null (cdr pathnames)) nil length-common-prefix)))
+	(setf full-completed-string
+	      (concatenate 'string directory-prefix completed-string)))
+      (case mode
+	((:complete-limited :complete-maximal)
+	 (cond ((null pathnames)
+		(values so-far nil nil 0 nil))
+	       ((null (cdr pathnames))
+		(values completed-string t (car pathnames) 1 nil))
+	       (t
+		(values completed-string nil nil (length pathnames) nil))))
+	(:complete
+	 (cond ((null pathnames)
+		(values so-far nil nil 0 nil))
+	       ((null (cdr pathnames))
+		(values completed-string t (car pathnames) 1 nil))
+	       ((find full-completed-string strings :test #'string-equal)
+		(let ((pos (position full-completed-string strings :test #'string-equal)))
+		  (values completed-string
+			  t (elt pathnames pos) (length pathnames) nil)))
+	       (t
+		(values completed-string nil nil (length pathnames) nil))))
+	(:possibilities
+	 (values nil nil nil (length pathnames)
+		 (loop with length = (length directory-prefix)
+		       for name in pathnames
+		       collect (list (subseq (namestring name) length nil)
+				     name))))))))
+
+(define-presentation-method accept
+    ((type completable-pathname) stream (view textual-view) &key)
+  (multiple-value-bind (pathname success string)
+      (complete-input stream
+		      #'filename-completer
+		      :partial-completers '(#\Space)
+		      :allow-any-input t)
+    (declare (ignore success))
+    (or pathname string)))
+
+(define-command com-find-file ()
+  (let ((filename (handler-case (accept 'completable-pathname
+					:prompt "Find File")
+		    (simple-parse-error () (error 'file-not-found)))))
+    (setf (buffer *application-frame*)
+	  (make-instance 'abbrev-buffer
+	     :contents (cons nil
+			     (with-open-file (stream filename :direction :input)
+			       (loop for ch = (read-char stream nil nil)
+				     while ch
+				     collect ch)))))
+    (setf (slot-value *application-frame* 'point)
+	  (make-instance 'standard-right-sticky-mark
+	     :buffer (buffer *application-frame*)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Global command table
@@ -220,6 +310,7 @@
 (global-set-key '(#\b :meta) 'com-backward-word)
 (global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\a :meta) 'com-insert-weird-stuff)
+(global-set-key '(#\c :meta) 'com-insert-number)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -235,5 +326,8 @@
 
 (add-command-to-command-table 'com-quit 'c-x-climacs-table
 			      :keystroke '(#\q :control))
+
+(add-command-to-command-table 'com-find-file 'c-x-climacs-table
+			      :keystroke '(#\f :control))
 
 

@@ -29,7 +29,7 @@
 (defclass buffer () ())
 
 (defclass standard-buffer (buffer)
-  ((contents :initform (list nil))
+  ((contents :initform (list nil) :initarg :contents)
    (marks :initform '())))
 
 (defgeneric buffer (mark))  
@@ -41,7 +41,7 @@
 (defclass right-sticky-mark (mark) ())
 
 (defgeneric offset (mark))
-(defgeneric (setf offset) new-offset mark)
+(defgeneric (setf offset) (new-offset mark))
 
 (defclass mark-mixin ()
   ((buffer :initarg :buffer :reader buffer)
@@ -232,7 +232,7 @@
 (defmethod insert-object ((mark mark-mixin) object)
   (insert-buffer-object (buffer mark) (offset mark) object))
 
-(defgeneric insert-sequence (mark string))
+(defgeneric insert-sequence (mark sequence))
 
 (defmethod insert-sequence ((mark mark-mixin) sequence)
   (insert-buffer-sequence (buffer mark) (offset mark) sequence))
@@ -290,7 +290,7 @@
 	  (make-condition 'no-such-offset :offset offset1))
   (assert (<= 0 offset2 (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset2))
-  (coerce (subseq (slot-value buffer 'contents) (1+ offset1) (1+ offset2)) 'string))
+  (coerce (subseq (slot-value buffer 'contents) (1+ offset1) (1+ offset2)) 'vector))
 
 (defgeneric object-before (mark))
 
