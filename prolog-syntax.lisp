@@ -854,7 +854,7 @@
 	      ;; FIXME: are we allowed to mix DO and UNTIL like this?
 	      ;; I doubt it.
               until (end-of-buffer-p scan)
-	      until (mark< bot (start-offset (lexeme lexer (1- valid-lex))))
+	      until (mark<= bot (start-offset (lexeme lexer (1- valid-lex))))
 	      ;; FIXME: a further criterion is when scan matches the
 	      ;; start-offset of an element in lexemes, at which point
 	      ;; we know that the entirety of the rest of the old lex
@@ -874,7 +874,9 @@
       ;; parse up to the limit of validity imposed by the lexer, or
       ;; the bottom of the visible area
       (loop until (= valid-parse valid-lex)
-	    while (mark<= (end-offset (lexeme lexer valid-parse)) bot)
+	    ;; NOTE: this ceases being the same condition as the above
+	    ;; as soon as the FIXME note above is implemented.
+	    until (mark<= bot (start-offset (lexeme lexer (1- valid-parse))))
 	    do (let ((current-token (lexeme lexer (1- valid-parse)))
 		     (next-lexeme (lexeme lexer valid-parse)))
 		 (setf (slot-value next-lexeme 'state)
@@ -948,12 +950,27 @@
 	 #+nil
 	 (setf ink (medium-ink (sheet-medium pane))
 	       face (text-style-face (medium-text-style (sheet-medium pane))))
-	 (present (coerce (buffer-sequence (buffer syntax)
-					   (start-offset entity)
-					   (end-offset entity))
-			  'string)
-		  'string
-		  :stream pane))))
+	 (let ((string (coerce (buffer-sequence (buffer syntax)
+						(start-offset entity)
+						(end-offset entity))
+			       'string)))
+	   (with-slots (top bot) pane
+	     (let (start end)
+	       (setf start (max 0 (- (offset top) (start-offset entity))))
+	       (setf end (- (length string) (max 0 (- (end-offset entity) (offset bot)))))
+	       (loop
+		(when (>= start end)
+		  (return))
+		(let ((nl (position #\Newline string
+				    :start start :end end)))
+		  (unless nl
+		    (present (subseq string start end) 'string :stream pane)
+		    (return))
+		  (present (subseq string start nl) 'string :stream pane)
+		  (handle-whitespace pane (buffer pane)
+				     (+ (start-offset entity) nl)
+				     (+ (start-offset entity) nl 1))
+		  (setf start (+ nl 1))))))))))
 
 (defmethod display-parse-tree :before ((entity prolog-lexeme) (syntax prolog-syntax) pane)
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
