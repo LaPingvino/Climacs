@@ -490,7 +490,13 @@ spaces only."))
 ;;; 
 ;;; Auto fill
 
-(defun fill-line (mark syntax-line-indentation-function fill-column tab-width)
+(defun fill-line (mark syntax-line-indentation-function fill-column tab-width
+		  &optional (compress-whitespaces t))
+  "Breaks the contents of line pointed to by MARK up to MARK into
+multiple lines such that none of them is longer than FILL-COLUMN. If
+COMPRESS-WHITESPACES is non-nil, whitespaces are compressed after the
+decision is made to break the line at a point. For now, the
+compression means just the deletion of trailing whitespaces."
   (let ((begin-mark (clone-mark mark)))
     (beginning-of-line begin-mark)
     (loop with column = 0
@@ -509,6 +515,16 @@ spaces only."))
                 (incf column)))
              (when (and (>= column fill-column)
 			(/= (offset begin-mark) line-beginning-offset))
+	       (when compress-whitespaces
+		 (let ((offset (buffer-search-backward
+				(buffer begin-mark)
+				(offset begin-mark)
+				#(nil)
+				:test #'(lambda (o1 o2)
+					  (declare (ignore o2))
+					  (not (whitespacep o1))))))
+		   (when offset
+		     (delete-region begin-mark (1+ offset)))))
                (insert-object begin-mark #\Newline)
                (incf (offset begin-mark))
                (let ((indentation
@@ -546,7 +562,6 @@ spaces only."))
   "return true if and only if BUFFER contains VECTOR after MARK"
   (buffer-looking-at (buffer mark) (offset mark) vector :test test))
 
-
 (defun buffer-search-forward (buffer offset vector &key (test #'eql))
   "return the smallest offset of BUFFER >= OFFSET containing VECTOR
 or NIL if no such offset exists"
@@ -554,7 +569,6 @@ or NIL if no such offset exists"
 	when (buffer-looking-at buffer i vector :test test)
 	  return i
 	finally (return nil)))
-			      
 
 (defun buffer-search-backward (buffer offset vector &key (test #'eql))
   "return the largest offset of BUFFER <= (- OFFSET (length VECTOR))
@@ -581,17 +595,29 @@ containing VECTOR or NIL if no such offset exists"
 (defun buffer-search-word-backward (buffer offset word &key (test #'eql))
   "return the largest offset of BUFFER <= (- OFFSET (length WORD))
 containing WORD as a word or NIL if no such offset exists"
-  (loop for i downfrom (- offset (length word)) to 0
-	when (and (or (zerop i) (whitespacep (buffer-object buffer (1- i))))
-	      (buffer-looking-at buffer i word :test test))
-	  return i
-	finally (return nil)))
+  (let ((wlen (length word))
+	(blen (size buffer)))
+    (loop
+       for i downfrom (- offset wlen) to 0
+       for j = (+ i wlen)
+       when (and (or (zerop i) (whitespacep (buffer-object buffer (1- i))))
+		 (buffer-looking-at buffer i word :test test)
+		 (not (and (< (+ i wlen) blen)
+			   (constituentp (buffer-object buffer (+ i wlen))))))
+         return i
+       finally (return nil))))
 
 (defun buffer-search-word-forward (buffer offset word &key (test #'eql))
-  "Return the smallest offset of BUFFER >= (+ OFFSET (length WORD))
-containing WORD as a word or NIL if no such offset exists"
-  (loop for i upfrom (+ offset (length word)) to (- (size buffer) (max (length word) 1))
-	when (and (whitespacep (buffer-object buffer (1- i)))
-		  (buffer-looking-at buffer i word :test test))
-	  return i
-	finally (return nil)))
+  "Return the smallest offset of BUFFER >= OFFSET containing WORD as a
+word or NIL if no such offset exists"
+  (let ((wlen (length word))
+	(blen (size buffer)))
+    (loop
+       for i upfrom offset to (- blen (max wlen 1))
+       for j = (+ i wlen)
+       when (and (or (zerop i) (whitespacep (buffer-object buffer (1- i))))
+		 (buffer-looking-at buffer i word :test test)
+		 (not (and (< j blen)
+			   (constituentp (buffer-object buffer j)))))
+         return i
+       finally (return nil))))

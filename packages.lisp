@@ -70,7 +70,7 @@
            #:fill-line
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
-	   #:buffer-lookin-at #:looking-at
+	   #:buffer-looking-at #:looking-at
 	   #:buffer-search-forward #:buffer-search-backward
 	   #:search-forward #:search-backward))
 

@@ -953,13 +953,228 @@ climacs   ")
 
 (defmultitest fill-line.test-1
   (let ((buffer (make-instance %%buffer)))
-    (insert-buffer-sequence buffer 0 "climacs  climacs  climacs")
+    (insert-buffer-sequence buffer 0 "climacs  climacs  climacs  climacs")
     (let ((m (make-instance %%right-sticky-mark
 			    :buffer buffer :offset 25)))
       (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8)
       (values
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
+  25 "climacs
+	climacs
+	climacs  climacs")
+
+(defmultitest fill-line.test-1a
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs  climacs  climacs  climacs")
+    (let ((m (make-instance %%right-sticky-mark
+			    :buffer buffer :offset 25)))
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8 nil)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
   27 "climacs 
 	climacs 
-	climacs")
+	climacs  climacs")
+
+(defmultitest fill-line.test-2
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs	climacs	climacs	climacs")
+    (let ((m (make-instance %%left-sticky-mark
+			    :buffer buffer :offset 25)))
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  27 "climacs
+	climacs
+	climacs	climacs")
+
+(defmultitest fill-line.test-2a
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs	climacs	climacs	climacs")
+    (let ((m (make-instance %%left-sticky-mark
+			    :buffer buffer :offset 25)))
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8 nil)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  27 "climacs
+	climacs
+	climacs	climacs")
+
+(defmultitest fill-line.test-3
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "c l i m a c s")
+    (let ((m (make-instance %%right-sticky-mark
+			    :buffer buffer :offset 1)))
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 0 8)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  1 "c l i m a c s")
+
+(defmultitest fill-line.test-3a
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "c l i m a c s")
+    (let ((m (make-instance %%right-sticky-mark
+			    :buffer buffer :offset 1)))
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 0 8 nil)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  1 "c l i m a c s")
+
+(defmultitest buffer-looking-at.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs ")
+    (values
+     (buffer-looking-at buffer 0 "climacs")
+     (buffer-looking-at buffer 0 "CLIMACS" :test #'char-equal)
+     (buffer-looking-at buffer 0 "")
+     (buffer-looking-at buffer 8 "")
+     (buffer-looking-at buffer 9 "")
+     (buffer-looking-at buffer 10 "")))
+  t t t t nil nil)
+
+(defmultitest buffer-looking-at.test-2
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 " climacs")
+    (buffer-looking-at buffer 0 "climacs"))
+  nil)
+
+(defmultitest buffer-looking-at.test-3
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climac")
+    (buffer-looking-at buffer 0 "climacs"))
+  nil)
+
+(defmultitest looking-at.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m1 (make-instance %%left-sticky-mark
+			     :buffer buffer :offset 1))
+	  (m2 (make-instance %%right-sticky-mark
+			     :buffer buffer :offset 3)))
+      (values
+       (looking-at m1 "lima")
+       (looking-at m2 "mac")
+       (looking-at m1 "lIMa" :test #'char-equal)
+       (looking-at m2 "Mac" :test #'char-equal)
+       (looking-at m1 "climacs")
+       (looking-at m2 "climacs")
+       (looking-at m1 "")
+       (looking-at m2 "")
+       (offset m1)
+       (offset m2))))
+  t t t t nil nil t t 1 3)
+
+(defmultitest buffer-search-forward.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "
+climacs")
+    (values
+     (buffer-search-forward buffer 0 "clim")
+     (buffer-search-forward buffer 0 "CLIM" :test #'char-equal)
+     (buffer-search-forward buffer 0 "macs")
+     (buffer-search-forward buffer 0 "")
+     (buffer-search-forward buffer 2 "clim")
+     (buffer-search-forward buffer 8 "")
+     (buffer-search-forward buffer 9 "")
+     (buffer-search-forward buffer 10 "")))
+  1 1 4 0 nil 8 nil nil)
+
+(defmultitest buffer-search-backward.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs
+")
+    (values
+     (buffer-search-backward buffer 8 "macs")
+     (buffer-search-backward buffer 8 "MACS" :test #'char-equal)
+     (buffer-search-backward buffer 4 "clim")
+     (buffer-search-backward buffer 8 "")
+     (buffer-search-backward buffer 6 "macs")
+     (buffer-search-backward buffer -1 "")
+     (buffer-search-backward buffer 0 "")
+     (buffer-search-backward buffer 1 "")))
+  3 3 0 8 nil nil 0 1)
+
+(defmultitest search-forward.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "
+climacs")
+    (let ((m (make-instance %%left-sticky-mark
+			    :buffer buffer :offset 0)))
+      (search-forward m "Mac" :test #'char-equal)
+      (offset m)))
+  7)
+
+(defmultitest search-forward.test-2
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m (make-instance %%right-sticky-mark
+			    :buffer buffer :offset 3)))
+      (search-forward m "Mac" :test #'char-equal)
+      (offset m)))
+  6)
+
+(defmultitest search-forward.test-3
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m (make-instance %%right-sticky-mark
+			    :buffer buffer :offset 3)))
+      (search-forward m "klimaks")
+      (offset m)))
+  3)
+
+(defmultitest search-backward.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs
+")
+    (let ((m (make-instance %%left-sticky-mark
+			    :buffer buffer :offset 8)))
+      (search-backward m "Mac" :test #'char-equal)
+      (offset m)))
+  3)
+
+(defmultitest search-backward.test-2
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m (make-instance %%right-sticky-mark
+			    :buffer buffer :offset 6)))
+      (search-backward m "Mac" :test #'char-equal)
+      (offset m)))
+  3)
+
+(defmultitest search-backward.test-3
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m (make-instance %%right-sticky-mark
+			    :buffer buffer :offset 3)))
+      (search-backward m "klimaks")
+      (offset m)))
+  3)
+
+(defmultitest buffer-search-word-forward.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "
+ climacs")
+    (values
+     (climacs-base::buffer-search-word-forward buffer 0 "climacs")
+     (climacs-base::buffer-search-word-forward buffer 3 "climacs")
+     (climacs-base::buffer-search-word-forward buffer 0 "clim")
+     (climacs-base::buffer-search-word-forward buffer 5 "macs")
+     (climacs-base::buffer-search-word-forward buffer 0 "")))
+  2 nil nil nil 0)
+
+(defmultitest buffer-search-word-backward.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs 
+")
+    (values
+     (climacs-base::buffer-search-word-backward buffer 8 "climacs")
+     (climacs-base::buffer-search-word-backward buffer 5 "climacs")
+     (climacs-base::buffer-search-word-backward buffer 4 "clim")
+     (climacs-base::buffer-search-word-backward buffer 8 "macs")
+     (climacs-base::buffer-search-word-backward buffer 8 "")))
+  0 nil nil nil 8)
