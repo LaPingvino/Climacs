@@ -42,7 +42,8 @@
 
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer)
-  (:export #:previous-line #:next-line
+  (:export #:forward-object #:backward-object
+	   #:previous-line #:next-line
 	   #:open-line #:kill-line
 	   #:number-of-lines-in-region
 	   #:constituentp #:whitespacep

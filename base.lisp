@@ -28,6 +28,16 @@
 
 (in-package :climacs-base)
 
+(defgeneric backward-object (mark &optional count))
+(defmethod backward-object ((mark climacs-buffer::mark-mixin)
+                            &optional (count 1))
+  (decf (offset mark) count))
+
+(defgeneric forward-object (mark &optional count))
+(defmethod forward-object ((mark climacs-buffer::mark-mixin)
+                           &optional (count 1))
+  (incf (offset mark) count))
+
 (defun previous-line (mark &optional column)
   "Move a mark up one line conserving horizontal position."
   (unless column

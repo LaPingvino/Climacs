@@ -288,8 +288,14 @@ either immediately before the closest following newline character, or
 at the end of the buffer if no following newline character exists."))
 
 (defmethod end-of-line ((mark mark-mixin))
-  (loop until (end-of-line-p mark)
-	do (incf (offset mark))))
+  (let* ((offset (offset mark))
+	 (buffer (buffer mark))
+	 (chain (slot-value buffer 'contents))
+	 (size (nb-elements chain)))
+    (loop until (or (= offset size)
+		    (eql (element* chain offset) #\Newline))
+	  do (incf offset))
+    (setf (offset mark) offset)))
 
 (defgeneric line-number (mark)
   (:documentation "Return the line number of the mark.  Lines are numbered from zero."))

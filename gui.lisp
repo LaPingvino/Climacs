@@ -277,16 +277,6 @@
        (insert-object point object)
        (forward-object point)))))
 
-(defgeneric backward-object (mark &optional count))
-(defmethod backward-object ((mark climacs-buffer::mark-mixin)
-                            &optional (count 1))
-  (decf (offset mark) count))
-
-(defgeneric forward-object (mark &optional count))
-(defmethod forward-object ((mark climacs-buffer::mark-mixin)
-                           &optional (count 1))
-  (incf (offset mark) count))
-
 (define-named-command com-backward-object ()
   (backward-object (point (win *application-frame*))))
 
