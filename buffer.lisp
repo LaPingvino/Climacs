@@ -76,10 +76,10 @@ the size of the buffer."))
    (cursor :reader cursor))
   (:documentation "A mixin class used in the initialization of a mark."))
 
-(defmethod offset (mark)
+(defmethod offset ((mark mark-mixin))
   (cursor-pos (cursor mark)))
 
-(defmethod (setf offset) (new-offset mark)
+(defmethod (setf offset) (new-offset (mark mark-mixin))
   (assert (<= 0 new-offset (size (buffer mark))) ()
 	  (make-condition 'no-such-offset :offset new-offset))
   (setf (cursor-pos (cursor mark)) new-offset))
@@ -129,9 +129,9 @@ class) to be used as a class of the clone."))
   (make-instance type :buffer (buffer mark) :offset (offset mark)))
 
 (define-condition no-such-offset (simple-error)
-  ((offset :reader offset :initarg :offset))
+  ((offset :reader condition-offset :initarg :offset))
   (:report (lambda (condition stream)
-	     (format stream "No such offset: ~a" (offset condition))))
+	     (format stream "No such offset: ~a" (condition-offset condition))))
   (:documentation "This condition is signaled whenever an attempt is made at an operation
 that is before the beginning or after the end of the buffer."))
 
