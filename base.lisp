@@ -41,31 +41,31 @@ The body is executed for each element, with object being the current object
      (loop for ,offset from ,offset1 below ,offset2
            do ,@body)))
 
-(defun previous-line (mark &optional column)
+(defun previous-line (mark &optional column (count 1))
   "Move a mark up one line conserving horizontal position."
   (unless column
     (setf column (column-number mark)))
-  (beginning-of-line mark)
-  (if (beginning-of-buffer-p mark)
-      (incf (offset mark) column)
-      (progn (decf (offset mark))
-	     (when (> (column-number mark) column)
-	       (beginning-of-line mark)
-	       (incf (offset mark) column)))))
+  (loop repeat count
+	do (beginning-of-line mark)
+	until (beginning-of-buffer-p mark)
+	do (backward-object mark))
+  (end-of-line mark)
+  (when (> (column-number mark) column)
+    (beginning-of-line mark)
+    (incf (offset mark) column)))
 
-(defun next-line (mark &optional column)
+(defun next-line (mark &optional column (count 1))
   "Move a mark down one line conserving horizontal position."
   (unless column
     (setf column (column-number mark)))
+  (loop repeat count
+	do (end-of-line mark)
+	until (end-of-buffer-p mark)
+	do (forward-object mark))
   (end-of-line mark)
-  (if (end-of-buffer-p mark)
-      (progn (beginning-of-line mark)
-	     (incf (offset mark) column))
-      (progn (incf (offset mark))
-	     (end-of-line mark)
-	     (when (> (column-number mark) column)
-	       (beginning-of-line mark)
-	       (incf (offset mark) column)))))
+  (when (> (column-number mark) column)
+    (beginning-of-line mark)
+    (incf (offset mark) column)))
 
 (defmethod open-line ((mark left-sticky-mark))
   "Create a new line in a buffer after the mark."
