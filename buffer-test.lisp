@@ -4,7 +4,7 @@
 ;;; 
 
 (cl:defpackage :climacs-tests
-  (:use :rtest :climacs-buffer))
+  (:use :rtest :climacs-buffer #+cmu :cl))
 
 (in-package :climacs-tests)
 
@@ -19,7 +19,7 @@
 	 (eq (buffer high) buffer)))
   t)
 
-(deftest standard-buffer-mark-make-instance.test-2
+(deftest standard-buffer-mark-make-instance.test-1
   (handler-case
       (let ((buffer (make-instance 'standard-buffer)))
 	(make-instance 'standard-left-sticky-mark :buffer buffer :offset 1))
@@ -27,7 +27,7 @@
       (= (climacs-buffer::condition-offset c) 1)))
   t)
 
-(deftest standard-buffer-mark-make-instance.test-3
+(deftest standard-buffer-mark-make-instance.test-2
   (handler-case
       (let ((buffer (make-instance 'standard-buffer)))
 	(make-instance 'standard-right-sticky-mark :buffer buffer :offset 1))
@@ -39,11 +39,7 @@
   (flet ((%all-eq (&optional x y)
 	   (cond
 	     ((null x) nil)
-	     (t (when (eq x y) y))))
-	 (%all-= (&optional x y)
-	   (cond
-	     ((null x) nil)
-	     (t (when (= x y) y)))))
+	     (t (when (eq x y) y)))))
     (let* ((buffer (make-instance 'standard-buffer))
 	   (low (slot-value buffer 'low-mark))
 	   (high (slot-value buffer 'high-mark))

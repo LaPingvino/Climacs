@@ -19,7 +19,7 @@
  |  SOFTWARE.                                                                 |
  |----------------------------------------------------------------------------|#
 
-(defpackage #:regression-test
+(cl:defpackage #:regression-test
   (:nicknames #:rtest #-lispworks #:rt) 
   (:use #:cl)
   (:export #:*do-tests-when-defined* #:*test* #:continue-testing
