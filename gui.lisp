@@ -116,7 +116,7 @@
 			       (if (slot-value climacs-pane 'overwrite-mode)
 				   " Ovwrt"
 				   "")
-                               (if (auto-fill-mode buf)
+                               (if (auto-fill-mode climacs-pane)
                                    " Fill"
                                    "")
 			       (if (recordingp *application-frame*)
@@ -292,7 +292,7 @@
 (defun possibly-fill-line ()
   (let* ((pane (current-window))
          (buffer (buffer pane)))
-    (when (auto-fill-mode buffer)
+    (when (auto-fill-mode pane)
       (let* ((fill-column (auto-fill-column buffer))
              (point (point pane))
              (offset (offset point))
@@ -502,8 +502,8 @@
   (delete-indentation (point (current-window))))
 
 (define-named-command com-auto-fill-mode ()
-  (let ((buffer (buffer (current-window))))
-    (setf (auto-fill-mode buffer) (not (auto-fill-mode buffer)))))
+  (let ((pane (current-window)))
+    (setf (auto-fill-mode pane) (not (auto-fill-mode pane)))))
 
 (define-named-command com-fill-paragraph ()
   (let* ((pane (current-window))
