@@ -147,6 +147,11 @@
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
 	:climacs-syntax :flexichain :climacs-pane))
 
+(defpackage :climacs-prolog-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base
+	:climacs-syntax :flexichain :climacs-pane)
+  (:shadow "ATOM" "CLOSE" "EXP" "INTEGER" "OPEN" "VARIABLE"))
+
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
 	:climacs-kill-ring :climacs-pane :clim-extensions :undo))

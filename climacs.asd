@@ -63,6 +63,7 @@
    "Persistent/persistent-undo"
    "pane"
    "html-syntax"
+   "prolog-syntax"
    "gui"
    ;;---- optional ----
    "testing/rt"
