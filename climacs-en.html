@@ -1,0 +1,62 @@
+<HTML><HEAD><TITLE>Climacs, a modern version of the Emacs editor</TITLE></HEAD>
+<BODY>
+
+<a href="climacs.html">Version française.</a>
+
+<h1>Climacs, a modern version of the Emacs editor</h1>
+
+<h2>Motivation</h2>
+<p>GNU Emacs is an excellent text editor, but was designed more than
+20 years ago now, and the technical choices of the time create some
+problems today. :</p>
+
+<ul>
+<li>Emacs Lisp is a language that was specially designed in order to
+    implement Emacs.  Since the design of GNU Emacs and of Emacs Lisp,
+    Common Lisp has been standardized, and gives both better
+    performance than that of Emacs Lisp (because Emacs Lisp is
+    implemented as an interpreter written in C) and more sophisticated
+    functionalities (macros, CLOS, etc).  The natural choice for
+    implementing Emacs today is thus Common Lisp.</li>
+
+<li>GNU Emacs was designed before the existence of the Unicode
+    standard.  Unfortunately, the internal representation of a buffer
+    does not allow the representation of all Unicode characters in a
+    compact way.  An internal representation allowing both all of
+    Unicode and a compact representation for the ISO-latin-1 subset is
+    desirable.</li>
+
+<li>Twenty years ago, graphic user interfaces practically did not
+    exist.  GNU Emacs was designed for a text-only terminal.  Today
+    better modes of interaction exist. In particular, with CLIM
+    (Common LIsp Interface Manager) it is both possible and desirable
+    to have an interface based on the concept of "presentation types".</li>
+
+<li>Because of the limited power of computers at the time, GNU Emacs
+    uses a certain number of approximations in order to analyze the
+    contents of a buffer, in particular when that contents is the text
+    of a program.  These approximations are no longer necessary, and
+    with current technology, it is possible to maintain a complete
+    syntactic analysis of the buffer text. 
+
+</ul>
+
+<h2>Suggested projects</h2>
+
+<p>The ultimate goal of the project being the replacement of GNU Emacs
+with a modern version written entirely in Common Lisp, we propose a
+certain number of student projects around this project, the
+preliminary name of which is "Climacs" :</p>
+
+<p>Here is a list of the suggested projects :</p>
+
+<ul>
+<li> <a href="buffer-en.html">An efficient implementation of a new
+     protocol for representing the buffer of Emacs</a></li>
+<li> <a href="undo-en.html">Implementation of a sophisticated "undo"
+     protocol</a></li> 
+<li> <a href="redisplay-en.html">Implementation of the redisplay
+     module</a></li> 
+</ul>
+
+</HTML>

@@ -1,0 +1,66 @@
+<HTML><TITLE> Second semester master  </TITLE>
+<BODY>
+<h1> Programming project 2004 - 2005 </h1>
+<br><hr><br>
+
+<ul> 
+<li> <h3> Title:  </h3> 
+
+Implementation of a redisplay module for Emacs. 
+
+<br>
+<li><h3> Name of person proposing the project</h3> 
+
+Robert Strandh
+
+<br>
+<li><h3>Address, Telephone, email </h3>
+<p> Bureau 323, Bâtiment du LaBRI (A30), 0540 00 60 84,
+strandh@labri.fr</p>
+
+<br>
+<li><h3> Description of the work to be accomplished: </h3> 
+
+<p>Any sophisticated interactive application separates on the one hand
+the module that manages application data (the buffer in the case of
+Emacs) and on the other hand the graphical presentation of these
+data.  In particular, one wishes to avoid calls from the module that
+manages application data to presentation module.  In order to do that,
+the presentation module must determine what part of the buffer to
+present, so as to avoid displaying the entire buffer at each iteration
+of the interaction loop.  One part of the project consists of
+computing which part of the buffer to present.</p>
+
+<p>A modern editor must be able to analyze the contents of the buffer
+in a fairly advanced way.  If the buffer contains the text of some
+program, the editor must possess some knowledge about the grammar of
+the programming language in order to highlight parts of the code, to
+be able to navigate by text unites defined by the programming
+language, and to be able to compute desired indentation of the text
+lines.  Another part of the project consists of implementing this
+syntactic knowledge for a simplified version of Lisp, using a
+syntactic analyzer of type Earley (which will be supplied).</p>
+
+<br>
+<li><h3> Required hardware and software:</h3>
+<p>A PC with GNU/Linux.  A recent version (at least 0.8.17) of the
+SBCL system (a free implementation of Common Lisp), GNU Emacs, SLIME 
+(Superior Lisp Interaction Mode for Emacs), and possibly McCLIM.</p>
+
+<br>
+<li> <h3> Bibliographic- and web references: :</h3>
+<P>
+<ul>
+<li><a href="climacs-en.html">Description of the Climacs project</a>
+<li><a href="buffer.text">Description of the Climacs protocols</a></li>
+<li><a href="http://www.cliki.net/SBCL">SBCL</a></li>
+<li><a href="http://www.cliki.net/SLIME">SLIME</a></li>
+<li><a href="http://www.cliki.net/McCLIM">McCLIM</a></li>
+<li><a href="http://www.cliki.net">Cliki, a Common Lisp wiki</a></li>
+<li><a href="http://www.finseth.com/craft/">The Craft of Text Editing
+    by Craig A. Finseth</a></li>
+</ul>
+</p>
+</ul>
+
+</BODY></HTML>

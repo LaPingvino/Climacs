@@ -1,0 +1,589 @@
+Common Lisp syntax.  
+------------------
+
+Technically, comments and such are not expressions, but it is OK for
+our purposes to consider that they are.
+
+program -> expr*
+
+expr -> quoted-expression
+expr -> comment
+expr -> string
+expr -> backquote-expression
+expr -> unquote-expression
+expr -> list-expression
+expr -> label-ref
+expr -> function-expression
+expr -> vector-expression
+expr -> array-expression
+expr -> bitvector-expression
+expr -> labeled-expression
+expr -> character
+expr -> balanced-comment
+expr -> read-time-conditional-+
+expr -> read-time-conditional--
+expr -> read-time-evaluation
+expr -> binary-expression
+expr -> complex-expression
+expr -> octal-expression
+expr -> pathname-expression
+expr -> radix-n-expression
+expr -> hex-expression
+expr -> token
+
+Expression                    Syntax           handle/read
+-------------------------------------------------------
+quoted-expression          -> ' expr              handle
+comment                    -> ; chars <newline>   handle
+string                     -> " chars "           read
+backquote-expression       -> ` expr              handle
+unquote-expression         -> , expr              handle
+list-expression            -> ( expr* )           handle
+label-ref                  -> #n#                 handle
+function-expression        -> #' expr             handle
+vector-expression          -> #( expr* )          handle
+array-expression           -> #nA(...)            handle
+bitvector-expression       -> #* bits             read
+labeled-expression         -> #n=                 handle
+character                  -> #\..                read
+balanced-comment           -> #| .. |#            handle
+read-time-conditional-+    -> #+test expr         handle
+read-time-conditional--    -> #-test expr         handle
+read-time-evaluation       -> #.expr              handle
+binary-expression          -> #b...               read
+complex-expression         -> #c...               read
+octal-expression           -> #o...               read
+pathname-expression        -> #p...               read
+radix-n-expression         -> #nr                 read
+hex-expression             -> #x                  read
+
+stack-entry                                         [class]
+
+ A stack entry corresponds to a syntactic category and contains a
+ start offset and an end offset.  The end offset is initialized to
+ nil, meaning we do not know where it ends.
+
+:start-offset                                       [initarg]
+
+error-entry                                         [class]
+
+ This is a subclass of stack-entry.  It is used whenever some invalid
+ input syntax is encountered. 
+
+terminal-entry                                      [class]
+
+ This is a subclass of stack-entry.  It is used for tokens (numbers,
+ symbols), but also for macro characters that start more complex
+ expressions. 
+
+number-entry                                        [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ numbers. 
+
+symbol-entry                                        [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ symbols. 
+
+character-entry                                     [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ characters. 
+
+string-entry                                        [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ character strings 
+
+quote-entry                                         [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ quote inidicators.
+
+backquote-entry                                     [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ backquote indicators. 
+
+unquote-entry                                       [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ unquote indicators. 
+
+comment-entry                                       [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ single-line comment indicators. 
+
+list-start-entry                                    [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ list start indicators.
+
+list-end-entry                                      [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ list end indicators.
+
+label-ref-entry                                     [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ label reference indicators.
+
+label-entry                                         [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ label indicators.
+
+function-entry                                      [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ function indicators.
+
+balanced-comment-entry                              [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ balanced comment entry indicators. 
+
+read-time-conditional-entry                         [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ read-time conditional indicators. 
+
+vector-entry                                        [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ vector indicators.
+
+array-entry                                        [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ array indicators.
+
+bitvector-entry                                     [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ bit vector indicators. 
+
+read-time-evaluation-entry                          [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ read-time evaluation indicators. 
+
+complex-entry                                       [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ complex indicators.
+
+octal-entry                                         [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ octal rational indicators.
+
+hex-entry                                           [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ hex rational indicators.
+
+radix-n-entry                                       [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ radix-n rational indicators.
+
+pathname-entry                                      [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ pathname indicators.
+
+binary-entry                                        [class]
+
+ A subclass of terminal-entry corresponding to the syntactic class of
+ binary rational indicators.
+
+unknown-entry                                       [class]
+
+ A subclass of terminal-entry corresponding to unknown (user-defined)
+ syntactic classes. 
+
+nonterminal-entry                                   [class]
+
+ This is a subclass of stack-entry.  A nonterminal entry maintains an
+ expression count, which is initialized to 0.  It corresponds to the
+ number of subexpressions of this expression that have been detected. 
+ A nonterminal entry also maintains a backquote-depth which is
+ initially 0, is incremented by 1 for each nested backquote, and is
+ decremented by 1 for each comma.
+
+expression-count nonterminal-entry                  [generic function]
+
+ Return the expression count of this entry. 
+
+(setf expression-count) count nonterminal-entry     [generic function]
+
+ Set the expression count of this entry.
+
+backquote-depth nonterminal-entry                   [generic function]
+
+ Return the backquote-depth of this entry.
+
+(setf backquote-depth) depth nonterminal-entry      [generic function]
+
+ Set the backquote-depth of this entry.
+
+program-entry                                       [class]
+
+ A subclass of nonterminal-entry corresponding to the entire buffer
+ contents. 
+
+quoted-expression-entry                             [class]
+
+ A subclass of nonterminal-entry corresponding to a quoted
+ expression. 
+
+unquoted-expression-entry                           [class]
+
+ A subclass of nonterminal-entry corresponding to an unquoted
+ expression.
+
+list-expression-entry                               [class]
+
+ A subclass of nonterminal-entry corresponding to a list expression. 
+
+function-expression-entry                           [class]
+
+ A subclass of nonterminal-entry corresponding to a function
+ expression. 
+
+vector-expression-entry                             [class]
+
+ A subclass of nonterminal-entry corresponding to a vector expression.
+
+labeled-expression-entry                            [class]
+
+ A subclass of nonterminal-entry corresponding to a labeled expression. 
+
+array-expression-entry                              [class]
+
+ A subclass of nonterminal-entry corresponding to a list expression. 
+
+array-dimension-entry                               [class]
+
+ A subclass of nonterminal-entry corresponding to an array dimension. 
+
+read-time-feature-entry                             [class]
+
+ A subclass of nonterminal-entry corresponding to a read-time
+ feature. 
+
+read-time-conditional-expression-entry              [class]
+
+ A subclass of nonterminal-entry corresponding to a read-time
+ conditional expression. 
+
+read-time-evaluation-expression-entry               [class]
+
+ A subclass of nonterminal-entry corresponding to a read-time
+ evaluation expression. 
+
+complex-expression-entry                            [class]
+
+ A subclass of nonterminal-entry corresponding to a complex
+ expression. 
+
+octal-expression-entry                              [class]
+
+ A subclass of nonterminal-entry corresponding to an octal expression.
+
+hex-expression-entry                                [class]
+
+ A subclass of nonterminal-entry corresponding to a hexadecimal
+ expression.
+
+radix-n-expression-entry                            [class]
+
+ A subclass of nonterminal-entry corresponding to a radix-n
+ expression. 
+
+pathname-expression-entry                           [class]
+
+ A subclass of nonterminal-entry corresponding to a pathname
+ expression. 
+
+binary-expression-entry                             [class]
+
+ A subclass of nonterminal-entry corresponding to binary expression. 
+
+buffer-stream                                       [class]
+
+ A stream corresponding to a text buffer.  It contains a current parse
+ stack which is a list of stack entries.
+
+:buffer                                             [initarg]
+
+ The buffer underlying the stream. 
+
+current-offset buffer-stream                        [generic function]
+
+ Return the current offset of the buffer stream.
+
+(setf current-offset) offset buffer-stream          [generic function]
+
+ set the current offset of the buffer stream.
+
+max-offset buffer-stream                            [generic function]
+
+ Return the maximum offset of the buffer stream, beyond which no
+ parsing is required.
+
+(setf max-offset) offset buffer-stream              [generic function]
+
+ set the maximum offset of the buffer stream.
+
+stream-read-char buffer-stream                      [method]
+
+ Return the character at the current offset (or :eof if the offset is
+ equal to the size of the buffer)
+
+parse-stack buffer-stream                           [generic function]
+
+ Return the current parse stack of the buffer stream.  The parse stack
+ contains either all nonterminal, or all but the top element
+ nonterminal.  The list of entries is initially a list of a single
+ entry corresponding to the syntactic category `program-entry' with a
+ start offset of 0 and an expression count of 0.
+
+(setf parse-stack) stack buffer-stream              [generic function]
+
+ Set the current parse stack of the buffer. 
+
+analysis buffer-stream                              [generic function]
+
+ An adjustable vector each element of which is a parse stack with top
+ element being terminal. The vector is initially empty.
+
+invalidate-parse buffer-stream offset               [generic function]
+
+ Called by client code to indicate that the buffer has been altered
+ starting at the offset indicated.  The analysis vector of the buffer
+ stream is shortened to the last entry ending before or at the
+ offset.  The parse stack is set to the tail of the stack at the last
+ entry of the analysis vector. The current offset is set to the end
+ offset of the last entry of the analysis vector. 
+
+advance-parse buffer-stream offset                  [generic function]
+
+ Inform the parser that it should construct a valid analysis vector up
+ to the offset indicated.  The redisplay module will call this
+ function with the highest offset of all the windows on display before
+ calling display-region for each window.  The algorithm is as follows:
+
+   Set the max offset of the buffer stream to the offset passed as
+   argument.  
+   Loop until the current offset is greater than or equal to max
+   offset (i.e., EOF on the buffer stream is reached):
+     Remember the current offset
+     Read a character
+     If it is a whitespace, 
+       do nothing
+     Else if it is a single-dispatch-macro character
+       Call parse-macro-character with the buffer stream, the value of
+       a call to get-macro-character of the character, the
+       top-element of the current parse stack, and the remembered
+      offset. 
+     Else
+       Unread the character and call `read' on the stream. 
+       Add an entry to the end of the analysis vector containing as
+       start offset the remembered offset, as end offset the current
+       offset after the call to read, and a stack containing the
+       current parse stack with an additional entry on top
+       corresponding to the item read (number, symbol, etc).
+       Increment the expression count of the top of the stack.    
+       Perform a count check (see below).
+
+parse-macro-character buffer-stream function entry o [generic function]
+   
+ This generic function is called with a buffer stream, with a function
+ that is returned by a call to get-macro-character, the top-entry
+ of the current parse stack, and a remembered offset.
+
+ It has a number of methods, each one specialized (using an eql
+ specializer) on a function returned by a call to get-macro-character
+ in standard syntax.  We indicate here the character itself, but it is
+ the associated function that is actually used. 
+
+ [) nonterminal-entry]
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `error-entry' with a start offset
+   of the remembered offset and an end offset of the current offset.  
+
+ [) vector-expression-entry]
+ [) list-expression-entry]
+ [) array-expression-entry]
+   Set the end offset of the entry on top of the stack to the current
+   offset. 
+   Pop the current stack.
+   Increment the expression count of the top of the stack.    
+   Perform a count check (see below).
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `list-end-entry' with a start
+   offset of the remembered offset, and an end offset of the current
+   offset.
+
+ [; nonterminal-entry]
+   Read characters until a newline has been read. 
+   Add an entry to the end of the analysis vector with the current
+   stack augmented with an entry for `comment-entry' with a start
+   offset of the remembered offset and the end offset of the current
+   offset.
+
+ [' nonterminal-entry]
+   Push an entry for quoted-expression-entry on the stack with a
+   backquote-depth of one plus that of the current top of the stack.
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `quote-entry' with a
+   start offset of the remembered offset and an end offset of
+   the current offset.  
+
+ [` nonterminal-entry]
+   Push an entry for quoted-expression-entry on the stack with a
+   backquote-depth of that of the current top of the stack plus one.
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `backquote-entry' with a
+   start offset of the remembered offset and an end offset of
+   the current offset.  
+
+ [, nonterminal-entry]
+   If the backquote-depth of the top of the stack is greater than 0
+     Push an entry for unquoted-expression-entry on the stack  with a
+     backquote-depth of that of the current top of the stack minus
+     one. 
+     Add an entry at the end of the analysis vector with the current
+     stack augmented with an entry for `unquote-entry' with a
+     start offset of the remembered offset and an end offset of
+     the current offset.
+   Else
+     Push an entry for unquoted-expression-entry on the stack  with a
+     backquote-depth of 0.
+     Add an entry at the end of the analysis vector with the current
+     stack augmented with an entry for `error-entry' with a start
+     offset of the remembered offset and an end offset of the current
+     offset.  
+
+ [( nonterminal-entry] 
+   Push an entry for list-expression-entry on the stack with a
+   backquote-depth of that of the current top of the stack.
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `list-start-entry' with a
+   start offset of the remembered offset and an end offset of
+   the current offset.  
+
+ [" nonterminal-entry]
+   Call the function associated with the character. 
+   Increment the expression count of the top of the stack.    
+   Perform a count check (see below).
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `string-entry' with a start
+   offset of the remembered offset and an end offset of the current
+   offset. 
+
+ [# nonterminal-entry]
+   Remember the first char.
+   Read characters as long as they are digits, and form a count (a
+   number or nil if there are no digits).
+   If the first non-digit character is a dispatch macro character
+     call parse-dispatch-macro-character with the buffer stream, the
+     result of a call to get-dispatch-macro-character, the entry, and
+     the remembered offset
+   Else 
+     Add an entry at the end of the analysis vector with the current
+     stack augmented with an entry for `error-entry' with a start
+     offset of the remembered offset and an end offset of the current
+     offset.  
+
+ [any nonterminal-entry]
+   Call the function associated with the character. 
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `unknown-entry' with a start
+   offset of the remembered offset and an end offset of the
+   current offset. 
+
+parse-dispatch-macro-character buffer-stream        [generic function]
+                               function entry o
+
+ [# nonterminal-entry]
+   Increment the expression count of the top of the stack.    
+   Perform a count check (see below).
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `label-ref-entry' with a
+   start offset of the remembered offset and an end offset of
+   the current offset.  
+
+ [' nonterminal-entry]
+   Push an entry for function-expression-entry on the stack with a
+   backquote-depth of that of the current top of the stack.
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with the entry for function-entry with a start
+   offset of the remembered offset and the end offset of the current
+   offset.  
+
+ [( nonterminal-entry]
+   Push an entry for vector-expression-entry on the stack with a
+   backquote-depth of that of the current top of the stack.
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with the entry for vector-entry with a start offset
+   of the remembered offset and the end offset of the current offset.
+
+ [A nonterminal-entry]
+   [to be filled in]
+
+ [= nonterminal-entry]
+   Push an entry for labeled-expression-entry on the stack with a
+   backquote-depth of that of the current top of the stack.
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with the entry for label-entry with a start offset
+   of the remembered offset and the end offset of the current offset. 
+
+ [| nonterminal-entry]
+   Read characters until a |# pair has been seen or EOF is reached. 
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with the entry for balanced-comment-entry with a
+   start offset of the remembered offset and the end offset of the
+   current offset.
+
+ [+ nonterminal-entry]
+ [- nonterminal-entry]
+   Push an entry for read-time-conditional-expression-entry on the
+   stack with a backquote-depth of that of the current top of the
+   stack.  
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with the entry for read-time-conditional-entry with
+   a start offset of the remembered offset and the end offset of the
+   current offset.
+
+ [. nonterminal-entry]
+   Push an entry for read-time-evaluation-expression-entry on the
+   stack with a backquote-depth of that of the current top of the
+   stack.
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with the entry for read-time-evaluation-entry with
+   a start offset of the remembered offset and the end offset of the
+   current offset.
+
+ [any nonterminal-entry]
+   Call the function associated with the character. 
+   Add an entry at the end of the analysis vector with the current
+   stack augmented with an entry for `unknown terminal' with a start
+   offset of the remembered offset and an end offset of the
+   current offset. 
+
+
+count-check nonterminal-entry                       [generic function]
+
+ A count check means that we compare the expression count of the top of
+ the stack and its syntactic category.  If the category has a limited
+ number of expressions allowed, and we have reached it, we pop off the
+ top element, increment the expression count of the new top entry, and
+ perform a count check again.
+
+

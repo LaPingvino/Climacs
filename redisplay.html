@@ -1,0 +1,71 @@
+<HTML><TITLE> Master 2ème semestre  </TITLE>
+<BODY>
+<a href="undo-en.html">English version</a>
+<h1> Projets de Programmation 2004 - 2005 </h1>
+<br><hr><br>
+
+<ul> 
+<li> <h3> Titre du  Sujet:  </h3> 
+
+Implémentation d'un module de réaffichage (redisplay) pour Emacs.
+
+<br>
+<li><h3> Nom(s) du (des) responsables</h3> 
+
+Robert Strandh
+
+<br>
+<li><h3>Adresse, Tél, courrier-E: </h3>
+<p> Bureau 323, Bâtiment du LaBRI (A30), 0540 00 60 84,
+strandh@labri.fr</p>
+
+<br>
+<li><h3> Description du travail souhaité: </h3> 
+
+<p>Chaque application interactive sophistiqué sépare d'un coté le
+module de représentation des données de l'utilisateur (le tampon dans
+le cas de Emacs) et de l'autre coté la présentation graphique de ces
+données.  En particulier, on souhaite éviter des appels du module de
+représentation des données au module de présentation.  Pour cela, le
+module de présentation doit déterminer quelle partie du tampon à
+afficher, afin d'éviter l'affichage de l'ensemble du tampon à chaque
+itération de la boucle d'interaction.  Une partie du projet consiste à
+calculer quelle partie du tampon à afficher.</p>
+
+<p>Un éditeur moderne doit pouvoir analyser le contenu du tampon de
+manière sophistiqué.  S'il s'agit du texte d'un programme, l'éditeur
+doit contenir des connaissances sur la grammaire du langage afin de
+pouvoir mettre en évidence certaines partie du code, de pouvoir
+naviguer par unités de texte définies par le langage de programmation
+et de pouvoir calculer l'indentation souhaitée des lignes de texte.
+Une autre partie du projet consiste à implémenter cette connaissance
+syntaxique pour une version simple de Lisp, et ceci grâce à un
+analyseur syntaxique de type Earley (qui sera fourni).</p>
+
+<br>
+<li> <h3> Moyens matériels et logiciels nécessaires:</h3>
+<p>Un PC avec GNU/Linux.  Une version récente (au moins 0.8.17) du système
+SBCL (une implémentation libre de Common Lisp), GNU Emacs, SLIME
+(Superior Lisp Interaction Mode for Emacs) et éventuellement
+McCLIM</p>
+
+<br>
+<li> <h3> Références bibliographiques et http: :</h3>
+<P>
+<ul>
+<li><a href="climacs.html">Description du projet Climacs</a>
+<li><a href="buffer.text">Description des protocoles Climacs</a></li>
+<li><a href="http://www.cliki.net/SBCL">SBCL</a></li>
+<li><a href="http://www.cliki.net/SLIME">SLIME</a></li>
+<li><a href="http://www.cliki.net/McCLIM">McCLIM</a></li>
+<li><a href="http://www.cliki.net">Cliki, un wiki pour Common Lisp</a></li>
+<li><a href="http://www.finseth.com/craft/">The Craft of Text Editing
+    by Craig A. Finseth</a></li>
+</ul>
+</p>
+</ul>
+
+</BODY></HTML>
+
+
+
