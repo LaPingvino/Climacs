@@ -62,7 +62,8 @@
    "gui"
    ;;---- optional ----
    "testing/rt"
-   "buffer-test")
+   "buffer-test"
+   "base-test")
 
 #+asdf
 (defmethod asdf:perform :around ((o asdf:compile-op)
