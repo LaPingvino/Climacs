@@ -900,5 +900,66 @@ climacs  ")
       (values
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
+  0 "climacs   ")
+
+(deftest standard-buffer-delete-indentation.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "
+  	climacs   ")
+    (let ((m (make-instance 'standard-right-sticky-mark
+			    :buffer buffer :offset 7)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  0 "climacs   ")
+
+(deftest standard-buffer-delete-indentation.test-3
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "   climacs   ")
+    (let ((m (make-instance 'standard-left-sticky-mark
+			    :buffer buffer :offset 7)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  0 "   climacs   ")
+
+(deftest standard-buffer-delete-indentation.test-4
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs
+   climacs   ")
+    (let ((m (make-instance 'standard-right-sticky-mark
+			    :buffer buffer :offset 12)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  8 "climacs climacs   ")
+
+(deftest standard-buffer-delete-indentation.test-5
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "
+
+   climacs   ")
+    (let ((m (make-instance 'standard-right-sticky-mark
+			    :buffer buffer :offset 12)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
   1 "
- climacs   ")
+climacs   ")
+
+(deftest standard-buffer-fill-line.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs  climacs  climacs")
+    (let ((m (make-instance 'standard-right-sticky-mark
+			    :buffer buffer :offset 25)))
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  27 "climacs 
+	climacs 
+	climacs")

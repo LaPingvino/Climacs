@@ -475,13 +475,16 @@ spaces only."))
 (defun delete-indentation (mark)
   (beginning-of-line mark)
   (unless (beginning-of-buffer-p mark)
+    (delete-range mark -1)
     (loop until (end-of-buffer-p mark)
           while (whitespacep (object-after mark))
           do (delete-range mark 1))
     (loop until (beginning-of-buffer-p mark)
           while (whitespacep (object-before mark))
           do (delete-range mark -1))
-    (insert-object mark #\Space)))
+    (when (and (not (beginning-of-buffer-p mark))
+	       (constituentp (object-before mark)))
+      (insert-object mark #\Space))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -505,7 +508,7 @@ spaces only."))
                (t
                 (incf column)))
              (when (and (>= column fill-column)
-                        (/= (offset begin-mark) line-beginning-offset))
+			(/= (offset begin-mark) line-beginning-offset))
                (insert-object begin-mark #\Newline)
                (incf (offset begin-mark))
                (let ((indentation

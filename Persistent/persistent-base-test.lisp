@@ -887,6 +887,67 @@ climacs  ")
        (buffer-sequence buffer 0 (size buffer)))))
   2 "	 climacs   ")
 
+(deftest binseq-buffer-delete-indentation.test-1
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "
+  	climacs   ")
+    (let ((m (make-instance 'persistent-left-sticky-mark
+			    :buffer buffer :offset 3)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  0 "climacs   ")
+
+(deftest binseq-buffer-delete-indentation.test-2
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "
+  	climacs   ")
+    (let ((m (make-instance 'persistent-right-sticky-mark
+			    :buffer buffer :offset 7)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  0 "climacs   ")
+
+(deftest binseq-buffer-delete-indentation.test-3
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "   climacs   ")
+    (let ((m (make-instance 'persistent-left-sticky-mark
+			    :buffer buffer :offset 7)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  0 "   climacs   ")
+
+(deftest binseq-buffer-delete-indentation.test-4
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs
+   climacs   ")
+    (let ((m (make-instance 'persistent-right-sticky-mark
+			    :buffer buffer :offset 12)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  8 "climacs climacs   ")
+
+(deftest binseq-buffer-delete-indentation.test-5
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "
+
+   climacs   ")
+    (let ((m (make-instance 'persistent-right-sticky-mark
+			    :buffer buffer :offset 12)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  1 "
+climacs   ")
+
 ;;; obinseq tests
 
 (deftest obinseq-buffer-previous-line.test-1
@@ -1753,3 +1814,64 @@ climacs  ")
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
   2 "	 climacs   ")
+
+(deftest obinseq-buffer-delete-indentation.test-1
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "
+  	climacs   ")
+    (let ((m (make-instance 'persistent-left-sticky-mark
+			    :buffer buffer :offset 3)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  0 "climacs   ")
+
+(deftest obinseq-buffer-delete-indentation.test-2
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "
+  	climacs   ")
+    (let ((m (make-instance 'persistent-right-sticky-mark
+			    :buffer buffer :offset 7)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  0 "climacs   ")
+
+(deftest obinseq-buffer-delete-indentation.test-3
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "   climacs   ")
+    (let ((m (make-instance 'persistent-left-sticky-mark
+			    :buffer buffer :offset 7)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  0 "   climacs   ")
+
+(deftest obinseq-buffer-delete-indentation.test-4
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs
+   climacs   ")
+    (let ((m (make-instance 'persistent-right-sticky-mark
+			    :buffer buffer :offset 12)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  8 "climacs climacs   ")
+
+(deftest obinseq-buffer-delete-indentation.test-5
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "
+
+   climacs   ")
+    (let ((m (make-instance 'persistent-right-sticky-mark
+			    :buffer buffer :offset 12)))
+      (delete-indentation m)
+      (values
+       (offset m)
+       (buffer-sequence buffer 0 (size buffer)))))
+  1 "
+climacs   ")
