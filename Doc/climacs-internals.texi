@@ -601,27 +601,40 @@ compute their representations from the beginning of the buffer up to a
 particular point beyond which the structure of the buffer does not
 need to be known. 
 
-There are two situations where updating might be needed:
+There are three situations where updating might be needed:
 
 @itemize @bullet
-@item before redisplay is about to show the contents of part of the
-buffer in a pane.
+@item once, before any panes are displayed to inform the syntax module
+that some part of the buffer has been altered, 
+@item once for each pane on display, before redisplay is about to show
+the contents of part of the buffer in a pane to inform the syntax
+module that its syntax must be valid in the particular region on
+display, 
 @item as a result of a command that exploits the syntactic entities of
 the buffer contents. 
 @end itemize
 
 The first case is handled by the redisplay invoking the following
-generic function before proceeding to display the buffer contents in a
-pane:
+generic function:
 
-@deffn {Generic Function} {update-syntax} buffer syntax mark
+@deffn {Generic Function} {update-syntax} buffer syntax
 
 Inform the syntax module that it must update its view of the buffer
-contents up to the point indicated by the mark.  It is acceptable to
-pass an offset instead of the mark. 
+The low-mark and the high-mark of the buffer indicate what region has
+been updated. It is acceptable to pass an offset instead of the mark.
 @end deffn
 
-The second case is handled by the syntax module itself when needed in
+The second case is handled by the following generic function:
+
+@deffn {Generic Function} {update-syntax-for-display} buffer syntax from to
+
+Inform the syntax module that it must update its syntactic analysis to
+cover the region between the two marks from and to.  It is acceptable
+to pass and offset instead of a mark for either or both of the last
+two arguments. 
+@end deffn
+
+The third case is handled by the syntax module itself when needed in
 order to correctly compute the effects of a command. 
 
 It is important to realize that the syntax module is not directly
