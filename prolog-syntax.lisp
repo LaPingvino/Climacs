@@ -180,7 +180,9 @@
 	       (t (fo) (return (make-instance 'error-lexeme))))
 	   IDENTIFIER
 	     (loop until (end-of-buffer-p scan)
-		while (alphanumericp (object-after scan))
+		while (let ((object (object-after scan)))
+                        (or (alphanumericp object)
+                            (eql object #\_)))
 		do (fo))
 	     (return (make-instance 'identifier-lexeme))
            LINE-COMMENT
@@ -239,12 +241,16 @@
                         (return (make-instance 'quoted-lexeme))))
 	   VARIABLE
 	     (if (or (end-of-buffer-p scan)
-		     (not (alphanumericp (object-after scan))))
+                     (let ((object (object-after scan)))
+                       (not (or (alphanumericp object)
+                                (eql object #\_)))))
 		 (return (make-instance 'anonymous-lexeme))
 		 (go NAMED-VARIABLE))
 	   NAMED-VARIABLE
 	     (loop until (end-of-buffer-p scan)
-		while (alphanumericp (object-after scan))
+		while (let ((object (object-after scan)))
+                        (or (alphanumericp object)
+                            (eql object #\_)))
 		do (fo))
 	     (return (make-instance 'named-lexeme))
 	   NUMBER
