@@ -1,9 +1,11 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-GUI -*-
 
-;;;  (c) copyright 2004 by
+;;;  (c) copyright 2004-2005 by
 ;;;           Robert Strandh (strandh@labri.fr)
-;;;  (c) copyright 2004 by
+;;;  (c) copyright 2004-2005 by
 ;;;           Elliott Johnson (ejohnson@fasl.info)
+;;;  (c) copyright 2005 by
+;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public

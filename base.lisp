@@ -1,9 +1,11 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-BASE -*-
 
-;;;  (c) copyright 2004 by
+;;;  (c) copyright 2004-2005 by
 ;;;           Robert Strandh (strandh@labri.fr)
-;;;  (c) copyright 2004 by
+;;;  (c) copyright 2004-2005 by
 ;;;           Elliott Johnson (ejohnson@fasl.info)
+;;;  (c) copyright 2005 by
+;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -39,14 +41,12 @@ The body is executed for each element, with object being the current object
 
 (defgeneric backward-object (mark &optional count))
 
-(defmethod backward-object ((mark climacs-buffer::mark-mixin)
-                            &optional (count 1))
+(defmethod backward-object ((mark mark) &optional (count 1))
   (decf (offset mark) count))
 
 (defgeneric forward-object (mark &optional count))
 
-(defmethod forward-object ((mark climacs-buffer::mark-mixin)
-                           &optional (count 1))
+(defmethod forward-object ((mark mark) &optional (count 1))
   (incf (offset mark) count))
 
 (defun previous-line (mark &optional column)
@@ -189,15 +189,14 @@ acceptable to pass an offset in place of one of the marks"))
 lowercase. An error is signaled if the two marks are positioned in different
 buffers. It is acceptable to pass an offset in place of one of the marks."))
 
-(defmethod downcase-region ((mark1 climacs-buffer::mark-mixin)
-                            (mark2 climacs-buffer::mark-mixin))
+(defmethod downcase-region ((mark1 mark) (mark2 mark))
   (assert (eq (buffer mark1) (buffer mark2)))
   (downcase-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
 
-(defmethod downcase-region ((offset integer) (mark climacs-buffer::mark-mixin))
+(defmethod downcase-region ((offset integer) (mark mark))
   (downcase-buffer-region (buffer mark) offset (offset mark)))
 
-(defmethod downcase-region ((mark climacs-buffer::mark-mixin) (offset integer))
+(defmethod downcase-region ((mark mark) (offset integer))
   (downcase-buffer-region (buffer mark) (offset mark) offset))
 
 (defun downcase-word (mark &optional (n 1))
@@ -218,15 +217,14 @@ buffers. It is acceptable to pass an offset in place of one of the marks."))
 uppercase. An error is signaled if the two marks are positioned in different
 buffers. It is acceptable to pass an offset in place of one of the marks."))
 
-(defmethod upcase-region ((mark1 climacs-buffer::mark-mixin)
-                          (mark2 climacs-buffer::mark-mixin))
+(defmethod upcase-region ((mark1 mark) (mark2 mark))
   (assert (eq (buffer mark1) (buffer mark2)))
   (upcase-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
 
-(defmethod upcase-region ((offset integer) (mark climacs-buffer::mark-mixin))
+(defmethod upcase-region ((offset integer) (mark mark))
   (upcase-buffer-region (buffer mark) offset (offset mark)))
 
-(defmethod upcase-region ((mark climacs-buffer::mark-mixin) (offset integer))
+(defmethod upcase-region ((mark mark) (offset integer))
   (upcase-buffer-region (buffer mark) (offset mark) offset))
 
 (defun upcase-word (mark &optional (n 1))
@@ -255,17 +253,14 @@ buffers. It is acceptable to pass an offset in place of one of the marks."))
 An error is signaled if the two marks are positioned in different buffers.
 It is acceptable to pass an offset in place of one of the marks."))
 
-(defmethod capitalize-region ((mark1 climacs-buffer::mark-mixin)
-                              (mark2 climacs-buffer::mark-mixin))
+(defmethod capitalize-region ((mark1 mark) (mark2 mark))
   (assert (eq (buffer mark1) (buffer mark2)))
   (capitalize-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
 
-(defmethod capitalize-region ((offset integer)
-                              (mark climacs-buffer::mark-mixin))
+(defmethod capitalize-region ((offset integer) (mark mark))
   (capitalize-buffer-region (buffer mark) offset (offset mark)))
 
-(defmethod capitalize-region ((mark climacs-buffer::mark-mixin)
-                              (offset integer))
+(defmethod capitalize-region ((mark mark) (offset integer))
   (capitalize-buffer-region (buffer mark) (offset mark) offset))
 
 (defun capitalize-word (mark &optional (n 1))
