@@ -5,6 +5,4 @@
   one sequence type for lines, the other for line contents), then
   upgrade it to an undoable buffer
 
-- handle wrapped lines instead of making McCLIM handle them
-
 - replace the use of the scroller pane by custom pane

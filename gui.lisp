@@ -60,6 +60,7 @@
 		(make-pane 'extended-pane
 			   :width 900 :height 400
 			   :name 'bla
+			   :end-of-line-action :scroll
 			   :incremental-redisplay t
 			   :display-function 'display-win))
 	       (info-pane
@@ -916,6 +917,7 @@ as two values"
 	  (make-pane 'extended-pane
 		     :width 900 :height 400
 		     :name 'win
+		     :end-of-line-action :scroll
 		     :incremental-redisplay t
 		     :display-function 'display-win))
 	 (vbox
