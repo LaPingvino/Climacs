@@ -1,0 +1,763 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename climacs-internals
+@settitle Climacs Internals
+@c %**end of header
+
+@copying
+The Climacs Internals manual
+
+Copyright @copyright{} 2004 Robert Strandh.
+
+@end copying
+
+@titlepage
+@title Climacs Internals
+
+@sp 5
+@center @titlefont{Essential Protocols}
+@sp 2
+@center @titlefont{and}
+@sp 2
+@center @titlefont{Implementation Hints}
+@sp 2
+@author Robert Strandh
+
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+
+@end titlepage
+
+@contents
+
+@alias glossentry = b
+
+@alias gloss = t
+@alias class = t
+@alias genfun = t
+@alias mac = t
+@alias gadget = t
+@alias pane = t
+@alias initarg = t
+@alias methcomp = t
+@alias slot = t
+@alias cl = t
+
+@chapter Introduction
+
+You are reading the Climacs internals manual.  This document contains
+a detailed description of various Climacs protocols. 
+
+@chapter Buffer protocol
+
+@section Introduction
+
+The Climacs buffer is what holds textual and other objects to be
+edited and displayed.  Conceptually, the buffer is a potentially
+large sequence of objects, most of which are expected to be
+characters (the full Unicode character set is supported).  However,
+Climacs buffers can contain any Common Lisp objects, as long as the
+syntax module knows how to render them. 
+
+The Climacs  buffer implementation differs from that of a vector,
+because it allows for very efficient editing operations, such as
+inserting and removing objects at arbitrary offsets. 
+
+In addition, the Climacs buffer protocols defines that concept of a
+mark.
+
+@section General
+
+@deftp {Protocol Class} buffer
+
+The base class for all buffers.  A buffer conceptually contains a
+large array of arbitrary objects.  Lines of objects are separated by
+newline characters.  The last object of the buffer is not
+necessarily a newline character.
+@end deftp
+
+@deftp {Class} standard-buffer
+
+The standard instantiable class for buffers.  A subclass of buffer.
+@end deftp
+
+@deftp {Protocol Class} mark
+
+The base class for all marks. 
+@end deftp
+
+@deftp {Initarg} :buffer
+
+The :buffer initarg is mandatory because no mark can exist without a
+buffer.  When the :offset initarg is not given, it defaults to zero.
+@end deftp
+
+@deftp {Initarg} :offset
+
+If an :offset initarg is given that is less than zero or greater than
+the size of the buffer, a no-such-offset condition is signaled. 
+@end deftp
+
+@deftp {Protocol Class} left-sticky-mark
+
+A subclass of mark.  A mark of this type will "stick" to the object
+to the left of it, i.e. when an object is inserted at this mark, the
+mark will be positioned to the left of the object.
+@end deftp
+
+@deftp {Protocol Class} right-sticky-mark
+
+A subclass of mark.  A mark of this type will "stick" to the object
+to the right of it, i.e. when an object is inserted at this mark, the
+mark will be positioned to the right of the object.
+@end deftp
+
+@deffn {Generic Function} {clone-mark} (mark &key type)
+
+Clone a mark.  By default (when type is NIL) the same type of mark is
+returned.  Otherwise type is the name of a class (subclass of the mark
+class) to be used as a class of the clone. 
+@end deffn
+
+@deffn {Generic Function} {buffer} mark
+
+Return the buffer that the mark is positioned in.
+@end deffn
+
+@deftp {Error Condition} no-such-offset
+
+This condition is signaled whenever an attempt is made at an operation
+that is before the beginning or after the end of the buffer. 
+@end deftp
+
+@deffn {Generic Function} {size} buffer
+
+Return the number of objects in the buffer.  
+@end deffn
+
+@deffn {Generic Function} {number-of-lines} buffer
+
+Return the number of lines of the buffer, or really the number of
+newline characters.  
+@end deffn
+
+@section Operations related to the offset of marks
+
+
+@deffn {Generic Function} {offset} mark
+
+Return the offset of the mark into the buffer.
+@end deffn
+
+@deffn {Generic Function} {(setf offset)} offset mark
+
+Set the offset of the mark into the buffer.  A no-such-offset
+condition is signaled if the offset is less than zero or greater than
+the size of the buffer. 
+@end deffn
+
+@deffn {Generic Function} {mark<} mark1 mark2
+
+Return t if the offset of mark1 is strictly less than that of mark2.
+An error is signaled if the two marks are not positioned in the same
+buffer.  It is acceptable to pass an offset in place of one of the
+marks. 
+@end deffn
+
+@deffn {Generic Function} {mark<=} mark1 mark2
+
+Return t if the offset of mark1 is less than or equal to that of
+mark2.  An error is signaled if the two marks are not positioned in
+the same buffer.  It is acceptable to pass an offset in place of one
+of the marks.
+@end deffn
+
+@deffn {Generic Function} {mark>} mark1 mark2
+
+Return t if the offset of mark1 is strictly greater than that of
+mark2.  An error is signaled if the two marks are not positioned in
+the same buffer.  It is acceptable to pass an offset in place of one
+of the marks.
+@end deffn
+
+@deffn {Generic Function} {mark>=} mark1 mark2
+
+Return t if the offset of mark1 is greater than or equal to that of
+mark2.  An error is signaled if the two marks are not positioned in
+the same buffer.  It is acceptable to pass an offset in place of one
+of the marks.
+@end deffn
+
+@deffn {Generic Function} {mark=} mark1 mark2
+
+Return t if the offset of mark1 is equal to that of mark2.  An error
+is signaled if the two marks are not positioned in the same buffer.
+It is acceptable to pass an offset in place of one of the marks.
+@end deffn
+
+@deffn {Generic Function} {beginning-of-buffer} mark
+
+Move the mark to the beginning of the buffer.  This is equivalent to
+(setf (offset mark) 0)
+@end deffn
+
+@deffn {Generic Function} {end-of-buffer} mark
+
+Move the mark to the end of the buffer.
+@end deffn
+
+@deffn {Generic Function} {beginning-of-buffer-p} mark
+
+Return t if the mark is at the beginning of the buffer, nil
+otherwise. 
+@end deffn
+
+@deffn {Generic Function} {end-of-buffer-p} mark
+
+Return t if the mark is at the end of the buffer, nil otherwise.
+@end deffn
+
+@deffn {Generic Function} {beginning-of-line} mark
+
+Move the mark to the beginning of the line.  The mark will be
+positioned either immediately after the closest preceding newline
+character, or at the beginning of the buffer if no preceding newline
+character exists. 
+@end deffn
+
+@deffn {Generic Function} {end-of-line} mark
+
+Move the mark to the end of the line. The mark will be positioned
+either immediately before the closest following newline character, or
+at the end of the buffer if no following newline character exists. 
+@end deffn
+
+@deffn {Generic Function} {beginning-of-line-p} mark
+
+Return t if the mark is at the beginning of the line (i.e., if the
+character preceding the mark is a newline character or if the mark is
+at the beginning of the buffer), nil otherwise.
+@end deffn
+
+@deffn {Generic Function} {end-of-line-p} mark
+
+Return t if the mark is at the end of the line (i.e., if the character
+following the mark is a newline character, or if the mark is at the
+end of the buffer), nil otherwise.
+@end deffn
+
+@deffn {Generic Function} {line-number} mark
+
+Return the line number of the mark.  Lines are numbered from zero.
+@end deffn
+
+
+@deffn {Generic Function} {column-number} mark
+
+Return the column number of the mark. The column number of a mark is
+the number of objects between it and the preceding newline, or
+between it and the beginning of the buffer if the mark is on the
+first line of the buffer.
+@end deffn
+
+
+@section Inserting and deleting objects
+
+@deffn {Generic Function} {insert-buffer-object} buffer offset object
+
+Insert the object at the offset in the buffer.  Any left-sticky marks
+that are placed at the offset will remain positioned before the
+inserted object.  Any right-sticky marks that are placed at the
+offset will be positioned after the inserted object.
+@end deffn
+
+@deffn {Generic Function} {insert-buffer-sequence} buffer offset sequence
+
+Like calling insert-buffer-object on each of the objects in the
+sequence.
+@end deffn
+
+@deffn {Generic Function} {insert-object} mark object
+
+Insert the object at the mark.  This function simply calls
+insert-buffer-object with the buffer and the position of the mark. 
+@end deffn
+
+@deffn {Generic Function} {insert-sequence} mark sequence
+
+Insert the objects in the sequence at the mark. This function simply
+calls insert-buffer-sequence with the buffer and the position of the
+mark.
+@end deffn
+
+@deffn {Generic Function} {delete-buffer-range} buffer offset n
+                  
+Delete n objects from the buffer starting at the offset.  If offset
+is negative or offset+n is greater than the size of the buffer, a
+no-such-offset condition is signaled.
+@end deffn
+
+@deffn {Generic Function} {delete-range} mark &optional (n 1)
+
+Delete n objects after (if n > 0) or before (if n < 0) the mark.
+This function eventually calls delete-buffer-range, provided that n
+is not zero.
+@end deffn
+
+@deffn {Generic Function} {delete-region} mark1 mark2
+
+Delete the objects in the buffer that are after mark1 and before
+mark2.  An error is signaled if the two marks are positioned in
+different buffers.  If mark1 is positioned at an offset equal to or
+greater than that of mark2, no objects are deleted.  If objects are
+to be deleted, this function calls delete-buffer-range with the
+appropriate arguments.  It is acceptable to pass an offset in place
+of one of the marks.
+@end deffn
+
+@section Getting objects out of the buffer
+
+@deffn {Generic Function} {buffer-object} buffer offset
+
+Return the object at the offset in the buffer.  The first object
+has offset 0. If offset is less than zero or greater than or equal to
+the size of the buffer, a no-such-offset condition is signaled.
+@end deffn
+
+@deffn {Generic Function} {buffer-sequence} buffer offset1 offset2
+
+Return the contents of the buffer starting at offset1 and ending at
+offset2-1 as a sequence.  If either of the offsets is less than zero
+or greater than or equal to the size of the buffer, a no-such-offset
+condition is signaled.  If offset2 is smaller than or equal to
+offset1, an empty sequence will be returned.
+@end deffn
+
+@deffn {Generic Function} {objecct-before} mark
+
+Return the object that is immediately before the mark.  If mark is at
+the beginning of the buffer, a no-such-offset condition is signaled.
+If the mark is at the beginning of a line, but not at the beginning
+of the buffer, a newline character is returned.
+@end deffn
+
+@deffn {Generic Function} {objecct-after} mark
+
+Return the object that is immediately after the mark.  If mark is at
+the end of the buffer, a no-such-offset condition is signaled.  If
+the mark is at the end of a line, but not at the end of the buffer, a
+newline character is returned.
+@end deffn
+
+@deffn {Generic Function} {region-to-sequence} mark1 mark2
+
+Return a freshly allocated sequence of the objects after mark1 and
+before mark2.  An error is signaled if the two marks are positioned
+in different buffers.  If mark1 is positioned at an offset equal to
+or greater than that of mark2, an empty sequence is returned.  It is
+acceptable to pass an offset in place of one of the marks.
+@end deffn
+
+@section Implementation hints
+
+The buffer is implemented as lines organized in a 2-3-tree.  The
+leaves of the tree contain the lines, and the internal nodes contain
+additional information of the left subtree (if it is a 2-node) or the
+left and the middle subtree (if it is a 3-node).  Two pieces of
+information are stored: The number of lines in up to and including
+the subtree and the total number of objects up to an including the
+subtree.  This organization allows us to determine, the line number
+and object position of any mark in O(log N) where N is the number of
+lines.
+
+A line is an instance of the `buffer-line' class.  A line can either
+be open or closed.  A closed line is represented as a sequence.  The
+exact type of the sequence depends on the objects contained in the
+line.  If the line contains only characters of type base-char, then
+the sequence is of type base-string.  If the line contains only
+characters, but not of type base-char, the sequence is a string.
+Otherwise it is a vector of arbitrary objects.  This way, closed
+lines containing characters with code points below 256 have a compact
+representation with 8 bits per character while still allowing for
+arbitrary objects when necessary.  An open line is represented as a
+cursorchain of objects. 
+
+Marks in a closed line are represented as an integer offset into the
+sequence.  Marks in an open line are represented as flexicursors.
+
+When a line is opened, it is converted to a cursorchain.  When a line
+is closed, it is examined to determine whether it contains
+non-character objects, in which case it is converted to a vector of
+objects.  If contains only characters, but it contains characters
+with code points above what can be represented in a base-char, it is
+converted to a string.  If it contains only base-chars, it is
+converted to a base-string.
+
+A mark contains two slots: a flexicursor that determines which line it
+is on, and either an integer (if the line is closed) that determines
+the offset within the line or another flexicursor (if the line is
+open).  For each line, open or closed, a list of weak references to
+marks into that line is kept.  
+
+Lines are closed according to a LRU scheme.  Whenever objects are
+inserted to or deleted from a line, it becomes the most recently used
+line.  We keep a fixed number of open lines so that when a line is
+opened and the threshold is reached, the least recently used line is
+closed.
+
+@chapter The buffer modification protocol
+
+The buffer maintains two marks, the low mark and the high mark:
+
+@deffn {Generic Function} {low-mark} buffer
+
+Return the low mark of the buffer.
+@end deffn
+
+@deffn {Generic Function} {high-mark} buffer
+
+Return the high mark of the buffer.
+@end deffn
+
+The low mark is a left-sticky mark and high mark is a right-sticky
+mark.  Whenever a modification is made to the buffer, the offset of
+the low mark is set to the minimum of its current value and the
+position of the modification.  Similarly, whenever a modification is
+made to the buffer, the offset of the high mark is set to the maximum
+of its current value and the position of the modification.
+
+The redisplay module may use these values to determine what part of
+the screen needs to be updated.  These values can also be used to
+update information about syntax highlighting and other cached
+information.
+
+@deffn {Generic Function} {reset-low-high-marks} buffer
+
+Set the high-mark to the beginning of the beginning of the buffer and
+the low-mark to the end of the buffer. 
+@end deffn
+
+This function is used by the redisplay module after all of the panes
+on display have been redisplayed properly.  A call to this function
+concludes the interaction loop and Climacs is again ready to read and
+execute commands. 
+
+@chapter Redisplay and the syntax protocol 
+
+A buffer can be on display in several panes.  The redisplay
+algorithm is invoked on each such pane.  Each pane is associated
+with a distinguished mark called the `point' of the pane.  The point
+is a right-sticky mark independently of whether you are typing
+left-to-right or right-to-left.
+
+The redisplay function works by dispatching on an object of type
+syntax, which determines exactly how the buffer contents is going to
+be rendered in this particular pane. 
+
+@deftp {Protocol Class} syntax
+
+The base class for all syntaxes.  
+
+A syntax object is a placeholder for many kinds of information
+depending on the exact syntax, but in particular, it holds information
+(in the form of two marks) about what part of the buffer was on
+display after the previous invocation of the redisplay algorithm.
+@end deftp
+
+@deftp {:initarg} :buffer
+Indicates the buffer that this syntax should display. 
+@end deftp
+
+@deftp {:initarg} :pane
+Indicates the pane where rendering is to take place. 
+@end deftp
+
+All subclasses of the syntax class must support the :pane and :buffer
+initargs.  These are both mandatory, because the syntax module needs
+to query both the buffer (for things like setting marks that
+correspond to the top and the bottom of the pane on display) and the
+pane (for things like font size).
+
+@deffn {Generic Function} {redisplay-with-syntax} pane syntax
+
+Redisplay a pane using a given syntax.  
+@end deffn
+
+This function can behave radically differently for different syntaxes.
+In all cases, however, it starts by determining the current dimensions
+of the pane, and compare that to the size of the region of the buffer
+that is currently on display.  Adjustments are made as necessary.  It
+then determines whether the point of the pane is within the region on
+display.  If not, a new region is computed in a way that the point is
+as close to the middle of the pane as possible.  It is important to
+maintain the region on display as much as possible, so as to avoid
+unnecessary scrolling. 
+
+The final step of this function is to render the region of the buffer
+that is to be displayed.  Some syntaxes can use simple algorithms that
+simply draw everything in the region.  Others can optimize so that
+only the portions of the pane that have actually changed are redrawn.
+
+The redisplay-with-syntax function also implements parsing of the
+buffer text.  
+
+Simple parsers may be restricted to dividing the text into words,
+possibly recognizing special words like URLs or email addresses, and
+then using `present' to render these words.
+
+More complicated parsers may use incremental parsing techniques to
+maintain sophisticated information of the buffer contents.  Such a
+parser needs to use the low-mark and high-mark to determine which
+parts of the buffer have changed, and recompute parsing information as
+necessary. 
+
+@chapter The undo protocol
+
+@section General
+
+Undo is organized into a separate module.  This module conceptually
+maintains a tree where the nodes represent application states and the
+arcs represent transitions between these states.  The root of the
+tree represents the initial state of the application.  The undo
+module also maintains a current state.  During normal application
+operation, the current state is a leaf of a fairly long branch of the
+tree.  Normal application operations add new nodes to the end of this
+branch.  Moving the current state up the tree corresponds to an undo
+operation and moving it down some branch corresponds to some redo
+operation.  
+
+Arcs in the tree are ordered so that they always point FROM the
+current state.  When the current state moves from one state to the
+other, the arc it traversed is reversed.  The undo module does this
+by calling a generic function that client code must supply a method
+for. 
+
+@deftp {error condition} no-more-undo
+
+A condition of this type is signaled whenever an attempt is made to
+call undo when the application is in its initial state. 
+@end deftp
+
+@deftp {protocol class} undo-tree
+
+The base class for all undo trees. 
+@end deftp
+
+@deftp {protocol class} undo-record
+
+The base class for all undo records.
+
+Client code typically derives subclasses of this class that are
+specific to the application. 
+@end deftp
+
+@deftp {initarg} :tree
+
+Supplies the undo tree to which the undo record belongs. 
+@end deftp
+
+@deffn {generic function} add-undo undo-record undo-tree
+
+Add an undo record to the undo tree below the current state, and set
+the current state to be below the transition represented by the undo
+record.
+@end deffn
+
+@deffn {generic function} flip-undo-record undo-record
+
+This function is called by the undo module whenever the current state
+is changed from its current value to that of the parent state
+(presumably as a result of a call to undo) or to that of one of its
+child states. 
+
+Client code is required to supply methods for this function on
+client-specific subclasses of undo-record. 
+@end deffn
+
+@deffn {generic function} undo undo-tree &optional (n 1)
+
+Move the current state n steps up the undo tree and call
+flip-undo-record on each step.  If the current state is at a level
+less than n, a no-more-undo condition is signaled and the current
+state is not moved (and no calls to flip-undo-record are made).
+
+As long as no new record are added to the tree, the undo module
+remembers which branch it was in before a sequence of calls to undo. 
+@end deffn
+
+@deffn {generic function} redo undo-tree &optional (n 1)
+
+Move the current state n steps down the remembered branch of the undo
+tree and call flip-undo-record on each step.  If the remembered
+branch is shorter than n, a no-more-undo condition is signaled and
+the current state is not moved (and no calls to flip-undo-record are
+made). 
+@end deffn
+
+@section Implementation
+
+Application states have no explicit representation, only undo records
+do.  The current state is a pointer to an undo record (meaning, the
+current state is BELOW the transition represented by the record) or to
+the undo tree itself if the current state is the initial state of the
+application. 
+
+@section Suggested CLIM gadget
+
+Undo might be presented in a CLIM gadget in the form of a tree where
+branches are added to the right over time, in @xref{figundo}.
+
+@float
+@image{undo}
+@anchor{figundo} 
+@caption{Suggested CLIM pane for `undo'}
+@end float
+
+where the bigger black circle indicates the current state.  The tree
+will be fairly tall and skinny, so the gadget should probably be a
+tall, narrow window with scroll bars, and/or zoom.  The transitions
+should be PRESENTed by client code so that a compact indication of the
+type of record is used.  When the mouse is moved over a transition, a
+more elaborate description is visible.
+
+Clicking on any of the states generates calls to flip-undo-record for
+every step the current state has to move in order to eventually arrive
+at the state clicked on. 
+
+@section How the buffer handles undo
+
+@deftp {class} undoable-buffer
+
+This is a subclass of standard-buffer.  Instantiating this class
+creates an empy undo-tree for the buffer.
+@end deftp
+
+@deffn {generic function} undo-tree undoable-buffer
+
+Return the undo-tree of the buffer. 
+@end deffn
+
+Undo is implemented as :after methods on, insert-buffer-object,
+insert-buffer-sequence and delete-buffer-range specialized on
+undoable-buffer.
+
+@deftp {special variable} *undo-accumulate*
+
+This variable is initially nil (the empty list).  The :after methods
+on insert-buffer-object, insert-buffer-sequence, and
+delete-buffer-range push undo records on to this list.
+@end deftp
+
+@deftp {special variable} *performing-undo*
+
+This variable is initially nil.  The :after methods on
+insert-buffer-object, insert-buffer-sequence, and delete-buffer-range
+push undo records onto *undo-accumulate* only if *performing-undo* is
+nil so that no undo information is added as a result of an undo
+operation.
+@end deftp
+
+Three subclasses `insert-record', `delete-record', and
+`compound-record' of undo-record are used.  An insert record stores a
+position and some sequence of objects to be inserted, a delete record
+stores a position and the length of the sequence to be deleted, and a
+compound record stores a list of other undo records.
+
+The :after methods on insert-buffer-object and insert-buffer-sequence
+push a record of type delete-record onto *undo-accumulate*, and the
+:after method on delete-buffer-range pushes a record of type
+insert-record onto *undo-accumulate*.
+
+@deffn {macro} with-undo buffer &body body
+
+This macro first binds *undo-accumulate* to nil.  Then it executes
+the forms of body.  Finally, it calls add-undo with an undo record
+and the undo tree of the buffer.  If *undo-accumulate* contains a
+single undo record, it is passed as is to add-undo.  If it contains
+several undo records, a compound undo record is constructed out of
+the list and passed to add-undo.  Finally, if *undo-accumulate* is
+nil, add-undo is not called at all.
+@end deffn
+
+To avoid storing an undo record for each object that is inserted,
+the with-undo macro may in some cases just increment the length of
+the sequence in the last delete-record.
+
+The method on flip-undo-record specialized on insert-record binds
+*performing-undo* to t, inserts the sequence of objects in the
+buffer, and calls change-class to convert the insert-record to a
+delete-record, giving it a the length of the stored sequence.
+
+The method on flip-undo-record specialized on delete-record binds
+*performing-undo* to t, deletes the range from the buffer, and calls
+change-class to convert the delete-record to an insert-record, giving
+it the sequence at the stored offset in the buffer with the specified
+length.
+
+The method on flip-undo-record specialized on compound-record binds
+*performing-undo* to t, recursively calls flip-undo-record on each
+element of the list of undo records, and finally destructively
+reverses the list.
+
+@deftp {class} buffer-undo-record
+
+A subclass of undo-record.
+@end deftp
+
+@deftp {initarg} :buffer
+
+The buffer to which the record belongs. 
+@end deftp
+
+@deftp {initarg} :offset
+
+This initarg is mandatory and supplies the offset that determines the
+position at which the undo operation is to be executed.
+@end deftp
+
+@deffn {generic function} undo-offset undo-record
+
+Return the offset of the undo record. 
+@end deffn
+
+@deftp {class} delete-record
+
+A subclass of buffer-undo-record.  Whenever objects are inserted, a
+delete-record containing a mark is created and added to the undo
+tree.
+@end deftp
+
+@deftp {initarg} :length
+
+Supply the length of the sequence of objects to be deleted whenever
+flip-undo-record is called on an instance of delete-record.
+@end deftp
+
+@deftp {class} insert-record
+
+A subclass of buffer-undo-record.  Whenever objects are deleted, the
+sequence of objectgs is stored in an insert record containing a mark.
+@end deftp
+
+@deftp {initarg} :objects
+
+Supply the sequence of objects that are to be inserted whenever
+flip-undo-record is called on an instance of insert-record.
+@end deftp
+
+@deftp {class} compound-record
+
+A subclass of buffer-undo-record.  This record simply contains a list
+of other records.
+@end deftp
+
+@deftp {initarg} :records
+@end deftp
+
+@node Index
+@unnumbered Index
+
+@printindex cp
+
+@bye
