@@ -577,10 +577,10 @@ climacs  ")
 
 (deftest standard-buffer-delete-word.test-2
   (let ((buffer (make-instance 'standard-buffer)))
-    (insert-buffer-sequence buffer 0 "  climacs")
+    (insert-buffer-sequence buffer 0 "  climacs climacs")
     (let ((m (make-instance 'standard-right-sticky-mark
 			    :buffer buffer :offset 0)))
-      (delete-word m)
+      (delete-word m 2)
       (values
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
@@ -599,10 +599,10 @@ climacs  ")
 
 (deftest standard-buffer-backward-delete-word.test-2
   (let ((buffer (make-instance 'standard-buffer)))
-    (insert-buffer-sequence buffer 0 "climacs  ")
+    (insert-buffer-sequence buffer 0 "climacs climacs  ")
     (let ((m (make-instance 'standard-right-sticky-mark
-			    :buffer buffer :offset 9)))
-      (backward-delete-word m)
+			    :buffer buffer :offset 17)))
+      (backward-delete-word m 2)
       (values
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
@@ -625,10 +625,10 @@ climacs  ")
 
 (deftest standard-buffer-downcase-buffer-region.test-1
   (let ((buffer (make-instance 'standard-buffer)))
-    (insert-buffer-sequence buffer 0 "Cli	mac5")
-    (climacs-base::downcase-buffer-region buffer 0 (size buffer))
+    (insert-buffer-sequence buffer 0 "CLi	mac5")
+    (climacs-base::downcase-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "cli	mac5")
+  "Cli	mac5")
 
 (deftest standard-buffer-downcase-region.test-1
   (let ((buffer (make-instance 'standard-buffer)))
@@ -661,21 +661,21 @@ climacs  ")
 
 (deftest standard-buffer-downcase-word.test-1
   (let ((buffer (make-instance 'standard-buffer)))
-    (insert-buffer-sequence buffer 0 "CLI MA CS")
+    (insert-buffer-sequence buffer 0 "CLI MA CS CLIMACS")
     (let ((m (make-instance 'standard-right-sticky-mark
 			    :buffer buffer :offset 0)))
       (downcase-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
-  "cli ma cs" 9)
+  "cli ma cs CLIMACS" 9)
 
 (deftest standard-buffer-upcase-buffer-region.test-1
   (let ((buffer (make-instance 'standard-buffer)))
-    (insert-buffer-sequence buffer 0 "Cli	mac5")
-    (climacs-base::upcase-buffer-region buffer 0 (size buffer))
+    (insert-buffer-sequence buffer 0 "cli	mac5")
+    (climacs-base::upcase-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "CLI	MAC5")
+  "cLI	MAC5")
 
 (deftest standard-buffer-upcase-region.test-1
   (let ((buffer (make-instance 'standard-buffer)))
@@ -708,21 +708,21 @@ climacs  ")
 
 (deftest standard-buffer-upcase-word.test-1
   (let ((buffer (make-instance 'standard-buffer)))
-    (insert-buffer-sequence buffer 0 "cli ma cs")
+    (insert-buffer-sequence buffer 0 "cli ma cs climacs")
     (let ((m (make-instance 'standard-right-sticky-mark
 			    :buffer buffer :offset 0)))
       (upcase-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
-  "CLI MA CS" 9)
+  "CLI MA CS climacs" 9)
 
 (deftest standard-buffer-capitalize-buffer-region.test-1
   (let ((buffer (make-instance 'standard-buffer)))
     (insert-buffer-sequence buffer 0 "cli ma cs")
     (climacs-base::capitalize-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "cli Ma Cs")
+  "cLi Ma Cs")
 
 (deftest standard-buffer-capitalize-buffer-region.test-2
   (let ((buffer (make-instance 'standard-buffer)))
@@ -762,11 +762,11 @@ climacs  ")
 
 (deftest standard-buffer-capitalize-word.test-1
   (let ((buffer (make-instance 'standard-buffer)))
-    (insert-buffer-sequence buffer 0 "cli ma cs")
+    (insert-buffer-sequence buffer 0 "cli ma cs climacs")
     (let ((m (make-instance 'standard-right-sticky-mark
 			    :buffer buffer :offset 0)))
       (capitalize-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
-  "Cli Ma Cs" 9)
+  "Cli Ma Cs climacs" 9)

@@ -622,10 +622,10 @@ climacs  ")
 
 (deftest binseq-buffer-downcase-buffer-region.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
-    (insert-buffer-sequence buffer 0 "Cli	mac5")
-    (climacs-base::downcase-buffer-region buffer 0 (size buffer))
+    (insert-buffer-sequence buffer 0 "CLi	mac5")
+    (climacs-base::downcase-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "cli	mac5")
+  "Cli	mac5")
 
 (deftest binseq-buffer-downcase-region.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
@@ -658,21 +658,21 @@ climacs  ")
 
 (deftest binseq-buffer-downcase-word.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
-    (insert-buffer-sequence buffer 0 "CLI MA CS")
+    (insert-buffer-sequence buffer 0 "CLI MA CS CLIMACS")
     (let ((m (make-instance 'persistent-right-sticky-mark
 			    :buffer buffer :offset 0)))
       (downcase-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
-  "cli ma cs" 9)
+  "cli ma cs CLIMACS" 9)
 
 (deftest binseq-buffer-upcase-buffer-region.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
-    (insert-buffer-sequence buffer 0 "Cli	mac5")
-    (climacs-base::upcase-buffer-region buffer 0 (size buffer))
+    (insert-buffer-sequence buffer 0 "cli	mac5")
+    (climacs-base::upcase-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "CLI	MAC5")
+  "cLI	MAC5")
 
 (deftest binseq-buffer-upcase-region.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
@@ -705,21 +705,21 @@ climacs  ")
 
 (deftest binseq-buffer-upcase-word.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
-    (insert-buffer-sequence buffer 0 "cli ma cs")
+    (insert-buffer-sequence buffer 0 "cli ma cs climacs")
     (let ((m (make-instance 'persistent-right-sticky-mark
 			    :buffer buffer :offset 0)))
       (upcase-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
-  "CLI MA CS" 9)
+  "CLI MA CS climacs" 9)
 
 (deftest binseq-buffer-capitalize-buffer-region.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-sequence buffer 0 "cli ma cs")
     (climacs-base::capitalize-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "cli Ma Cs")
+  "cLi Ma Cs")
 
 (deftest binseq-buffer-capitalize-buffer-region.test-2
   (let ((buffer (make-instance 'binseq-buffer)))
@@ -759,14 +759,14 @@ climacs  ")
 
 (deftest binseq-buffer-capitalize-word.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
-    (insert-buffer-sequence buffer 0 "cli ma cs")
+    (insert-buffer-sequence buffer 0 "cli ma cs climacs")
     (let ((m (make-instance 'persistent-right-sticky-mark
 			    :buffer buffer :offset 0)))
       (capitalize-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
-  "Cli Ma Cs" 9)
+  "Cli Ma Cs climacs" 9)
 
 ;;; obinseq tests
 
@@ -1370,10 +1370,10 @@ climacs  ")
 
 (deftest obinseq-buffer-downcase-buffer-region.test-1
   (let ((buffer (make-instance 'obinseq-buffer)))
-    (insert-buffer-sequence buffer 0 "Cli	mac5")
-    (climacs-base::downcase-buffer-region buffer 0 (size buffer))
+    (insert-buffer-sequence buffer 0 "CLi	mac5")
+    (climacs-base::downcase-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "cli	mac5")
+  "Cli	mac5")
 
 (deftest obinseq-buffer-downcase-region.test-1
   (let ((buffer (make-instance 'obinseq-buffer)))
@@ -1417,10 +1417,10 @@ climacs  ")
 
 (deftest obinseq-buffer-upcase-buffer-region.test-1
   (let ((buffer (make-instance 'obinseq-buffer)))
-    (insert-buffer-sequence buffer 0 "Cli	mac5")
-    (climacs-base::upcase-buffer-region buffer 0 (size buffer))
+    (insert-buffer-sequence buffer 0 "cli	mac5")
+    (climacs-base::upcase-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "CLI	MAC5")
+  "cLI	MAC5")
 
 (deftest obinseq-buffer-upcase-region.test-1
   (let ((buffer (make-instance 'obinseq-buffer)))
@@ -1467,7 +1467,7 @@ climacs  ")
     (insert-buffer-sequence buffer 0 "cli ma cs")
     (climacs-base::capitalize-buffer-region buffer 1 (size buffer))
     (buffer-sequence buffer 0 (size buffer)))
-  "cli Ma Cs")
+  "cLi Ma Cs")
 
 (deftest obinseq-buffer-capitalize-buffer-region.test-2
   (let ((buffer (make-instance 'obinseq-buffer)))
