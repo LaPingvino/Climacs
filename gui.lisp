@@ -1031,7 +1031,8 @@ as two values"
           (list (make-instance 'isearch-state
                                :search-string ""
                                :search-mark (clone-mark point)
-                               :search-forward-p forwardp)))
+                               :search-forward-p forwardp
+                               :search-success-p t)))
     (simple-command-loop 'isearch-climacs-table
                          (isearch-mode pane)
                          ((setf (isearch-mode pane) nil)))))
@@ -1047,18 +1048,19 @@ as two values"
                              mark2
                              string
                              :test #'object-equal)))
-      (cond (success
-             (setf (offset point) (offset mark2)
-                   (offset mark) (if forwardp
-                                     (- (offset mark2) (length string))
-                                     (+ (offset mark2) (length string))))
-             (push (make-instance 'isearch-state
-                                  :search-string string
-                                  :search-mark mark
-                                  :search-forward-p forwardp)
-                   (isearch-states pane)))
-            (t
-             (beep))))))
+      (when success
+        (setf (offset point) (offset mark2)
+              (offset mark) (if forwardp
+                                (- (offset mark2) (length string))
+                                (+ (offset mark2) (length string)))))
+      (push (make-instance 'isearch-state
+                           :search-string string
+                           :search-mark mark
+                           :search-forward-p forwardp
+                           :search-success-p success)
+            (isearch-states pane))
+      (unless success
+        (beep)))))
 
 (define-named-command com-isearch-mode-forward ()
   (isearch-command-loop (current-window) t))
@@ -1084,6 +1086,9 @@ as two values"
            (beep))
           (t
            (pop (isearch-states pane))
+           (loop until (endp (rest (isearch-states pane)))
+                 until (search-success-p (first (isearch-states pane)))
+                 do (pop (isearch-states pane)))
            (let ((state (first (isearch-states pane))))
              (setf (offset (point pane))
                    (if (search-forward-p state)

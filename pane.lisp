@@ -142,7 +142,8 @@
 (defclass isearch-state ()
   ((search-string :initarg :search-string :accessor search-string)
    (search-mark :initarg :search-mark :accessor search-mark)
-   (search-forward-p :initarg :search-forward-p :accessor search-forward-p)))
+   (search-forward-p :initarg :search-forward-p :accessor search-forward-p)
+   (search-success-p :initarg :search-success-p :accessor search-success-p)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

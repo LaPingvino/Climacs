@@ -111,7 +111,8 @@
            #:tab-space-count
            #:indent-tabs-mode
            #:auto-fill-mode #:auto-fill-column
-           #:isearch-state #:search-string #:search-mark #:search-forward-p
+           #:isearch-state #:search-string #:search-mark
+           #:search-forward-p #:search-success-p
            #:isearch-mode #:isearch-states #:isearch-previous-string
            #:query-replace-state #:string1 #:string2
            #:query-replace-mode
