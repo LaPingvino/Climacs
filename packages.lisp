@@ -52,8 +52,7 @@
 	   #:name-mixin #:name
 	   #:buffer-lookin-at #:looking-at
 	   #:buffer-search-forward #:buffer-search-backward
-	   #:search-forward #:search-backward
-	   #:buffer-search-word-backward #:buffer-search-word-forward))
+	   #:search-forward #:search-backward))
 
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)
@@ -68,10 +67,10 @@
 	   #:url))
 
 (defpackage :climacs-kill-ring
-  (:use :clim-lisp :climacs-buffer :flexichain)
-  (:export #:initialize-kill-ring #:kr-length
-	   #:kr-resize #:kr-rotate #:kill-ring
-	   #:kr-copy #:kr-push #:kr-pop))
+  (:use :clim-lisp :flexichain)
+  (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size 
+	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
+	   #:kill-ring-standard-push    #:kill-ring-concatenating-push))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax :climacs-kill-ring))

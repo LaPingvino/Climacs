@@ -25,70 +25,112 @@
 (in-package :climacs-kill-ring)
 
 (defclass kill-ring ()
-  ((max-size :type unsigned-byte
-	     :initarg :max-size
-	     :accessor kr-max-size)
-   (flexichain :type standard-flexichain
-	       :initarg :flexichain
-	       :accessor kr-flexi))
-  (:documentation "Basic flexichain without resizing"))
+  ((max-size :type (integer 5 *) ;5 element minimum from flexichain protocol 
+	     :initarg :max-size)
+   (cursorchain :type standard-cursorchain
+		:accessor kill-ring-chain
+		:initform (make-instance 'standard-cursorchain))
+   (yankpoint   :type left-sticky-flexicursor
+	        :accessor kill-ring-cursor))
+  (:documentation "A class for all kill rings"))
 
-(defun initialize-kill-ring (size)
-  "Construct a kill ring of a given size"
-  (make-instance 'kill-ring
-		 :max-size size
-		 :flexichain (make-instance 'standard-flexichain)))
+(defmethod initialize-instance :after((kr kill-ring) &rest args)
+  "Adds in the yankpoint"
+  (declare (ignore args))
+  (with-slots (cursorchain yankpoint) kr
+     (setf yankpoint (make-instance 'left-sticky-flexicursor :chain cursorchain))))
 
+(defgeneric kill-ring-length (kr)
+  (:documentation "Returns the current length of the kill ring"))
 
-(defgeneric kr-length (kr)
-  (:documentation "Returns the length of a kill-ring's flexichain"))
+(defgeneric kill-ring-max-size (kr)
+  (:documentation "Returns the value of a kill ring's maximum size"))
 
-(defmethod kr-length ((kr kill-ring))
-  (nb-elements (kr-flexi kr)))
+(defgeneric (setf kill-ring-max-size) (kr size)
+  (:documentation "Alters the maximum size of a kill ring, even 
+if it means dropping elements to do so."))
 
-(defgeneric kr-resize (kr size)
-  (:documentation "Resize a kill ring to the value of SIZE"))
+(defgeneric reset-yank-position (kr)
+  (:documentation "Moves the current yank point back to the start of 
+                   of kill ring position"))
 
-(defmethod kr-resize ((kr kill-ring) size)
-  (setf (slot-value kr 'max-size) size)
-  (let ((len (kr-length kr)))
+(defgeneric rotate-yank-position (kr &optional times)
+  (:documentation "Moves the yank point associated with a kill-ring 
+                   one or times many positions away from the start 
+                   of ring position.  If times is greater than the 
+                   current length then the cursor will wrap to the 
+                   start of ring position and continue rotating."))
+
+(defgeneric kill-ring-standard-push (kr vector)
+  (:documentation "Pushes a vector of objects onto the kill ring creating a new
+start of ring position.  This function is much like an every-
+day lisp push with size considerations.  If the length of the
+kill ring is greater than the maximum size, then \"older\"
+elements will be removed from the ring until the maximum size
+is reached."))
+
+(defgeneric kill-ring-concatenating-push (kr vector)
+  (:documentation "Concatenates the contents of vector onto the end
+                   of the current contents of the top of the kill ring.
+                   If the kill ring is empty the a new entry is pushed."))
+
+(defgeneric kill-ring-yank (kr &optional reset)
+  (:documentation "Returns the vector of objects currently pointed to
+                   by the cursor.  If reset is T, a call to
+                   reset-yank-position is called befor the object is 
+                   yanked.  The default for reset is NIL"))
+
+(defmethod kill-ring-length ((kr kill-ring))
+  (nb-elements (kill-ring-chain kr)))
+
+(defmethod kill-ring-max-size ((kr kill-ring))
+  (with-slots (max-size) kr
+     max-size))
+
+(defmethod (setf kill-ring-max-size) ((kr kill-ring) size)
+  (unless (typep size 'integer)
+    (error "Error, ~S, is not an integer value" size))
+  (if (< size 5)
+    (set (slot-value kr 'max-size) 5)
+    (setf (slot-value kr 'max-size) size))
+  (let ((len (kill-ring-length kr)))
     (if (> len size)
 	(loop for n from 1 to (- len size)
-	      do (pop-end (kr-flexi kr))))))
+	      do (pop-end (kill-ring-chain kr))))))
 
-(defgeneric kr-push (kr object)
-  (:documentation "Push an object onto a kill ring with size considerations"))
-  
-(defmethod kr-push ((kr kill-ring) object)
-  (let ((flexi (kr-flexi kr)))
-    (if (>= (kr-length kr)(kr-max-size kr))
+(defmethod reset-yank-position ((kr kill-ring))
+  (setf (cursor-pos (kill-ring-cursor kr)) 0)
+  t) 
+
+(defmethod rotate-yank-position ((kr kill-ring) &optional (times 1))
+    (if (> (kill-ring-length kr) 0)
+	(let* ((curs (kill-ring-cursor kr))
+	       (pos (mod (+ times (cursor-pos curs))
+			 (kill-ring-length kr))))
+	  (setf (cursor-pos curs) pos))))
+
+(defmethod kill-ring-standard-push ((kr kill-ring) vector)
+  (let ((chain (kill-ring-chain kr)))
+    (if (>= (kill-ring-length kr)
+	    (kill-ring-max-size kr))
 	((lambda (flex obj)
 	   (pop-end flex)
 	   (push-start flex obj))
-	 flexi object)
-        (push-start flexi object))))
+	 chain vector)
+        (push-start chain vector)))
+  (reset-yank-position kr))
 
-(defgeneric kr-pop (kr)
-  (:documentation "Pops an object off of a kill ring"))
+(defmethod kill-ring-concatenating-push ((kr kill-ring) vector)
+  (let ((chain (kill-ring-chain kr)))
+    (if (zerop (kill-ring-length kr))
+	(push-start chain vector)
+        (push-start chain 
+		    (concatenate 'vector 
+				 (pop-start chain) 
+				 vector))))
+  (reset-yank-position kr))
 
-(defmethod kr-pop ((kr kill-ring))
-  (if (> (nb-elements (kr-flexi kr)) 0)
-      (pop-start (kr-flexi kr))
-      nil))
-
-(defgeneric kr-rotate (kr &optional n)
-  (:documentation "Rotates the kill ring either once forward or an optional amound +/-"))
-
-(defmethod kr-rotate ((kr kill-ring) &optional (n -1))
-  (assert (typep n 'fixnum)(n) "Can not rotate the kill ring ~S positions" n)
-  (let ((flexi (kr-flexi kr)))
-    (rotate flexi n)))
-
-(defgeneric kr-copy (kr)
-  (:documentation "Copies out a member of a kill ring without deleting it"))
-
-(defmethod kr-copy ((kr kill-ring))
-  (let ((object (kr-pop kr)))
-    (kr-push kr object)
-    object))
+(defmethod kill-ring-yank ((kr kill-ring) &optional (reset NIL))
+  (if reset (reset-yank-position kr))
+  (element> (kill-ring-cursor kr)))
 

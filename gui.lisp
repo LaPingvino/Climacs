@@ -128,7 +128,7 @@
 	       (setf table (command-menu-item-value item)))
 	finally (return item)))
 
-(defvar *kill-ring* (initialize-kill-ring 7))
+(defvar *kill-ring* (make-instance 'kill-ring :max-size 7))
 (defparameter *current-gesture* nil)
 
 (defun meta-digit (gesture)
@@ -347,7 +347,22 @@
   (open-line (point (win *application-frame*))))
 
 (define-named-command com-kill-line ()
-  (kill-line (point (win *application-frame*))))
+  (let* ((payne (win *application-frame*))
+	 (pnt (point payne)))
+    (if (and (beginning-of-buffer-p pnt)
+	     (end-of-line-p pnt))
+	NIL
+        (let ((mrk (offset pnt)))
+	  (end-of-line pnt)
+	  (if (end-of-buffer-p pnt)
+	      nil
+	     (forward-object pnt))
+	  (if (eq (previous-command payne) 'com-kill-line)
+	      (kill-ring-concatenating-push *kill-ring*
+					    (region-to-sequence mrk pnt))
+	      (kill-ring-standard-push *kill-ring*
+				       (region-to-sequence mrk pnt)))
+	  (delete-region mrk pnt)))))
 
 (define-named-command com-forward-word ()
   (forward-word (point (win *application-frame*))))
@@ -552,25 +567,23 @@
 ;; Kill ring commands
 
 ;; Copies an element from a kill-ring to a buffer at the given offset
-(define-named-command com-copy-in ()
-  (insert-sequence (point (win *application-frame*)) (kr-copy *kill-ring*)))
-
-;; Cuts an element from a kill-ring out to a buffer at a given offset
-(define-named-command com-cut-in ()
-  (insert-sequence (point (win *application-frame*)) (kr-pop *kill-ring*)))
+(define-named-command com-yank ()
+  (insert-sequence (point (win *application-frame*)) (kill-ring-yank *kill-ring*)))
 
 ;; Destructively cut a given buffer region into the kill-ring
 (define-named-command com-cut-out ()
   (with-slots (buffer point mark)(win *application-frame*)
-     (if (< (offset point) (offset mark))
-	 ((lambda (b o1 o2)
-	    (kr-push *kill-ring* (buffer-sequence b o1 o2))
-	    (delete-buffer-range b o1 (- o2 o1))) 
-	  buffer (offset point) (offset mark))
-         ((lambda (b o1 o2)
-	    (kr-push *kill-ring* (buffer-sequence b o2 o1))
-	    (delete-buffer-range b o1 (- o2 o1)))
-	  buffer (offset mark) (offset point)))))
+     (let ((offp (offset point))
+	   (offm (offset mark)))
+       (if (< offp offm)
+	   ((lambda (b o1 o2)
+	      (kill-ring-standard-push *kill-ring* (buffer-sequence b o1 o2))
+	      (delete-buffer-range b o1 (- o2 o1)))
+	    buffer offp offm)
+           ((lambda (b o1 o2)
+	      (kill-ring-standard-push *kill-ring* (buffer-sequence b o2 o1))
+	      (delete-buffer-range b o1 (- o2 o1)))
+	    buffer offm offp)))))
 	     
 
 ;; Non destructively copies in buffer region to the kill ring
@@ -579,17 +592,25 @@
      (let ((off1 (offset point))
 	   (off2 (offset mark)))
        (if (< off1 off2)
-	   (kr-push *kill-ring* (buffer-sequence buffer off1 off2))
-	   (kr-push *kill-ring* (buffer-sequence buffer off2 off1))))))
+	   (kill-ring-standard-push *kill-ring* (buffer-sequence buffer off1 off2))
+	   (kill-ring-standard-push *kill-ring* (buffer-sequence buffer off2 off1))))))
 
-;; Needs adjustment to be like emacs M-y
-(define-named-command com-kr-rotate ()
-  (kr-rotate *kill-ring* -1))     
 
-;; Not bound to a key yet
-(define-named-command com-kr-resize ()
+(define-named-command com-rotate-yank ()
+  (let* ((payne (win *application-frame*))
+	 (pnt (point payne))
+	 (last-yank (kill-ring-yank *kill-ring*)))
+    (if (eq (previous-command payne)
+	    'com-rotate-yank)
+	((lambda (p ly)
+	   (delete-range p (* -1 (length ly)))
+	   (rotate-yank-position *kill-ring*))
+	 pnt last-yank))
+    (insert-sequence pnt (kill-ring-yank *kill-ring*))))
+
+(define-named-command com-resize-kill-ring ()
   (let ((size (accept 'integer :prompt "New kill ring size")))
-    (kr-resize *kill-ring* size)))
+    (setf (kill-ring-max-size *kill-ring*) size)))
 
 (define-named-command com-search-forward ()
   (search-forward (point (win *application-frame*))
@@ -666,13 +687,13 @@
 (global-set-key '(#\k :control) 'com-kill-line)
 (global-set-key '(#\t :control) 'com-transpose-objects)
 (global-set-key '(#\Space :control) 'com-set-mark)
-(global-set-key '(#\y :control) 'com-copy-in)
+(global-set-key '(#\y :control) 'com-yank)
 (global-set-key '(#\w :control) 'com-cut-out)
 (global-set-key '(#\f :meta) 'com-forward-word)
 (global-set-key '(#\b :meta) 'com-backward-word)
 (global-set-key '(#\t :meta) 'com-transpose-words)
 (global-set-key '(#\x :meta) 'com-extended-command)
-(global-set-key '(#\y :meta) 'com-kr-rotate) ;currently rotates only
+(global-set-key '(#\y :meta) 'com-rotate-yank) 
 (global-set-key '(#\w :meta) 'com-copy-out)
 (global-set-key '(#\v :control) 'com-page-down)
 (global-set-key '(#\v :meta) 'com-page-up)
