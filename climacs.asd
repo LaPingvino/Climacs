@@ -42,7 +42,7 @@
 						     :defaults *climacs-directory*))
 			     collect `(:file ,(pathname-name p) :pathname ,p))))))
 
-(climacs-defsystem (:climacs)
+(climacs-defsystem (:climacs :depends-on (:clim-clx))
    "Flexichain/skiplist-package"
    "Flexichain/skiplist"
    "Flexichain/flexichain-package"
