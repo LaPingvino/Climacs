@@ -66,11 +66,11 @@
 		 'string)
 	     :stream pane)))
 
-(defmacro maybe-updating-output (stuff &body body)
-  `(progn ,@body))
+;;(defmacro maybe-updating-output (stuff &body body)
+;;  `(progn ,@body))
 
-;; (defmacro maybe-updating-output (stuff &body body)
-;;   `(updating-output ,stuff ,@body))
+ (defmacro maybe-updating-output (stuff &body body)
+   `(updating-output ,stuff ,@body))
 
 (defmethod display-line (pane (syntax basic-syntax))
   (with-slots (saved-offset bot scan cursor-x cursor-y space-width tab-width) syntax
@@ -81,12 +81,18 @@
        (macrolet ((output-word (&body body)
 		    `(let ((contents (compute-contents)))
 		       (if (null contents)
-			   (progn ,@body)
+			   ,(if body
+				`(maybe-updating-output (pane :unique-id (incf id))
+				  ,@body)
+				`(progn))
+			   (progn
 			   (maybe-updating-output (pane :unique-id (incf id)
 							:cache-value contents
 							:cache-test #'string=)
-			     (present-contents contents pane syntax)
-			     ,@body)))))
+						    (present-contents contents pane syntax))
+			     ,(when body
+				    `(maybe-updating-output (pane :unique-id (incf id))
+				      ,@body)))))))
 	 (loop with id = 0
 	       when (mark= scan (point pane))
 		 do (multiple-value-bind (x y) (stream-cursor-position pane)
