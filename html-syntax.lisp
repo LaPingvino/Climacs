@@ -223,7 +223,7 @@
 (defmethod update-syntax-for-display (buffer (syntax html-syntax) top bot)
   (with-slots (parser tokens valid-parse) syntax
      (loop until (= valid-parse (nb-elements tokens))
-	   while (mark< (end-offset (element* tokens valid-parse)) bot)
+	   while (mark<= (end-offset (element* tokens valid-parse)) bot)
 	   do (let ((current-token (element* tokens (1- valid-parse)))
 		    (next-token (element* tokens valid-parse)))
 		(setf (slot-value next-token 'state)

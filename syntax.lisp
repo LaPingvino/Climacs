@@ -143,6 +143,7 @@ the mark, according to the specified syntax."))
 
 (defclass incomplete-item (rule-item)
   ((orig-state :initarg :orig-state :reader orig-state)
+   (predicted-from :initarg :predicted-from :reader predicted-from)
    (rule :initarg :rule :reader rule)
    (dot-position :initarg :dot-position :reader dot-position)
    (parse-trees :initarg :parse-trees :reader parse-trees)
@@ -172,6 +173,7 @@ the mark, according to the specified syntax."))
 	  ((functionp remaining)
 	   (make-instance 'incomplete-item
 	      :orig-state (orig-state prev-item)
+	      :predicted-from (predicted-from prev-item)
 	      :rule (rule prev-item)
 	      :dot-position (1+ (dot-position prev-item))
 	      :parse-trees (cons parse-tree (parse-trees prev-item))
@@ -205,7 +207,8 @@ the mark, according to the specified syntax."))
    (incomplete-items :initform (make-hash-table :test #'eq)
 		     :reader incomplete-items)
    (parse-trees :initform (make-hash-table :test #'eq)
-		:reader parse-trees)))
+		:reader parse-trees)
+   (last-nonempty-state :initarg :last-nonempty-state :accessor last-nonempty-state)))
 
 (defun map-over-incomplete-items (state fun)
   (maphash (lambda (key incomplete-items)
@@ -251,6 +254,7 @@ the mark, according to the specified syntax."))
 		    (handle-item (if (functionp (right-hand-side rule))
 				     (make-instance 'incomplete-item
 					:orig-state to-state
+					:predicted-from item
 					:rule rule
 					:dot-position 0
 					:parse-trees '()
@@ -269,6 +273,7 @@ the mark, according to the specified syntax."))
   (declare (ignore args))
   (with-slots (grammar initial-state) parser
      (setf initial-state (make-instance 'parser-state :parser parser))
+     (setf (last-nonempty-state initial-state) initial-state)
      (loop for rule in (rules grammar)
 	   do (when (let ((sym (left-hand-side rule)))
 		      (or (subtypep (target parser) sym)
@@ -276,6 +281,7 @@ the mark, according to the specified syntax."))
 		(handle-item (if (functionp (right-hand-side rule))
 				 (make-instance 'incomplete-item
 				    :orig-state initial-state
+				    :predicted-from nil
 				    :rule rule
 				    :dot-position 0
 				    :parse-trees '()
@@ -284,45 +290,39 @@ the mark, according to the specified syntax."))
 				    :parse-tree (right-hand-side rule)))
 			     initial-state initial-state)))))
 
+(defun state-contains-target-p (state)
+  (loop with target = (target (parser state))
+	for parse-tree in (gethash (initial-state (parser state))
+				   (parse-trees state))
+	when (typep parse-tree target)
+	  do (return parse-tree)))
+
 (defun advance-parse (parser tokens state)
   (let ((new-state (make-instance 'parser-state :parser parser)))
     (loop for token in tokens 
 	  do (potentially-handle-parse-tree token state new-state))
+    (setf (last-nonempty-state new-state)
+	  (if (or (plusp (hash-table-count (incomplete-items new-state)))
+		  (state-contains-target-p new-state))
+	      new-state
+	      (last-nonempty-state state)))
     new-state))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Code for analysing parse stack
 
-(defun parse-stack-top (state)
-  "given a parse state, return a list of all incomplete items that did
-not originate in that state, or if no such items exist, a list of all
-parse trees of state that originated in the initial state."
-  (let ((items '()))
-    (map-over-incomplete-items
-     state
-     (lambda (key item)
-       (unless (eq key state)
-	 (push item items))))
-    (unless items
-      (loop with target = (target (parser state))
-	    for parse-tree in (gethash (initial-state (parser state))
-				       (parse-trees state))
-	    when (subtypep parse-tree target)
-	      do (push parse-tree items)))
-    items))	    
-
-(defun parse-stack-next (incomplete-item)
-  "given an incomplete item, return a list of all incomplete items it
-could have been predicted from."
-  (let ((items '())
-	(orig-state (orig-state incomplete-item))
-	(sym1 (left-hand-side (rule incomplete-item))))
-    (map-over-incomplete-items
-     orig-state
-     (lambda (key item)
-       (unless (eq key orig-state)
-	 (when (let ((sym2 (aref (symbols (rule item)) (dot-position item))))
-		 (or (subtypep sym1 sym2) (subtypep sym2 sym1)))
-	   (push item items)))))
-    items))
+(defun map-over-parse-trees (function state)
+  (labels ((map-incomplete-item (item)
+	     (unless (null (predicted-from item))
+	       (map-incomplete-item (predicted-from item)))
+	     (loop for parse-tree in (reverse (parse-trees item))
+		   do (funcall function parse-tree))))
+    (let ((state (last-nonempty-state state)))
+      (if (plusp (hash-table-count (incomplete-items state)))
+	  (maphash (lambda (state items)
+		     (declare (ignore state))
+		     (map-incomplete-item (car items))
+		     (return-from map-over-parse-trees nil))
+		   (incomplete-items state))
+	  (funcall function (state-contains-target-p state))))))
