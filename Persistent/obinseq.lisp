@@ -60,6 +60,32 @@
 	       (t (%to-list (cadr s) (%to-list (cddr s) l))))))
     (%to-list s nil)))
 
+(defun vector-obinseq (v &optional (start 0) (end (length v)))
+  (cond
+    ((= start end) nil)
+    ((= (- end start) 1)
+     (let ((e (aref v start)))
+       (assert (and e (atom e)) nil
+	       "Sequence element must be a non-nil atom: ~S" e)
+       e))
+    (t (let* ((len (- end start))
+	      (mid (+ start (floor len 2))))
+	 `(,len . (,(vector-obinseq v start mid) .
+		    ,(vector-obinseq v mid end)))))))
+
+(defun obinseq-vector (s)
+  (let ((v (make-array (obinseq-length s))))
+    (labels ((%set-v (s o)
+	       (cond
+		 ((null s))
+		 ((atom s) (setf (aref v o) s))
+		 (t (let ((a (cadr s))
+			  (b (cddr s)))
+		      (%set-v a o)
+		      (%set-v b (+ o (obinseq-length a))))))))
+      (%set-v s 0)
+      v)))
+
 (defun obinseq-empty (s)
   (null s))
 

@@ -55,6 +55,28 @@
 	       (t (%to-list (caddr s) (%to-list (cdddr s) l))))))
     (%to-list s nil)))
 
+(defun vector-binseq (v &optional (start 0) (end (length v)))
+  (cond
+    ((= start end) 'empty)
+    ((= (- end start) 1) `(leaf . ,(aref v start)))
+    (t (let* ((len (- end start))
+	      (mid (+ start (floor len 2))))
+	 `(node . (,len . (,(vector-binseq v start mid) .
+			    ,(vector-binseq v mid end))))))))
+
+(defun binseq-vector (s)
+  (let ((v (make-array (binseq-length s))))
+    (labels ((%set-v (s o)
+	       (cond
+		 ((eq s 'empty))
+		 ((eq (car s) 'leaf) (setf (aref v o) (cdr s)))
+		 (t (let ((a (caddr s))
+			  (b (cdddr s)))
+		      (%set-v a o)
+		      (%set-v b (+ o (binseq-length a))))))))
+      (%set-v s 0)
+      v)))
+
 (defun binseq-empty (s)
   (eq s 'empty))
 

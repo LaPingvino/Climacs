@@ -24,6 +24,8 @@
    #:binseq-p
    #:list-binseq
    #:binseq-list
+   #:vector-binseq
+   #:binseq-vector
    #:binseq-empty
    #:binseq-length
    #:binseq-front
@@ -42,6 +44,8 @@
    #:obinseq-p
    #:list-obinseq
    #:obinseq-list
+   #:vector-obinseq
+   #:obinseq-vector
    #:obinseq-empty
    #:obinseq-length
    #:obinseq-front
