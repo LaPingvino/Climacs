@@ -112,6 +112,8 @@
 (defclass word (html-element) ())
 (defclass delimiter (html-element) ())
 
+(defclass html-lexer (incremental-lexer) ())     
+
 (defmethod next-lexeme ((lexer html-lexer) scan)
   (flet ((fo () (forward-object scan)))
     (let ((object (object-after scan)))
@@ -126,8 +128,6 @@
 		  (make-instance 'word))
 		 (t
 		  (fo) (make-instance 'delimiter))))))))
-
-(defclass html-lexer (incremental-lexer) ())     
 
 (define-syntax html-syntax ("HTML" (basic-syntax))
   ((lexer :reader lexer)

@@ -456,3 +456,10 @@ internal state of the parser.  Do not alter it!"
 		     (return-from map-over-parse-trees nil))
 		   (incomplete-items state))
 	  (funcall function (state-contains-target-p state))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Display
+
+(defgeneric redisplay-pane-with-syntax (pane syntax current-p))
+
