@@ -37,11 +37,11 @@
 (deftest standard-buffer-clone-mark.test-1
   (flet ((%all-eq (&optional x y)
 	   (cond
-	     ((or (null x) (null y) t))
+	     ((null x) nil)
 	     (t (when (eq x y) y))))
 	 (%all-= (&optional x y)
 	   (cond
-	     ((or (null x) (null y) t))
+	     ((null x) nil)
 	     (t (when (= x y) y)))))
     (let* ((buffer (make-instance 'standard-buffer))
 	   (low (slot-value buffer 'low-mark))
@@ -50,13 +50,12 @@
 	   (high2 (clone-mark high))
 	   (low3 (clone-mark high 'standard-left-sticky-mark))
 	   (high3 (clone-mark low 'standard-right-sticky-mark)))
-      (and (every #'%all-eq
+      (and (reduce #'%all-eq
 		  (list (class-of low) (class-of low2) (class-of low3)))
-	   (every #'%all-eq
+	   (reduce #'%all-eq
 		  (list (class-of high) (class-of high2) (class-of high3)))
-	   (every #'%all-=
-		  (list (offset low) (offset low2) (offset low3)
-			(offset high) (offset high2) (offset high3) 0)))))
+	   (= (offset low) (offset low2) (offset low3)
+	      (offset high) (offset high2) (offset high3) 0))))
   t)
 
 ;;; NOTE: the current implementation uses vectors wherever sequences are
