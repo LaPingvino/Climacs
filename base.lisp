@@ -28,29 +28,31 @@
 
 (in-package :climacs-base)
 
-(defun previous-line (mark)
+(defun previous-line (mark &optional column)
   "Move a mark up one line conserving horizontal position."
-  (let ((column (column-number mark)))
-    (beginning-of-line mark)
-    (if (beginning-of-buffer-p mark)
-	(incf (offset mark) column)
-	(progn (decf (offset mark))
-	       (when (> (column-number mark) column)
-		 (beginning-of-line mark)
-		 (incf (offset mark) column))))))
+  (unless column
+    (setf column (column-number mark)))
+  (beginning-of-line mark)
+  (if (beginning-of-buffer-p mark)
+      (incf (offset mark) column)
+      (progn (decf (offset mark))
+	     (when (> (column-number mark) column)
+	       (beginning-of-line mark)
+	       (incf (offset mark) column)))))
 
-(defun next-line (mark)
+(defun next-line (mark &optional column)
   "Move a mark down one line conserving horizontal position."
-  (let ((column (column-number mark)))
-    (end-of-line mark)
-    (if (end-of-buffer-p mark)
-	(progn (beginning-of-line mark)
-	       (incf (offset mark) column))
-	(progn (incf (offset mark))
-	       (end-of-line mark)
-	       (when (> (column-number mark) column)
-		 (beginning-of-line mark)
-		 (incf (offset mark) column))))))
+  (unless column
+    (setf column (column-number mark)))
+  (end-of-line mark)
+  (if (end-of-buffer-p mark)
+      (progn (beginning-of-line mark)
+	     (incf (offset mark) column))
+      (progn (incf (offset mark))
+	     (end-of-line mark)
+	     (when (> (column-number mark) column)
+	       (beginning-of-line mark)
+	       (incf (offset mark) column)))))
 
 (defun open-line (mark)
   "Create a new line in a buffer."
