@@ -976,8 +976,7 @@ as two values"
   (unless (null (cdr (windows *application-frame*)))
     (let* ((saver (parent3 (current-window)))
 	    (top-level (do 
-			   ((a 1 (1+ a))
-			    (n saver (setf n (sheet-parent n))))
+			   ((n saver (setf n (sheet-parent n))))
 			   ((clim-internals::top-level-sheet-pane-p n) n)))
 	    (level1 (car (sheet-children top-level)))          ;; should be the only thing on level1
 	    (level2 (if (typep (car (sheet-children level1)) 'vrack-pane) ;;don't select raised pane
