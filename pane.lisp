@@ -58,8 +58,7 @@
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :initarg :syntax :initform (make-instance 'basic-syntax) :accessor syntax)
    (indent-tabs-mode :initarg indent-tabs-mode :initform t
-                     :accessor indent-tabs-mode)
-   (auto-fill-column :initform 70 :accessor auto-fill-column))
+                     :accessor indent-tabs-mode))
   (:default-initargs :name "*scratch*"))
 
 
@@ -75,6 +74,7 @@
    (space-width :initform nil)
    (tab-width :initform nil)
    (auto-fill-mode :initform t :accessor auto-fill-mode)
+   (auto-fill-column :initform 70 :accessor auto-fill-column)
    (full-redisplay-p :initform nil :accessor full-redisplay-p)
    (cache :initform (let ((cache (make-instance 'standard-flexichain)))
 		      (insert* cache 0 nil)
