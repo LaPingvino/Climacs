@@ -88,12 +88,12 @@ the size of the buffer."))
 
 (defgeneric backward-object (mark &optional count))
 
-(defmethod backward-object ((mark mark) &optional (count 1))
+(defmethod backward-object ((mark mark-mixin) &optional (count 1))
   (decf (offset mark) count))
 
 (defgeneric forward-object (mark &optional count))
 
-(defmethod forward-object ((mark mark) &optional (count 1))
+(defmethod forward-object ((mark mark-mixin) &optional (count 1))
   (incf (offset mark) count))
 
 (defclass standard-left-sticky-mark (left-sticky-mark mark-mixin) ()
@@ -297,7 +297,7 @@ end of the buffer), nil otherwise."))
 either immediately before the closest following newline character, or
 at the end of the buffer if no following newline character exists."))
 
-(defmethod end-of-line ((mark mark-mixin)) ;PB
+(defmethod end-of-line ((mark mark-mixin))
   (let* ((offset (offset mark))
 	 (buffer (buffer mark))
 	 (chain (slot-value buffer 'contents))

@@ -473,6 +473,29 @@ climacs
       (= (climacs-buffer::condition-offset c) 8)))
   t)
 
+(deftest binseq-buffer-setf-buffer-object.test-1
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (setf (buffer-object buffer 0) #\C)
+    (buffer-sequence buffer 0 (size buffer)))
+  "Climacs")
+
+(deftest binseq-buffer-setf-buffer-object.test-2
+  (handler-case
+      (let ((buffer (make-instance 'binseq-buffer)))
+	(setf (buffer-object buffer 0) #\a))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) 0)))
+  t)
+
+(deftest binseq-buffer-setf-buffer-object.test-3
+  (handler-case
+      (let ((buffer (make-instance 'binseq-buffer)))
+	(setf (buffer-object buffer -1) #\a))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) -1)))
+  t)
+
 (deftest binseq-buffer-mark<.test-1
   (handler-case
       (let ((buffer (make-instance 'binseq-buffer))
@@ -1216,6 +1239,29 @@ climacs
 	  (setf (offset m) 8)))
     (climacs-buffer::no-such-offset (c)
       (= (climacs-buffer::condition-offset c) 8)))
+  t)
+
+(deftest obinseq-buffer-setf-buffer-object.test-1
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (setf (buffer-object buffer 0) #\C)
+    (buffer-sequence buffer 0 (size buffer)))
+  "Climacs")
+
+(deftest obinseq-buffer-setf-buffer-object.test-2
+  (handler-case
+      (let ((buffer (make-instance 'obinseq-buffer)))
+	(setf (buffer-object buffer 0) #\a))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) 0)))
+  t)
+
+(deftest obinseq-buffer-setf-buffer-object.test-3
+  (handler-case
+      (let ((buffer (make-instance 'obinseq-buffer)))
+	(setf (buffer-object buffer -1) #\a))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) -1)))
   t)
 
 (deftest obinseq-buffer-mark<.test-1

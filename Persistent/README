@@ -8,21 +8,6 @@ of climacs-buffer class in pane.lisp (marked by a "PB" comment). At
 all other places marked with "PB" comments, substitute "standard" for
 "persistent" in order to use the corresponding mark classes.
 
-Also, end-of-line method in buffer.lisp has to be fixed and look like:
-
-(defmethod end-of-line ((mark mark-mixin))
-  (let* ((offset (offset mark))
-	 (buffer (buffer mark))
-	 (size (size buffer)))
-    (loop until (or (= offset size)
-		    (eql (buffer-object buffer offset) #\Newline))
-	  do (incf offset))
-    (setf (offset mark) offset)))
-
-(It is currently "broken" for performance reasons.) Until then,
-(o)binseq-end-of-line, (o)binseq-next-line and (o)binseq-kill-line
-tests will fail (20 of them).
-
 NOTE: There is a dependency of Persistent/persistent-buffer.lisp on
 Flexichain/utilities.lisp (the weak pointer handling).
 
