@@ -265,10 +265,19 @@
     (with-slots (top bot scan cache cursor-x cursor-y) syntax
        (position-window pane syntax)
        (compute-cache pane syntax)
-       (setf scan (offset top))
-       (loop for id from 0 below (nb-elements cache)
-	     do (updating-output (pane :unique-id id)
-		  (display-line pane syntax (element* cache id))))
+       (loop with start-offset = (offset top)
+	     for id from 0 below (nb-elements cache)
+	     do (setf scan start-offset)
+		(updating-output
+		    (pane :unique-id id
+			  :cache-value (if (<= start-offset
+					       (offset (point pane))
+					       (+ start-offset (length (element* cache id))))
+					   (cons nil nil)
+					   (element* cache id))
+			  :cache-test #'eq)
+		  (display-line pane syntax (element* cache id)))
+		(incf start-offset (1+ (length (element* cache id)))))
        (when (mark= scan (point pane))
 	 (multiple-value-bind (x y) (stream-cursor-position pane)
 	   (setf cursor-x x
