@@ -452,11 +452,13 @@
   (([ :initarg :[ :accessor [)
    (] :initarg :] :accessor ])))
 (defmethod canonical-name ((thing empty-list))
+  ;; FIXME: this clashes with the canonical name for the atom '[]'
   "[]")
 (defclass curly-brackets (prolog-nonterminal)
   (({ :initarg :{ :accessor {)
    (} :initarg :} :accessor })))
 (defmethod canonical-name ((thing curly-brackets))
+  ;; FIXME: see comment in CANONICAL-NAME (EMPTY-LIST)
   "{}")
 (defmethod display-parse-tree ((entity atom) (syntax prolog-syntax) pane)
   (display-parse-tree (value entity) syntax pane))
@@ -857,8 +859,6 @@
 	;; incremental redisplay will Do The Right Thing (on the EQ
 	;; lexemes)
         (loop do (skip-inter-lexeme-objects lexer scan)
-	      ;; FIXME: are we allowed to mix DO and UNTIL like this?
-	      ;; I doubt it.
               until (end-of-buffer-p scan)
 	      until (mark<= bot (start-offset (lexeme lexer (1- valid-lex))))
 	      ;; FIXME: a further criterion is when scan matches the
