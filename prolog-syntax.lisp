@@ -58,9 +58,6 @@
 (defclass prolog-token (prolog-parse-tree)
   ((ink) (face)))
 
-(defclass prolog-operator (prolog-token)
-  ())
-
 ;;; lexer
 
 (defclass prolog-lexeme (prolog-token)
@@ -78,11 +75,11 @@
    (cont :initarg :cont :accessor cont)))
 (defmethod display-parse-tree
     ((entity layout-text) (syntax prolog-syntax) pane)
+  (when (cont entity)
+    (display-parse-tree (cont entity) syntax pane))
   (when (comment entity)
     (with-drawing-options (pane :ink (make-rgb-color 0.7 0.0 0.0))
-      (display-parse-tree (comment entity) syntax pane)))
-  (when (cont entity)
-    (display-parse-tree (cont entity) syntax pane)))
+      (display-parse-tree (comment entity) syntax pane))))
 
 (defgeneric syntactic-lexeme (thing))
 (defmethod syntactic-lexeme ((lexeme prolog-lexeme))
@@ -142,7 +139,7 @@
   (make-instance 'open-ct :syntactic-lexeme open-ct-lexeme))
 
 ;;; 6.4.1
-(define-prolog-rule (layout-text -> (comment-lexeme layout-text))
+(define-prolog-rule (layout-text -> (layout-text comment-lexeme))
   (make-instance 'layout-text :comment comment-lexeme :cont layout-text))
 (define-prolog-rule (layout-text -> ())
   (make-instance 'layout-text :cont nil))
@@ -301,13 +298,13 @@
   nil)
 (defmethod display-parse-tree
     ((entity clause-prolog-text) (syntax prolog-syntax) pane)
-  (display-parse-tree (clause entity) syntax pane)
-  (display-parse-tree (text-rest entity) syntax pane))
+  (display-parse-tree (text-rest entity) syntax pane)
+  (display-parse-tree (clause entity) syntax pane))
 (defmethod display-parse-tree
     ((entity directive-prolog-text) (syntax prolog-syntax) pane)
+  (display-parse-tree (text-rest entity) syntax pane)
   (with-text-face (pane :italic)
-    (display-parse-tree (directive entity) syntax pane))
-  (display-parse-tree (text-rest entity) syntax pane))
+    (display-parse-tree (directive entity) syntax pane)))
 
 (defclass directive (prolog-nonterminal)
   ((directive-term :initarg :directive-term :accessor directive-term)
@@ -581,10 +578,10 @@
   (display-parse-tree (tlist entity) syntax pane))
 
 ;;; 6.2.1
-(define-prolog-rule (prolog-text -> (directive prolog-text))
+(define-prolog-rule (prolog-text -> (prolog-text directive))
   (make-instance 'directive-prolog-text :directive directive
                  :text-rest prolog-text))
-(define-prolog-rule (prolog-text -> (clause prolog-text))
+(define-prolog-rule (prolog-text -> (prolog-text clause))
   (make-instance 'clause-prolog-text :clause clause :text-rest prolog-text))
 (define-prolog-rule (prolog-text -> ())
   (make-instance 'empty-prolog-text))
@@ -860,10 +857,10 @@
 	      do (skip-inter-lexeme-objects lexer scan)
               until (end-of-buffer-p scan)
 	      until (mark<= bot (start-offset (lexeme lexer (1- valid-lex))))
-	      do (when (mark>= scan high-mark)
+	      do (when (mark> scan high-mark)
 		   (do ()
 		       ((= (nb-lexemes lexer) valid-lex))
-		     (let ((l (lexeme lexer i)))
+		     (let ((l (lexeme lexer valid-lex)))
 		       (cond
 			 ((mark< scan (start-offset l))
 			  (return nil))
@@ -985,7 +982,7 @@
 				     (+ (start-offset entity) nl 1))
 		  (setf start (+ nl 1)))))))))))
 
-(defmethod display-parse-tree :before ((entity prolog-lexeme) (syntax prolog-syntax) pane)
+(defmethod display-parse-tree :before ((entity prolog-token) (syntax prolog-syntax) pane)
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
   (setf *white-space-start* (end-offset entity)))
 
