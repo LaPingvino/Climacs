@@ -58,8 +58,8 @@
    "syntax"
    "text-syntax"
    "kill-ring"
-   "pane"
    "undo"
+   "pane"
    "gui"
    ;;---- optional ----
    "testing/rt"
