@@ -113,10 +113,9 @@ is reached."))
   (let ((chain (kill-ring-chain kr)))
     (if (>= (kill-ring-length kr)
 	    (kill-ring-max-size kr))
-	((lambda (flex obj)
-	   (pop-end flex)
-	   (push-start flex obj))
-	 chain vector)
+	(progn
+	  (pop-end chain)
+	  (push-start chain vector))
         (push-start chain vector)))
   (reset-yank-position kr))
 
@@ -133,4 +132,3 @@ is reached."))
 (defmethod kill-ring-yank ((kr kill-ring) &optional (reset NIL))
   (if reset (reset-yank-position kr))
   (element> (kill-ring-cursor kr)))
-
