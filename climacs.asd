@@ -60,8 +60,8 @@
    "kill-ring"
    "undo"
    "delegating-buffer"
-   "pane"
    "Persistent/persistent-undo"
+   "pane"
    "html-syntax"
    "gui"
    ;;---- optional ----
