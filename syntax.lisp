@@ -27,6 +27,8 @@
 
 (defgeneric update-syntax (buffer syntax))
 
+(defgeneric update-syntax-for-display (buffer syntax from to))
+
 (defgeneric syntax-line-indentation (mark tab-width syntax)
   (:documentation "Return the correct indentation for the line containing
 the mark, according to the specified syntax."))
@@ -66,6 +68,10 @@ the mark, according to the specified syntax."))
 
 (defmethod update-syntax (buffer (syntax basic-syntax))
   (declare (ignore buffer))
+  nil)
+
+(defmethod update-syntax-for-display (buffer (syntax basic-syntax) from to)
+  (declare (ignore buffer from to))
   nil)
 
 (defmethod syntax-line-indentation (mark tab-width (syntax basic-syntax))

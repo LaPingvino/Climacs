@@ -181,6 +181,8 @@
 		 (return-from find-bad-parse-tree parse-tree))))
 	   (parse-trees state)))
 
+(defgeneric empty-state-p (state))
+
 (defmethod empty-state-p (state)
   (maphash (lambda (key val)
 	     (declare (ignore key))

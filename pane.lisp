@@ -464,6 +464,7 @@
 	     (setf (full-redisplay-p pane) nil))
       (adjust-cache pane))
   (fill-cache pane)
+  (update-syntax-for-display (buffer pane) (syntax (buffer pane)) (top pane) (bot pane))
   (display-cache pane (if current-p +red+ +blue+)))
 
 (defgeneric full-redisplay (pane))

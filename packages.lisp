@@ -84,7 +84,7 @@
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
   (:export #:syntax #:define-syntax
 	   #:basic-syntax
-	   #:update-syntax
+	   #:update-syntax #:update-syntax-for-display
            #:syntax-line-indentation
 	   #:beginning-of-paragraph #:end-of-paragraph
 	   #:forward-to-error #:backward-to-error))
