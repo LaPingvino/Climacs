@@ -703,6 +703,19 @@ climacs")
 	   (progn (end-of-line m) (end-of-line-p m)))))
   t)
 
+(defmultitest end-of-line.test-2
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs
+")
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 1)
+      (and (not (end-of-line-p m))
+	   (progn (end-of-line m)
+		  (values
+		   (= (offset m) 7)
+		   (buffer-object (buffer m) (offset m)))))))
+  t #\Newline)
+
 (defmultitest beginning-of-buffer.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs

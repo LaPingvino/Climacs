@@ -65,7 +65,7 @@
       for e in l
       do
 	(push e curr)
-	(when (eq e #\Newline)
+	(when (eql e #\Newline)
 	  (push (list-obinseq (nreverse curr)) ll)
 	  (setf curr nil))
       finally
@@ -136,7 +136,7 @@
   "If the last line of A does not end with a newline, remove the first
 line of B and append it to the last line of A; otherwise, do nothing."
   (let ((a-last-line (cdr (binseq2-back a 1))))
-    (if (eq (obinseq-back a-last-line 1) #\Newline)
+    (if (eql (obinseq-back a-last-line 1) #\Newline)
 	(values a b)
 	(values
 	 (binseq2-set a (1- (binseq2-length a))
@@ -227,11 +227,11 @@ line of B and append it to the last line of A; otherwise, do nothing."
 (defun binseq2-offset (s i)
   (labels ((%offset (s i o)
 	     (cond
-	       ((or (<= i 0) (eq s 'empty) (eq (car s) 'leaf)) o)
-	       ((<= i (binseq2-length (caddr s))) (%offset (caddr s) i o))
+	       ((or (eq s 'empty) (<= i 0) (eq (car s) 'leaf)) o)
+	       ((< i (binseq2-length (caddr s))) (%offset (caddr s) i o))
 	       (t (%offset (cdddr s) (- i (binseq2-length (caddr s)))
 			   (+ o (binseq2-size (caddr s))))))))
-    (%offset s (1+ i) 0)))
+    (%offset s i 0)))
 
 (defun binseq2-front2 (s i)
   (cond
@@ -246,11 +246,11 @@ line of B and append it to the last line of A; otherwise, do nothing."
 (defun binseq2-line2 (s i)
   (labels ((%line (s i o)
 	     (cond
-	       ((or (<= i 0) (eq s 'empty) (eq (car s) 'leaf)) o)
-	       ((<= i (binseq2-size (caddr s))) (%line (caddr s) i o))
+	       ((or (eq s 'empty) (<= i 0) (eq (car s) 'leaf)) o)
+	       ((< i (binseq2-size (caddr s))) (%line (caddr s) i o))
 	       (t (%line (cdddr s) (- i (binseq2-size (caddr s)))
 			 (+ o (binseq2-length (caddr s))))))))
-    (%line s (1+ i) 0)))
+    (%line s i 0)))
 
 (defun binseq2-back (s i)
   (cond

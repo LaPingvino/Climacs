@@ -373,14 +373,18 @@ suitable for use in a PERSISTENT-BUFFER."))
     (setf (offset mark) offset)))
 
 (defmethod end-of-line ((mark p-line-mark-mixin))
-  (let* ((curr-offset (offset mark))
-	 (contents (slot-value (buffer mark) 'contents))
-	 (next-line-offset (binseq2-offset
-			    contents
-			    (1+ (binseq2-line2 contents curr-offset)))))
-    (if (> next-line-offset curr-offset)
-	(setf (offset mark) (1- next-line-offset))
-	(setf (offset mark) (size (buffer mark))))))
+  (let* ((offset (offset mark))
+	 (buffer (buffer mark))
+	 (size (size buffer))
+	 (contents (slot-value buffer 'contents))
+	 (next-line-offset
+	  (binseq2-offset contents (1+ (binseq2-line2 contents offset)))))
+    (setf (offset mark)
+	  (cond
+	    ((> next-line-offset offset) (1- next-line-offset))
+	    ((and (> size 0) (eql (binseq2-get2 contents (1- size)) #\Newline))
+	     (1- size))
+	    (t size)))))
 
 (defmethod buffer-line-number ((buffer persistent-buffer) (offset integer))
   (loop for i from 0 below offset
