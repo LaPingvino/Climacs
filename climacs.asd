@@ -63,7 +63,7 @@
 (defmethod asdf:perform :around ((o asdf:compile-op)
                                  (c (eql (asdf:find-component (asdf:find-system :climacs) "skiplist-package"))))
   (cond
-    ((null (probe-file (first (asdf:input-files o c))))
+    ((null (probe-file (first (asdf::input-files o c))))
      (cerror "Retry loading climacs."
              "~@<You need to download & install Flexichain ~
                separately! See the file INSTALL in the Climacs distribution ~
