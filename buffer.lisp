@@ -57,12 +57,12 @@
 (defmethod clone-mark ((mark standard-left-sticky-mark) &optional type)
   (unless type
     (setf type 'standard-left-sticky-mark))
-  (make-instance 'type :buffer (buffer mark) :offset (offset mark)))
+  (make-instance type :buffer (buffer mark) :offset (offset mark)))
 
 (defmethod clone-mark ((mark standard-right-sticky-mark) &optional type)
   (unless type
     (setf type 'standard-right-sticky-mark))
-  (make-instance 'type :buffer (buffer mark) :offset (offset mark)))
+  (make-instance type :buffer (buffer mark) :offset (offset mark)))
 
 (define-condition no-such-offset (simple-error)
   ((offset :reader offset :initarg :offset))
