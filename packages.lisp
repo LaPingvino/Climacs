@@ -60,7 +60,7 @@
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
   (:export #:syntax #:basic-syntax #:texinfo-syntax
 	   #:redisplay-pane #:redisplay-with-syntax #:full-redisplay
-	   #:page-down
+	   #:page-down #:page-up
 	   #:url))
 
 (defpackage :climacs-kill-ring

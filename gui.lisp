@@ -394,6 +394,10 @@
   (let ((pane (win *application-frame*)))
     (page-down pane (syntax pane))))
 
+(define-named-command com-page-up ()
+  (let ((pane (win *application-frame*)))
+    (page-up pane (syntax pane))))
+
 (define-named-command com-end-of-buffer ()
   (end-of-buffer (point (win *application-frame*))))
 
@@ -508,6 +512,7 @@
 (global-set-key '(#\y :meta) 'com-kr-rotate) ;currently rotates only
 (global-set-key '(#\w :meta) 'com-copy-out)
 (global-set-key '(#\v :control) 'com-page-down)
+(global-set-key '(#\v :meta) 'com-page-up)
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
 (global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
 (global-set-key '(#\u :meta) 'com-browse-url)
