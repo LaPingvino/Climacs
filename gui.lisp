@@ -553,7 +553,7 @@
 
 ;; Not bound to a key yet
 (define-named-command com-kr-resize ()
-  (let ((size (accept 'fixnum :prompt "New kill ring size: ")))
+  (let ((size (accept 'integer :prompt "New kill ring size")))
     (kr-resize *kill-ring* size)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
