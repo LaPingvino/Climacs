@@ -478,16 +478,16 @@
   (backward-delete-word (point (current-window))))
 
 (define-named-command com-upcase-region ()
-  (multiple-value-bind (start end) (region-limits (current-window))
-    (upcase-region start end)))
+  (let ((cw (current-window)))
+    (upcase-region (mark cw) (point cw))))
 
 (define-named-command com-downcase-region ()
-  (multiple-value-bind (start end) (region-limits (current-window))
-    (downcase-region start end)))
+  (let ((cw (current-window)))
+    (downcase-region (mark cw) (point cw))))
 
 (define-named-command com-capitalize-region ()
-  (multiple-value-bind (start end) (region-limits (current-window))
-    (capitalize-region start end)))
+  (let ((cw (current-window)))
+    (capitalize-region (mark cw) (point cw))))
 
 (define-named-command com-upcase-word ()
   (upcase-word (point (current-window))))

@@ -622,3 +622,151 @@ climacs  ")
        (climacs-base::previous-word m1)
        (climacs-base::previous-word m2))))
   "climacs" #() "cl")
+
+(deftest standard-buffer-downcase-buffer-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "Cli	mac5")
+    (climacs-base::downcase-buffer-region buffer 0 (size buffer))
+    (buffer-sequence buffer 0 (size buffer)))
+  "cli	mac5")
+
+(deftest standard-buffer-downcase-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 1))
+	  (m2 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 8)))
+      (downcase-region m2 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_cli	mac5_")
+
+(deftest standard-buffer-downcase-region.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 1)))
+      (downcase-region 8 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_cli	mac5_")
+
+(deftest standard-buffer-downcase-region.test-3
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 8)))
+      (downcase-region 1 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_cli	mac5_")
+
+(deftest standard-buffer-downcase-word.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "CLI MA CS")
+    (let ((m (make-instance 'standard-right-sticky-mark
+			    :buffer buffer :offset 0)))
+      (downcase-word m 3)
+      (values
+       (buffer-sequence buffer 0 (size buffer))
+       (offset m))))
+  "cli ma cs" 9)
+
+(deftest standard-buffer-upcase-buffer-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "Cli	mac5")
+    (climacs-base::upcase-buffer-region buffer 0 (size buffer))
+    (buffer-sequence buffer 0 (size buffer)))
+  "CLI	MAC5")
+
+(deftest standard-buffer-upcase-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 1))
+	  (m2 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 8)))
+      (upcase-region m2 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_CLI	MAC5_")
+
+(deftest standard-buffer-upcase-region.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 1)))
+      (upcase-region 8 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_CLI	MAC5_")
+
+(deftest standard-buffer-upcase-region.test-3
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 8)))
+      (upcase-region 1 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_CLI	MAC5_")
+
+(deftest standard-buffer-upcase-word.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "cli ma cs")
+    (let ((m (make-instance 'standard-right-sticky-mark
+			    :buffer buffer :offset 0)))
+      (upcase-word m 3)
+      (values
+       (buffer-sequence buffer 0 (size buffer))
+       (offset m))))
+  "CLI MA CS" 9)
+
+(deftest standard-buffer-capitalize-buffer-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "cli ma cs")
+    (climacs-base::capitalize-buffer-region buffer 1 (size buffer))
+    (buffer-sequence buffer 0 (size buffer)))
+  "cli Ma Cs")
+
+(deftest standard-buffer-capitalize-buffer-region.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "CLI mA Cs")
+    (climacs-base::capitalize-buffer-region buffer 0 (size buffer))
+    (buffer-sequence buffer 0 (size buffer)))
+  "Cli Ma Cs")
+
+(deftest standard-buffer-capitalize-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 1))
+	  (m2 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 8)))
+      (capitalize-region m2 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_Cli	Mac5_")
+
+(deftest standard-buffer-capitalize-region.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 1)))
+      (capitalize-region 8 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_Cli	Mac5_")
+
+(deftest standard-buffer-capitalize-region.test-3
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "_Cli	mac5_")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 8)))
+      (capitalize-region 1 m1)
+      (buffer-sequence buffer 0 (size buffer))))
+  "_Cli	Mac5_")
+
+(deftest standard-buffer-capitalize-word.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "cli ma cs")
+    (let ((m (make-instance 'standard-right-sticky-mark
+			    :buffer buffer :offset 0)))
+      (capitalize-word m 3)
+      (values
+       (buffer-sequence buffer 0 (size buffer))
+       (offset m))))
+  "Cli Ma Cs" 9)

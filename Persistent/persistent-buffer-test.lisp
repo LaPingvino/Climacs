@@ -75,22 +75,37 @@
 (deftest binseq-buffer-insert-buffer-object.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-object buffer 0 #\a)
-    (and (= (size buffer) 1) (buffer-sequence buffer 0 1)))
-  "a")
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)
+     (buffer-sequence buffer 0 1)))
+  0 1 t 1 "a")
 
 (deftest binseq-buffer-insert-buffer-object.test-2
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-object buffer 0 #\b)
     (insert-buffer-object buffer 0 #\a)
-    (and (= (size buffer) 2) (buffer-sequence buffer 0 2)))
-  "ab")
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)
+     (buffer-sequence buffer 0 2)))
+  0 2 t 2 "ab")
 
 (deftest binseq-buffer-insert-buffer-object.test-3
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-object buffer 0 #\b)
     (insert-buffer-object buffer 1 #\a)
-    (and (= (size buffer) 2) (buffer-sequence buffer 0 2)))
-  "ba")
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)
+     (buffer-sequence buffer 0 2)))
+  0 2 t 2 "ba")
 
 (deftest binseq-buffer-insert-buffer-object.test-4
   (handler-case
@@ -154,15 +169,24 @@
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (delete-buffer-range buffer 0 7)
-    (size buffer))
-  0)
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)))
+  0 0 t 0)
 
 (deftest binseq-buffer-delete-buffer-range.test-2
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (delete-buffer-range buffer 0 3)
-    (and (= (size buffer) 4) (buffer-sequence buffer 0 4)))
-  "macs")
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)
+     (buffer-sequence buffer 0 4)))
+  0 4 t 4 "macs")
 
 (deftest binseq-buffer-delete-buffer-range.test-3
   (let ((buffer (make-instance 'binseq-buffer)))
@@ -780,22 +804,37 @@ climacs")
 (deftest obinseq-buffer-insert-buffer-object.test-1
   (let ((buffer (make-instance 'obinseq-buffer)))
     (insert-buffer-object buffer 0 #\a)
-    (and (= (size buffer) 1) (buffer-sequence buffer 0 1)))
-  "a")
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)
+     (buffer-sequence buffer 0 1)))
+  0 1 t 1 "a")
 
 (deftest obinseq-buffer-insert-buffer-object.test-2
   (let ((buffer (make-instance 'obinseq-buffer)))
     (insert-buffer-object buffer 0 #\b)
     (insert-buffer-object buffer 0 #\a)
-    (and (= (size buffer) 2) (buffer-sequence buffer 0 2)))
-  "ab")
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)
+     (buffer-sequence buffer 0 2)))
+  0 2 t 2 "ab")
 
 (deftest obinseq-buffer-insert-buffer-object.test-3
   (let ((buffer (make-instance 'obinseq-buffer)))
     (insert-buffer-object buffer 0 #\b)
     (insert-buffer-object buffer 1 #\a)
-    (and (= (size buffer) 2) (buffer-sequence buffer 0 2)))
-  "ba")
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)
+     (buffer-sequence buffer 0 2)))
+  0 2 t 2 "ba")
 
 (deftest obinseq-buffer-insert-buffer-object.test-4
   (handler-case
@@ -859,15 +898,24 @@ climacs")
   (let ((buffer (make-instance 'obinseq-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (delete-buffer-range buffer 0 7)
-    (size buffer))
-  0)
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)))
+  0 0 t 0)
 
 (deftest obinseq-buffer-delete-buffer-range.test-2
   (let ((buffer (make-instance 'obinseq-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (delete-buffer-range buffer 0 3)
-    (and (= (size buffer) 4) (buffer-sequence buffer 0 4)))
-  "macs")
+    (values
+     (offset (low-mark buffer))
+     (offset (high-mark buffer))
+     (modified-p buffer)
+     (size buffer)
+     (buffer-sequence buffer 0 4)))
+  0 4 t 4 "macs")
 
 (deftest obinseq-buffer-delete-buffer-range.test-3
   (let ((buffer (make-instance 'obinseq-buffer)))

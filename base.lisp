@@ -217,6 +217,8 @@ one of the marks"))
 ;;; 
 ;;; Character case
 
+;;; I'd rather have update-buffer-range methods spec. on buffer for this,
+;;; for performance and history-size reasons --amb
 (defun downcase-buffer-region (buffer offset1 offset2)
   (do-buffer-region (object offset buffer offset1 offset2)
     (when (and (constituentp object) (upper-case-p object))
@@ -229,13 +231,23 @@ buffers. It is acceptable to pass an offset in place of one of the marks."))
 
 (defmethod downcase-region ((mark1 mark) (mark2 mark))
   (assert (eq (buffer mark1) (buffer mark2)))
-  (downcase-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
+  (let ((offset1 (offset mark1))
+	(offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (downcase-buffer-region (buffer mark1) offset1 offset2)))
 
-(defmethod downcase-region ((offset integer) (mark mark))
-  (downcase-buffer-region (buffer mark) offset (offset mark)))
+(defmethod downcase-region ((offset1 integer) (mark2 mark))
+  (let ((offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (downcase-buffer-region (buffer mark2) offset1 offset2)))
 
-(defmethod downcase-region ((mark mark) (offset integer))
-  (downcase-buffer-region (buffer mark) (offset mark) offset))
+(defmethod downcase-region ((mark1 mark) (offset2 integer))
+  (let ((offset1 (offset mark1)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (downcase-buffer-region (buffer mark1) offset1 offset2)))
 
 (defun downcase-word (mark &optional (n 1))
   "Convert the next N words to lowercase, leaving mark after the last word."
@@ -257,13 +269,23 @@ buffers. It is acceptable to pass an offset in place of one of the marks."))
 
 (defmethod upcase-region ((mark1 mark) (mark2 mark))
   (assert (eq (buffer mark1) (buffer mark2)))
-  (upcase-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
+  (let ((offset1 (offset mark1))
+	(offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (upcase-buffer-region (buffer mark1) offset1 offset2)))
 
-(defmethod upcase-region ((offset integer) (mark mark))
-  (upcase-buffer-region (buffer mark) offset (offset mark)))
+(defmethod upcase-region ((offset1 integer) (mark2 mark))
+  (let ((offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (upcase-buffer-region (buffer mark2) offset1 offset2)))
 
-(defmethod upcase-region ((mark mark) (offset integer))
-  (upcase-buffer-region (buffer mark) (offset mark) offset))
+(defmethod upcase-region ((mark1 mark) (offset2 integer))
+  (let ((offset1 (offset mark1)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (upcase-buffer-region (buffer mark1) offset1 offset2)))
 
 (defun upcase-word (mark &optional (n 1))
   "Convert the next N words to uppercase, leaving mark after the last word."
@@ -293,13 +315,23 @@ It is acceptable to pass an offset in place of one of the marks."))
 
 (defmethod capitalize-region ((mark1 mark) (mark2 mark))
   (assert (eq (buffer mark1) (buffer mark2)))
-  (capitalize-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
+  (let ((offset1 (offset mark1))
+	(offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (capitalize-buffer-region (buffer mark1) offset1 offset2)))
 
-(defmethod capitalize-region ((offset integer) (mark mark))
-  (capitalize-buffer-region (buffer mark) offset (offset mark)))
+(defmethod capitalize-region ((offset1 integer) (mark2 mark))
+  (let ((offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (capitalize-buffer-region (buffer mark2) offset1 offset2)))
 
-(defmethod capitalize-region ((mark mark) (offset integer))
-  (capitalize-buffer-region (buffer mark) (offset mark) offset))
+(defmethod capitalize-region ((mark1 mark) (offset2 integer))
+  (let ((offset1 (offset mark1)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (capitalize-buffer-region (buffer mark1) offset1 offset2)))
 
 (defun capitalize-word (mark &optional (n 1))
   "Capitalize the next N words, leaving mark after the last word."

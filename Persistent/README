@@ -20,8 +20,8 @@ Also, end-of-line method in buffer.lisp has to be fixed and look like:
     (setf (offset mark) offset)))
 
 (It is currently "broken" for performance reasons.) Until then,
-(o)binseq-end-of-line and (o)binseq-next-line tests will fail (20 of
-them).
+(o)binseq-end-of-line, (o)binseq-next-line and (o)binseq-kill-line
+tests will fail (20 of them).
 
 NOTE: There is a dependency of Persistent/persistent-buffer.lisp on
 Flexichain/utilities.lisp (the weak pointer handling).

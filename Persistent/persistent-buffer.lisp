@@ -197,10 +197,22 @@ PERSISTENT-BUFFER."))
 	  (make-condition 'no-such-offset :offset offset))
   (binseq-get (slot-value buffer 'contents) offset))
 
+(defmethod (setf buffer-object) (object (buffer binseq-buffer) offset)
+  (assert (<= 0 offset (1- (size buffer))) ()
+	  (make-condition 'no-such-offset :offset offset))
+  (setf (slot-value buffer 'contents)
+	(binseq-set (slot-value buffer 'contents) offset object)))
+
 (defmethod buffer-object ((buffer obinseq-buffer) offset)
   (assert (<= 0 offset (1- (size buffer))) ()
 	  (make-condition 'no-such-offset :offset offset))
   (obinseq-get (slot-value buffer 'contents) offset))
+
+(defmethod (setf buffer-object) (object (buffer obinseq-buffer) offset)
+  (assert (<= 0 offset (1- (size buffer))) ()
+	  (make-condition 'no-such-offset :offset offset))
+  (setf (slot-value buffer 'contents)
+	(obinseq-set (slot-value buffer 'contents) offset object)))
 
 (defmethod buffer-sequence ((buffer binseq-buffer) offset1 offset2)
   (assert (<= 0 offset1 (size buffer)) ()
