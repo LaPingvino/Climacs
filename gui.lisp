@@ -378,6 +378,15 @@
 (define-named-command com-backward-delete-word ()
   (backward-delete-word (point (win *application-frame*))))
 
+(define-named-command com-upcase-word ()
+  (upcase-word (point (win *application-frame*))))
+
+(define-named-command com-downcase-word ()
+  (downcase-word (point (win *application-frame*))))
+
+(define-named-command com-capitalize-word ()
+  (capitalize-word (point (win *application-frame*))))
+
 (define-named-command com-toggle-layout ()
   (setf (frame-current-layout *application-frame*)
 	(if (eq (frame-current-layout *application-frame*) 'default)
@@ -683,6 +692,9 @@
 (global-set-key '(#\f :meta) 'com-forward-word)
 (global-set-key '(#\b :meta) 'com-backward-word)
 (global-set-key '(#\t :meta) 'com-transpose-words)
+(global-set-key '(#\u :meta) 'com-upcase-word)
+(global-set-key '(#\l :meta) 'com-downcase-word)
+(global-set-key '(#\c :meta) 'com-capitalize-word)
 (global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\y :meta) 'com-rotate-yank) 
 (global-set-key '(#\w :meta) 'com-copy-out)
@@ -690,7 +702,6 @@
 (global-set-key '(#\v :meta) 'com-page-up)
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
 (global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
-(global-set-key '(#\u :meta) 'com-browse-url)
 (global-set-key '(#\m :meta) 'com-back-to-indentation)
 (global-set-key '(#\d :meta) 'com-delete-word)
 (global-set-key '(#\Backspace :meta) 'com-backward-delete-word)

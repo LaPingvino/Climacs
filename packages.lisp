@@ -49,6 +49,7 @@
 	   #:constituentp #:whitespacep
 	   #:forward-word #:backward-word
 	   #:delete-word #:backward-delete-word
+           #:upcase-word #:downcase-word #:capitalize-word
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
 	   #:buffer-lookin-at #:looking-at

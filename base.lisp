@@ -111,20 +111,28 @@ acceptable to pass an offset in place of one of the marks"))
        #+sbcl (sb-impl::whitespacep obj)
        #-sbcl (member obj '(#\Space #\Tab))))
 
-(defun forward-word (mark)
-  "Forward the mark to the next word."
+(defun forward-to-word-boundary (mark)
+  "Forward the mark forward to the beginning of the next word."
   (loop until (end-of-buffer-p mark)
 	until (constituentp (object-after mark))
-	do (incf (offset mark)))
+	do (incf (offset mark))))
+
+(defun backward-to-word-boundary (mark)
+  "Move the mark backward to the end of the previous word."
+  (loop until (beginning-of-buffer-p mark)
+	until (constituentp (object-before mark))
+	do (decf (offset mark))))
+
+(defun forward-word (mark)
+  "Forward the mark to the next word."
+  (forward-to-word-boundary mark)
   (loop until (end-of-buffer-p mark)
 	while (constituentp (object-after mark))
 	do (incf (offset mark))))
 
 (defun backward-word (mark)
   "Shuttle the mark to the start of the previous word."
-  (loop until (beginning-of-buffer-p mark)
-	until (constituentp (object-before mark))
-	do (decf (offset mark)))
+  (backward-to-word-boundary mark)
   (loop until (beginning-of-buffer-p mark)
 	while (constituentp (object-before mark))
 	do (decf (offset mark))))
@@ -155,6 +163,45 @@ acceptable to pass an offset in place of one of the marks"))
 		    (constituentp (buffer-object (buffer mark) (1- i))))
 	 finally (return i))
    mark))
+
+(defun downcase-word (mark &optional (n 1))
+  "Convert the next N words to lowercase, leaving mark after the last word."
+  (dotimes (i n)
+    (forward-to-word-boundary mark)
+    (loop until (end-of-buffer-p mark)
+       while (constituentp (object-after mark))
+       for character = (object-after mark)
+       if (upper-case-p character)
+       do (progn (delete-range mark 1)
+                 (insert-object mark (char-downcase character)))
+       else
+       do (incf (offset mark)))))
+
+(defun upcase-word (mark &optional (n 1))
+  "Convert the next N words to uppercase, leaving mark after the last word."
+  (dotimes (i n)
+    (forward-to-word-boundary mark)
+    (loop until (end-of-buffer-p mark)
+       while (constituentp (object-after mark))
+       for character = (object-after mark)
+       when (lower-case-p character)
+       do (progn
+            (delete-range mark 1)
+            (insert-object mark (char-upcase character)))
+       else
+       do (incf (offset mark)))))
+
+(defun capitalize-word (mark &optional (n 1))
+  "Capitalize the next N words, leaving mark after the last word."
+  (dotimes (i n)
+    (forward-to-word-boundary mark)
+    (unless (end-of-buffer-p mark)
+      (let ((character (object-after mark)))
+        (when (lower-case-p character)
+          (delete-range mark 1)
+          (insert-object mark (char-upcase character))))
+      (when (constituentp (object-after mark))
+        (downcase-word mark)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
