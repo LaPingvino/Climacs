@@ -178,19 +178,21 @@ one of the marks"))
 	until (constituentp (object-before mark))
 	do (decf (offset mark))))
 
-(defun forward-word (mark)
+(defun forward-word (mark &optional (count 1))
   "Forward the mark to the next word."
-  (forward-to-word-boundary mark)
-  (loop until (end-of-buffer-p mark)
-	while (constituentp (object-after mark))
-	do (incf (offset mark))))
+  (loop repeat count
+	do (forward-to-word-boundary mark)
+	   (loop until (end-of-buffer-p mark)
+		 while (constituentp (object-after mark))
+		 do (incf (offset mark)))))
 
-(defun backward-word (mark)
+(defun backward-word (mark &optional (count 1))
   "Shuttle the mark to the start of the previous word."
-  (backward-to-word-boundary mark)
-  (loop until (beginning-of-buffer-p mark)
-	while (constituentp (object-before mark))
-	do (decf (offset mark))))
+  (loop repeat count
+	do (backward-to-word-boundary mark)
+	   (loop until (beginning-of-buffer-p mark)
+		 while (constituentp (object-before mark))
+		 do (decf (offset mark)))))
 
 (defun delete-word (mark)
   "Delete until the end of the word"
