@@ -219,6 +219,29 @@ one of the marks"))
 ;;; 
 ;;; Character case
 
+(defun buffer-region-case (buffer offset1 offset2)
+  (let ((possibly-uppercase t)
+        (possibly-lowercase t)
+        (possibly-capitalized t))
+    (do-buffer-region (object offset buffer offset1 offset2)
+      (unless (characterp object)
+        (return-from buffer-region-case nil))
+      (when (lower-case-p object)
+        (setf possibly-uppercase nil))
+      (when (upper-case-p object)
+        (setf possibly-lowercase nil))
+      (when (plusp offset)
+        (let ((previous-object (buffer-object buffer (1- offset))))
+          (when (and (characterp previous-object)
+                     (if (constituentp previous-object)
+                         (upper-case-p object)
+                         (lower-case-p object)))
+            (setf possibly-capitalized nil)))))
+    (cond (possibly-uppercase :upper-case)
+          (possibly-lowercase :lower-case)
+          (possibly-capitalized :capitalized)
+          (t nil))))
+
 ;;; I'd rather have update-buffer-range methods spec. on buffer for this,
 ;;; for performance and history-size reasons --amb
 (defun downcase-buffer-region (buffer offset1 offset2)

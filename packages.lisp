@@ -59,7 +59,10 @@
 	   #:constituentp #:whitespacep
 	   #:forward-word #:backward-word
 	   #:delete-word #:backward-delete-word
-           #:upcase-region #:downcase-region #:capitalize-region
+           #:buffer-region-case
+           #:upcase-buffer-region #:upcase-region
+           #:downcase-buffer-region #:downcase-region
+           #:capitalize-buffer-region #:capitalize-region
            #:upcase-word #:downcase-word #:capitalize-word
            #:tabify-region #:untabify-region
            #:indent-line
