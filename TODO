@@ -1,0 +1,8 @@
+- modify standard-buffer to use obinseq with leafs containing
+  flexichain-based lines
+
+- implement a persistent buffer as a binseq of obinseqs (or similar,
+  one sequence type for lines, the other for line contents), then
+  upgrade it to an undoable buffer
+
+- refactor tests
