@@ -48,6 +48,7 @@
    (win (make-pane 'climacs-pane
 		   :width 900 :height 400
 		   :name 'win
+;;;		   :incremental-redisplay t
 		   :display-function 'display-win))
    (int :interactor :width 900 :height 50 :max-height 50))
   (:layouts
@@ -114,7 +115,7 @@
 			    (format *error-output* "~a~%" condition)))
 			(setf gestures '()))
 		       (t nil))))
-	     (redisplay-frame-panes frame :force-p t))))
+	     (redisplay-frame-panes frame))))
 
 (define-command com-quit ()
   (frame-exit *application-frame*))
