@@ -104,13 +104,18 @@
 (defun display-message (format-string &rest format-args)
   (apply #'format *standard-input* format-string format-args))
 
+(defvar *overwrite-mode* nil)
+
 (defun display-info (frame pane)
   (let* ((win (win frame))
 	 (buf (buffer win))
-	 (name-info (format nil "   ~a   ~a   Syntax: ~a"
+	 (name-info (format nil "   ~a   ~a   Syntax: ~a ~a"
 			    (if (needs-saving buf) "**" "--")
 			    (name buf)
-			    (name (syntax win)))))
+			    (name (syntax win))
+			    (if *overwrite-mode*
+				"Ovwrt"
+				(format nil "L~d" (line-number (point win)))))))
     (princ name-info pane)))
 
 (defun display-win (frame pane)
@@ -236,10 +241,18 @@
 (define-named-command (com-quit) ()
   (frame-exit *application-frame*))
 
+(define-named-command com-toggle-overwrite-mode ()
+  (setf *overwrite-mode* (not *overwrite-mode*)))
+
 (define-command com-self-insert ()
-  (unless (constituentp *current-gesture*)
-    (possibly-expand-abbrev (point (win *application-frame*))))
-  (insert-object (point (win *application-frame*)) *current-gesture*))
+  (let ((point (point (win *application-frame*))))
+    (unless (constituentp *current-gesture*)
+      (possibly-expand-abbrev point))
+    (if (and *overwrite-mode* (not (end-of-line-p point)))
+	(progn
+	  (delete-range point)
+	  (insert-object point *current-gesture*))
+	(insert-object point *current-gesture*))))
 
 (define-named-command com-beginning-of-line ()
   (beginning-of-line (point (win *application-frame*))))
@@ -707,6 +720,8 @@
 (global-set-key '(:end :control) 'com-end-of-buffer)
 (global-set-key #\Rubout 'com-delete-object)
 (global-set-key #\Backspace 'com-backward-delete-object)
+
+(global-set-key '(:insert) 'com-toggle-overwrite-mode)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
