@@ -348,6 +348,21 @@ delimited by mark1 and mark2."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
+;;; Delete indentation
+
+(defun delete-indentation (mark)
+  (beginning-of-line mark)
+  (unless (beginning-of-buffer-p mark)
+    (loop until (end-of-buffer-p mark)
+          until (constituentp (object-after mark))
+          do (delete-range mark 1))
+    (loop until (beginning-of-buffer-p mark)
+          until (constituentp (object-before mark))
+          do (delete-range mark -1))
+    (insert-object mark #\Space)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
 ;;; Named objects
 
 (defgeneric name (obj))

@@ -56,6 +56,7 @@
            #:upcase-region #:downcase-region #:capitalize-region
            #:upcase-word #:downcase-word #:capitalize-word
            #:tabify-region #:untabify-region
+           #:delete-indentation
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
 	   #:buffer-lookin-at #:looking-at

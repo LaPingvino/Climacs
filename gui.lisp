@@ -407,6 +407,9 @@
     (multiple-value-bind (start end) (region-limits pane)
       (untabify-region start end (tab-space-count (stream-default-view pane))))))
 
+(define-named-command com-delete-indentation ()
+  (delete-indentation (point (win *application-frame*))))
+
 (define-named-command com-toggle-layout ()
   (setf (frame-current-layout *application-frame*)
 	(if (eq (frame-current-layout *application-frame*) 'default)
