@@ -220,8 +220,9 @@
   (let ((item (accept 'command :prompt "Extended Command")))
     (execute-frame-command *application-frame* item)))
 
-(define-presentation-type completable-pathname ()
-  :inherit-from 'pathname)
+(eval-when (:compile-toplevel)
+  (define-presentation-type completable-pathname ()
+  :inherit-from 'pathname))
 
 (defun filename-completer (so-far mode)
   (flet ((remove-trail (s)
