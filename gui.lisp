@@ -736,7 +736,7 @@
 (global-set-key '(:up) 'com-previous-line)
 (global-set-key '(:down) 'com-next-line)
 (global-set-key '(:left) `(com-backward-object ,*numeric-argument-marker*))
-(global-set-key '(:right) `(com-forward-object *numeric-argument-marker*))
+(global-set-key '(:right) `(com-forward-object ,*numeric-argument-marker*))
 (global-set-key '(:left :control) 'com-backward-word)
 (global-set-key '(:right :control) 'com-forward-word)
 (global-set-key '(:home) 'com-beginning-of-line)
