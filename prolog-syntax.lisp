@@ -56,7 +56,7 @@
   ())
 
 (defclass prolog-token (prolog-parse-tree)
-  ())
+  ((ink) (face)))
 
 (defclass prolog-operator (prolog-token)
   ())
@@ -942,18 +942,15 @@
 (defmethod display-parse-tree ((entity prolog-token) (syntax prolog-syntax) pane)
   (flet ((cache-test (t1 t2)
 	   (and (eq t1 t2)
-		#+nil
 		(eq (slot-value t1 'ink)
 		    (medium-ink (sheet-medium pane)))
-		#+nil
 		(eq (slot-value t1 'face)
 		    (text-style-face (medium-text-style (sheet-medium pane)))))))
-#|    (updating-output (pane :unique-id entity
+    (updating-output (pane :unique-id entity
 			   :id-test #'eq
 			   :cache-value entity
-			   :cache-test #'cache-test)|#
-      (with-slots (#|ink face|#) entity
-	 #+nil
+			   :cache-test #'cache-test)
+      (with-slots (ink face) entity
 	 (setf ink (medium-ink (sheet-medium pane))
 	       face (text-style-face (medium-text-style (sheet-medium pane))))
 	 (let ((string (coerce (buffer-sequence (buffer syntax)
@@ -976,7 +973,7 @@
 		  (handle-whitespace pane (buffer pane)
 				     (+ (start-offset entity) nl)
 				     (+ (start-offset entity) nl 1))
-		  (setf start (+ nl 1))))))))))
+		  (setf start (+ nl 1)))))))))))
 
 (defmethod display-parse-tree :before ((entity prolog-lexeme) (syntax prolog-syntax) pane)
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
