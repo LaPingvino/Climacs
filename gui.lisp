@@ -572,24 +572,18 @@
 
 ;; Destructively cut a given buffer region into the kill-ring
 (define-named-command com-cut-out ()
-  (with-slots (buffer point mark)(win *application-frame*)
-     (let ((offset-point (offset point))
-	   (offset-mark (offset mark)))
-       (if (< offset-point offset-mark)
-	   (progn
-	     (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
-	     (delete-buffer-range buffer offset-point (- offset-mark offset-point )))
-           (progn
-	     (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
-	     (delete-buffer-range buffer offset-mark (- offset-point offset-mark)))))))
-	     
+  (with-slots (point mark)(win *application-frame*)
+     (cond ((< (offset mark)(offset point))
+	    (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
+	    (delete-region (offset mark) point))
+	   (t
+	    (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
+	    (delete-region (offset point) mark)))))
 
 ;; Non destructively copies in buffer region to the kill ring
 (define-named-command com-copy-out ()
   (with-slots (point mark)(win *application-frame*)
-     (if (< (offset point) (offset mark))
-	 (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
-         (kill-ring-standard-push *kill-ring* (region-to-sequence mark point)))))
+     (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))))
 
 
 (define-named-command com-rotate-yank ()
