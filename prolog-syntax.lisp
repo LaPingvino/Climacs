@@ -33,6 +33,9 @@
 
 (defparameter *prolog-grammar* (grammar))
 
+(defmacro define-prolog-rule ((&rest rule) &body body)
+  `(add-rule (grammar-rule (,@rule ,@body)) *prolog-grammar*))
+
 (defmethod initialize-instance :after ((syntax prolog-syntax) &rest args)
   (declare (ignore args))
   (with-slots (parser lexer buffer) syntax
@@ -97,15 +100,11 @@
                              (layout-text entity) syntax pane))
                           (display-parse-tree
                            (syntactic-lexeme entity) syntax pane))
-                        (add-rule (grammar-rule (,name -> (,(f name))
-                                                       (make-instance ',name
-                                                                      :syntactic-lexeme ,(f name))))
-                         *prolog-grammar*)
-                        (add-rule (grammar-rule (,name -> (layout-text ,(f name))
-                                                       (make-instance ',name
-                                                                      :layout-text layout-text
-                                                                      :syntactic-lexeme ,(f name))))
-                         *prolog-grammar*)))
+                        (define-prolog-rule (,name -> (,(f name)))
+                          (make-instance ',name :syntactic-lexeme ,(f name)))
+                        (define-prolog-rule (,name -> (layout-text ,(f name)))
+                          (make-instance ',name :layout-text layout-text
+                           :syntactic-lexeme ,(f name)))))
 		  ,@(loop for sub in subs collect
                           `(defclass ,(f sub) (,(f name)) ()))))))
   (def (comment) single-line-comment bracketed-comment)
@@ -128,15 +127,11 @@
   
   (def (error)))
 
-(add-rule (grammar-rule (layout-text -> (comment-lexeme layout-text)
-                                     (make-instance 'layout-text
-                                                    :comment comment-lexeme
-                                                    :cont layout-text)))
-          *prolog-grammar*)
-(add-rule (grammar-rule (layout-text -> ()
-                                     (make-instance 'layout-text
-                                                    :cont nil)))
-          *prolog-grammar*)
+;;; 6.4.1
+(define-prolog-rule (layout-text -> (comment-lexeme layout-text))
+  (make-instance 'layout-text :comment comment-lexeme :cont layout-text))
+(define-prolog-rule (layout-text -> ())
+  (make-instance 'layout-text :cont nil))
 
 (defclass prolog-lexer (incremental-lexer) ())
 
@@ -519,125 +514,79 @@
   (display-parse-tree (tlist entity) syntax pane))
 
 ;;; 6.2.1
-(add-rule (grammar-rule (prolog-text -> (directive prolog-text)
-                                     (make-instance 'directive-prolog-text
-                                                    :directive directive
-                                                    :text-rest prolog-text)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (prolog-text -> (clause prolog-text)
-                                     (make-instance 'clause-prolog-text
-                                                    :clause clause
-                                                    :text-rest prolog-text)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (prolog-text -> ()
-                                     (make-instance 'empty-prolog-text)))
-	  *prolog-grammar*)
+(define-prolog-rule (prolog-text -> (directive prolog-text))
+  (make-instance 'directive-prolog-text :directive directive
+                 :text-rest prolog-text))
+(define-prolog-rule (prolog-text -> (clause prolog-text))
+  (make-instance 'clause-prolog-text :clause clause :text-rest prolog-text))
+(define-prolog-rule (prolog-text -> ())
+  (make-instance 'empty-prolog-text))
 
 ;;; 6.2.1.1
-(add-rule (grammar-rule (directive -> (directive-term end)
-                                   (make-instance 'directive
-                                                  :directive-term directive-term
-                                                  :end end)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (directive-term -> ((term (and (compound-term-p term)
-                                                       (string= (lexeme-string (syntactic-lexeme (functor term))) ":-")
-						       (= (arity term) 1))))
-                                        (make-instance 'directive-term
-                                                       :term term)))
-	  *prolog-grammar*)
+(defun term-directive-p (term)
+  (and (compound-term-p term)
+       (string= (lexeme-string (syntactic-lexeme (functor term))) ":-")
+       (= (arity term) 1)))
+
+(define-prolog-rule (directive -> (directive-term end))
+  (make-instance 'directive :directive-term directive-term :end end))
+(define-prolog-rule (directive-term -> ((term (term-directive-p term))))
+  (make-instance 'directive-term :term term))
 
 ;;; 6.2.1.2
-(add-rule (grammar-rule (clause -> (clause-term end)
-                                (make-instance 'clause
-                                               :clause-term clause-term
-                                               :end end)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (clause-term -> ((term (not (and (compound-term-p term)
-                                                         (string= (lexeme-string (syntactic-lexeme (functor term))) ":-")
-							 (= (arity term) 1)))))
-                                     (make-instance 'clause-term
-                                                    :term term)))
-	  *prolog-grammar*)
+(define-prolog-rule (clause -> (clause-term end))
+  (make-instance 'clause :clause-term clause-term :end end))
+(define-prolog-rule (clause-term -> ((term (not (term-directive-p term)))))
+  (make-instance 'clause-term :term term))
 
 ;;; 6.3.1.1
-(add-rule (grammar-rule (term -> (integer)
-                              (make-instance 'constant-term
-                                             :priority 0
-                                             :value integer)))
-	  *prolog-grammar*)
-;;; 6.3.1.2
-(add-rule (grammar-rule (term -> ((atom (string= (lexeme-string (syntactic-lexeme atom)) "-"))
-                                  integer)
-                              (make-instance 'constant-term
-                                             :priority 0
-                                             :value (list atom integer))))
-	  *prolog-grammar*)
-;;; 6.3.1.3
-(add-rule (grammar-rule (term -> ((atom (not (operatorp atom))))
-                              (make-instance 'constant-term
-                                             :priority 0
-                                             :value atom)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (term -> ((atom (operatorp atom)))
-                              (make-instance 'constant-term
-                                             :priority 1201
-                                             :value atom)))
-	  *prolog-grammar*)
+(define-prolog-rule (term -> (integer))
+  (make-instance 'constant-term :priority 0 :value integer))
 
-(add-rule (grammar-rule (atom -> (name)
-                              (make-instance 'atom :value name)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (atom -> (empty-list)
-                              (make-instance 'atom :value empty-list)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (atom -> (curly-brackets)
-                              (make-instance 'atom :value curly-brackets)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (empty-list -> (open-list close-list)
-                                    (make-instance 'empty-list
-                                                   :[ open-list
-                                                   :] close-list)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (curly-brakets -> (open-curly close-curly)
-                                       (make-instance 'curly-brackets
-                                                      :{ open-curly
-                                                      :} close-curly)))
-	  *prolog-grammar*)
+;;; 6.3.1.2
+(define-prolog-rule (term -> ((atom
+                               (string= (lexeme-string (syntactic-lexeme atom))
+                                        "-"))
+                              integer))
+  ;; FIXME: this doesn't really look right.
+  (make-instance 'constant-term :priority 0 :value (list atom integer)))
+
+;;; 6.3.1.3
+(define-prolog-rule (term -> ((atom (not (operatorp atom)))))
+  (make-instance 'constant-term :priority 0 :value atom))
+(define-prolog-rule (term -> ((atom (operatorp atom))))
+  (make-instance 'constant-term :priority 1201 :value atom))
+
+(define-prolog-rule (atom -> (name))
+  (make-instance 'atom :value name))
+(define-prolog-rule (atom -> (empty-list))
+  (make-instance 'atom :value empty-list))
+(define-prolog-rule (atom -> (curly-brackets))
+  (make-instance 'atom :value curly-brackets))
+(define-prolog-rule (empty-list -> (open-list close-list))
+  (make-instance 'empty-list :[ open-list :] close-list))
+(define-prolog-rule (curly-brakets -> (open-curly close-curly))
+  (make-instance 'curly-brackets :{ open-curly :} close-curly))
 
 ;;; 6.3.2
-(add-rule (grammar-rule (term -> (variable)
-                              (make-instance 'variable-term
-                                             :priority 0
-                                             :name variable)))
-	  *prolog-grammar*)
+(define-prolog-rule (term -> (variable))
+  (make-instance 'variable-term :priority 0 :name variable))
 
 ;;; 6.3.3
-(add-rule (grammar-rule (term -> (atom open-ct-lexeme arg-list close)
-                              (make-instance 'functional-compound-term
-                                             :priority 0
-                                             :functor atom
-                                             :arg-list arg-list
-                                             :open-ct open-ct-lexeme
-                                             :close close)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (arg-list -> (exp)
-                                  (make-instance 'arg-list :exp exp)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (arg-list -> (exp comma arg-list)
-                                  (make-instance 'arg-list-pair
-                                                 :exp exp
-                                                 :comma comma
-                                                 :arg-list arg-list)))
-	  *prolog-grammar*)
+(define-prolog-rule (term -> (atom open-ct-lexeme arg-list close))
+  (make-instance 'functional-compound-term :priority 0 :functor atom
+                 :arg-list arg-list :open-ct open-ct-lexeme :close close))
+(define-prolog-rule (arg-list -> (exp))
+  (make-instance 'arg-list :exp exp))
+(define-prolog-rule (arg-list -> (exp comma arg-list))
+  (make-instance 'arg-list-pair :exp exp :comma comma :arg-list arg-list))
 
 ;;; 6.3.3.1
-(add-rule (grammar-rule (exp -> ((atom (and (operatorp atom)
-                                            (not (typep (value atom) 'comma)))))
-                             (make-instance 'exp-atom :atom atom)))
-	  *prolog-grammar*)
-(add-rule (grammar-rule (exp -> ((term (<= (priority term) 999)))
-                             (make-instance 'exp-term :term term)))
-	  *prolog-grammar*)
+(define-prolog-rule (exp -> ((atom (and (operatorp atom)
+                                        (not (typep (value atom) 'comma))))))
+  (make-instance 'exp-atom :atom atom))
+(define-prolog-rule (exp -> ((term (<= (priority term) 999))))
+  (make-instance 'exp-term :term term))
 
 ;;; 6.3.4.1
 
@@ -658,173 +607,113 @@
 ;;; term would be, by explicitly writing the second production rule
 ;;; out here, and by using inegality tests rather than equalities for
 ;;; priorities elsewhere.  LTERMs act as containers for terms.
-(add-rule (grammar-rule (lterm -> (term)
-                               (make-instance 'lterm
-                                              :term term
-                                              :priority (1+ (priority term)))))
-          *prolog-grammar*)
+(define-prolog-rule (lterm -> (term))
+  (make-instance 'lterm :term term :priority (1+ (priority term))))
 
-(add-rule (grammar-rule (term -> (open (term (<= (priority term) 1201))
-                                              close)
-                              (make-instance 'bracketed-term
-                                             :priority 0
-                                             :open open
-                                             :term term
-                                             :close close)))
-          *prolog-grammar*)
-(add-rule (grammar-rule (term -> (open-ct-lexeme
-                                  (term (<= (priority term) 1201))
-                                  close)
-                              (make-instance 'bracketed-term
-                                             :priority 0
-                                             :open open-ct-lexeme
-                                             :term term
-                                             :close close)))
-          *prolog-grammar*)
+(define-prolog-rule (term -> (open (term (<= (priority term) 1201)) close))
+  (make-instance 'bracketed-term :priority 0
+                 :open open :term term :close close))
+(define-prolog-rule (term -> (open-ct-lexeme
+                              (term (<= (priority term) 1201))
+                              close))
+  (make-instance 'bracketed-term :priority 0
+                 :open open-ct-lexeme :term term :close close))
 
 ;;; 6.3.4.2
 ;;;
 ;;; NOTE NOTE NOTE
 ;;;
-;;; We rely here on the (undocumented) fact that returning NIL from
+;;; We rely here on the (undocumented?) fact that returning NIL from
 ;;; the body of these rules implies a failure.
-(add-rule (grammar-rule (lterm -> ((left term) (op (eql (specifier op) :xfx)) (right term))
-                               (when (and (< (priority left) (priority op))
-                                          (< (priority right) (priority op)))
-                                 (make-instance 'lterm
-                                                :priority (priority op)
-                                                :term
-                                                (make-instance 'binary-operator-compound-term
-                                                               :left left
-                                                               :operator op
-                                                               :right right)))))
-          *prolog-grammar*)
-(add-rule (grammar-rule (lterm -> ((left lterm) (op (eql (specifier op) :yfx)) (right term))
-                               (when (and (<= (priority left) (priority op))
-                                          (< (priority right) (priority op)))
-                                 (make-instance 'lterm
-                                                :priority (priority op)
-                                                :term
-                                                (make-instance 'binary-operator-compound-term
-                                                               :left left
-                                                               :operator op
-                                                               :right right)))))
-          *prolog-grammar*)
-(add-rule (grammar-rule (term -> ((left term) (op (eql (specifier op) :xfy)) (right term))
-                              (when (and (< (priority left) (priority op))
-                                         (<= (priority right) (priority op)))
-                                (make-instance 'binary-operator-compound-term
-                                               :priority (priority op)
-                                               :left left
-                                               :operator op
-                                               :right right))))
-          *prolog-grammar*)
-(add-rule (grammar-rule (lterm -> (lterm (op (eql (specifier op) :yf)))
-                               (when (<= (priority lterm) (priority op))
-                                 (make-instance 'lterm
-                                                :priority (priority op)
-                                                :term
-                                                (make-instance 'postfix-operator-compound-term
-                                                               :left lterm
-                                                               :operator op)))))
-          *prolog-grammar*)
-(add-rule (grammar-rule (lterm -> (term (op (eql (specifier op) :xf)))
-                               (when (< (priority term) (priority op))
-                                 (make-instance 'lterm
-                                                :priority (priority op)
-                                                :term
-                                                (make-instance 'postfix-operator-compound-term
-                                                               :left term
-                                                               :operator op)))))
-          *prolog-grammar*)
-(add-rule (grammar-rule (term -> ((op (eql (specifier op) :fy)) term)
-                              (when (and (or (not (string= (lexeme-string (syntactic-lexeme op)) "-"))
-                                             (not (numeric-constant-p term)))
-                                         (not (typep (first-lexeme term) 'open-ct-lexeme))
-                                         (<= (priority term) (priority op)))
-                                (make-instance 'prefix-operator-compound-term
-                                               :right term
-                                               :operator op
-                                               :priority (priority op)))))
-          *prolog-grammar*)
-(add-rule (grammar-rule (lterm -> ((op (eql (specifier op) :fx)) term)
-                               (when (and (or (not (string= (lexeme-string (syntactic-lexeme op)) "-"))
-                                              (not (numeric-constant-p term)))
-                                          (not (typep (first-lexeme term) 'open-ct-lexeme))
-                                          (< (priority term) (priority op)))
-                                 (make-instance 'lterm
-                                                :priority (priority op)
-                                                :term
-                                                (make-instance 'prefix-operator-compound-term
-                                                               :right term
-                                                               :operator op)))))
-          *prolog-grammar*)
+(define-prolog-rule (lterm -> ((left term)
+                               (op (eql (specifier op) :xfx))
+                               (right term)))
+  (when (and (< (priority left) (priority op))
+             (< (priority right) (priority op)))
+    (make-instance 'lterm :priority (priority op) :term
+                   (make-instance 'binary-operator-compound-term
+                                  :left left :operator op :right right))))
+(define-prolog-rule (lterm -> ((left lterm)
+                               (op (eql (specifier op) :yfx))
+                               (right term)))
+  (when (and (<= (priority left) (priority op))
+             (< (priority right) (priority op)))
+    (make-instance 'lterm :priority (priority op) :term
+                   (make-instance 'binary-operator-compound-term
+                                  :left left :operator op :right right))))
+(define-prolog-rule (term -> ((left term)
+                              (op (eql (specifier op) :xfy))
+                              (right term)))
+  (when (and (< (priority left) (priority op))
+             (<= (priority right) (priority op)))
+    (make-instance 'binary-operator-compound-term :priority (priority op)
+                   :left left :operator op :right right)))
+(define-prolog-rule (lterm -> (lterm (op (eql (specifier op) :yf))))
+  (when (<= (priority lterm) (priority op))
+    (make-instance 'lterm :priority (priority op) :term
+                   (make-instance 'postfix-operator-compound-term
+                                  :left lterm :operator op))))
+(define-prolog-rule (lterm -> (term (op (eql (specifier op) :xf))))
+  (when (< (priority term) (priority op))
+    (make-instance 'lterm :priority (priority op) :term
+                   (make-instance 'postfix-operator-compound-term
+                                  :left term :operator op))))
+(define-prolog-rule (term -> ((op (eql (specifier op) :fy)) term))
+  (when (and (or (not (string= (lexeme-string (syntactic-lexeme op)) "-"))
+                 (not (numeric-constant-p term)))
+             (not (typep (first-lexeme term) 'open-ct-lexeme))
+             (<= (priority term) (priority op)))
+    (make-instance 'prefix-operator-compound-term
+                   :right term :operator op :priority (priority op))))
+(define-prolog-rule (lterm -> ((op (eql (specifier op) :fx)) term))
+  (when (and (or (not (string= (lexeme-string (syntactic-lexeme op)) "-"))
+                 (not (numeric-constant-p term)))
+             (not (typep (first-lexeme term) 'open-ct-lexeme))
+             (< (priority term) (priority op)))
+    (make-instance 'lterm :priority (priority op) :term
+                   (make-instance 'prefix-operator-compound-term
+                                  :right term :operator op))))
 
 ;;; 6.3.4.3
-(macrolet ((add (class &rest specifiers)
+(macrolet ((def (class &rest specifiers)
              `(progn
-               (add-rule (grammar-rule (,class -> (name)
-                                               (let ((opspec (find-predefined-operator name ',specifiers)))
-                                                 (when opspec
-                                                   (make-instance ',class
-                                                                  :name name
-                                                                  :priority (opspec-priority opspec)
-                                                                  :specifier (opspec-specifier opspec))))))
-                *prolog-grammar*)
-               (add-rule (grammar-rule (,class -> (name)
-                                               (let ((opspec (find-defined-operator name ',specifiers)))
-                                                 (when opspec
-                                                   (make-instance ',class
-                                                                  :name name
-                                                                  :priority (opspec-priority opspec)
-                                                                  :specifier (opspec-specifier opspec))))))
-                *prolog-grammar*))))
-  (add prefix-op :fx :fy)
-  (add binary-op :xfx :xfy :yfx)
-  (add postfix-op :xf :yf))
-(add-rule (grammar-rule (op -> (comma)
-                            (make-instance 'op
-                                           :name comma
-                                           :priority 1000
-                                           :specifier :xfy)))
-          *prolog-grammar*)
+               (define-prolog-rule (,class -> (name))
+                 (let ((opspec (find-predefined-operator name ',specifiers)))
+                   (when opspec
+                     (make-instance ',class :name name
+                                    :priority (opspec-priority opspec)
+                                    :specifier (opspec-specifier opspec)))))
+               (define-prolog-rule (,class -> (name))
+                 (let ((opspec (find-defined-operator name ',specifiers)))
+                   (when opspec
+                     (make-instance ',class :name name
+                                    :priority (opspec-priority opspec)
+                                    :specifier (opspec-specifier opspec))))))))
+  (def prefix-op :fx :fy)
+  (def binary-op :xfx :xfy :yfx)
+  (def postfix-op :xf :yf))
+(define-prolog-rule (op -> (comma))
+  (make-instance 'op :name comma :priority 1000 :specifier :xfy))
 
 ;;; 6.3.5
-(add-rule (grammar-rule (term -> (open-list items close-list)
-                              (make-instance 'list-compound-term
-                                             :priority 0
-                                             :[ open-list
-                                             :items items
-                                             :] close-list)))
-          *prolog-grammar*)
-(add-rule (grammar-rule (items -> (exp comma items)
-                               (make-instance 'items-list
-                                              :exp exp
-                                              :comma comma
-                                              :tlist items)))
-          *prolog-grammar*)
-(add-rule (grammar-rule (items -> ((left exp) head-tail-separator (right exp))
-                               (make-instance 'items-pair
-                                              :exp left
-                                              :htsep head-tail-separator
-                                              :texp right)))
-          *prolog-grammar*)
+(define-prolog-rule (term -> (open-list items close-list))
+  (make-instance 'list-compound-term :priority 0
+                 :[ open-list :items items :] close-list))
+(define-prolog-rule (items -> (exp comma items))
+  (make-instance 'items-list :exp exp :comma comma :tlist items))
+(define-prolog-rule (items -> ((left exp) head-tail-separator (right exp)))
+  (make-instance 'items-pair :exp left
+                 :htsep head-tail-separator :texp right))
 
 ;;; 6.3.6
-(add-rule (grammar-rule (term -> (open-curly term close-curly)
-                              (make-instance 'curly-compound-term
-                                             :priority 0
-                                             :{ open-curly
-                                             :term term
-                                             :} close-curly)))
-          *prolog-grammar*)
+(define-prolog-rule (term -> (open-curly term close-curly))
+  (make-instance 'curly-compound-term :priority 0
+                 :{ open-curly :term term :} close-curly))
 
 ;;; 6.3.7
-(add-rule (grammar-rule (term -> (char-code-list)
-                              (make-instance 'char-code-list-compound-term
-                                             :priority 0
-                                             :ccl char-code-list)))
-          *prolog-grammar*)
+(define-prolog-rule (term -> (char-code-list))
+  (make-instance 'char-code-list-compound-term
+                 :priority 0 :ccl char-code-list))
 
 (defparameter *predefined-operators* nil)
 (defstruct (opspec (:type list))
@@ -970,7 +859,7 @@
 		  :stream pane))))
 
 ;;; KLUDGE: below this line, this is just s/html/prolog/ on the
-;;; definitions in html-syntax.lips
+;;; definitions in html-syntax.lisp
 
 (defmethod display-parse-tree :before ((entity prolog-token) (syntax prolog-syntax) pane)
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
