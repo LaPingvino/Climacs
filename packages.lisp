@@ -60,6 +60,12 @@
 	   #:redisplay-pane #:redisplay-with-syntax #:full-redisplay
 	   #:url))
 
+(defpackage :climacs-kill-ring
+  (:use :clim-lisp :climacs-buffer :flexichain)
+  (:export #:initialize-kill-ring #:kr-length #:kr-resize
+	   #:kr-rotate #:kr-copy-in #:kr-cut-in #:kr-copy-out 
+	   #:kr-cut-out))
+
 (defpackage :climacs-gui
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax))
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax :climacs-kill-ring))
 

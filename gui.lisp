@@ -34,13 +34,17 @@
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
    (point :initform nil :initarg :point :reader point)
-   (syntax :initarg :syntax :accessor syntax)))
+   (syntax :initarg :syntax :accessor syntax)
+   (mark :initform nil :initarg :mark :reader mark)))
 
 (defmethod initialize-instance :after ((pane climacs-pane) &rest args)
   (declare (ignore args))
-  (with-slots (buffer point syntax) pane
+  (with-slots (buffer point syntax mark) pane
      (when (null point)
        (setf point (make-instance 'standard-right-sticky-mark
+		      :buffer buffer)))
+     (when (null mark)
+       (setf mark (make-instance 'standard-right-sticky-mark
 		      :buffer buffer)))
      (setf syntax (make-instance 'texinfo-syntax :pane pane))))
 
@@ -96,6 +100,7 @@
 	       (setf table (command-menu-item-value item)))
 	finally (return item)))
 
+(defvar *kill-ring* (initialize-kill-ring 7))
 (defparameter *current-gesture* nil)
 
 (defun climacs-top-level (frame &key
@@ -331,6 +336,49 @@
 (define-command com-browse-url ()
   (accept 'url :prompt "Browse URL"))
 
+(define-command com-set-mark ()
+  (with-slots (point mark) (win *application-frame*)
+	      (setf mark (clone-mark point))))
+
+;;;;;;;;;;;;;;;;;;;;
+;; Kill ring commands
+
+;; The naming may sound odd here, but think of electronic wireing:
+;; outputs to inputs and inputs to outputs.  Copying into a buffer 
+;; first requires coping out of the kill ring.
+
+(define-command com-copy-in ()
+  (kr-copy-out (point (win *application-frame*)) *kill-ring*))
+
+(define-command com-cut-in ()
+  (kr-cut-out (point (win *application-frame*)) *kill-ring*))
+
+(define-command com-cut-out ()
+  (with-slots (buffer point mark)(win *application-frame*)
+     (let ((off1 (offset point))
+	   (off2 (offset mark)))
+       (if (< off1 off2)
+	   (kr-cut-in buffer *kill-ring* off1 off2)
+	   (kr-cut-in buffer *kill-ring* off2 off1)))))
+
+(define-command com-copy-out ()
+  (with-slots (buffer point mark)(win *application-frame*)
+     (let ((off1 (offset point))
+	   (off2 (offset mark)))
+       (if (< off1 off2)
+	   (kr-copy-in buffer *kill-ring* off1 off2)
+	   (kr-copy-in buffer *kill-ring* off2 off1)))))
+
+;; Needs adjustment to be like emacs M-y
+(define-command com-kr-rotate ()
+  (kr-rotate *kill-ring* -1))     
+
+;; Not bound to a key yet
+(define-command com-kr-resize ()
+  (let ((size (accept 'fixnum :prompt "New kill ring size: ")))
+    (kr-resize *kill-ring* size)))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Global command table
@@ -355,11 +403,16 @@
 (global-set-key '(#\n :control) 'com-next-line)
 (global-set-key '(#\o :control) 'com-open-line)
 (global-set-key '(#\k :control) 'com-kill-line)
+(global-set-key '(#\Space :control) 'com-set-mark)
+(global-set-key '(#\y :control) 'com-copy-in)
+(global-set-key '(#\w :control) 'com-cut-in)
 (global-set-key '(#\f :meta) 'com-forward-word)
 (global-set-key '(#\b :meta) 'com-backward-word)
 (global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\a :meta) 'com-insert-weird-stuff)
 (global-set-key '(#\c :meta) 'com-insert-reversed-string)
+(global-set-key '(#\y :meta) 'com-kr-rotate) ;currently rotates only
+(global-set-key '(#\w :meta) 'com-copy-out)
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
 (global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
 (global-set-key '(#\u :meta) 'com-browse-url)
