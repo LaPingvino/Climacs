@@ -59,7 +59,8 @@
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)
   (:export #:abbrev-expander #:dictionary-abbrev-expander #:dictionary
-	   #:expand-abbrev #:abbrev-mixin #:possibly-expand-abbrev))
+	   #:expand-abbrev #:abbrev-mixin #:possibly-expand-abbrev
+	   #:add-abbrev))
 
 (defpackage :climacs-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)

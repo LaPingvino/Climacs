@@ -305,8 +305,8 @@
 		 cursor-y y)))
        (updating-output (pane :unique-id -1)
 	 (draw-rectangle* pane
-			  cursor-x (- cursor-y (* 0.2 height))
-			  (1+ cursor-x) (+ cursor-y (* 0.8 height))
+			  (1- cursor-x) (- cursor-y (* 0.2 height))
+			  (+ cursor-x 2) (+ cursor-y (* 0.8 height))
 			  :ink +red+)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -525,6 +525,11 @@
 	  (needs-saving buffer) nil)
     (display-message "Wrote: ~a" (filename buffer))))
 
+(define-named-command com-load-file ()
+  (let ((filename (accept 'completable-pathname
+			  :prompt "Load File")))
+    (load filename)))
+
 (define-named-command com-beginning-of-buffer ()
   (beginning-of-buffer (point (win *application-frame*))))
 
@@ -745,6 +750,7 @@
 
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
+(c-x-set-key '(#\l :control) 'com-load-file)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
 (c-x-set-key '(#\t :control) 'com-transpose-lines)
 (c-x-set-key '(#\w :control) 'com-write-buffer)

@@ -50,6 +50,9 @@ expanded abbrev, or NIL if no expansion exists"))
 (defgeneric add-abbrev (word expansion dictionary-abbrev-expander)
   (:documentation "Add an abbrev expansion to a dictionary abbrev expander"))
 
+(defmethod add-abbrev (word expansion (expander dictionary-abbrev-expander))
+  (push (cons word expansion) (dictionary expander)))
+
 (defun string-upper-case-p (string)
   "A predicate testing if each character of a string is uppercase."
   (every #'upper-case-p string))
@@ -74,7 +77,8 @@ expanded version of the abbrevation is returned."
 	(loop until (zerop offset1)
 	      while (constituentp (buffer-object buffer (1- offset1)))
 	      do (decf offset1))
-	(let ((expansion (expand-abbrev (buffer-sequence buffer offset1 offset2)
+	(let ((expansion (expand-abbrev (coerce (buffer-sequence buffer offset1 offset2)
+						'string)
 					(abbrev-expander buffer))))
 	  (when expansion
 	    (delete-buffer-range buffer offset1 (- offset2 offset1))
