@@ -3,10 +3,10 @@
 ;;; (c) copyright 2005 by Aleksandar Bakic (a_bakic@yahoo.com)
 ;;; 
 
-(in-package :cl-user)
-(eval-when (:compile-toplevel :load-toplevel)
-  (use-package :rtest)
-  (use-package :climacs-buffer))
+(cl:defpackage :climacs-tests
+  (:use :rtest :climacs-buffer))
+
+(in-package :climacs-tests)
 
 (deftest standard-buffer-make-instance.test-1
   (let* ((buffer (make-instance 'standard-buffer))
