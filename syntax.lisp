@@ -238,8 +238,8 @@
 (defun page-up (pane syntax)
   (position-window pane syntax)
   (with-slots (top bot cache) syntax
-     (let ((nb-lines-in-region (number-of-lines-in-region top bot)))
-       (when (> (offset top) 0)
+     (when (> (offset top) 0)
+       (let ((nb-lines-in-region (number-of-lines-in-region top bot)))
 	 (setf (offset bot) (offset top))
 	 (end-of-line bot)
 	 (loop repeat  nb-lines-in-region
