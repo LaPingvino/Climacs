@@ -39,6 +39,9 @@
    (dabbrev-expansion-mark :initform nil)
    (overwrite-mode :initform nil)))
 
+(defclass info-pane (application-pane)
+  ((climacs-pane :initarg :climacs-pane)))
+
 (defclass minibuffer-pane (application-pane) ())
 
 (defmethod stream-accept :before ((pane minibuffer-pane) type &rest args)
@@ -49,20 +52,25 @@
   ((win :reader win)
    (buffers :initform '() :accessor buffers))
   (:panes
-   (win (vertically ()
-	  (scrolling ()
-	    (make-pane 'extended-pane
-		       :width 900 :height 400
-		       :name 'bla
-		       :incremental-redisplay t
-		       :display-function 'display-win))
-	  (make-pane 'application-pane
-		     :width 900 :height 20 :max-height 20 :min-height 20
-		     ::background +gray85+
-		     :scroll-bars nil
-		     :borders nil
-		     :incremental-redisplay t
-		     :display-function 'display-info)))
+   (win (let* ((extended-pane 
+		(make-pane 'extended-pane
+			   :width 900 :height 400
+			   :name 'bla
+			   :incremental-redisplay t
+			   :display-function 'display-win))
+	       (info-pane
+		(make-pane 'info-pane
+			   :climacs-pane extended-pane
+			   :width 900 :height 20 :max-height 20 :min-height 20
+			   ::background +gray85+
+			   :scroll-bars nil
+			   :borders nil
+			   :incremental-redisplay t
+			   :display-function 'display-info)))
+	  (vertically ()
+	    (scrolling ()
+	      extended-pane)
+	    info-pane)))
    (int (make-pane 'minibuffer-pane
 		   :width 900 :height 20 :max-height 20 :min-height 20
 		   :scroll-bars nil)))
@@ -92,16 +100,17 @@
   (apply #'format *standard-input* format-string format-args))
 
 (defun display-info (frame pane)
-  (let* ((win (win frame))
-	 (buf (buffer win))
-	 (name-info (format nil "   ~a   ~a   Syntax: ~a ~a"
-			    (if (needs-saving buf) "**" "--")
-			    (name buf)
-			    (name (syntax buf))
-			    (if (slot-value win 'overwrite-mode)
-				"Ovwrt"
-				""))))
-    (princ name-info pane)))
+  (declare (ignore frame))
+  (with-slots (climacs-pane) pane
+     (let* ((buf (buffer climacs-pane))
+	    (name-info (format nil "   ~a   ~a   Syntax: ~a ~a"
+			       (if (needs-saving buf) "**" "--")
+			       (name buf)
+			       (name (syntax buf))
+			       (if (slot-value climacs-pane 'overwrite-mode)
+				   "Ovwrt"
+				   ""))))
+       (princ name-info pane))))
 
 (defun display-win (frame pane)
   "The display function used by the climacs application frame."
@@ -678,7 +687,8 @@
       (sheet-adopt-child parent
 			 (vertically ()
 			   (scrolling () new-pane)
-			   (make-pane 'application-pane
+			   (make-pane 'info-pane
+				      :climacs-pane new-pane
 				      :width 900 :height 20
 				      :max-height 20 :min-height 20
 				      ::background +gray85+
