@@ -718,6 +718,117 @@ different, display units.
 
 @section Incremental parsing framework
 
+@deftp {Protocol Class} parse-tree
+
+The base class for all parse trees. 
+@end deftp
+
+We use the term parse tree in a wider sense than what is common in the
+parsing literature, in that a lexeme is a (trivial) parse tree.  The
+parser does not distinguish between lexemes and other parse trees, and
+a grammar rule can produce a lexeme if that should be desired. 
+
+@deffn {Generic Function} {start-offset} parse-tree
+
+The offset in the buffer of the first character of a parse tree.  
+@end deffn
+
+@deffn {Generic Function} {end-offset} parse-tree
+
+The offset in the buffer of the character following the last one of a
+parse tree.
+@end deffn
+
+The length of a parse-tree is thus the difference of its end offset
+and its start offset.
+
+The start offset and the end offset may be NIL which is typically the
+case when a parse tree is derived from the empty sequence of lexemes.
+
+@subsection Lexical analysis
+
+@deftp {Protocol Class} lexer
+
+The base class for all lexers.
+@end deftp
+
+@deftp {initarg} :buffer
+
+Associate a buffer with a lexer
+@end deftp
+
+@deffn {Generic Function} {buffer} lexer
+
+Return the buffer associated with the lexer
+@end deffn
+
+@deftp {Class} incremental-lexer
+
+A subclass of lexer which maintains the buffer in the form of a
+sequence of lexemes that is updated incrementally. 
+@end deftp
+
+In the sequence of lexemes maintained by the incremental lexer, the
+lexemes are indexed by a position starting from zero. 
+
+@deffn {Generic Function} {nb-lexemes} lexer
+
+Return the number of lexemes in the lexer. 
+@end deffn
+
+@deffn {Generic Function} {lexeme} lexer pos
+
+Given a lexer and a position, return the lexeme in that position in
+the lexer. 
+@end deffn
+
+@deffn {Generic Function} {insert-lexeme} lexer pos lexeme
+
+Insert a lexeme at the position in the lexer.  All lexemes following
+POS are moved to one position higher. 
+@end deffn
+
+@deffn {Generic Function} {delete-invalid-lexemes} lexer from to
+
+Invalidate all lexemes that could have changed as a result of
+modifications to the buffer 
+@end deffn
+
+@deffn {Generic Function} {inter-lexeme-object-p} lexer object
+
+This generic function is called by the incremental lexer to determine
+whether a buffer object is an inter-lexeme object, typically
+whitespace. Client code must supply a method for this generic
+function. 
+@end deffn
+
+@deffn {Generic Function} {skip-inter-lexeme-objects} lexer scan
+
+This generic function is called by the incremental lexer to skip
+inter-lexeme buffer objects.  The default method for this generic
+function increments the scan mark until the object after the mark is
+not an inter-lexeme object, or until the end of the buffer has been
+reached. 
+@end deffn
+
+@deffn {Generic Function} {update-lex} lexer start-pos end
+
+This function is called by client code as part of the buffer-update
+protocol to inform the lexer that it needs to analyze the contents of
+the buffer at least up to the END mark of the buffer.  START-POS is
+the position in the lexeme sequence at which new lexemes should be
+inserted. 
+@end deffn
+
+@deffn {Generic Function} {next-lexeme} lexer scan
+This generic function is called by the incremental lexer to get a new
+lexeme from the buffer.  Client code must supply a method for this
+function that specializes on the lexer class.  It is guaranteed that
+scan is not at the end of the buffer, and that the first object after
+scan is not an inter-lexeme object.  Thus, a lexeme should always be
+returned by this function. 
+@end deffn
+
 @subsection Earley parser
 
 Climacs contains an incremental parser that uses the Earley
