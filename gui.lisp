@@ -546,8 +546,10 @@
     (push buffer (buffers *application-frame*))
     (setf (buffer (current-window)) buffer)
     (setf (syntax buffer) (make-instance 'basic-syntax))
-    (with-open-file (stream filename :direction :input :if-does-not-exist :create)
-      (input-from-stream stream buffer 0))
+    ;; Don't want to create the file if it doesn't exist.
+    (when (probe-file filename) 
+      (with-open-file (stream filename :direction :input)
+	(input-from-stream stream buffer 0)))
     (setf (filename buffer) filename
 	  (name buffer) (pathname-filename filename)
 	  (needs-saving buffer) nil)
