@@ -467,19 +467,20 @@ depending on the exact syntax, but in particular, it holds information
 display after the previous invocation of the redisplay algorithm.
 @end deftp
 
-@deftp {:initarg} :buffer
-Indicates the buffer that this syntax should display. 
-@end deftp
-
 @deftp {:initarg} :pane
 Indicates the pane where rendering is to take place. 
 @end deftp
 
-All subclasses of the syntax class must support the :pane and :buffer
-initargs.  These are both mandatory, because the syntax module needs
-to query both the buffer (for things like setting marks that
-correspond to the top and the bottom of the pane on display) and the
-pane (for things like font size).
+All subclasses of the syntax class must support the :pane initarg.
+The pane that is passed as an initarg must have a valid buffer
+associated with it. 
+
+@deffn {Function} {redisplay-pane} pane
+
+This function is called by the command loop on every pane that is on
+display.  It simply calls redisplay-with-syntax with the pane and the
+syntax of the pane.  
+@end deffn
 
 @deffn {Generic Function} {redisplay-with-syntax} pane syntax
 

@@ -28,6 +28,10 @@
 
 (defgeneric redisplay-with-syntax (pane syntax))
 
+(defun redisplay-pane (pane)
+  "redisplay the pane according to its syntax"
+  (redisplay-with-syntax pane (syntax pane)))
+
 (defgeneric full-redisplay (pane syntax))
 
 (defclass basic-syntax (syntax)
@@ -40,16 +44,17 @@
    (space-width :initform nil)
    (tab-width :initform nil)))
 
-(defmethod initialize-instance :after ((syntax basic-syntax) &rest args &key buffer pane)
+(defmethod initialize-instance :after ((syntax basic-syntax) &rest args &key pane)
   (declare (ignore args))
-  (with-slots (top bot scan space-width tab-width) syntax
-     (setf top (make-instance 'standard-left-sticky-mark :buffer buffer)
-	   bot (make-instance 'standard-right-sticky-mark :buffer buffer)
-	   scan (make-instance 'standard-left-sticky-mark :buffer buffer))
-     (let* ((medium (sheet-medium pane))
-	    (style (medium-text-style medium)))
-       (setf space-width (text-style-width style medium)
-	     tab-width (* 8 space-width)))))
+  (let ((buffer (buffer pane)))
+    (with-slots (top bot scan space-width tab-width) syntax
+       (setf top (make-instance 'standard-left-sticky-mark :buffer buffer)
+	     bot (make-instance 'standard-right-sticky-mark :buffer buffer)
+	     scan (make-instance 'standard-left-sticky-mark :buffer buffer))
+       (let* ((medium (sheet-medium pane))
+	      (style (medium-text-style medium)))
+	 (setf space-width (text-style-width style medium)
+	       tab-width (* 8 space-width))))))
 
 (define-presentation-type url ()
   :inherit-from 'string)

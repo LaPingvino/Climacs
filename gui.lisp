@@ -40,7 +40,7 @@
      (when (null point)
        (setf point (make-instance 'standard-right-sticky-mark
 		      :buffer buffer)))
-     (setf syntax (make-instance 'texinfo-syntax :buffer buffer :pane pane))))
+     (setf syntax (make-instance 'texinfo-syntax :pane pane))))
 
 (define-application-frame climacs ()
   ((win :reader win))
@@ -65,7 +65,7 @@
 (defun display-win (frame pane)
   "The display function used by the climacs application frame."
   (declare (ignore frame))
-  (redisplay-with-syntax pane (syntax pane)))
+  (redisplay-pane pane))
 
 (defun find-gestures (gestures start-table)
   (loop with table = (find-command-table start-table)
@@ -246,7 +246,7 @@
     (with-slots (buffer point syntax) (win *application-frame*)
        (setf buffer (make-instance 'climacs-buffer)
 	     point (make-instance 'standard-right-sticky-mark :buffer buffer)
-	     syntax (make-instance 'texinfo-syntax :buffer buffer :pane (win *application-frame*))
+	     syntax (make-instance 'texinfo-syntax :pane (win *application-frame*))
 	     (filename buffer) filename)
        (with-open-file (stream filename :direction :input)
 	 (input-from-stream stream buffer 0))
