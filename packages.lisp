@@ -98,6 +98,8 @@
            #:tab-space-count
            #:indent-tabs-mode
            #:auto-fill-mode #:auto-fill-column
+           #:isearch-state #:search-string #:search-mark
+           #:isearch-mode #:isearch-states #:isearch-previous-string
 	   #:url))
 
 (defpackage :climacs-gui

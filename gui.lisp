@@ -109,7 +109,7 @@
   (declare (ignore frame))
   (with-slots (climacs-pane) pane
      (let* ((buf (buffer climacs-pane))
-	    (name-info (format nil "   ~a   ~a   Syntax: ~a~a~a    ~a"
+	    (name-info (format nil "   ~a   ~a   Syntax: ~a~a~a~a    ~a"
 			       (if (needs-saving buf) "**" "--")
 			       (name buf)
 			       (name (syntax buf))
@@ -118,6 +118,9 @@
 				   "")
                                (if (auto-fill-mode climacs-pane)
                                    " Fill"
+                                   "")
+                               (if (isearch-mode climacs-pane)
+                                   " Isearch"
                                    "")
 			       (if (recordingp *application-frame*)
 				   "Def"
@@ -983,17 +986,102 @@ as two values"
   (let ((size (accept 'integer :prompt "New kill ring size")))
     (setf (kill-ring-max-size *kill-ring*) size)))
 
-(define-named-command com-search-forward ()
-  (search-forward (point (current-window))
-		  (accept 'string :prompt "Search Forward")
-		  :test (lambda (a b)
-			  (and (characterp b) (char-equal a b)))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Incremental search
 
-(define-named-command com-search-backward ()
-  (search-backward (point (current-window))
-		   (accept 'string :prompt "Search Backward")
-		   :test (lambda (a b)
-			   (and (characterp b) (char-equal a b)))))
+(define-named-command com-isearch-mode ()
+  (let* ((pane (current-window))
+         (point (point pane)))
+    (unless (endp (isearch-states pane))
+      (setf (isearch-previous-string pane)
+            (search-string (first (isearch-states pane)))))
+    (setf (isearch-mode pane) t)
+    (setf (isearch-states pane)
+          (list (make-instance 'isearch-state
+                               :search-string ""
+                               :search-mark (clone-mark point))))
+    (redisplay-frame-panes *application-frame*)
+    (loop while (isearch-mode pane)
+          as gesture = (climacs-read-gesture)
+          as item = (find-gestures (list gesture) 'isearch-climacs-table)
+          do (cond ((and item (eq (command-menu-item-type item) :command))
+                    (setf *current-gesture* gesture)
+                    (let ((command (command-menu-item-value item)))
+                      (unless (consp command)
+                        (setf command (list command)))
+                      (handler-case 
+                          (execute-frame-command *application-frame* command)
+                        (error (condition)
+                          (beep)
+                          (format *error-output* "~a~%" condition)))))
+                   (t
+                    (unread-gesture gesture)
+                    (setf (isearch-mode pane) nil)))
+             (redisplay-frame-panes *application-frame*))))
+
+(defun isearch-from-mark (pane mark string)
+  (let* ((point (point pane))
+         (mark2 (clone-mark mark)))
+    (when (search-forward mark2 string
+                          :test (lambda (x y)
+                                  (if (characterp x)
+                                      (and (characterp y) (char-equal x y))
+                                      (eql x y))))
+      (setf (offset point) (offset mark2))
+      (setf (offset mark) (- (offset mark2) (length string))))))
+
+(define-named-command com-isearch-append-char ()
+  (let* ((pane (current-window))
+         (point (point pane))
+         (states (isearch-states pane))
+         (string (concatenate 'string
+                              (search-string (first states))
+                              (string *current-gesture*)))
+         (mark (clone-mark (search-mark (first states))))
+         (previous-point-offset (offset point)))
+    (isearch-from-mark pane mark string)
+    (if (/= (offset point) previous-point-offset)
+        (push (make-instance 'isearch-state
+                             :search-string string
+                             :search-mark mark)
+              (isearch-states pane))
+        (beep))))
+
+(define-named-command com-isearch-delete-char ()
+  (let* ((pane (current-window)))
+    (cond ((null (second (isearch-states pane)))
+           (beep))
+          (t
+           (pop (isearch-states pane))
+           (let ((state (first (isearch-states pane))))
+             (setf (offset (point pane))
+                   (+ (offset (search-mark state))
+                      (length (search-string state)))))))))
+
+(define-named-command com-isearch-forward ()
+  (let* ((pane (current-window))
+         (point (point pane))
+         (states (isearch-states pane))
+         (string (if (null (second states))
+                     (isearch-previous-string pane)
+                     (search-string (first states))))
+         (mark (clone-mark point))
+         (previous-point-offset (offset point)))
+    (isearch-from-mark pane mark string)
+    (if (/= (offset point) previous-point-offset)
+        (push (make-instance 'isearch-state
+                             :search-string string
+                             :search-mark mark)
+              (isearch-states pane))
+        (beep))))
+
+(define-named-command com-isearch-exit ()
+  (setf (isearch-mode (current-window)) nil))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Dynamic abbrevs
 
 (define-named-command com-dabbrev-expand ()
   (let* ((win (current-window))
@@ -1109,6 +1197,7 @@ as two values"
 (global-set-key '(#\/ :meta) 'com-dabbrev-expand)
 (global-set-key '(#\a :control :meta) 'com-beginning-of-paragraph)
 (global-set-key '(#\e :control :meta) 'com-end-of-paragraph)
+(global-set-key '(#\s :control) 'com-isearch-mode)
 
 (global-set-key '(:up) 'com-previous-line)
 (global-set-key '(:down) 'com-next-line)
@@ -1316,3 +1405,21 @@ as two values"
 (dead-circumflex-set-key '(#\o) '(com-insert-charcode 244))
 (dead-circumflex-set-key '(#\u) '(com-insert-charcode 251))
 (dead-circumflex-set-key '(#\Space) '(com-insert-charcode 94))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Isearch command table
+
+(make-command-table 'isearch-climacs-table :errorp nil)
+
+(defun isearch-set-key (gesture command)
+  (add-command-to-command-table command 'isearch-climacs-table
+                                :keystroke gesture :errorp nil))
+
+(loop for code from (char-code #\Space) to (char-code #\~)
+      do (isearch-set-key (code-char code) 'com-isearch-append-char))
+
+(isearch-set-key '(#\Newline) 'com-isearch-exit)
+(isearch-set-key '(#\Backspace) 'com-isearch-delete-char)
+(isearch-set-key '(#\s :control) 'com-isearch-forward)
+

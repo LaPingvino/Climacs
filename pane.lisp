@@ -44,6 +44,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; Isearch
+
+(defclass isearch-state ()
+  ((search-string :initarg :search-string :accessor search-string)
+   (search-mark :initarg :search-mark :accessor search-mark)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; View
 
 (defclass climacs-textual-view (textual-view tabify-mixin)
@@ -75,6 +83,9 @@
    (tab-width :initform nil)
    (auto-fill-mode :initform t :accessor auto-fill-mode)
    (auto-fill-column :initform 70 :accessor auto-fill-column)
+   (isearch-mode :initform nil :accessor isearch-mode)
+   (isearch-states :initform '() :accessor isearch-states)
+   (isearch-previous-string :initform nil :accessor isearch-previous-string)
    (full-redisplay-p :initform nil :accessor full-redisplay-p)
    (cache :initform (let ((cache (make-instance 'standard-flexichain)))
 		      (insert* cache 0 nil)
