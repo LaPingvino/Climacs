@@ -167,11 +167,15 @@
 
 (defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin undo-mixin) ;PB
   ((needs-saving :initform nil :accessor needs-saving)
-   (syntax :initarg :syntax :initform (make-instance 'basic-syntax) :accessor syntax)
+   (syntax :accessor syntax)
    (indent-tabs-mode :initarg indent-tabs-mode :initform t
                      :accessor indent-tabs-mode))
   (:default-initargs :name "*scratch*"))
 
+(defmethod initialize-instance :after ((buffer climacs-buffer) &rest args)
+  (declare (ignore args))
+  (with-slots (syntax) buffer
+     (setf syntax (make-instance 'basic-syntax :buffer buffer))))
 
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)

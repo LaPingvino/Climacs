@@ -77,6 +77,7 @@
 	    info-pane)))
    (int (make-pane 'minibuffer-pane
 		   :width 900 :height 20 :max-height 20 :min-height 20
+		   :display-function 'display-minibuffer
 		   :scroll-bars nil)))
   (:layouts
    (default
@@ -84,6 +85,18 @@
 	 win
 	 int)))
   (:top-level (climacs-top-level)))
+
+(defparameter *message* nil)
+
+(defun display-message (format-string &rest format-args)
+  (setf *message* 
+	(apply #'format nil format-string format-args)))
+
+(defun display-minibuffer (frame pane)
+  (declare (ignore frame))
+  (unless (null *message*)
+    (princ *message* pane)
+    (setf *message* nil)))
 
 (defmacro current-window () ; shouldn't this be an inlined function? --amb
   `(car (windows *application-frame*)))
@@ -106,9 +119,6 @@
   "Starts up a climacs session"
   (let ((frame (make-application-frame 'climacs)))
     (run-frame-top-level frame)))
-
-(defun display-message (format-string &rest format-args)
-  (apply #'format *standard-input* format-string format-args))
 
 (defun display-info (frame pane)
   (declare (ignore frame))
@@ -649,7 +659,7 @@
 	(pane (current-window)))
     (push buffer (buffers *application-frame*))
     (setf (buffer (current-window)) buffer)
-    (setf (syntax buffer) (make-instance 'basic-syntax))
+    (setf (syntax buffer) (make-instance 'basic-syntax :buffer buffer))
     ;; Don't want to create the file if it doesn't exist.
     (when (probe-file filename) 
       (with-open-file (stream filename :direction :input)
@@ -722,7 +732,7 @@
   (let ((buffer (accept 'buffer
 			:prompt "Switch to buffer")))
     (setf (buffer (current-window)) buffer)
-    (setf (syntax buffer) (make-instance 'basic-syntax))
+    (setf (syntax buffer) (make-instance 'basic-syntax :buffer buffer))
     (beginning-of-buffer (point (current-window)))
     (full-redisplay (current-window))))
 
@@ -800,7 +810,8 @@
   (let* ((pane (current-window))
 	 (buffer (buffer pane)))
     (setf (syntax buffer)
-	  (make-instance (accept 'syntax :prompt "Set Syntax")))
+	  (make-instance (accept 'syntax :prompt "Set Syntax")
+	     :buffer buffer))
     (setf (offset (low-mark buffer)) 0
 	  (offset (high-mark buffer)) (size buffer))))
 
@@ -1242,6 +1253,18 @@ as two values"
 	 (point (point pane))
 	 (syntax (syntax (buffer pane))))
     (end-of-paragraph point syntax)))
+
+(define-named-command com-backward-to-error ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (display-message "~a" (backward-to-error point syntax))))
+
+(define-named-command com-forward-to-error ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (display-message "~a" (forward-to-error point syntax))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

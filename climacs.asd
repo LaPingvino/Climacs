@@ -61,6 +61,7 @@
    "abbrev"
    "syntax"
    "text-syntax"
+   "html-syntax"
    "kill-ring"
    "undo"
    "pane"

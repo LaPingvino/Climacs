@@ -86,7 +86,8 @@
 	   #:basic-syntax
 	   #:update-syntax
            #:syntax-line-indentation
-	   #:beginning-of-paragraph #:end-of-paragraph))
+	   #:beginning-of-paragraph #:end-of-paragraph
+	   #:forward-to-error #:backward-to-error))
 
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
