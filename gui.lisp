@@ -62,12 +62,14 @@
 
 (defun display-win (frame pane)
   "The display function used by the climacs application frame."
+  (declare (ignore frame))
   (let* ((medium (sheet-medium pane))
 	 (style (medium-text-style medium))
 	 (height (text-style-height style medium))
 	 (width (text-style-width style medium))
-	 (buffer (buffer (win frame)))
-	 (size (size (buffer (win frame))))
+	 (tab-width (* 8 width))
+	 (buffer (buffer pane))
+	 (size (size (buffer pane)))
 	 (offset 0)
 	 (offset1 nil)
 	 (cursor-x nil)
@@ -79,7 +81,7 @@
 			:stream pane)
 	       (setf offset1 nil)))
 	   (display-line ()
-	     (loop when (= offset (offset (point (win frame))))
+	     (loop when (= offset (offset (point pane)))
 		     do (multiple-value-bind (x y) (stream-cursor-position pane)
 			  (setf cursor-x (+ x (if (null offset1)
 						  0
@@ -93,6 +95,11 @@
 			(cond ((eql obj #\Space)
 			       (present-contents)
 			       (princ obj pane))
+			      ((eql obj #\Tab)
+			       (present-contents)
+			       (let ((x (stream-cursor-position pane)))
+				 (stream-increment-cursor-position
+				  pane (- tab-width (mod x tab-width)) 0)))
 			      ((constituentp obj)
 			       (when (null offset1)
 				 (setf offset1 offset)))
@@ -105,7 +112,7 @@
 			   (terpri pane))))
       (loop while (< offset size)
 	    do (display-line))
-      (when (= offset (offset (point (win frame))))
+      (when (= offset (offset (point pane)))
 	(multiple-value-bind (x y) (stream-cursor-position pane)
 	  (setf cursor-x x
 		cursor-y y))))
@@ -317,6 +324,7 @@
       do (global-set-key (code-char code) 'com-self-insert))
 
 (global-set-key #\newline 'com-self-insert)
+(global-set-key #\tab 'com-self-insert)
 (global-set-key '(#\f :control) 'com-forward-object)
 (global-set-key '(#\b :control) 'com-backward-object)
 (global-set-key '(#\a :control) 'com-beginning-of-line)
