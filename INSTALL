@@ -1,0 +1,16 @@
+1. Start Lisp either from the shell or from Emacs
+
+2. (load "climacs.asd")
+
+   This command will load the system definition file containing system
+   definitions both for ASDF and for MK:DEFSYSTEM. 
+
+3. (asdf:operate 'asdf:load-op :climacs)
+
+   This command will compile and load the source files in the right
+   order.
+
+4. (climacs-gui::climacs)
+
+   Start the Climacs editor.
+ 

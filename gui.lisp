@@ -1,7 +1,26 @@
-(defpackage :climacs
-  (:use :clim-lisp :clim :climacs-buffer))
+;;; -*- Mode: Lisp; Package: CLIMACS-GUI -*-
 
-(in-package :climacs)
+;;;  (c) copyright 2004 by
+;;;           Robert Strandh (strandh@labri.u-bordeaux.fr)
+
+;;; This library is free software; you can redistribute it and/or
+;;; modify it under the terms of the GNU Library General Public
+;;; License as published by the Free Software Foundation; either
+;;; version 2 of the License, or (at your option) any later version.
+;;;
+;;; This library is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; Library General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU Library General Public
+;;; License along with this library; if not, write to the
+;;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+;;; Boston, MA  02111-1307  USA.
+
+;;; GUI for the Climacs editor. 
+
+(in-package :climacs-gui)
 
 (define-application-frame climacs ()
   ((buffer :initform (make-instance 'standard-buffer)
@@ -97,35 +116,49 @@
 (define-command com-delete-char ()
   (delete-text (point *application-frame*)))
 
+(define-command com-previous-line ()
+  (previous-line (point *application-frame*)))
+
+(define-command com-next-line ()
+  (next-line (point *application-frame*)))
+
+(define-command com-open-line ()
+  (open-line (point *application-frame*)))
+
+(define-command com-kill-line ()
+  (kill-line (point *application-frame*)))
+
+(define-command com-forward-word ()
+  (forward-word (point *application-frame*)))
+
+(define-command com-backward-word ()
+  (backward-word (point *application-frame*)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Global command table
 
 (make-command-table 'global-climacs-table :errorp nil)
 
+(defun global-set-key (gesture command)
+  (add-command-to-command-table command 'global-climacs-table
+				:keystroke gesture :errorp nil))
+
 (loop for code from (char-code #\space) to (char-code #\~)
-      do (add-command-to-command-table
-	     'com-self-insert
-	      (find-command-table 'global-climacs-table)
-	     :keystroke (code-char code) :errorp nil))
+      do (global-set-key (code-char code) 'com-self-insert))
 
-(add-command-to-command-table 'com-self-insert (find-command-table 'global-climacs-table)
-			      :keystroke #\newline :errorp nil)
-
-(add-command-to-command-table 'com-forward-char (find-command-table 'global-climacs-table)
-			      :keystroke '(#\f :control) :errorp nil)
-
-(add-command-to-command-table 'com-backward-char (find-command-table 'global-climacs-table)
-			      :keystroke '(#\b :control) :errorp nil)
-
-(add-command-to-command-table 'com-beginning-of-line (find-command-table 'global-climacs-table)
-			      :keystroke '(#\a :control) :errorp nil)
-
-(add-command-to-command-table 'com-end-of-line (find-command-table 'global-climacs-table)
-			      :keystroke '(#\e :control) :errorp nil)
-
-(add-command-to-command-table 'com-delete-char (find-command-table 'global-climacs-table)
-			      :keystroke '(#\d :control) :errorp nil)
+(global-set-key #\newline 'com-self-insert)
+(global-set-key '(#\f :control) 'com-forward-char)
+(global-set-key '(#\b :control) 'com-backward-char)
+(global-set-key '(#\a :control) 'com-beginning-of-line)
+(global-set-key '(#\e :control) 'com-end-of-line)
+(global-set-key '(#\d :control) 'com-delete-char)
+(global-set-key '(#\p :control) 'com-previous-line)
+(global-set-key '(#\n :control) 'com-next-line)
+(global-set-key '(#\o :control) 'com-open-line)
+(global-set-key '(#\k :control) 'com-kill-line)
+(global-set-key '(#\f :meta) 'com-forward-word)
+(global-set-key '(#\b :meta) 'com-backward-word)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -134,12 +167,12 @@
 (make-command-table 'c-x-climacs-table :errorp nil)
 
 (add-menu-item-to-command-table 'global-climacs-table "C-x"
-				:menu (find-command-table 'c-x-climacs-table)
+				:menu 'c-x-climacs-table
 				:keystroke '(#\x :control))
 
 ;;; for some reason, C-c does not seem to arrive as far as CLIM.
 
-(add-command-to-command-table 'com-quit (find-command-table 'c-x-climacs-table)
+(add-command-to-command-table 'com-quit 'c-x-climacs-table
 			      :keystroke '(#\q :control))
 
 
