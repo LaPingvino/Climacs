@@ -86,7 +86,8 @@
   (setf (slot-value frame 'win) (find-pane-named frame 'win))
   (let ((*standard-output* (frame-standard-output frame))
 	(*standard-input* (frame-standard-input frame))
-	(*print-pretty* nil))
+	(*print-pretty* nil)
+	(*abort-gestures* nil))
     (redisplay-frame-panes frame :force-p t)
     (loop with gestures = '()
 	  do (setf *current-gesture* (read-gesture :stream *standard-input*))
@@ -316,7 +317,6 @@
   (add-command-to-command-table command 'c-x-climacs-table
 				:keystroke gesture :errorp nil))
 
-;;; for some reason, C-c does not seem to arrive as far as CLIM.
-(c-x-set-key '(#\q :control) 'com-quit)
+(c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\s :control) 'com-save-buffer)

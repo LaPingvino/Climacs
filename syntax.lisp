@@ -77,8 +77,7 @@
 		    `(let ((contents (compute-contents)))
 		       (present-contents contents pane syntax)
 		       ,@body)))
-	 (loop with id = 0
-	       when (mark= scan (point pane))
+	 (loop when (mark= scan (point pane))
 		 do (multiple-value-bind (x y) (stream-cursor-position pane)
 		      (setf cursor-x (+ x (if (null saved-offset)
 					      0
