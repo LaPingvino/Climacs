@@ -4,6 +4,8 @@
 ;;;           Robert Strandh (strandh@labri.fr)
 ;;;  (c) copyright 2005 by
 ;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
+;;;  (c) copyright 2005 by
+;;;           Aleksandar Bakic (a_bakic@yahoo.com)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -106,9 +108,12 @@
        ,@body
        (cond ((null (undo-accumulate ,buffer-var)) nil)
 	     ((null (cdr (undo-accumulate ,buffer-var)))
-	      (add-undo (car (undo-accumulate ,buffer-var)) (undo-tree ,buffer-var)))
+	      (add-undo (car (undo-accumulate ,buffer-var))
+			(undo-tree ,buffer-var)))
 	     (t
-	      (add-undo (make-instance 'compound-record :records (undo-accumulate ,buffer-var))
+	      (add-undo (make-instance 'compound-record
+				       :buffer ,buffer-var
+				       :records (undo-accumulate ,buffer-var))
 			(undo-tree ,buffer-var)))))))
 
 (defmethod flip-undo-record :around ((record climacs-undo-record))
@@ -185,7 +190,7 @@
 (defclass extended-standard-buffer (standard-buffer undo-mixin abbrev-mixin) ()
   (:documentation "Extensions accessible via marks."))
 
-(defclass extended-binseq2-buffer (binseq2-buffer undo-mixin abbrev-mixin) ()
+(defclass extended-binseq2-buffer (binseq2-buffer p-undo-mixin abbrev-mixin) ()
   (:documentation "Extensions accessible via marks."))
 
 (defclass climacs-buffer (delegating-buffer filename-mixin name-mixin)
@@ -251,10 +256,10 @@
 
 (defmethod (setf buffer) :after (buffer (pane climacs-pane))
   (with-slots (point mark top bot) pane
-       (setf point (clone-mark (low-mark (implementation buffer)) :right)
-	     mark (clone-mark (low-mark (implementation buffer)) :right)
-	     top (clone-mark (low-mark (implementation buffer)) :left)
-	     bot (clone-mark (high-mark (implementation buffer)) :right))))
+       (setf point (clone-mark (low-mark buffer) :right)
+	     mark (clone-mark (low-mark buffer) :right)
+	     top (clone-mark (low-mark buffer) :left)
+	     bot (clone-mark (high-mark buffer) :right))))
 
 (define-presentation-type url ()
   :inherit-from 'string)

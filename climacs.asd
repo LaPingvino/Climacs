@@ -61,6 +61,7 @@
    "undo"
    "delegating-buffer"
    "pane"
+   "Persistent/persistent-undo"
    "html-syntax"
    "gui"
    ;;---- optional ----

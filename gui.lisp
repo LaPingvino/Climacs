@@ -1224,10 +1224,12 @@ as two values"
 ;;; Undo/redo
 
 (define-named-command com-undo ()
-  (undo (undo-tree (buffer (current-window)))))
+  (undo (undo-tree (buffer (current-window))))
+  (full-redisplay (current-window)))
 
 (define-named-command com-redo ()
-  (redo (undo-tree (buffer (current-window)))))
+  (redo (undo-tree (buffer (current-window))))
+  (full-redisplay (current-window)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
