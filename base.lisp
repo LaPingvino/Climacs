@@ -39,16 +39,6 @@ The body is executed for each element, with object being the current object
      (loop for ,offset from ,offset1 below ,offset2
            do ,@body)))
 
-(defgeneric backward-object (mark &optional count))
-
-(defmethod backward-object ((mark mark) &optional (count 1))
-  (decf (offset mark) count))
-
-(defgeneric forward-object (mark &optional count))
-
-(defmethod forward-object ((mark mark) &optional (count 1))
-  (incf (offset mark) count))
-
 (defun previous-line (mark &optional column)
   "Move a mark up one line conserving horizontal position."
   (unless column

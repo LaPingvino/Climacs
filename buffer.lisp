@@ -86,6 +86,16 @@ the size of the buffer."))
 	  (make-condition 'no-such-offset :offset new-offset))
   (setf (cursor-pos (cursor mark)) new-offset))
 
+(defgeneric backward-object (mark &optional count))
+
+(defmethod backward-object ((mark mark) &optional (count 1))
+  (decf (offset mark) count))
+
+(defgeneric forward-object (mark &optional count))
+
+(defmethod forward-object ((mark mark) &optional (count 1))
+  (incf (offset mark) count))
+
 (defclass standard-left-sticky-mark (left-sticky-mark mark-mixin) ()
   (:documentation "A left-sticky-mark subclass suitable for use in a standard-buffer"))
  

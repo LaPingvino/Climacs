@@ -157,6 +157,22 @@ condition is signaled if the offset is less than zero or greater than
 the size of the buffer. 
 @end deffn
 
+@deffn {Generic Function} {forward-object} mark &optional (count 1)
+
+Move the mark forward the number of positions indicated by count. 
+This function could be implemented by an incf on the offset of the
+mark, but many buffer implementations can implement this function much
+more efficiently in a different way. 
+@end deffn
+
+@deffn {Generic Function} {backward-object} mark &optional (count 1)
+
+Move the mark backward the number of positions indicated by count. 
+This function could be implemented by a decf on the offset of the
+mark, but many buffer implementations can implement this function much
+more efficiently in a different way. 
+@end deffn
+
 @deffn {Generic Function} {mark<} mark1 mark2
 
 Return t if the offset of mark1 is strictly less than that of mark2.

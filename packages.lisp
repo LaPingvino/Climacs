@@ -29,6 +29,7 @@
 	   #:standard-left-sticky-mark #:standard-right-sticky-mark
 	   #:clone-mark #:no-such-offset #:size #:number-of-lines
 	   #:offset #:mark< #:mark<= #:mark= #:mark> #:mark>=
+           #:forward-object #:backward-object
 	   #:beginning-of-buffer #:end-of-buffer
 	   #:beginning-of-buffer-p #:end-of-buffer-p
 	   #:beginning-of-line #:end-of-line
@@ -49,7 +50,6 @@
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer)
   (:export #:do-buffer-region
-           #:forward-object #:backward-object
 	   #:previous-line #:next-line
 	   #:open-line #:kill-line
            #:empty-line-p
