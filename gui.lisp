@@ -115,7 +115,7 @@
 			    (name (syntax win))
 			    (if *overwrite-mode*
 				"Ovwrt"
-				(format nil "L~d" (line-number (point win)))))))
+				""))))
     (princ name-info pane)))
 
 (defun display-win (frame pane)
