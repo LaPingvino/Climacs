@@ -558,8 +558,10 @@
 			 :value-key #'identity))
 		      :partial-completers '(#\Space)
 		      :allow-any-input t)
-    (declare (ignore success string))
-    object))
+    (declare (ignore success))
+    (or	object
+	(car (push (make-instance 'climacs-buffer :name string)
+		   (buffers *application-frame*))))))
 
 (define-named-command com-switch-to-buffer ()
   (let ((buffer (accept 'buffer
