@@ -350,13 +350,12 @@
   (let* ((pane (win *application-frame*))
 	 (point (point pane))
          (mark (offset point)))
-    (if (end-of-line-p point)
-	(forward-object point)
-	(progn
-	  (end-of-line point)
-	  (cond ((or (beginning-of-buffer-p point)
-		     (end-of-buffer-p point)) nil)
-		((beginning-of-line-p point)(forward-object point)))))
+    (cond ((end-of-buffer-p point) nil)
+	  ((end-of-line-p point)(forward-object point))
+	  (t
+	   (end-of-line point)
+	   (cond ((beginning-of-buffer-p point) nil)
+		 ((beginning-of-line-p point)(forward-object point)))))
     (if (eq (previous-command pane) 'com-kill-line)
 	(kill-ring-concatenating-push *kill-ring*
 				      (region-to-sequence mark point))
