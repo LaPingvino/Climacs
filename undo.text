@@ -125,32 +125,34 @@ undo-tree undoable-buffer                           [generic function]
 
  Return the undo-tree of the buffer. 
 
- Undo is implemented as :after methods on insert-buffer-text and
- delete-buffer-text specialized on undoable-buffer. 
+ Undo is implemented as :after methods on, insert-buffer-object,
+ insert-buffer-sequence and delete-buffer-range specialized on
+ undoable-buffer.
 
 *undo-accumulate*                                   [special variable]
 
  This variable is initially nil (the empty list).  The :after methods
- on insert-buffer-text and delete-buffer-text push undo records on to
- this list. 
+ on insert-buffer-object, insert-buffer-sequence, and
+ delete-buffer-range push undo records on to this list.
 
 *performing-undo*                                   [special variable]
 
  This variable is initially nil.  The :after methods on
- insert-buffer-text and delete-buffer-text push undo records onto
- *undo-accumulate* only if *performing-undo* is nil so that no undo
- information is added as a result of an undo operation.
+ insert-buffer-object, insert-buffer-sequence, and delete-buffer-range
+ push undo records onto *undo-accumulate* only if *performing-undo* is
+ nil so that no undo information is added as a result of an undo
+ operation.
 
  Three subclasses `insert-record', `delete-record', and
  `compound-record' of undo-record are used.  An insert record stores a
- position and some text to be inserted, a delete record stores a
- position and the length of the text to be deleted, and a compound
- record stores a list of other undo records. 
+ position and some sequence of objects to be inserted, a delete record
+ stores a position and the length of the sequence to be deleted, and a
+ compound record stores a list of other undo records.
 
- The :after method on insert-buffer-text pushes a record of type
- delete-record onto *undo-accumulate*, and the :after method on
- delete-buffer-text pushes a record of type insert-record onto
- *undo-accumulate*.
+ The :after methods on insert-buffer-object and insert-buffer-sequence
+ push a record of type delete-record onto *undo-accumulate*, and the
+ :after method on delete-buffer-range pushes a record of type
+ insert-record onto *undo-accumulate*.
 
 with-undo buffer &body body                         [macro]
 
@@ -162,19 +164,19 @@ with-undo buffer &body body                         [macro]
  the list and passed to add-undo.  Finally, if *undo-accumulate* is
  nil, add-undo is not called at all.
 
- To avoid storing an undo record for each character that is inserted,
+ To avoid storing an undo record for each object that is inserted,
  the with-undo macro may in some cases just increment the length of
- the text in the last delete-record.
+ the sequence in the last delete-record.
 
  The method on flip-undo-record specialized on insert-record binds
- *performing-undo* to t, inserts the text in the buffer, and calls
- change-class to convert the insert-record to a delete-record, giving
- it a the length of the stored text.
+ *performing-undo* to t, inserts the sequence of objects in the
+ buffer, and calls change-class to convert the insert-record to a
+ delete-record, giving it a the length of the stored sequence.
 
  The method on flip-undo-record specialized on delete-record binds
- *performing-undo* to t, deletes the text from the buffer, and calls
+ *performing-undo* to t, deletes the range from the buffer, and calls
  change-class to convert the delete-record to an insert-record, giving
- it the text at the stored offset in the buffer with the specified
+ it the sequence at the stored offset in the buffer with the specified
  length.
 
  The method on flip-undo-record specialized on compound-record binds
@@ -201,24 +203,24 @@ undo-offset undo-record                             [generic function]
 
 delete-record                                       [class]
 
- A subclass of buffer-undo-record.  Whenever text is inserted, a
+ A subclass of buffer-undo-record.  Whenever objects are inserted, a
  delete-record containing a mark is created and added to the undo
  tree.
 
 :length                                             [initarg]
 
- Supply the length of the text to be deleted whenever flip-undo-record
- is called on an instance of delete-record.
+ Supply the length of the sequence of objects to be deleted whenever
+ flip-undo-record is called on an instance of delete-record.
 
 insert-record                                       [class]
 
- A subclass of buffer-undo-record.  Whenever text is deleted, that
- text is stored in an insert record containing a mark.
+ A subclass of buffer-undo-record.  Whenever objects are deleted, the
+ sequence of objectgs is stored in an insert record containing a mark.
 
-:text                                               [initarg]
+:objects                                            [initarg]
 
- Supply the text that is to be inserted whenever flip-undo-record is
- called on an instance of insert-record. 
+ Supply the sequence of objects that are to be inserted whenever
+ flip-undo-record is called on an instance of insert-record.
 
 compound-record                                     [class]
 

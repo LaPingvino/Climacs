@@ -32,12 +32,12 @@
 	   #:beginning-of-line #:end-of-line
 	   #:beginning-of-line-p #:end-of-line-p
 	   #:line-number #:column-number
-	   #:insert-buffer-text #:insert-text
-	   #:delete-buffer-text #:delete-text
+	   #:insert-buffer-object #:insert-buffer-sequence
+	   #:insert-object #:insert-sequence
+	   #:delete-buffer-range #:delete-range
 	   #:delete-region
-	   #:buffer-char #:buffer-string
-	   #:char-before #:char-after #:region-to-string
-	   #:find-text-after #:find-text-before))
+	   #:buffer-object #:buffer-sequence
+	   #:object-before #:object-after #:region-to-sequence))
 
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer)

@@ -29,7 +29,7 @@
 (defclass buffer () ())
 
 (defclass standard-buffer (buffer)
-  ((text :initform (list nil))
+  ((contents :initform (list nil))
    (marks :initform '())))
 
 (defgeneric buffer (mark))  
@@ -72,13 +72,13 @@
 (defgeneric size (buffer))
 
 (defmethod size ((buffer standard-buffer))
-  (1- (length (slot-value buffer 'text))))
+  (1- (length (slot-value buffer 'contents))))
 
 
 (defgeneric number-of-lines (buffer))
 
 (defmethod number-of-lines ((buffer standard-buffer))
-  (count #\Newline (cdr (slot-value buffer 'text))))
+  (count #\Newline (cdr (slot-value buffer 'contents))))
 
 (defgeneric mark< (mark1 mark2))
 
@@ -165,32 +165,32 @@
 
 (defmethod beginning-of-line ((mark mark-mixin))
   (loop until (or (beginning-of-buffer-p mark)
-		  (char= (char-before mark) #\Newline))
+		  (eql (object-before mark) #\Newline))
 	do (decf (offset mark))))
 
 (defgeneric end-of-line (mark))
 
 (defmethod end-of-line ((mark mark-mixin))
   (loop until (or (end-of-buffer-p mark)
-		  (char= (char-after mark) #\Newline))
+		  (eql (object-after mark) #\Newline))
 	do (incf (offset mark))))
 
 (defgeneric beginning-of-line-p (mark))
 
 (defmethod beginning-of-line-p ((mark mark-mixin))
   (or (beginning-of-buffer-p mark)
-      (char= (char-before mark) #\Newline)))
+      (eql (object-before mark) #\Newline)))
 
 (defgeneric end-of-line-p (mark))
 
 (defmethod end-of-line-p ((mark mark-mixin))
   (or (end-of-buffer-p mark)
-      (char= (char-after mark) #\Newline)))
+      (eql (object-after mark) #\Newline)))
 
 (defgeneric line-number (mark))
 
 (defmethod line-number ((mark mark-mixin))
-  (count #\Newline (cdr (slot-value (buffer mark) 'text))
+  (count #\Newline (cdr (slot-value (buffer mark) 'contents))
 	 :end (offset mark)))
 
 (defgeneric column-number (mark))
@@ -198,47 +198,54 @@
 (defmethod column-number ((mark mark-mixin))
   (loop for offset downfrom (offset mark)
 	while (> offset 0)
-	until (char= (buffer-char (buffer mark) (1- offset)) #\Newline)
+	until (eql (buffer-object (buffer mark) (1- offset)) #\Newline)
 	count t))
 
-(defgeneric insert-buffer-text (buffer offset string))
+(defgeneric insert-buffer-object (buffer offset object))
 
-(defmethod insert-buffer-text ((buffer standard-buffer) offset (char character))
+(defmethod insert-buffer-object ((buffer standard-buffer) offset object)
   (assert (<= 0 offset (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset))
-  (push char (cdr (nthcdr offset (slot-value buffer 'text))))
+  (push object (cdr (nthcdr offset (slot-value buffer 'contents))))
   (loop for mark in (slot-value buffer 'marks)
 	when (or (> (offset mark) offset)
 		 (and (= (offset mark) offset)
 		      (typep mark 'right-sticky-mark)))
 	  do (incf (offset mark))))
+
+(defgeneric insert-buffer-sequence (buffer offset sequence))
       
-(defmethod insert-buffer-text ((buffer standard-buffer) offset (string string))
-  (loop for elem across string
-	do (insert-buffer-text buffer offset elem)
+(defmethod insert-buffer-sequence ((buffer standard-buffer) offset sequence)
+  (loop for elem across sequence
+	do (insert-buffer-object buffer offset elem)
 	   (incf offset)))
 
-(defgeneric insert-text (mark string))
+(defgeneric insert-object (mark object))
 
-(defmethod insert-text ((mark mark-mixin) string)
-  (insert-buffer-text (buffer mark) (offset mark) string))
+(defmethod insert-object ((mark mark-mixin) object)
+  (insert-buffer-object (buffer mark) (offset mark) object))
 
-(defgeneric delete-buffer-text (buffer offset n))
+(defgeneric insert-sequence (mark string))
 
-(defmethod delete-buffer-text ((buffer standard-buffer) offset n)
+(defmethod insert-sequence ((mark mark-mixin) sequence)
+  (insert-buffer-sequence (buffer mark) (offset mark) sequence))
+
+(defgeneric delete-buffer-range (buffer offset n))
+
+(defmethod delete-buffer-range ((buffer standard-buffer) offset n)
   (assert (<= 0 offset (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset))
-  (with-slots (text marks) buffer
-     (setf (cdr (nthcdr offset text)) (nthcdr (+ offset n 1) text))
+  (with-slots (contents marks) buffer
+     (setf (cdr (nthcdr offset contents)) (nthcdr (+ offset n 1) contents))
      (loop for mark in marks
 	   when (> (offset mark) offset)
 	     do (setf (offset mark) (max offset (- (offset mark) n))))))
 
-(defgeneric delete-text (mark &optional n))
+(defgeneric delete-range (mark &optional n))
 
-(defmethod delete-text ((mark mark-mixin) &optional (n 1))
-  (cond ((plusp n) (delete-buffer-text (buffer mark) (offset mark) n))
-	((minusp n) (delete-buffer-text (buffer mark) (+ (offset mark) n) (- n)))
+(defmethod delete-range ((mark mark-mixin) &optional (n 1))
+  (cond ((plusp n) (delete-buffer-range (buffer mark) (offset mark) n))
+	((minusp n) (delete-buffer-range (buffer mark) (+ (offset mark) n) (- n)))
 	(t nil)))
 
 (defgeneric delete-region (mark1 mark2))
@@ -246,52 +253,52 @@
 (defmethod delete-region ((mark1 mark-mixin) (mark2 mark-mixin))
   (assert (eq (buffer mark1) (buffer mark2)))
   (when (> (offset mark1) (offset mark2))
-    (delete-buffer-text (buffer mark1)
-			(offset mark1)
-			(- (offset mark2) (offset mark1)))))
+    (delete-buffer-range (buffer mark1)
+			 (offset mark1)
+			 (- (offset mark2) (offset mark1)))))
 
 (defmethod delete-region ((mark1 mark-mixin) offset2)
   (when (> offset2 (offset mark1))
-    (delete-buffer-text (buffer mark1)
-			(offset mark1)
-			(- offset2 (offset mark1)))))
+    (delete-buffer-range (buffer mark1)
+			 (offset mark1)
+			 (- offset2 (offset mark1)))))
 
 (defmethod delete-region (offset1 (mark2 mark-mixin))
   (when (> (offset mark2) offset1)
-    (delete-buffer-text (buffer mark2)
-			offset1
-			(- (offset mark2) offset1))))
+    (delete-buffer-range (buffer mark2)
+			 offset1
+			 (- (offset mark2) offset1))))
 
-(defgeneric buffer-char (buffer offset))
+(defgeneric buffer-object (buffer offset))
 
-(defmethod buffer-char ((buffer standard-buffer) offset)
+(defmethod buffer-object ((buffer standard-buffer) offset)
   (assert (<= 0 offset (1- (size buffer))) ()
 	  (make-condition 'no-such-offset :offset offset))
-  (nth (1+ offset) (slot-value buffer 'text)))
+  (nth (1+ offset) (slot-value buffer 'contents)))
 
-(defgeneric buffer-string (buffer offset1 offset2))
+(defgeneric buffer-sequence (buffer offset1 offset2))
 
-(defmethod buffer-string ((buffer standard-buffer) offset1 offset2)
+(defmethod buffer-sequence ((buffer standard-buffer) offset1 offset2)
   (assert (<= 0 offset1 (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset1))
   (assert (<= 0 offset2 (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset2))
-  (coerce (subseq (slot-value buffer 'text) (1+ offset1) (1+ offset2)) 'string))
+  (coerce (subseq (slot-value buffer 'contents) (1+ offset1) (1+ offset2)) 'string))
 
-(defgeneric char-before (mark))
+(defgeneric object-before (mark))
 
-(defmethod char-before ((mark mark-mixin))
-  (buffer-char (buffer mark) (1- (offset mark))))
+(defmethod object-before ((mark mark-mixin))
+  (buffer-object (buffer mark) (1- (offset mark))))
 
-(defgeneric char-after (mark))
+(defgeneric object-after (mark))
 
-(defmethod char-after ((mark mark-mixin))
-  (buffer-char (buffer mark) (offset mark)))
+(defmethod object-after ((mark mark-mixin))
+  (buffer-object (buffer mark) (offset mark)))
 
-(defgeneric region-to-string (mark1 mark2))
+(defgeneric region-to-sequence (mark1 mark2))
 
-(defmethod region-to-string ((mark1 mark-mixin) (mark2 mark-mixin))
+(defmethod region-to-sequence ((mark1 mark-mixin) (mark2 mark-mixin))
   (assert (eq (buffer mark1) (buffer mark2)))
-  (buffer-string (buffer mark1) (offset mark1) (offset mark2)))
+  (buffer-sequence (buffer mark1) (offset mark1) (offset mark2)))
 
 

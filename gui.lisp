@@ -27,10 +27,14 @@
 	   :accessor buffer)
    (point :initform nil :reader point))
   (:panes
-   (win :interactor :width 600 :height 200
-	:display-function 'display-win))
+   (win :application :width 600 :height 400
+	:display-function 'display-win)
+   (int :interactor :width 600 :height 100))
   (:layouts
-   (default (vertically () win)))
+   (default
+       (vertically () win))
+   (with-interactor
+       (vertically () win int)))
   (:top-level (climacs-top-level)))
 
 (defmethod initialize-instance :after ((frame climacs) &rest args)
@@ -46,21 +50,57 @@
 (defun display-win (frame pane)
   (let* ((medium (sheet-medium pane))
 	 (style (medium-text-style medium))
-	 (height (* 1.1 (text-style-height style medium)))
-	 (width (text-style-width style medium)))
-    (loop with size = (size (buffer frame))
-	  with y = height
-	  for x from 0 by width
-	  for offset from 0 below size
-	  do (if (char= (buffer-char (buffer frame) offset) #\Newline)
-		 (setf y (+ y height)
-		       x (- width))
-		 (draw-text* pane (buffer-char (buffer frame) offset) x y)))
-    (let* ((line (line-number (point frame)))
-	   (col (column-number (point frame)))
-	   (x (* width col))
-	   (y (* height (+ line 0.5))))
-      (draw-line* pane x (- y (* 0.5 height)) x (+ y (* 0.5 height)) :ink +red+))))
+	 (height (text-style-height style medium))
+	 (width (text-style-width style medium))
+	 (buffer (buffer frame))
+	 (size (size (buffer frame)))
+	 (offset 0)
+	 (cursor-x nil)
+	 (cursor-y nil))
+    (flet ((display-line ()
+	     (loop with offset1 = nil
+		   when (= offset (offset (point frame)))
+		     do (multiple-value-bind (x y) (stream-cursor-position pane)
+			  (setf cursor-x (+ x (if (null offset1)
+						  0
+						  (* width (- offset offset1))))
+				cursor-y y))
+		   when (= offset size)
+		     do (unless (null offset1)
+			  (present (buffer-sequence buffer offset1 offset) 'string :stream pane)
+			  (setf offset1 nil))
+			(return)
+		   until (eql (buffer-object buffer offset) #\Newline)
+		   do (let ((obj (buffer-object buffer offset)))
+			(cond ((eql obj #\Space)
+			       (unless (null offset1)
+				 (princ (buffer-sequence buffer offset1 offset) pane)
+				 (setf offset1 nil))
+			       (princ obj pane))
+			      ((constituentp obj)
+			       (when (null offset1)
+				 (setf offset1 offset)))
+			      (t
+			       (unless (null offset1)
+				 (princ (buffer-sequence buffer offset1 offset) pane)
+				 (setf offset1 nil))
+			       (princ obj pane))))
+		      (incf offset)
+		   finally (unless (null offset1)
+			     (princ (buffer-sequence buffer offset1 offset) pane)
+			     (setf offset1 nil))
+			   (incf offset)
+			   (terpri pane))))
+      (loop while (< offset size)
+	    do (display-line))
+      (when (= offset (offset (point frame)))
+	(multiple-value-bind (x y) (stream-cursor-position pane)
+	  (setf cursor-x x
+		cursor-y y))))
+    (draw-line* pane
+		cursor-x (- cursor-y (* 0.2 height))
+		cursor-x (+ cursor-y (* 0.8 height))
+		:ink +red+)))
 
 (defun find-gestures (gestures start-table)
   (loop with table = (find-command-table start-table)
@@ -102,12 +142,12 @@
 (define-command com-self-insert ()
   (unless (constituentp *current-gesture*)
     (possibly-expand-abbrev (point *application-frame*)))
-  (insert-text (point *application-frame*) *current-gesture*))
+  (insert-object (point *application-frame*) *current-gesture*))
 
-(define-command com-backward-char ()
+(define-command com-backward-object ()
   (decf (offset (point *application-frame*))))
 
-(define-command com-forward-char ()
+(define-command com-forward-object ()
   (incf (offset (point *application-frame*))))
 
 (define-command com-beginning-of-line ()
@@ -116,8 +156,8 @@
 (define-command com-end-of-line ()
   (end-of-line (point *application-frame*)))
 
-(define-command com-delete-char ()
-  (delete-text (point *application-frame*)))
+(define-command com-delete-object ()
+  (delete-range (point *application-frame*)))
 
 (define-command com-previous-line ()
   (previous-line (point *application-frame*)))
@@ -137,6 +177,17 @@
 (define-command com-backward-word ()
   (backward-word (point *application-frame*)))
 
+(define-command com-toggle-layout ()
+  (setf (frame-current-layout *application-frame*)
+	(if (eq (frame-current-layout *application-frame*) 'default)
+	    'with-interactor
+	    'default)))
+
+(defclass weird () ())
+
+(define-command com-insert-weird-stuff ()
+  (insert-object (point *application-frame*) (make-instance 'weird)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Global command table
@@ -151,17 +202,19 @@
       do (global-set-key (code-char code) 'com-self-insert))
 
 (global-set-key #\newline 'com-self-insert)
-(global-set-key '(#\f :control) 'com-forward-char)
-(global-set-key '(#\b :control) 'com-backward-char)
+(global-set-key '(#\f :control) 'com-forward-object)
+(global-set-key '(#\b :control) 'com-backward-object)
 (global-set-key '(#\a :control) 'com-beginning-of-line)
 (global-set-key '(#\e :control) 'com-end-of-line)
-(global-set-key '(#\d :control) 'com-delete-char)
+(global-set-key '(#\d :control) 'com-delete-object)
 (global-set-key '(#\p :control) 'com-previous-line)
 (global-set-key '(#\n :control) 'com-next-line)
 (global-set-key '(#\o :control) 'com-open-line)
 (global-set-key '(#\k :control) 'com-kill-line)
 (global-set-key '(#\f :meta) 'com-forward-word)
 (global-set-key '(#\b :meta) 'com-backward-word)
+(global-set-key '(#\x :meta) 'com-toggle-layout)
+(global-set-key '(#\a :meta) 'com-insert-weird-stuff)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
