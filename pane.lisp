@@ -182,20 +182,10 @@
 
 ;(defgeneric indent-tabs-mode (climacs-buffer))
 
-;;; syntax delegation
-
-(defmethod update-syntax ((buffer delegating-buffer) syntax)
-  (update-syntax (implementation buffer) syntax))
-
-(defmethod update-syntax-for-redisplay ((buffer delegating-buffer) syntax from to)
-  (update-syntax-for-redisplay (implementation buffer) syntax from to))
-
-;;; buffers
-
 (defclass extended-standard-buffer (standard-buffer undo-mixin abbrev-mixin) ()
   (:documentation "Extensions accessible via marks."))
 
-(defclass extended-obinseq-buffer (obinseq-buffer undo-mixin abbrev-mixin) ()
+(defclass extended-binseq2-buffer (binseq2-buffer undo-mixin abbrev-mixin) ()
   (:documentation "Extensions accessible via marks."))
 
 (defclass climacs-buffer (delegating-buffer filename-mixin name-mixin)

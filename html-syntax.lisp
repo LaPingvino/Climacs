@@ -276,12 +276,12 @@
      (setf parser (make-instance 'parser
 		     :grammar *html-grammar*
 		     :target 'html))
-     (insert* lexemes 0 (make-instance 'start-element
-			  :start-mark (make-instance 'standard-left-sticky-mark
-					 :buffer buffer
-					 :offset 0)
-			  :size 0
-			  :state (initial-state parser)))))
+     (let ((m (clone-mark (low-mark buffer) :left)))
+       (setf (offset m) 0)
+       (insert* lexemes 0 (make-instance 'start-element
+					 :start-mark m
+					 :size 0
+					 :state (initial-state parser))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -325,9 +325,10 @@ position in LEXEMES"
 	do (forward-object scan)))
 
 (defun update-lex (lexemes start-pos end)
-  (let ((scan (make-instance 'standard-left-sticky-mark
-		 :buffer (buffer end) ; FIXME, eventually use the buffer of the lexer
-		 :offset (end-offset (element* lexemes (1- start-pos))))))
+  (let ((scan (clone-mark (low-mark (buffer end)) :left)))
+    ;; FIXME, eventually use the buffer of the lexer
+    (setf (offset scan)
+	  (end-offset (element* lexemes (1- start-pos))))
     (loop do (skip-inter-lexeme-objects lexemes scan)
 	  until (if (end-of-buffer-p end)
 		    (end-of-buffer-p scan)

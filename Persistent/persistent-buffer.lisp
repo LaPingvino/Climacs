@@ -36,6 +36,15 @@
 
 (defclass right-sticky-persistent-cursor (persistent-cursor) ())
 
+(defclass line-cursor-mixin () ()
+  (:documentation "Support for line-oriented buffers."))
+
+(defclass left-sticky-line-persistent-cursor
+    (left-sticky-persistent-cursor line-cursor-mixin) ())
+
+(defclass right-sticky-line-persistent-cursor
+    (right-sticky-persistent-cursor line-cursor-mixin) ())
+
 (defmethod cursor-pos ((cursor left-sticky-persistent-cursor))
   (1+ (slot-value cursor 'pos)))
 
@@ -79,19 +88,29 @@
 (defclass binseq-buffer (persistent-buffer)
   ((contents :initform (list-binseq nil)))
   (:documentation "An instantiable subclass of PERSISTENT-BUFFER that
-uses a binary sequence for the CONTENTS."))
+uses a binary sequence for the CONTENTS slot."))
 
 (defclass obinseq-buffer (persistent-buffer)
   ((contents :initform (list-obinseq nil)))
   (:documentation "An instantiable subclass of PERSISTENT-BUFFER that
 uses an optimized binary sequence (only non-nil atoms are allowed as
-elements) for the CONTENTS."))
+elements) for the CONTENTS slot."))
+
+(defclass binseq2-buffer (persistent-buffer)
+  ((contents :initform (list-binseq2 nil)))
+  (:documentation "An instantiable subclass of PERSISTENT-BUFFER that
+uses a binary sequence for lines and optimized binary sequences for
+line contents, all kept in the CONTENTS slot."))
 
 (defclass p-mark-mixin ()
   ((buffer :initarg :buffer :reader buffer)
    (cursor :reader cursor))
   (:documentation "A mixin class used in the initialization of a mark
 that is used in a PERSISTENT-BUFFER."))
+
+(defclass p-line-mark-mixin (p-mark-mixin) ()
+  (:documentation "A persistent mark mixin class that works with
+cursors that can efficiently work with lines."))
 
 (defmethod backward-object ((mark p-mark-mixin) &optional (count 1))
   (decf (offset mark) count))
@@ -116,6 +135,14 @@ PERSISTENT-BUFFER."))
 (defclass persistent-right-sticky-mark (right-sticky-mark p-mark-mixin) ()
   (:documentation "A RIGHT-STICKY-MARK subclass suitable for use in a
 PERSISTENT-BUFFER."))
+
+(defclass persistent-left-sticky-line-mark (left-sticky-mark p-line-mark-mixin) ()
+  (:documentation "A LEFT-STICKY-MARK subclass with line support,
+suitable for use in a PERSISTENT-BUFFER."))
+
+(defclass persistent-right-sticky-line-mark (right-sticky-mark p-line-mark-mixin) ()
+  (:documentation "A RIGHT-STICKY-MARK subclass with line support,
+suitable for use in a PERSISTENT-BUFFER."))
 
 (defmethod initialize-instance :after ((mark persistent-left-sticky-mark)
 				       &rest args &key (offset 0))
@@ -143,13 +170,56 @@ PERSISTENT-BUFFER."))
 		       :buffer (buffer mark)
 		       :position offset)))
 
-(defmethod initialize-instance :after ((buffer persistent-buffer) &rest args)
+(defmethod initialize-instance :after ((mark persistent-left-sticky-line-mark)
+				       &rest args &key (offset 0))
+  "Associates a created mark with the buffer for which it was created."
+  (declare (ignorable args))
+  (assert (<= 0 offset) ()
+	  (make-condition 'motion-before-beginning :offset offset))
+  (assert (<= offset (size (buffer mark))) ()
+	  (make-condition 'motion-after-end :offset offset))
+  (setf (slot-value mark 'cursor)
+	(make-instance 'left-sticky-line-persistent-cursor
+		       :buffer (buffer mark)
+		       :position offset)))
+
+(defmethod initialize-instance :after ((mark persistent-right-sticky-line-mark)
+				       &rest args &key (offset 0))
+  "Associates a created mark with the buffer for which it was created."
+  (declare (ignorable args))
+  (assert (<= 0 offset) ()
+	  (make-condition 'motion-before-beginning :offset offset))
+  (assert (<= offset (size (buffer mark))) ()
+	  (make-condition 'motion-after-end :offset offset))
+  (setf (slot-value mark 'cursor)
+	(make-instance 'right-sticky-line-persistent-cursor
+		       :buffer (buffer mark)
+		       :position offset)))
+
+(defmethod initialize-instance :after ((buffer binseq-buffer) &rest args)
   "Create the low-mark and high-mark."
   (declare (ignorable args))
   (with-slots (low-mark high-mark) buffer
     (setf low-mark (make-instance 'persistent-left-sticky-mark :buffer buffer))
     (setf high-mark (make-instance 'persistent-right-sticky-mark
 				   :buffer buffer))))
+
+(defmethod initialize-instance :after ((buffer obinseq-buffer) &rest args)
+  "Create the low-mark and high-mark."
+  (declare (ignorable args))
+  (with-slots (low-mark high-mark) buffer
+    (setf low-mark (make-instance 'persistent-left-sticky-mark :buffer buffer))
+    (setf high-mark (make-instance 'persistent-right-sticky-mark
+				   :buffer buffer))))
+
+(defmethod initialize-instance :after ((buffer binseq2-buffer) &rest args)
+  "Create the low-mark and high-mark."
+  (declare (ignorable args))
+  (with-slots (low-mark high-mark) buffer
+    (setf low-mark
+	  (make-instance 'persistent-left-sticky-line-mark :buffer buffer))
+    (setf high-mark
+	  (make-instance 'persistent-right-sticky-line-mark :buffer buffer))))
 
 (defmethod clone-mark ((mark persistent-left-sticky-mark) &optional stick-to)
   (cond
@@ -171,15 +241,48 @@ PERSISTENT-BUFFER."))
 		    :buffer (buffer mark) :offset (offset mark)))
     (t (error "invalid value for stick-to"))))
 
+(defmethod clone-mark ((mark persistent-left-sticky-line-mark)
+		       &optional stick-to)
+  (cond
+    ((or (null stick-to) (eq stick-to :left))
+     (make-instance 'persistent-left-sticky-line-mark
+		    :buffer (buffer mark) :offset (offset mark)))
+    ((eq stick-to :right)
+     (make-instance 'persistent-right-sticky-line-mark
+		    :buffer (buffer mark) :offset (offset mark)))
+    (t (error "invalid value for stick-to"))))
+
+(defmethod clone-mark ((mark persistent-right-sticky-line-mark)
+		       &optional stick-to)
+  (cond
+    ((or (null stick-to) (eq stick-to :right))
+     (make-instance 'persistent-right-sticky-line-mark
+		    :buffer (buffer mark) :offset (offset mark)))
+    ((eq stick-to :left)
+     (make-instance 'persistent-left-sticky-line-mark
+		    :buffer (buffer mark) :offset (offset mark)))
+    (t (error "invalid value for stick-to"))))
+
 (defmethod size ((buffer binseq-buffer))
   (binseq-length (slot-value buffer 'contents)))
 
 (defmethod size ((buffer obinseq-buffer))
   (obinseq-length (slot-value buffer 'contents)))
 
+(defmethod size ((buffer binseq2-buffer))
+  (binseq2-size (slot-value buffer 'contents)))
+
 (defmethod number-of-lines ((buffer persistent-buffer))
   (loop for offset from 0 below (size buffer)
      count (eql (buffer-object buffer offset) #\Newline)))
+
+(defmethod number-of-lines ((buffer binseq2-buffer))
+  (let ((len (binseq2-length (slot-value buffer 'contents)))
+	(size (size buffer)))
+    (if (or (eql 0 size)
+	    (eq (buffer-object buffer (1- size)) #\Newline))
+	len
+	(max 0 (1- len))))) ; weird?
 
 (defmethod mark< ((mark1 p-mark-mixin) (mark2 p-mark-mixin))
   (assert (eq (buffer mark1) (buffer mark2)))
@@ -255,6 +358,11 @@ PERSISTENT-BUFFER."))
   (loop until (beginning-of-line-p mark)
 	do (decf (offset mark))))
 
+(defmethod beginning-of-line ((mark p-line-mark-mixin))
+  (setf (offset mark)
+	(binseq2-offset
+	 (slot-value (buffer mark) 'contents) (line-number mark))))
+
 (defmethod end-of-line ((mark p-mark-mixin))
   (let* ((offset (offset mark))
 	 (buffer (buffer mark))
@@ -264,18 +372,39 @@ PERSISTENT-BUFFER."))
 	  do (incf offset))
     (setf (offset mark) offset)))
 
+(defmethod end-of-line ((mark p-line-mark-mixin))
+  (let* ((curr-offset (offset mark))
+	 (contents (slot-value (buffer mark) 'contents))
+	 (next-line-offset (binseq2-offset
+			    contents
+			    (1+ (binseq2-line2 contents curr-offset)))))
+    (if (> next-line-offset curr-offset)
+	(setf (offset mark) (1- next-line-offset))
+	(setf (offset mark) (size (buffer mark))))))
+
 (defmethod buffer-line-number ((buffer persistent-buffer) (offset integer))
   (loop for i from 0 below offset
      count (eql (buffer-object buffer i) #\Newline)))
 
+(defmethod buffer-line-number ((buffer binseq2-buffer) (offset integer))
+  (binseq2-line2 (slot-value buffer 'contents) offset))
+
 (defmethod line-number ((mark p-mark-mixin))
   (buffer-line-number (buffer mark) (offset mark)))
+
+(defmethod buffer-line-offset ((buffer binseq2-buffer) (line-no integer))
+  (binseq2-offset (slot-value buffer 'contents) line-no))
 
 (defmethod buffer-column-number ((buffer persistent-buffer) (offset integer))
   (loop for i downfrom offset
      while (> i 0)
      until (eql (buffer-object buffer (1- i)) #\Newline)
      count t))
+
+(defmethod buffer-column-number ((buffer binseq2-buffer) (offset integer))
+  (- offset
+     (binseq2-offset
+      (slot-value buffer 'contents) (buffer-line-number buffer offset))))
 
 (defmethod column-number ((mark p-mark-mixin))
   (buffer-column-number (buffer mark) (offset mark)))
@@ -292,23 +421,50 @@ PERSISTENT-BUFFER."))
 	(binseq-insert (slot-value buffer 'contents) offset object)))
 
 (defmethod insert-buffer-object ((buffer obinseq-buffer) offset object)
-  (assert (<= 0 offset (size buffer)) ()
-	  (make-condition 'no-such-offset :offset offset))
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
   (setf (slot-value buffer 'contents)
 	(obinseq-insert (slot-value buffer 'contents) offset object)))
+
+(defmethod insert-buffer-object ((buffer binseq2-buffer) offset object)
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
+  (setf (slot-value buffer 'contents)
+	(binseq2-insert2 (slot-value buffer 'contents) offset object)))
 
 (defmethod insert-object ((mark p-mark-mixin) object)
   (insert-buffer-object (buffer mark) (offset mark) object))
 
 (defmethod insert-buffer-sequence ((buffer binseq-buffer) offset sequence)
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
   (let ((binseq (vector-binseq sequence)))
     (setf (slot-value buffer 'contents)
 	  (binseq-insert* (slot-value buffer 'contents) offset binseq))))
 
 (defmethod insert-buffer-sequence ((buffer obinseq-buffer) offset sequence)
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
   (let ((obinseq (vector-obinseq sequence)))
     (setf (slot-value buffer 'contents)
 	  (obinseq-insert* (slot-value buffer 'contents) offset obinseq))))
+
+(defmethod insert-buffer-sequence ((buffer binseq2-buffer) offset sequence)
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
+  (let ((binseq2 (vector-binseq2 sequence)))
+    (setf (slot-value buffer 'contents)
+	  (binseq2-insert*2 (slot-value buffer 'contents) offset binseq2))))
 
 (defmethod insert-sequence ((mark p-mark-mixin) sequence)
   (insert-buffer-sequence (buffer mark) (offset mark) sequence))
@@ -322,10 +478,20 @@ PERSISTENT-BUFFER."))
 	(binseq-remove* (slot-value buffer 'contents) offset n)))
 
 (defmethod delete-buffer-range ((buffer obinseq-buffer) offset n)
-  (assert (<= 0 offset (size buffer)) ()
-	  (make-condition 'no-such-offset :offset offset))
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
   (setf (slot-value buffer 'contents)
 	(obinseq-remove* (slot-value buffer 'contents) offset n)))
+
+(defmethod delete-buffer-range ((buffer binseq2-buffer) offset n)
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
+  (setf (slot-value buffer 'contents)
+	(binseq2-remove*2 (slot-value buffer 'contents) offset n)))
 
 (defmethod delete-range ((mark p-mark-mixin) &optional (n 1))
   (cond
@@ -383,6 +549,21 @@ PERSISTENT-BUFFER."))
   (setf (slot-value buffer 'contents)
 	(obinseq-set (slot-value buffer 'contents) offset object)))
 
+(defmethod buffer-object ((buffer binseq2-buffer) offset)
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (1- (size buffer))) ()
+	  (make-condition 'offset-after-end :offset offset))
+  (binseq2-get2 (slot-value buffer 'contents) offset))
+
+(defmethod (setf buffer-object) (object (buffer binseq2-buffer) offset)
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (1- (size buffer))) ()
+	  (make-condition 'offset-after-end :offset offset))
+  (setf (slot-value buffer 'contents)
+	(binseq2-set2 (slot-value buffer 'contents) offset object)))
+
 (defmethod buffer-sequence ((buffer binseq-buffer) offset1 offset2)
   (assert (<= 0 offset1) ()
 	  (make-condition 'offset-before-beginning :offset offset1))
@@ -411,6 +592,21 @@ PERSISTENT-BUFFER."))
     (if (> len 0)
 	(obinseq-vector
 	 (obinseq-sub (slot-value buffer 'contents) offset1 len))
+	(make-array 0))))
+
+(defmethod buffer-sequence ((buffer binseq2-buffer) offset1 offset2)
+  (assert (<= 0 offset1) ()
+	  (make-condition 'offset-before-beginning :offset offset1))
+  (assert (<= offset1 (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset1))
+  (assert (<= 0 offset2) ()
+	  (make-condition 'offset-before-beginning :offset offset2))
+  (assert (<= offset2 (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset2))
+  (let ((len (- offset2 offset1)))
+    (if (> len 0)
+	(binseq2-vector
+	 (binseq2-sub2 (slot-value buffer 'contents) offset1 len))
 	(make-array 0))))
 
 (defmethod object-before ((mark p-mark-mixin))

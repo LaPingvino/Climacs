@@ -59,4 +59,36 @@
    #:obinseq-insert
    #:obinseq-insert*
    #:obinseq-remove
-   #:obinseq-remove*))
+   #:obinseq-remove*
+
+   #:binseq2-p
+   #:list-binseq2
+   #:binseq2-list
+   #:vector-binseq2
+   #:binseq2-vector
+   #:binseq2-empty
+   #:binseq2-length
+   #:binseq2-size
+   #:binseq2-front
+   #:binseq2-offset
+   #:binseq2-back
+   #:binseq2-front2
+   #:binseq2-line2
+   #:binseq2-back2
+   #:binseq2-get
+   #:binseq2-set
+   #:binseq2-get2
+   #:binseq2-set2
+   #:binseq2-sub
+   #:binseq2-sub2
+   #:binseq2-cons
+   #:binseq2-snoc
+   #:binseq2-append
+   #:binseq2-insert
+   #:binseq2-insert2
+   #:binseq2-insert*
+   #:binseq2-insert*2
+   #:binseq2-remove
+   #:binseq2-remove2
+   #:binseq2-remove*
+   #:binseq2-remove*2))

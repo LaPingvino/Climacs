@@ -48,6 +48,13 @@
 	   ''persistent-right-sticky-mark
 	   (intern (concatenate 'string "OBINSEQ-BUFFER-" name-string))
 	   form
+	   results)
+	 ,(%deftest-wrapper
+	   ''binseq2-buffer
+	   ''persistent-left-sticky-line-mark
+	   ''persistent-right-sticky-line-mark
+	   (intern (concatenate 'string "BINSEQ2-BUFFER-" name-string))
+	   form
 	   results)))))
 
 (defmultitest buffer-make-instance.test-1
@@ -966,3 +973,76 @@ climacs")
       do (insert-buffer-sequence b (floor (size b) 2) "abcdefghij")
       finally (return (size b))))
   1000000)
+
+(defmultitest performance.test-4
+  (time
+   (let ((b (make-instance %%buffer)))
+     (insert-buffer-sequence b 0 (make-array '(100000) :initial-element #\a))
+     (let ((m (clone-mark (low-mark b))))
+       (loop
+	  for i from 0 below 1000
+	  for f = t then (not b)
+	  do (if f
+		 (end-of-line m)
+		 (beginning-of-line m))))))
+  nil)
+
+(defmultitest performance.test-4b
+  (time
+   (let ((b (make-instance %%buffer)))
+     (insert-buffer-object b 0 #\Newline)
+     (insert-buffer-sequence b 0 (make-array '(100000) :initial-element #\a))
+     (insert-buffer-object b 0 #\Newline)
+     (let ((m (clone-mark (low-mark b))))
+       (loop
+	  for i from 0 below 1000
+	  for f = t then (not b)
+	  do (if f
+		 (end-of-line m)
+		 (beginning-of-line m))))))
+  nil)
+
+(defmultitest performance.test-4c
+  (time
+   (let ((b (make-instance %%buffer)))
+     (insert-buffer-object b 0 #\Newline)
+     (insert-buffer-sequence b 0 (make-array '(100000) :initial-element #\a))
+     (insert-buffer-object b 0 #\Newline)
+     (let ((m (clone-mark (low-mark b))))
+       (incf (offset m))
+       (loop
+	  for i from 0 below 1000
+	  for f = t then (not b)
+	  do (if f
+		 (end-of-line m)
+		 (beginning-of-line m))))))
+  nil)
+
+(defmultitest performance.test-4d
+  (time
+   (let ((b (make-instance %%buffer)))
+     (insert-buffer-object b 0 #\Newline)
+     (insert-buffer-sequence b 0 (make-array '(100000) :initial-element #\a))
+     (insert-buffer-object b 0 #\Newline)
+     (let ((m (clone-mark (low-mark b))))
+       (setf (offset m) (floor (size b) 2))
+       (loop
+	  for i from 0 below 10
+	  collect (list (line-number m) (column-number m))))))
+  ((1 50000) (1 50000) (1 50000) (1 50000) (1 50000) (1 50000)
+   (1 50000) (1 50000) (1 50000) (1 50000)))
+
+(defmultitest performance.test-4e
+  (time
+   (let ((b (make-instance %%buffer)))
+     (insert-buffer-sequence
+      b 0 (make-array '(100000) :initial-element #\Newline))
+     (let ((m (clone-mark (low-mark b))))
+       (loop
+	  for i from 0 below 1000
+	  for f = t then (not b)
+	  do (if f
+		 (next-line m 0 100000)
+		 (previous-line m 0 100000))
+	    finally (return (number-of-lines b))))))
+  100000)

@@ -80,9 +80,9 @@
 				  (and (eql (buffer-object buffer (1- offset)) #\Newline)
 				       (or (= offset 1)
 					   (eql (buffer-object buffer (- offset 2)) #\Newline)))))
-			 (insert* paragraphs pos1
-				  (make-instance 'standard-left-sticky-mark
-				     :buffer buffer :offset offset))
+			 (let ((m (clone-mark (low-mark buffer) :left)))
+			   (setf (offset m) offset)
+			   (insert* paragraphs pos1 m))
 			 (incf pos1))
 			((and (plusp offset)
 			      (not (eql (buffer-object buffer (1- offset)) #\Newline))
@@ -90,9 +90,9 @@
 				  (and (eql (buffer-object buffer offset) #\Newline)
 				       (or (= offset (1- buffer-size))
 					   (eql (buffer-object buffer (1+ offset)) #\Newline)))))
-			 (insert* paragraphs pos1
-				  (make-instance 'standard-right-sticky-mark
-				     :buffer buffer :offset offset))
+			 (let ((m (clone-mark (low-mark buffer) :right)))
+			   (setf (offset m) offset)
+			   (insert* paragraphs pos1 m))
 			 (incf pos1))
 			(t nil)))))))
 

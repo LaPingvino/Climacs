@@ -36,13 +36,13 @@
                             &body body)
   "Iterate over the elements of the region delimited by offset1 and offset2.
 The body is executed for each element, with object being the current object
-(setf-able), and offset being its offset."
+\(setf-able), and offset being its offset."
   `(symbol-macrolet ((,object (buffer-object ,buffer ,offset)))
      (loop for ,offset from ,offset1 below ,offset2
            do ,@body)))
 
-(defun previous-line (mark &optional column (count 1))
-  "Move a mark up one line conserving horizontal position."
+(defmethod previous-line (mark &optional column (count 1))
+  "Move a mark up COUNT lines conserving horizontal position."
   (unless column
     (setf column (column-number mark)))
   (loop repeat count
@@ -54,8 +54,17 @@ The body is executed for each element, with object being the current object
     (beginning-of-line mark)
     (incf (offset mark) column)))
 
-(defun next-line (mark &optional column (count 1))
-  "Move a mark down one line conserving horizontal position."
+(defmethod previous-line ((mark p-line-mark-mixin) &optional column (count 1))
+  "Move a mark up COUNT lines conserving horizontal position."
+  (unless column
+    (setf column (column-number mark)))
+  (let* ((line (line-number mark))
+	 (goto-line (max 0 (- line count))))
+    (setf (offset mark)
+	  (+ column (buffer-line-offset (buffer mark) goto-line)))))
+
+(defmethod next-line (mark &optional column (count 1))
+  "Move a mark down COUNT lines conserving horizontal position."
   (unless column
     (setf column (column-number mark)))
   (loop repeat count
@@ -67,16 +76,26 @@ The body is executed for each element, with object being the current object
     (beginning-of-line mark)
     (incf (offset mark) column)))
 
+(defmethod next-line ((mark p-line-mark-mixin) &optional column (count 1))
+  "Move a mark down COUNT lines conserving horizontal position."
+  (unless column
+    (setf column (column-number mark)))
+  (let* ((line (line-number mark))
+	 (goto-line (min (number-of-lines (buffer mark))
+			 (+ line count))))
+    (setf (offset mark)
+	  (+ column (buffer-line-offset (buffer mark) goto-line)))))
+
 (defmethod open-line ((mark left-sticky-mark) &optional (count 1))
   "Create a new line in a buffer after the mark."
   (loop repeat count
-	do (insert-object mark #\Newline)))
+     do (insert-object mark #\Newline)))
 
 (defmethod open-line ((mark right-sticky-mark) &optional (count 1))
   "Create a new line in a buffer after the mark."
   (loop repeat count
-	do (insert-object mark #\Newline)
-	   (decf (offset mark))))
+     do (insert-object mark #\Newline)
+        (decf (offset mark))))
 
 (defun kill-line (mark)
   "Remove a line from a buffer."
@@ -105,12 +124,18 @@ constituent character of the line."
              (incf (offset mark2))
           finally (return indentation))))
 
-(defun buffer-number-of-lines-in-region (buffer offset1 offset2)
-  "Helper function for number-of-lines-in-region.  Count newline
-characters in the region between offset1 and offset2"
+(defmethod buffer-number-of-lines-in-region (buffer offset1 offset2)
+  "Helper method for number-of-lines-in-region.  Count newline
+characters in the region between offset1 and offset2."
   (loop while (< offset1 offset2)
 	count (eql (buffer-object buffer offset1) #\Newline)
 	do (incf offset1)))
+
+(defmethod buffer-number-of-lines-in-region
+    ((buffer binseq2-buffer) offset1 offset2)
+  "Helper method for NUMBER-OF-LINES-IN-REGION."
+  (- (buffer-line-number buffer offset2)
+     (buffer-line-number buffer offset1)))
 
 (defun buffer-display-column (buffer offset tab-width)
   (let ((line-start-offset (- offset (buffer-column-number buffer offset))))
@@ -578,7 +603,7 @@ containing VECTOR or NIL if no such offset exists"
   (loop for i downfrom (- offset (length vector)) to 0
 	when (buffer-looking-at buffer i vector :test test)
 	  return i
-	finally (return nil)))			       
+	finally (return nil)))
 
 (defun search-forward (mark vector &key (test #'eql))
   "move MARK forward after the first occurence of VECTOR after MARK"

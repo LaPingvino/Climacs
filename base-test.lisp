@@ -350,16 +350,18 @@ b")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
+    (print (climacs-buffer::buffer-line-number buffer 15))
     (values
      (climacs-base::buffer-number-of-lines-in-region buffer 0 6)
      (climacs-base::buffer-number-of-lines-in-region buffer 0 7)
+     (climacs-base::buffer-number-of-lines-in-region buffer 0 8)
      (climacs-base::buffer-number-of-lines-in-region buffer 0 10)
      (climacs-base::buffer-number-of-lines-in-region buffer 0 13)
      (climacs-base::buffer-number-of-lines-in-region buffer 0 14)
      (climacs-base::buffer-number-of-lines-in-region buffer 7 10)
      (climacs-base::buffer-number-of-lines-in-region buffer 8 13)
      (climacs-base::buffer-number-of-lines-in-region buffer 8 14)))
-    0 0 1 1 1 1 0 0)
+    0 0 1 1 1 1 1 0 0)
 
 (defmultitest buffer-display-column.test-1
   (let ((buffer (make-instance %%buffer)))

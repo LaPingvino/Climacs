@@ -28,7 +28,7 @@
   (or (null s)
       (atom s)
       (and (consp s)
-	   (and (integerp (car s))
+	   (and (integerp (car s)) ; might wanna check the value
 		(consp (cdr s))
 		(obinseq-p (cadr s))
 		(obinseq-p (cddr s))))))
@@ -167,21 +167,19 @@
   (cond
     ((<= i 0) nil)
     ((<= (obinseq-length s) i) s)
-    (t (cond
-	 ((<= i (obinseq-length (cadr s))) (obinseq-front (cadr s) i))
-	 (t (obinseq-append
-	     (cadr s)
-	     (obinseq-front (cddr s) (- i (obinseq-length (cadr s))))))))))
+    ((<= i (obinseq-length (cadr s))) (obinseq-front (cadr s) i))
+    (t (obinseq-append
+	(cadr s)
+	(obinseq-front (cddr s) (- i (obinseq-length (cadr s))))))))
 
 (defun obinseq-back (s i)
   (cond
     ((<= i 0) nil)
     ((<= (obinseq-length s) i) s)
-    (t (cond
-	 ((<= i (obinseq-length (cddr s))) (obinseq-back (cddr s) i))
-	 (t (obinseq-append
-	     (obinseq-back (cadr s) (- i (obinseq-length (cddr s))))
-	     (cddr s)))))))
+    ((<= i (obinseq-length (cddr s))) (obinseq-back (cddr s) i))
+    (t (obinseq-append
+	(obinseq-back (cadr s) (- i (obinseq-length (cddr s))))
+	(cddr s)))))
 
 (defun %ohas-index (s i)
   (and (<= 0 i) (< i (obinseq-length s))))

@@ -166,9 +166,8 @@ macro characters that start more complex expressions."))
 (defmethod initialize-instance :after ((syntax cl-syntax) &rest args)
   (declare (ignore args))
   (with-slots (buffer elements) syntax
-     (let ((mark (make-instance 'standard-left-sticky-mark
-		    :buffer buffer
-		    :offset 0)))
+     (let ((mark (clone-mark (low-mark buffer) :left)))
+       (setf (offset mark) 0)
        (insert* elements 0 (make-instance 'start-entry
 			      :start-mark mark :size 0)))))
 
@@ -257,11 +256,12 @@ macro characters that start more complex expressions."))
 	 (loop until (or (= guess-pos (nb-elements elements))
 			 (mark> (start-mark (element* elements guess-pos)) high-mark))
 	       do (delete* elements guess-pos))
-	 (setf scan (make-instance 'standard-left-sticky-mark
-		       :buffer buffer
-		       :offset (if (zerop guess-pos)
-				   0
-				   (end-offset (element* elements (1- guess-pos))))))
+	 (let ((m (clone-mark (low-mark buffer) :left)))
+	   (setf (offset m)
+		 (if (zerop guess-pos)
+		     0
+		     (end-offset (element* elements (1- guess-pos)))))
+	   (setf scan m))
 	 ;; scan
 	 (loop with start-mark = nil
 	       do (loop until (end-of-buffer-p scan)

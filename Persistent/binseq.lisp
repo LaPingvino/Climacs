@@ -22,7 +22,7 @@
 
 (in-package :binseq)
 
-(defun binseq-p (s)
+(defun binseq-p (s) ; NOTE: should use a 3-vector instead of the 3-list...
   (or (eq s 'empty)
       (and (consp s)
 	   (or (eq (car s) 'leaf)
@@ -160,21 +160,19 @@
   (cond
     ((<= i 0) 'empty)
     ((<= (binseq-length s) i) s)
-    (t (cond
-	 ((<= i (binseq-length (caddr s))) (binseq-front (caddr s) i))
-	 (t (binseq-append
-	     (caddr s)
-	     (binseq-front (cdddr s) (- i (binseq-length (caddr s))))))))))
+    ((<= i (binseq-length (caddr s))) (binseq-front (caddr s) i))
+    (t (binseq-append
+	(caddr s)
+	(binseq-front (cdddr s) (- i (binseq-length (caddr s))))))))
 
 (defun binseq-back (s i)
   (cond
     ((<= i 0) 'empty)
     ((<= (binseq-length s) i) s)
-    (t (cond
-	 ((<= i (binseq-length (cdddr s))) (binseq-back (cdddr s) i))
-	 (t (binseq-append
-	     (binseq-back (caddr s) (- i (binseq-length (cdddr s))))
-	     (cdddr s)))))))
+    ((<= i (binseq-length (cdddr s))) (binseq-back (cdddr s) i))
+    (t (binseq-append
+	(binseq-back (caddr s) (- i (binseq-length (cdddr s))))
+	(cdddr s)))))
 
 (defun %has-index (s i)
   (and (<= 0 i) (< i (binseq-length s))))

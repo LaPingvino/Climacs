@@ -47,8 +47,10 @@
 	   #:object-before #:object-after #:region-to-sequence
 	   #:low-mark #:high-mark #:modified-p #:clear-modify
 
-	   #:binseq-buffer #:obinseq-buffer
+	   #:binseq-buffer #:obinseq-buffer #:binseq2-buffer
 	   #:persistent-left-sticky-mark #:persistent-right-sticky-mark
+	   #:persistent-left-sticky-line-mark #:persistent-right-sticky-line-mark
+	   #:p-line-mark-mixin #:buffer-line-offset
 
 	   #:delegating-buffer #:implementation))
 

@@ -1,8 +1,6 @@
 - modify standard-buffer to use obinseq with leafs containing
   flexichain-based lines
 
-- implement a persistent buffer as a binseq of obinseqs (or similar,
-  one sequence type for lines, the other for line contents), then
-  upgrade it to an undoable buffer
+- upgrade persistent buffer based on binseq2 to an undoable buffer
 
 - replace the use of the scroller pane by custom pane

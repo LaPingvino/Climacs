@@ -46,6 +46,7 @@
    "Persistent/binseq-package"
    "Persistent/binseq"
    "Persistent/obinseq"
+   "Persistent/binseq2"
    "translate"
    "packages"
    "buffer"
