@@ -157,7 +157,7 @@
 		 (setf (needs-saving buffer) t)))
 	     (redisplay-frame-panes frame))))
 
-(define-command (com-quit :name t :command-table climacs) ()
+(define-climacs-command (com-quit :name t) ()
   (frame-exit *application-frame*))
 
 (define-command com-self-insert ()
@@ -296,7 +296,7 @@
       (concatenate 'string (pathname-name pathname)
 		   "." (pathname-type pathname))))
 
-(define-command (com-find-file :name t :command-table climacs) ()
+(define-climacs-command (com-find-file :name t) ()
   (let ((filename (accept 'completable-pathname
 			  :prompt "Find File")))
     (with-slots (buffer point syntax) (win *application-frame*)
@@ -352,11 +352,11 @@
 	  while (whitespacep (object-after point))
 	  do (incf (offset point)))))
 
-(define-command (com-goto-position :name t :command-table climacs) ()
+(define-climacs-command (com-goto-position :name t) ()
   (setf (offset (point (win *application-frame*)))
 	(accept 'integer :prompt "Goto Position")))
 
-(define-command (com-goto-line :name t :command-table climacs) ()
+(define-climacs-command (com-goto-line :name t) ()
   (loop with mark = (make-instance 'standard-right-sticky-mark
 		       :buffer (buffer (win *application-frame*)))
 	do (end-of-line mark)
@@ -368,7 +368,7 @@
 		(setf (offset (point (win *application-frame*)))
 		      (offset mark))))
 
-(define-command com-browse-url ()
+(define-climacs-command (com-browse-url :name t) ()
   (accept 'url :prompt "Browse URL"))
 
 (define-command com-set-mark ()
