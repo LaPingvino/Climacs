@@ -33,7 +33,7 @@
 	   #:beginning-of-line-p #:end-of-line-p
 	   #:line-number #:column-number
 	   #:insert-buffer-object #:insert-buffer-sequence
-	   #:update-object #:insert-object #:insert-sequence
+	   #:insert-object #:insert-sequence
 	   #:delete-buffer-range #:delete-range
 	   #:delete-region
 	   #:buffer-object #:buffer-sequence
