@@ -401,6 +401,7 @@ if tab-width is not nil, otherwise use spaces only."
   (let ((begin-mark (clone-mark mark)))
     (beginning-of-line begin-mark)
     (loop with column = 0
+          with line-beginning-offset = (offset begin-mark)
           with walking-mark = (clone-mark begin-mark)
           while (mark< walking-mark mark)
           as object = (object-after walking-mark)
@@ -413,13 +414,15 @@ if tab-width is not nil, otherwise use spaces only."
                 (incf column (- tab-width (mod column tab-width))))
                (t
                 (incf column)))
-             (when (>= column fill-column)
+             (when (and (>= column fill-column)
+                        (/= (offset begin-mark) line-beginning-offset))
                (insert-object begin-mark #\Newline)
                (incf (offset begin-mark))
                (let ((indentation
                       (funcall syntax-line-indentation-function begin-mark)))
                  (indent-line begin-mark indentation tab-width))
                (beginning-of-line begin-mark)
+               (setf line-beginning-offset (offset begin-mark))
                (setf (offset walking-mark) (offset begin-mark))
                (setf column 0))
              (incf (offset walking-mark)))))

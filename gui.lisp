@@ -289,21 +289,7 @@
   (with-slots (overwrite-mode) (current-window)
     (setf overwrite-mode (not overwrite-mode))))
 
-(defun insert-character (char)
-  (let* ((win (current-window))
-	 (point (point win)))
-    (unless (constituentp char)
-      (possibly-expand-abbrev point))
-    (if (and (slot-value win 'overwrite-mode) (not (end-of-line-p point)))
-	(progn
-	  (delete-range point)
-	  (insert-object point char))
-	(insert-object point char))))
-
-(define-command com-self-insert ()
-  (insert-character *current-gesture*))
-
-(define-command com-self-filling-insert ()
+(defun possibly-fill-line ()
   (let* ((pane (current-window))
          (buffer (buffer pane)))
     (when (auto-fill-mode buffer)
@@ -318,7 +304,22 @@
                      (lambda (mark)
                        (syntax-line-indentation mark tab-width syntax))
                      fill-column
-                     tab-width)))))
+                     tab-width))))))
+
+(defun insert-character (char)
+  (let* ((win (current-window))
+	 (point (point win)))
+    (unless (constituentp char)
+      (possibly-expand-abbrev point))
+    (when (whitespacep char)
+      (possibly-fill-line))
+    (if (and (slot-value win 'overwrite-mode) (not (end-of-line-p point)))
+	(progn
+	  (delete-range point)
+	  (insert-object point char))
+	(insert-object point char))))
+
+(define-command com-self-insert ()
   (insert-character *current-gesture*))
 
 (define-named-command com-beginning-of-line ()
@@ -967,11 +968,10 @@ as two values"
 	 (find :meta gesture))
     (dead-escape-set-key (remove :meta gesture)  command)))
 
-(loop for code from (char-code #\!) to (char-code #\~)
+(loop for code from (char-code #\Space) to (char-code #\~)
       do (global-set-key (code-char code) 'com-self-insert))
 
-(global-set-key #\Space 'com-self-filling-insert)
-(global-set-key #\Newline 'com-self-filling-insert)
+(global-set-key #\Newline 'com-self-insert)
 (global-set-key #\Tab 'com-indent-line)
 (global-set-key '(#\j :control) 'com-newline-and-indent)
 (global-set-key '(#\f :control) `(com-forward-object ,*numeric-argument-marker*))
