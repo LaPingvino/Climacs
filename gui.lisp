@@ -121,7 +121,8 @@
     (loop with gestures = '()
 	  do (setf *current-gesture* (read-gesture :stream *standard-input*))
 	     (when (or (characterp *current-gesture*)
-		       (keyboard-event-character *current-gesture*))
+		       (and (typep *current-gesture* 'keyboard-event)
+			    (keyboard-event-character *current-gesture*)))
 	       (setf gestures (nconc gestures (list *current-gesture*)))
 	       (let ((item (find-gestures gestures 'global-climacs-table)))
 		 (cond ((not item)
@@ -271,17 +272,13 @@
 (define-command com-find-file ()
   (let ((filename (handler-case (accept 'completable-pathname
 					:prompt "Find File")
-		    (simple-parse-error () (error 'file-not-found)))))
-    (setf (buffer *application-frame*)
-	  (make-instance 'abbrev-buffer
-	     :contents (cons nil
-			     (with-open-file (stream filename :direction :input)
-			       (loop for ch = (read-char stream nil nil)
-				     while ch
-				     collect ch)))))
+		    (simple-parse-error () (error 'file-not-found))))
+	(buffer (make-instance 'abbrev-buffer)))
+    (setf (buffer *application-frame*) buffer)
+    (with-open-file (stream filename :direction :input)
+      (input-from-stream stream buffer 0))
     (setf (slot-value *application-frame* 'point)
-	  (make-instance 'standard-right-sticky-mark
-	     :buffer (buffer *application-frame*)))))
+	  (make-instance 'standard-right-sticky-mark :buffer buffer))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

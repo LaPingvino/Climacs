@@ -18,7 +18,7 @@
 ;;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;;; Boston, MA  02111-1307  USA.
 
-;;; A stupid implementation of the buffer protocol.  This
+;;; A not-so-stupid implementation of the buffer protocol.  This
 ;;; implementation serves two purposes: First, so that higher-level
 ;;; functionality can be built on top of a working implementation of
 ;;; the buffer protocol, and second, to use as a comparison for
@@ -29,8 +29,7 @@
 (defclass buffer () ())
 
 (defclass standard-buffer (buffer)
-  ((contents :initform (list nil) :initarg :contents)
-   (marks :initform '())))
+  ((contents :initform (make-instance 'standard-cursorchain))))
 
 (defgeneric buffer (mark))  
 
@@ -45,19 +44,33 @@
 
 (defclass mark-mixin ()
   ((buffer :initarg :buffer :reader buffer)
-   (offset :initarg :offset :initform 0 :accessor offset)))
+   (cursor :reader cursor)))  
 
-(defmethod (setf offset) :before (new-offset (mark mark-mixin))
+(defmethod offset (mark)
+  (cursor-pos (cursor mark)))
+
+(defmethod (setf offset) (new-offset mark)
   (assert (<= 0 new-offset (size (buffer mark))) ()
-	  (make-condition 'no-such-offset :offset new-offset)))
-
-(defmethod initialize-instance :after ((mark mark-mixin) &rest args)
-  (declare (ignore args))
-  (push mark (slot-value (buffer mark) 'marks)))
+	  (make-condition 'no-such-offset :offset new-offset))
+  (setf (cursor-pos (cursor mark)) new-offset))
 
 (defclass standard-left-sticky-mark (left-sticky-mark mark-mixin) ())
 
 (defclass standard-right-sticky-mark (right-sticky-mark mark-mixin) ())
+
+(defmethod initialize-instance :after ((mark left-sticky-mark) &rest args &key (offset 0))
+  (declare (ignore args))
+  (setf (slot-value mark 'cursor)
+	(make-instance 'left-sticky-flexicursor
+	   :chain (slot-value (buffer mark) 'contents)
+	   :position offset)))
+
+(defmethod initialize-instance :after ((mark right-sticky-mark) &rest args &key (offset 0))
+  (declare (ignore args))
+  (setf (slot-value mark 'cursor)
+	(make-instance 'right-sticky-flexicursor
+	   :chain (slot-value (buffer mark) 'contents)
+	   :position offset)))
 
 (defgeneric clone-mark (mark &optional type))
 
@@ -79,13 +92,13 @@
 (defgeneric size (buffer))
 
 (defmethod size ((buffer standard-buffer))
-  (1- (length (slot-value buffer 'contents))))
-
+  (nb-elements (slot-value buffer 'contents)))
 
 (defgeneric number-of-lines (buffer))
 
 (defmethod number-of-lines ((buffer standard-buffer))
-  (count #\Newline (cdr (slot-value buffer 'contents))))
+  (loop for offset from 0 below (size buffer)
+	count (eql (buffer-object buffer offset) #\Newline)))
 
 (defgeneric mark< (mark1 mark2))
 
@@ -147,7 +160,6 @@
 (defmethod mark>= ((mark1 integer) (mark2 mark-mixin))
   (>= mark1 (offset mark2)))
 
-
 (defgeneric beginning-of-buffer (mark))
 
 (defmethod beginning-of-buffer ((mark mark-mixin))
@@ -197,8 +209,10 @@
 (defgeneric line-number (mark))
 
 (defmethod line-number ((mark mark-mixin))
-  (count #\Newline (cdr (slot-value (buffer mark) 'contents))
-	 :end (offset mark)))
+  (loop with buffer = (buffer mark)
+	with end = (offset mark)
+	for offset from 0 below end
+	count (eql (buffer-object buffer offset) #\Newline)))
 
 (defgeneric column-number (mark))
 
@@ -213,12 +227,7 @@
 (defmethod insert-buffer-object ((buffer standard-buffer) offset object)
   (assert (<= 0 offset (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset))
-  (push object (cdr (nthcdr offset (slot-value buffer 'contents))))
-  (loop for mark in (slot-value buffer 'marks)
-	when (or (> (offset mark) offset)
-		 (and (= (offset mark) offset)
-		      (typep mark 'right-sticky-mark)))
-	  do (incf (offset mark))))
+  (insert* (slot-value buffer 'contents) offset object))
 
 (defgeneric insert-buffer-sequence (buffer offset sequence))
       
@@ -242,11 +251,8 @@
 (defmethod delete-buffer-range ((buffer standard-buffer) offset n)
   (assert (<= 0 offset (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset))
-  (with-slots (contents marks) buffer
-     (setf (cdr (nthcdr offset contents)) (nthcdr (+ offset n 1) contents))
-     (loop for mark in marks
-	   when (> (offset mark) offset)
-	     do (setf (offset mark) (max offset (- (offset mark) n))))))
+  (loop repeat n
+	do (delete* (slot-value buffer 'contents) offset)))
 
 (defgeneric delete-range (mark &optional n))
 
@@ -281,7 +287,7 @@
 (defmethod buffer-object ((buffer standard-buffer) offset)
   (assert (<= 0 offset (1- (size buffer))) ()
 	  (make-condition 'no-such-offset :offset offset))
-  (nth (1+ offset) (slot-value buffer 'contents)))
+  (element* (slot-value buffer 'contents) offset))
 
 (defgeneric buffer-sequence (buffer offset1 offset2))
 
@@ -290,7 +296,9 @@
 	  (make-condition 'no-such-offset :offset offset1))
   (assert (<= 0 offset2 (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset2))
-  (coerce (subseq (slot-value buffer 'contents) (1+ offset1) (1+ offset2)) 'vector))
+  (coerce (loop for offset from offset1 below offset2
+		collect (buffer-object buffer offset))
+	  'vector))
 
 (defgeneric object-before (mark))
 

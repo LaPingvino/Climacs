@@ -1,3 +1,22 @@
+Install instructions for Climacs.  We assume that if you have gotten
+this far, it means that you have either extracted a tar file with
+everything in it, or checked out the files from some CVS repository.
+If your directory contains a Flexichain subdirectory, skip directly to
+paragraph 1 below.  Otherwise start at paragraph 0.
+
+0. You need to check out the Flexichain module from the Gsharp project
+   on common-lisp.net.  If you are a member of that project, you can
+   do this:  
+
+    export CVS_RSH=ssh
+    cvs -z3 -d :ext:<username>@common-lisp.net:/project/gsharp/cvsroot co Flexichain
+
+   If you are not a member, here is how you do it:
+
+    cvs -d :pserver:anonymous@common-lisp.net:/project/gsharp/cvsroot login
+    <enter anonymous as password>
+    cvs -z3 -d :pserver:anonymous@common-lisp.net:/project/gsharp/cvsroot co Flexichain
+      
 1. Start Lisp either from the shell or from Emacs
 
 2. (load "climacs.asd")

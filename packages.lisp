@@ -21,7 +21,7 @@
 ;;; Package definitions for the Climacs editor.
 
 (defpackage :climacs-buffer
-  (:use :clim-lisp)
+  (:use :clim-lisp :flexichain)
   (:export #:buffer #:standard-buffer
 	   #:mark #:left-sticky-mark #:right-sticky-mark
 	   #:standard-left-sticky-mark #:standard-right-sticky-mark
@@ -44,7 +44,8 @@
   (:export #:previous-line #:next-line
 	   #:open-line #:kill-line
 	   #:constituentp
-	   #:forward-word #:backward-word))
+	   #:forward-word #:backward-word
+	   #:input-from-stream #:output-to-stream))
 
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)

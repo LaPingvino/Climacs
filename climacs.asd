@@ -43,8 +43,15 @@
 			     collect `(:file ,(pathname-name p) :pathname ,p))))))
 
 (climacs-defsystem (:climacs)
+   "Flexichain/skiplist-package"
+   "Flexichain/skiplist"
+   "Flexichain/flexichain-package"
+   "Flexichain/utilities"
+   "Flexichain/flexichain"
+   "Flexichain/flexicursor"
    "packages"
    "buffer"
    "base"
+   "io"
    "abbrev"
    "gui")
