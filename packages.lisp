@@ -51,6 +51,7 @@
 	   #:open-line #:kill-line
            #:empty-line-p
            #:line-indentation
+           #:buffer-display-column
 	   #:number-of-lines-in-region
 	   #:constituentp #:whitespacep
 	   #:forward-word #:backward-word
@@ -60,6 +61,7 @@
            #:tabify-region #:untabify-region
            #:indent-line
            #:delete-indentation
+           #:fill-line
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
 	   #:buffer-lookin-at #:looking-at
@@ -95,6 +97,7 @@
 	   #:page-down #:page-up
            #:tab-space-count
            #:indent-tabs-mode
+           #:auto-fill-mode #:auto-fill-column
 	   #:url))
 
 (defpackage :climacs-gui

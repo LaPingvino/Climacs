@@ -58,7 +58,9 @@
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :initarg :syntax :initform (make-instance 'basic-syntax) :accessor syntax)
    (indent-tabs-mode :initarg indent-tabs-mode :initform t
-                     :accessor indent-tabs-mode))
+                     :accessor indent-tabs-mode)
+   (auto-fill-mode :initform t :accessor auto-fill-mode)
+   (auto-fill-column :initform 70 :accessor auto-fill-column))
   (:default-initargs :name "*scratch*"))
 
 

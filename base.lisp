@@ -114,7 +114,7 @@ characters in the region between offset1 and offset2"
 	count (eql (buffer-object buffer offset1) #\Newline)
 	do (incf offset1)))
 
-(defun buffer-display-column-number (buffer offset tab-width)
+(defun buffer-display-column (buffer offset tab-width)
   (let ((line-start-offset (- offset (buffer-column-number buffer offset))))
     (loop with column = 0
           for i from line-start-offset below offset
@@ -308,7 +308,7 @@ It is acceptable to pass an offset in place of one of the marks."))
                  finally (return t))))
     (loop for offset = offset1 then (1+ offset)
           until (>= offset offset2)
-          do (let* ((column (buffer-display-column-number
+          do (let* ((column (buffer-display-column
                              buffer offset tab-width))
                     (count (- tab-width (mod column tab-width))))
                (when (looking-at-spaces buffer offset count)
@@ -336,8 +336,9 @@ in the region delimited by mark1 and mark2."))
   (loop for offset = offset1 then (1+ offset)
         until (>= offset offset2)
         when (char= (buffer-object buffer offset) #\Tab)
-        do (let* ((column (buffer-display-column-number
-                           buffer offset tab-width))
+        do (let* ((column (buffer-display-column buffer
+                                                 offset
+                                                 tab-width))
                   (count (- tab-width (mod column tab-width))))
              (delete-buffer-range buffer offset 1)
              (loop repeat count
@@ -391,6 +392,37 @@ if tab-width is not nil, otherwise use spaces only."
           while (whitespacep (object-before mark))
           do (delete-range mark -1))
     (insert-object mark #\Space)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Auto fill
+
+(defun fill-line (mark syntax-line-indentation-function fill-column tab-width)
+  (let ((begin-mark (clone-mark mark)))
+    (beginning-of-line begin-mark)
+    (loop with column = 0
+          with walking-mark = (clone-mark begin-mark)
+          while (mark< walking-mark mark)
+          as object = (object-after walking-mark)
+          do (case object
+               (#\Space
+                (setf (offset begin-mark) (offset walking-mark))
+                (incf column))
+               (#\Tab
+                (setf (offset begin-mark) (offset walking-mark))
+                (incf column (- tab-width (mod column tab-width))))
+               (t
+                (incf column)))
+             (when (>= column fill-column)
+               (insert-object begin-mark #\Newline)
+               (incf (offset begin-mark))
+               (let ((indentation
+                      (funcall syntax-line-indentation-function begin-mark)))
+                 (indent-line begin-mark indentation tab-width))
+               (beginning-of-line begin-mark)
+               (setf (offset walking-mark) (offset begin-mark))
+               (setf column 0))
+             (incf (offset walking-mark)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

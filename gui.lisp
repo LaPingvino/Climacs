@@ -109,13 +109,16 @@
   (declare (ignore frame))
   (with-slots (climacs-pane) pane
      (let* ((buf (buffer climacs-pane))
-	    (name-info (format nil "   ~a   ~a   Syntax: ~a ~a    ~a"
+	    (name-info (format nil "   ~a   ~a   Syntax: ~a~a~a    ~a"
 			       (if (needs-saving buf) "**" "--")
 			       (name buf)
 			       (name (syntax buf))
 			       (if (slot-value climacs-pane 'overwrite-mode)
-				   "Ovwrt"
+				   " Ovwrt"
 				   "")
+                               (if (auto-fill-mode buf)
+                                   " Fill"
+                                   "")
 			       (if (recordingp *application-frame*)
 				   "Def"
 				   ""))))
@@ -285,16 +288,37 @@
     (setf (slot-value win 'overwrite-mode)
 	  (not (slot-value win 'overwrite-mode)))))
 
-(define-command com-self-insert ()
+(defun insert-character (char)
   (let* ((win (current-window))
 	 (point (point win)))
-    (unless (constituentp *current-gesture*)
+    (unless (constituentp char)
       (possibly-expand-abbrev point))
     (if (and (slot-value win 'overwrite-mode) (not (end-of-line-p point)))
 	(progn
 	  (delete-range point)
-	  (insert-object point *current-gesture*))
-	(insert-object point *current-gesture*))))
+	  (insert-object point char))
+	(insert-object point char))))
+
+(define-command com-self-insert ()
+  (insert-character *current-gesture*))
+
+(define-command com-self-filling-insert ()
+  (let* ((pane (current-window))
+         (buffer (buffer pane)))
+    (when (auto-fill-mode buffer)
+      (let* ((fill-column (auto-fill-column buffer))
+             (point (point pane))
+             (offset (offset point))
+             (tab-width (tab-space-count (stream-default-view pane)))
+             (syntax (syntax buffer)))
+        (when (>= (buffer-display-column buffer offset tab-width)
+                  (1- (auto-fill-column buffer)))
+          (fill-line point
+                     (lambda (mark)
+                       (syntax-line-indentation mark tab-width syntax))
+                     fill-column
+                     tab-width)))))
+  (insert-character *current-gesture*))
 
 (define-named-command com-beginning-of-line ()
   (beginning-of-line (point (current-window))))
@@ -474,6 +498,10 @@
 
 (define-named-command com-delete-indentation ()
   (delete-indentation (point (current-window))))
+
+(define-named-command com-auto-fill-mode ()
+  (let ((buffer (buffer (current-window))))
+    (setf (auto-fill-mode buffer) (not (auto-fill-mode buffer)))))
 
 (define-command com-extended-command ()
   (let ((item (accept 'command :prompt "Extended Command")))
@@ -938,11 +966,12 @@ as two values"
 	 (find :meta gesture))
     (dead-escape-set-key (remove :meta gesture)  command)))
 
-(loop for code from (char-code #\space) to (char-code #\~)
+(loop for code from (char-code #\!) to (char-code #\~)
       do (global-set-key (code-char code) 'com-self-insert))
 
-(global-set-key #\newline 'com-self-insert)
-(global-set-key #\tab 'com-indent-line)
+(global-set-key #\Space 'com-self-filling-insert)
+(global-set-key #\Newline 'com-self-filling-insert)
+(global-set-key #\Tab 'com-indent-line)
 (global-set-key '(#\j :control) 'com-newline-and-indent)
 (global-set-key '(#\f :control) `(com-forward-object ,*numeric-argument-marker*))
 (global-set-key '(#\b :control) `(com-backward-object ,*numeric-argument-marker*))
