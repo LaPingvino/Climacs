@@ -701,6 +701,8 @@
 (global-set-key '(:right :control) 'com-forward-word)
 (global-set-key '(:home) 'com-beginning-of-line)
 (global-set-key '(:end) 'com-end-of-line)
+(global-set-key '(:prior) 'com-page-up)
+(global-set-key '(:next) 'com-page-down)
 (global-set-key '(:home :control) 'com-beginning-of-buffer)
 (global-set-key '(:end :control) 'com-end-of-buffer)
 (global-set-key #\Rubout 'com-delete-object)
