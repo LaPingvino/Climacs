@@ -87,19 +87,22 @@ the mark, according to the specified syntax."))
 ;;; parse tree
 
 (defclass parse-tree ()
-  ((start-mark :initarg :start-mark :reader start-mark)
-   (size :initarg :size)))
+  ((start-mark :initform nil :initarg :start-mark :reader start-mark)
+   (size :initform nil :initarg :size)))
 
 (defgeneric start-offset (parse-tree))
 
 (defmethod start-offset ((tree parse-tree))
-  (offset (start-mark tree)))
+  (let ((mark (start-mark tree)))
+    (when mark
+      (offset mark))))
 
 (defgeneric end-offset (parse-tree))
 
 (defmethod end-offset ((tree parse-tree))
   (with-slots (start-mark size) tree
-     (+ (offset start-mark) size)))
+     (when start-mark
+       (+ (offset start-mark) size))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -275,9 +278,17 @@ position in the lexemes of LEXER"
 	      :parse-trees (cons parse-tree (parse-trees prev-item))
 	      :suffix remaining))
 	  (t
-	   (make-instance 'complete-item
-	      :parse-tree remaining
-	      :parse-trees (cons parse-tree (parse-trees prev-item)))))))
+	   (let* ((parse-trees (cons parse-tree (parse-trees prev-item)))
+		  (start (find-if-not #'null parse-trees
+				      :from-end t :key #'start-offset))
+		  (end (find-if-not #'null parse-trees :key #'end-offset)))
+	     (with-slots (start-mark size) remaining
+		(when start
+		  (setf start-mark (start-mark start)
+			size (- (end-offset end) (start-offset start))))
+		(make-instance 'complete-item
+		   :parse-tree remaining
+		   :parse-trees parse-trees)))))))
 
 (defgeneric item-equal (item1 item2))
 

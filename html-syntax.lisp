@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: COMMON-LISP-USER -*-
+;;; -*- Mode: Lisp; Package: CLIMACS-HTML-SYNTAX -*-
 
 ;;;  (c) copyright 2005 by
 ;;;           Robert Strandh (strandh@labri.fr)
@@ -57,8 +57,6 @@
 (defclass html-words (html-balanced)
   ((words :initarg :words)))
 
-(defclass title (html-words) ())
-(defclass body (html-words) ())
 (defclass h1 (html-words) ())
 (defclass h2 (html-words) ())
 (defclass h3 (html-words) ())
@@ -70,32 +68,32 @@
 
 (defclass html-tag (html-token) ())
 
-(defclass <html> (html-tag) () (:default-initargs :size 6))
-(defclass </html> (html-tag) ()(:default-initargs :size 7))
-(defclass <head> (html-tag) () (:default-initargs :size 6))
-(defclass </head> (html-tag) () (:default-initargs :size 7))
-(defclass <title> (html-tag) () (:default-initargs :size 7))
-(defclass </title> (html-tag) () (:default-initargs :size 8))
-(defclass <body> (html-tag) () (:default-initargs :size 6))
-(defclass </body> (html-tag) () (:default-initargs :size 7))
-(defclass <h1> (html-tag) () (:default-initargs :size 4))
-(defclass </h1> (html-tag) () (:default-initargs :size 5))
-(defclass <h2> (html-tag) () (:default-initargs :size 4))
-(defclass </h2> (html-tag) () (:default-initargs :size 5))
-(defclass <h3> (html-tag) () (:default-initargs :size 4))
-(defclass </h3> (html-tag) () (:default-initargs :size 5))
-(defclass <p> (html-tag) () (:default-initargs :size 3))
-(defclass </p> (html-tag) () (:default-initargs :size 4))
-(defclass <ul> (html-tag) () (:default-initargs :size 4))
-(defclass </ul> (html-tag) () (:default-initargs :size 5))
-(defclass <li> (html-tag) () (:default-initargs :size 4))
-(defclass </li> (html-tag) () (:default-initargs :size 5))
+(defclass <html> (html-tag) ())
+(defclass </html> (html-tag) ())
+(defclass <head> (html-tag) ())
+(defclass </head> (html-tag) ())
+(defclass <title> (html-tag) ())
+(defclass </title> (html-tag) ())
+(defclass <body> (html-tag) ())
+(defclass </body> (html-tag) ())
+(defclass <h1> (html-tag) ())
+(defclass </h1> (html-tag) ())
+(defclass <h2> (html-tag) ())
+(defclass </h2> (html-tag) ())
+(defclass <h3> (html-tag) ())
+(defclass </h3> (html-tag) ())
+(defclass <p> (html-tag) ())
+(defclass </p> (html-tag) ())
+(defclass <ul> (html-tag) ())
+(defclass </ul> (html-tag) ())
+(defclass <li> (html-tag) ())
+(defclass </li> (html-tag) ())
 (defclass <a> (html-tag)
   ((start :initarg :start)
    (word :initarg :word)
    (words :initarg :words)
    (end :initarg :end)))
-(defclass </a> (html-tag) () (:default-initargs :size 4))
+(defclass </a> (html-tag) ())
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -147,95 +145,182 @@
     (<html> -> (tag-start
 		(word (and (= (end-offset tag-start) (start-offset word))
 			   (word-is word "html")))
-		(tag-end (= (end-offset word) (start-offset tag-end))))
-	    :start-mark (start-mark tag-start))
+		(tag-end (= (end-offset word) (start-offset tag-end)))))
     (</html> -> (tag-start
 		 (slash (= (end-offset tag-start) (start-offset slash)))
 		 (word (and (= (end-offset slash) (start-offset word))
 			    (word-is word "html")))
-		 (tag-end (= (end-offset word) (start-offset tag-end))))
-	     :start-mark (start-mark tag-start))
+		 (tag-end (= (end-offset word) (start-offset tag-end)))))
     (<head> -> (tag-start
 		(word (and (= (end-offset tag-start) (start-offset word))
 			   (word-is word "head")))
-		(tag-end (= (end-offset word) (start-offset tag-end))))
-	    :start-mark (start-mark tag-start))
+		(tag-end (= (end-offset word) (start-offset tag-end)))))
     (</head> -> (tag-start
 		 (slash (= (end-offset tag-start) (start-offset slash)))
 		 (word (and (= (end-offset slash) (start-offset word))
 			    (word-is word "head")))
-		 (tag-end (= (end-offset word) (start-offset tag-end))))
-	     :start-mark (start-mark tag-start))
+		 (tag-end (= (end-offset word) (start-offset tag-end)))))
     (<title> -> (tag-start
 		 (word (and (= (end-offset tag-start) (start-offset word))
 			    (word-is word "title")))
-		 (tag-end (= (end-offset word) (start-offset tag-end))))
-	     :start-mark (start-mark tag-start))
+		 (tag-end (= (end-offset word) (start-offset tag-end)))))
     (</title> -> (tag-start
 		  (slash (= (end-offset tag-start) (start-offset slash)))
 		  (word (and (= (end-offset slash) (start-offset word))
 			     (word-is word "title")))
-		  (tag-end (= (end-offset word) (start-offset tag-end))))
-	      :start-mark (start-mark tag-start))
+		  (tag-end (= (end-offset word) (start-offset tag-end)))))
     (<body> -> (tag-start
 		(word (and (= (end-offset tag-start) (start-offset word))
 			   (word-is word "body")))
-		(tag-end (= (end-offset word) (start-offset tag-end))))
-	    :start-mark (start-mark tag-start))
+		(tag-end (= (end-offset word) (start-offset tag-end)))))
     (</body> -> (tag-start
 		 (slash (= (end-offset tag-start) (start-offset slash)))
 		 (word (and (= (end-offset slash) (start-offset word))
 			    (word-is word "body")))
-		 (tag-end (= (end-offset word) (start-offset tag-end))))
-	     :start-mark (start-mark tag-start))
+		 (tag-end (= (end-offset word) (start-offset tag-end)))))
     (<a> -> (tag-start
 	     (word (and (= (end-offset tag-start) (start-offset word))
 			(word-is word "a")))
 	     words
 	     tag-end)
-	 :start-mark (start-mark tag-start)
-	 :size (- (end-offset tag-end) (start-offset tag-start))
 	 :start tag-start :word word :words words :end tag-end)
     (</a> -> (tag-start
 	      (slash (= (end-offset tag-start) (start-offset slash)))
 	      (word (and (= (end-offset slash) (start-offset word))
 			 (word-is word "a")))
-	      (tag-end (= (end-offset word) (start-offset tag-end))))
-	  :start-mark (start-mark tag-start))
+	      (tag-end (= (end-offset word) (start-offset tag-end)))))
     (html -> (<html> head body </html>)
-	  :start-mark (start-mark <html>)
-	  :size (- (end-offset </html>) (start-offset <html>))
 	  :start <html> :head head :body body :end </html>)
     (head -> (<head> title </head>)
-	  :start-mark (start-mark <head>)
-	  :size (- (end-offset </head>) (start-offset <head>))
 	  :start <head> :title title :end </head>)
-    (title -> (<title> words </title>)
-	   :start-mark (start-mark <title>)
-	   :size (- (end-offset </title>) (start-offset <title>))
-	   :start <title> :words words :end </title>)
-    (body -> (<body> words </body>)
-	  :start-mark (start-mark <body>)
-	  :size (- (end-offset </body>) (start-offset <body>))
-	  :start <body> :words words :end </body>)
     (a -> (<a> words </a>)
-       :start-mark (start-mark <a>)
-       :size (- (end-offset </a>) (start-offset <a>))
        :start <a> :words words :end </a>)
     (words -> ()
-	   (make-instance 'empty-words :start-mark nil))
+	   (make-instance 'empty-words))
     (words -> (words word)
 	   (make-instance 'nonempty-words
-	      :start-mark (or (start-mark words) (start-mark word))
-	      :size (- (end-offset word) (offset (or (start-mark words) (start-mark word))))
-	      :words words :word word))
-    (word -> (a)
-	  :start-mark (start-mark a)
-	  :size (- (end-offset a) (start-offset a)))
-    (word -> (delimiter)
-	  :start-mark (start-mark delimiter)
-	  :size (- (end-offset delimiter) (start-offset delimiter)))))
+	      :words words :word word))))
 	  
+
+(defclass title-item (html-nonterminal)
+  ((item :initarg :item)))
+
+(add-rule (grammar-rule (title-item -> (word) :item word)) *html-grammar*)
+(add-rule (grammar-rule (title-item -> (delimiter) :item delimiter)) *html-grammar*)
+
+(defmethod display-parse-tree ((entity title-item) (syntax html-syntax) pane)
+  (with-slots (item) entity
+     (display-parse-tree item syntax pane)))
+
+;;;;;;;;;;;;;;; title-items
+
+(defclass title-items (html-nonterminal) ())
+(defclass empty-title-items (title-items) ())
+
+(defclass nonempty-title-items (title-items)
+  ((items :initarg :items)
+   (item :initarg :item)))
+
+(add-rule (grammar-rule (title-items -> ()
+				     (make-instance 'empty-title-items)))
+	  *html-grammar*)
+
+(add-rule (grammar-rule (title-items -> (title-items title-item)
+				     (make-instance 'nonempty-title-items
+					:items title-items :item title-item)))
+	  *html-grammar*)
+
+(defmethod display-parse-tree ((entity empty-title-items) (syntax html-syntax) pane)
+  (declare (ignore pane))
+  nil)
+
+(defmethod display-parse-tree :around ((entity empty-title-items) syntax pane)
+  (declare (ignore syntax pane))
+  nil)
+
+(defmethod display-parse-tree ((entity nonempty-title-items) (syntax html-syntax) pane)
+  (with-slots (items item) entity
+     (display-parse-tree items syntax pane)
+     (display-parse-tree item syntax pane)))
+
+;;;;;;;;;;;;;;; title
+
+(defclass title (html-nonterminal)
+  ((<title> :initarg :<title>)
+   (items :initarg :items)
+   (</title> :initarg :</title>)))
+
+(add-rule (grammar-rule (title -> (<title> title-items </title>)
+			       :<title> <title> :items title-items :</title> </title>))
+	  *html-grammar*)
+
+(defmethod display-parse-tree ((entity title) (syntax html-syntax) pane)
+  (with-slots (<title> items </title>) entity
+     (display-parse-tree <title> syntax pane)
+     (with-text-face (pane :bold)
+       (display-parse-tree items syntax pane))
+     (display-parse-tree </title> syntax pane)))
+
+;;;;;;;;;;;;;;; body-item
+
+(defclass body-item (html-nonterminal)
+  ((item :initarg :item)))
+
+(add-rule (grammar-rule (body-item -> (word) :item word)) *html-grammar*)
+(add-rule (grammar-rule (body-item -> (delimiter) :item delimiter)) *html-grammar*)
+(add-rule (grammar-rule (body-item -> (a) :item a)) *html-grammar*)
+
+(defmethod display-parse-tree ((entity body-item) (syntax html-syntax) pane)
+  (with-slots (item) entity
+     (display-parse-tree item syntax pane)))
+
+;;;;;;;;;;;;;;; body-items
+
+(defclass body-items (html-nonterminal) ())
+(defclass empty-body-items (body-items) ())
+
+(defclass nonempty-body-items (body-items)
+  ((items :initarg :items)
+   (item :initarg :item)))
+
+(add-rule (grammar-rule (body-items -> ()
+				    (make-instance 'empty-body-items)))
+	  *html-grammar*)
+
+(add-rule (grammar-rule (body-items -> (body-items body-item)
+				    (make-instance 'nonempty-body-items
+				       :items body-items :item body-item)))
+	  *html-grammar*)
+
+(defmethod display-parse-tree ((entity empty-body-items) (syntax html-syntax) pane)
+  (declare (ignore pane))
+  nil)
+
+(defmethod display-parse-tree :around ((entity empty-body-items) syntax pane)
+  (declare (ignore syntax pane))
+  nil)
+
+(defmethod display-parse-tree ((entity nonempty-body-items) (syntax html-syntax) pane)
+  (with-slots (items item) entity
+     (display-parse-tree items syntax pane)
+     (display-parse-tree item syntax pane)))
+
+;;;;;;;;;;;;;;; body
+
+(defclass body (html-nonterminal)
+  ((<body> :initarg :<body>)
+   (items :initarg :items)
+   (</body> :initarg :</body>)))
+
+(add-rule (grammar-rule (body -> (<body> body-items </body>)
+			      :<body> <body> :items body-items :</body> </body>))
+	  *html-grammar*)
+
+(defmethod display-parse-tree ((entity body) (syntax html-syntax) pane)
+  (with-slots (<body> items </body>) entity
+     (display-parse-tree <body> syntax pane)
+     (display-parse-tree items syntax pane)     
+     (display-parse-tree </body> syntax pane)))
 
 (defmethod initialize-instance :after ((syntax html-syntax) &rest args)
   (declare (ignore args))
@@ -347,10 +432,6 @@
 (defmethod display-parse-tree :after ((entity html-balanced) (syntax html-syntax) pane)
   (with-slots (end) entity
      (display-parse-tree end syntax pane)))
-
-(defmethod display-parse-tree :around ((entity title) (syntax html-syntax) pane)
-  (with-text-face (pane :bold)
-    (call-next-method)))
 
 (defmethod display-parse-tree ((entity html-words) (syntax html-syntax) pane)
   (with-slots (words) entity
