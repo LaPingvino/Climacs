@@ -129,19 +129,37 @@
 	      (#\5 :meta) (#\6 :meta) (#\7 :meta) (#\8 :meta) (#\9 :meta))
 	    :test #'event-matches-gesture-name-p))
 
+(defun climacs-read-gesture ()
+  (loop for gesture = (read-gesture :stream *standard-input*)
+	when (event-matches-gesture-name-p gesture '(#\g :control))
+	  do (throw 'outer-loop nil)
+	until (or (characterp gesture)
+		  (and (typep gesture 'keyboard-event)
+		       (or (keyboard-event-character gesture)
+			   (not (member (keyboard-event-key-name
+					 gesture)
+					'(:control-left :control-right
+					  :shift-left :shift-right
+					  :meta-left :meta-right
+					  :super-left :super-right
+					  :hyper-left :hyper-right
+					  :shift-lock :caps-lock
+					  :alt-left :alt-right))))))
+	finally (return gesture)))	  
+
 (defun read-numeric-argument (&key (stream *standard-input*))
-  (let ((gesture (read-gesture :stream stream)))
+  (let ((gesture (climacs-read-gesture)))
     (cond ((event-matches-gesture-name-p gesture '(#\u :control))
 	   (let ((numarg 4))
-	     (loop for gesture = (read-gesture :stream stream)
+	     (loop for gesture = (climacs-read-gesture)
 		   while (event-matches-gesture-name-p gesture '(#\u :control))
 		   do (setf numarg (* 4 numarg))
 		   finally (unread-gesture gesture :stream stream))
-	     (let ((gesture (read-gesture :stream stream)))
+	     (let ((gesture (climacs-read-gesture)))
 	       (cond ((and (characterp gesture)
 			   (digit-char-p gesture 10))
 		      (setf numarg (- (char-code gesture) (char-code #\0)))
-		      (loop for gesture = (read-gesture :stream stream)
+		      (loop for gesture = (climacs-read-gesture)
 			    while (and (characterp gesture)
 				       (digit-char-p gesture 10))
 			    do (setf gesture (+ (* 10 numarg)
@@ -152,7 +170,7 @@
 		      (values numarg t))))))
 	  ((meta-digit gesture)
 	   (let ((numarg (meta-digit gesture)))
-	     (loop for gesture = (read-gesture :stream stream)
+	     (loop for gesture = (climacs-read-gesture)
 		   while (meta-digit gesture)
 		   do (setf numarg (+ (* 10 numarg) (meta-digit gesture)))
 		   finally (unread-gesture gesture :stream stream)
@@ -170,40 +188,35 @@
 	(*print-pretty* nil)
 	(*abort-gestures* nil))
     (redisplay-frame-panes frame :force-p t)
-    (loop with gestures = '()
-	  with numarg = 1 ; FIXME (read-numeric-argument :stream *standard-input*)
-	  do (setf *current-gesture* (read-gesture :stream *standard-input*))
-	     (when (or (characterp *current-gesture*)
-		       (and (typep *current-gesture* 'keyboard-event)
-			    (or (keyboard-event-character *current-gesture*)
-				(not (member (keyboard-event-key-name
-					      *current-gesture*)
-					     '(:control-left :control-right
-					       :shift-left :shift-right
-					       :meta-left :meta-right
-					       :super-left :super-right
-					       :hyper-left :hyper-right
-					       :shift-lock :caps-lock))))))
-	       (setf gestures (nconc gestures (list *current-gesture*)))
-	       (let ((item (find-gestures gestures 'global-climacs-table)))
-		 (cond ((not item)
-			(beep) (setf gestures '()))
-		       ((eq (command-menu-item-type item) :command)
-			(let ((command (command-menu-item-value item)))
-			  (unless (consp command)
-			    (setf command (list command)))
-			  (setf command (substitute-numeric-argument-marker command numarg))
-			  (handler-case 
-			      (execute-frame-command frame command)
-			    (error (condition)
-			      (beep)
-			      (format *error-output* "~a~%" condition)))
-			  (setf gestures '())))
-		       (t nil))))
-	     (let ((buffer (buffer (win frame))))
-	       (when (modified-p buffer)
-		 (setf (needs-saving buffer) t)))
-	     (redisplay-frame-panes frame))))
+    (loop (catch 'outer-loop
+	    (loop with gestures = '()
+		  with numarg = 1 ; FIXME (read-numeric-argument :stream *standard-input*)
+		  do (setf *current-gesture* (climacs-read-gesture))
+		     (setf gestures (nconc gestures (list *current-gesture*)))
+		     (let ((item (find-gestures gestures 'global-climacs-table)))
+		       (cond ((not item)
+			      (beep) (setf gestures '()))
+			     ((eq (command-menu-item-type item) :command)
+			      (let ((command (command-menu-item-value item)))
+				(unless (consp command)
+				  (setf command (list command)))
+				(setf command (substitute-numeric-argument-marker command numarg))
+				(handler-case 
+				    (execute-frame-command frame command)
+				  (error (condition)
+				    (beep)
+				    (format *error-output* "~a~%" condition)))
+				(setf gestures '())))
+			     (t nil)))
+		     (let ((buffer (buffer (win frame))))
+		       (when (modified-p buffer)
+			 (setf (needs-saving buffer) t)))
+		     (redisplay-frame-panes frame)))
+	  (beep)
+	  (let ((buffer (buffer (win frame))))
+	    (when (modified-p buffer)
+	      (setf (needs-saving buffer) t)))
+	  (redisplay-frame-panes frame))))
 
 (defmacro define-named-command (command-name args &body body)
   `(define-climacs-command ,(if (listp command-name) `(,@command-name :name t) `(,command-name :name t)) ,args ,@body))
@@ -555,6 +568,18 @@
 (define-named-command com-kr-resize ()
   (let ((size (accept 'integer :prompt "New kill ring size")))
     (kr-resize *kill-ring* size)))
+
+(define-named-command com-search-forward ()
+  (search-forward (point (win *application-frame*))
+		  (accept 'string :prompt "Search Forward")
+		  :test (lambda (a b)
+			  (and (characterp b) (char-equal a b)))))
+
+(define-named-command com-search-backward ()
+  (search-backward (point (win *application-frame*))
+		   (accept 'string :prompt "Search Backward")
+		   :test (lambda (a b)
+			   (and (characterp b) (char-equal a b)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

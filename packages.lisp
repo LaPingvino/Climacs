@@ -49,7 +49,10 @@
 	   #:forward-word #:backward-word
 	   #:delete-word #:backward-delete-word
 	   #:input-from-stream #:output-to-stream
-	   #:name-mixin #:name))
+	   #:name-mixin #:name
+	   #:buffer-lookin-at #:looking-at
+	   #:buffer-search-forward #:buffer-search-backward
+	   #:search-forward #:search-backward))
 
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)

@@ -144,3 +144,53 @@ acceptable to pass an offset in place of one of the marks"))
 (defclass name-mixin ()
   ((name :initarg :name :accessor name)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Search
+
+(defun buffer-looking-at (buffer offset vector &key (test #'eql))
+  "return true if and only if BUFFER contains VECTOR at OFFSET"
+  (and (<= (+ offset (length vector)) (size buffer))
+       (loop for i from offset
+	     for obj across vector
+	     unless (funcall test (buffer-object buffer i) obj)
+	       return nil
+	     finally (return t))))
+
+(defun looking-at (mark vector &key (test #'eql))
+  "return true if and only if BUFFER contains VECTOR after MARK"
+  (buffer-looking-at (buffer mark) (offset mark) vector :test test))
+
+
+(defun buffer-search-forward (buffer offset vector &key (test #'eql))
+  "return the smallest offset of BUFFER >= OFFSET containing VECTOR
+or NIL if no such offset exists"
+  (loop for i from offset to (size buffer)
+	when (buffer-looking-at buffer i vector :test test)
+	  return i
+	finally (return nil)))
+			      
+
+(defun buffer-search-backward (buffer offset vector &key (test #'eql))
+  "return the largest offset of BUFFER <= (- OFFSET (length VECTOR))
+containing VECTOR or NIL if no such offset exists"
+  (loop for i downfrom (- offset (length vector)) to 0
+	when (buffer-looking-at buffer i vector :test test)
+	  return i
+	finally (return nil)))			       
+
+(defun search-forward (mark vector &key (test #'eql))
+  "move MARK forward after the first occurence of VECTOR after MARK"
+  (let ((offset (buffer-search-forward
+		 (buffer mark) (offset mark) vector :test test)))
+    (when offset
+      (setf (offset mark) (+ offset (length vector))))))
+
+(defun search-backward (mark vector &key (test #'eql))
+  "move MARK backward before the first occurence of VECTOR before MARK"
+  (let ((offset (buffer-search-backward
+		 (buffer mark) (offset mark) vector :test test)))
+    (when offset
+      (setf (offset mark) offset))))
+
+
