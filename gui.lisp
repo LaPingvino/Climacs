@@ -292,7 +292,7 @@
 			    (when (null (remaining-keys *application-frame*))
 			      (setf (executingp *application-frame*) nil)
 			      (redisplay-frame-panes frame))))
-	       (abort-gesture () nil))
+	       (abort-gesture () (display-message "Quit")))
 	     (beep)
 	     (let ((buffer (buffer (current-window))))
 	       (when (modified-p buffer)
