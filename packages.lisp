@@ -50,7 +50,7 @@
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)
   (:export #:abbrev-expander #:dictionary-abbrev-expander #:dictionary
-	   #:expand-abbrev #:abbrev-buffer #:possibly-expand-abbrev))
+	   #:expand-abbrev #:abbrev-mixin #:possibly-expand-abbrev))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev))

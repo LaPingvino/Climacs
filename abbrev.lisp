@@ -73,6 +73,6 @@ return the expanded abbrev, or NIL if no expansion exists"))
 	    (delete-buffer-range buffer offset1 (- offset2 offset1))
 	    (insert-buffer-sequence buffer offset1 expansion)))))))
 
-(defclass abbrev-buffer (standard-buffer)
+(defclass abbrev-mixin ()
   ((expander :initform (make-instance 'dictionary-abbrev-expander)
 	     :initarg :expander :accessor abbrev-expander)))

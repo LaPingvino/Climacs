@@ -22,24 +22,36 @@
 
 (in-package :climacs-gui)
 
+(defclass filename-mixin ()
+  ((filename :initform nil :accessor filename)))
+
+(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin) ())
+
+(defclass climacs-pane (application-pane)
+  ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
+   (point :initform nil :initarg :point :reader point)))
+
+(defmethod initialize-instance :after ((pane climacs-pane) &rest args)
+  (declare (ignore args))
+  (with-slots (buffer point) pane
+     (when (null point)
+       (setf point (make-instance 'standard-right-sticky-mark
+		      :buffer buffer)))))
+
 (define-application-frame climacs ()
-  ((buffer :initform (make-instance 'abbrev-buffer)
-	   :accessor buffer)
-   (point :initform nil :reader point))
+  ((win :reader win))
   (:panes
-   (win :application :width 600 :height 400
-	:display-function 'display-win)
+   (win (make-pane 'climacs-pane
+		   :width 600 :height 400
+		   :name 'win
+		   :display-function 'display-win))
    (int :interactor :width 600 :height 50))
   (:layouts
    (default
-       (vertically () win int)))
+       (vertically ()
+	 (scrolling (:width 600 :height 400) win)
+	 int)))
   (:top-level (climacs-top-level)))
-
-(defmethod initialize-instance :after ((frame climacs) &rest args)
-  (declare (ignore args))
-  (setf (slot-value frame 'point)
-	(make-instance 'standard-right-sticky-mark
-	   :buffer (buffer frame))))
 
 (defun climacs ()
   (let ((frame (make-application-frame 'climacs)))
@@ -50,8 +62,8 @@
 	 (style (medium-text-style medium))
 	 (height (text-style-height style medium))
 	 (width (text-style-width style medium))
-	 (buffer (buffer frame))
-	 (size (size (buffer frame)))
+	 (buffer (buffer (win frame)))
+	 (size (size (buffer (win frame))))
 	 (offset 0)
 	 (offset1 nil)
 	 (cursor-x nil)
@@ -63,7 +75,7 @@
 			:stream pane)
 	       (setf offset1 nil)))
 	   (display-line ()
-	     (loop when (= offset (offset (point frame)))
+	     (loop when (= offset (offset (point (win frame))))
 		     do (multiple-value-bind (x y) (stream-cursor-position pane)
 			  (setf cursor-x (+ x (if (null offset1)
 						  0
@@ -89,7 +101,7 @@
 			   (terpri pane))))
       (loop while (< offset size)
 	    do (display-line))
-      (when (= offset (offset (point frame)))
+      (when (= offset (offset (point (win frame))))
 	(multiple-value-bind (x y) (stream-cursor-position pane)
 	  (setf cursor-x x
 		cursor-y y))))
@@ -114,6 +126,7 @@
 			  command-parser command-unparser 
 			  partial-command-parser prompt)
   (declare (ignore command-parser command-unparser partial-command-parser prompt))
+  (setf (slot-value frame 'win) (find-pane-named frame 'win))
   (let ((*standard-output* (frame-standard-output frame))
 	(*standard-input* (frame-standard-input frame))
 	(*print-pretty* nil))
@@ -142,41 +155,41 @@
 
 (define-command com-self-insert ()
   (unless (constituentp *current-gesture*)
-    (possibly-expand-abbrev (point *application-frame*)))
-  (insert-object (point *application-frame*) *current-gesture*))
+    (possibly-expand-abbrev (point (win *application-frame*))))
+  (insert-object (point (win *application-frame*)) *current-gesture*))
 
 (define-command com-backward-object ()
-  (decf (offset (point *application-frame*))))
+  (decf (offset (point (win *application-frame*)))))
 
 (define-command com-forward-object ()
-  (incf (offset (point *application-frame*))))
+  (incf (offset (point (win *application-frame*)))))
 
 (define-command com-beginning-of-line ()
-  (beginning-of-line (point *application-frame*)))
+  (beginning-of-line (point (win *application-frame*))))
 
 (define-command com-end-of-line ()
-  (end-of-line (point *application-frame*)))
+  (end-of-line (point (win *application-frame*))))
 
 (define-command com-delete-object ()
-  (delete-range (point *application-frame*)))
+  (delete-range (point (win *application-frame*))))
 
 (define-command com-previous-line ()
-  (previous-line (point *application-frame*)))
+  (previous-line (point (win *application-frame*))))
 
 (define-command com-next-line ()
-  (next-line (point *application-frame*)))
+  (next-line (point (win *application-frame*))))
 
 (define-command com-open-line ()
-  (open-line (point *application-frame*)))
+  (open-line (point (win *application-frame*))))
 
 (define-command com-kill-line ()
-  (kill-line (point *application-frame*)))
+  (kill-line (point (win *application-frame*))))
 
 (define-command com-forward-word ()
-  (forward-word (point *application-frame*)))
+  (forward-word (point (win *application-frame*))))
 
 (define-command com-backward-word ()
-  (backward-word (point *application-frame*)))
+  (backward-word (point (win *application-frame*))))
 
 (define-command com-toggle-layout ()
   (setf (frame-current-layout *application-frame*)
@@ -190,11 +203,8 @@
 (defclass weird () ())
 
 (define-command com-insert-weird-stuff ()
-  (insert-object (point *application-frame*) (make-instance 'weird)))
+  (insert-object (point (win *application-frame*)) (make-instance 'weird)))
 
-(define-command com-insert-number ()
-  (insert-sequence (point *application-frame*)
-		   (format nil "~a" (accept 'number :prompt "Insert Number"))))
 
 (define-presentation-type completable-pathname ()
   :inherit-from 'pathname)
@@ -270,15 +280,22 @@
     (or pathname string)))
 
 (define-command com-find-file ()
-  (let ((filename (handler-case (accept 'completable-pathname
-					:prompt "Find File")
-		    (simple-parse-error () (error 'file-not-found))))
-	(buffer (make-instance 'abbrev-buffer)))
-    (setf (buffer *application-frame*) buffer)
+  (let ((filename (accept 'completable-pathname
+			  :prompt "Find File"))
+	(buffer (make-instance 'climacs-buffer)))
+    (setf (buffer (win *application-frame*)) buffer)
     (with-open-file (stream filename :direction :input)
       (input-from-stream stream buffer 0))
-    (setf (slot-value *application-frame* 'point)
+    (setf (slot-value (win *application-frame*) 'point)
 	  (make-instance 'standard-right-sticky-mark :buffer buffer))))
+
+(define-command com-save-buffer ()
+  (let ((filename (or (filename (buffer (win *application-frame*)))
+		      (accept 'completable-pathname
+			      :prompt "Save Buffer to File")))
+	(buffer (buffer (win *application-frame*))))
+    (with-open-file (stream filename :direction :output :if-exists :supersede)
+      (output-to-stream stream buffer 0 (size buffer)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -307,7 +324,6 @@
 (global-set-key '(#\b :meta) 'com-backward-word)
 (global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\a :meta) 'com-insert-weird-stuff)
-(global-set-key '(#\c :meta) 'com-insert-number)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -326,5 +342,9 @@
 
 (add-command-to-command-table 'com-find-file 'c-x-climacs-table
 			      :keystroke '(#\f :control))
+
+(add-command-to-command-table 'com-save-buffer 'c-x-climacs-table
+			      :keystroke '(#\s :control))
+
 
 
