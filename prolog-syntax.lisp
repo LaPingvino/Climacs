@@ -56,7 +56,7 @@
   ())
 
 (defclass prolog-token (prolog-parse-tree)
-  ((ink) (face)))
+  ((ink) (face) (start) (end)))
 
 ;;; lexer
 
@@ -947,40 +947,47 @@
        (call-next-method))))
 
 (defmethod display-parse-tree ((entity prolog-token) (syntax prolog-syntax) pane)
-  (flet ((cache-test (t1 t2)
-	   (and (eq t1 t2)
-		(eq (slot-value t1 'ink)
-		    (medium-ink (sheet-medium pane)))
-		(eq (slot-value t1 'face)
-		    (text-style-face (medium-text-style (sheet-medium pane)))))))
-    (updating-output (pane :unique-id entity
-			   :id-test #'eq
-			   :cache-value entity
-			   :cache-test #'cache-test)
-      (with-slots (ink face) entity
-	 (setf ink (medium-ink (sheet-medium pane))
-	       face (text-style-face (medium-text-style (sheet-medium pane))))
-	 (let ((string (coerce (buffer-sequence (buffer syntax)
-						(start-offset entity)
-						(end-offset entity))
-			       'string)))
-	   (with-slots (top bot) pane
-	     (let (start end)
-	       (setf start (max 0 (- (offset top) (start-offset entity))))
-	       (setf end (- (length string) (max 0 (- (end-offset entity) (offset bot)))))
-	       (loop
-		(when (>= start end)
-		  (return))
-		(let ((nl (position #\Newline string
-				    :start start :end end)))
-		  (unless nl
-		    (present (subseq string start end) 'string :stream pane)
-		    (return))
-		  (present (subseq string start nl) 'string :stream pane)
-		  (handle-whitespace pane (buffer pane)
-				     (+ (start-offset entity) nl)
-				     (+ (start-offset entity) nl 1))
-		  (setf start (+ nl 1)))))))))))
+  (with-slots (top bot) pane
+    (let ((string (coerce (buffer-sequence (buffer syntax)
+					   (start-offset entity)
+					   (end-offset entity))
+			  'string)))
+      (flet ((cache-test (t1 t2)
+	       (and (eq t1 t2)
+		    (eq (slot-value t1 'ink)
+			(medium-ink (sheet-medium pane)))
+		    (eq (slot-value t1 'face)
+			(text-style-face (medium-text-style (sheet-medium pane))))
+		    (eq (slot-value t1 'start)
+			(max 0 (- (offset top) (start-offset entity))))
+		    (eq (slot-value t1 'end)
+			(- (length string)
+			   (max 0 (- (end-offset entity) (offset bot))))))))
+	(updating-output (pane :unique-id entity
+			       :id-test #'eq
+			       :cache-value entity
+			       :cache-test #'cache-test)
+          (with-slots (ink face start end) entity
+	    (setf ink (medium-ink (sheet-medium pane))
+		  face (text-style-face (medium-text-style (sheet-medium pane)))
+		  start (max 0 (- (offset top) (start-offset entity)))
+		  end (- (length string)
+			 (max 0 (- (end-offset entity) (offset bot)))))
+	    (let ((start start)
+		  (end end))
+	      (loop
+	       (when (>= start end)
+		 (return))
+	       (let ((nl (position #\Newline string
+				   :start start :end end)))
+		 (unless nl
+		   (present (subseq string start end) 'string :stream pane)
+		   (return))
+		 (present (subseq string start nl) 'string :stream pane)
+		 (handle-whitespace pane (buffer pane)
+				    (+ (start-offset entity) nl)
+				    (+ (start-offset entity) nl 1))
+		 (setf start (+ nl 1)))))))))))
 
 (defmethod display-parse-tree :before ((entity prolog-token) (syntax prolog-syntax) pane)
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
