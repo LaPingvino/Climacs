@@ -40,7 +40,7 @@
      (when (null point)
        (setf point (make-instance 'standard-right-sticky-mark
 		      :buffer buffer)))
-     (setf syntax (make-instance 'basic-syntax :buffer buffer :pane pane))))
+     (setf syntax (make-instance 'texinfo-syntax :buffer buffer :pane pane))))
 
 (define-application-frame climacs ()
   ((win :reader win))
@@ -246,10 +246,11 @@
     (with-slots (buffer point syntax) (win *application-frame*)
        (setf buffer (make-instance 'climacs-buffer)
 	     point (make-instance 'standard-right-sticky-mark :buffer buffer)
-	     syntax (make-instance 'basic-syntax :buffer buffer :pane (win *application-frame*))
+	     syntax (make-instance 'texinfo-syntax :buffer buffer :pane (win *application-frame*))
 	     (filename buffer) filename)
        (with-open-file (stream filename :direction :input)
-	 (input-from-stream stream buffer 0)))))
+	 (input-from-stream stream buffer 0))
+       (beginning-of-buffer point))))
 
 (define-command com-save-buffer ()
   (let ((filename (or (filename (buffer (win *application-frame*)))
@@ -258,6 +259,15 @@
 	(buffer (buffer (win *application-frame*))))
     (with-open-file (stream filename :direction :output :if-exists :supersede)
       (output-to-stream stream buffer 0 (size buffer)))))
+
+(define-command com-beginning-of-buffer ()
+  (beginning-of-buffer (point (win *application-frame*))))
+
+(define-command com-end-of-buffer ()
+  (end-of-buffer (point (win *application-frame*))))
+
+(define-command com-browse-url ()
+  (accept 'url :prompt "Browse URL"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -288,6 +298,9 @@
 (global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\a :meta) 'com-insert-weird-stuff)
 (global-set-key '(#\c :meta) 'com-insert-reversed-string)
+(global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
+(global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
+(global-set-key '(#\u :meta) 'com-browse-url)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -299,12 +312,15 @@
 				:menu 'c-x-climacs-table
 				:keystroke '(#\x :control))
 
-;;; for some reason, C-c does not seem to arrive as far as CLIM.
+(defun c-x-set-key (gesture command)
+  (add-command-to-command-table command 'c-x-climacs-table
+				:keystroke gesture :errorp nil))
 
 (defun c-x-set-key (gesture command)
   (add-command-to-command-table command 'c-x-climacs-table
 				:keystroke gesture :errorp nil))
 
+;;; for some reason, C-c does not seem to arrive as far as CLIM.
 (c-x-set-key '(#\q :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\s :control) 'com-save-buffer)

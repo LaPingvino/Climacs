@@ -51,15 +51,21 @@
        (setf space-width (text-style-width style medium)
 	     tab-width (* 8 space-width)))))
 
-(defun present-contents (pane syntax)
+(define-presentation-type url ()
+  :inherit-from 'string)
+
+(defmethod present-contents (pane (syntax basic-syntax))
   (with-slots (saved-offset scan) syntax
      (unless (null saved-offset)
-       (present (coerce (region-to-sequence saved-offset scan) 'string)
-		'string
-		:stream pane)
+       (let ((word (coerce (region-to-sequence saved-offset scan) 'string)))
+	 (present word
+		  (if (and (>= (length word) 7) (string= (subseq word 0 7) "http://"))
+		      'url
+		      'string)
+		:stream pane))
        (setf saved-offset nil))))
 
-(defun display-line (pane syntax)
+(defmethod display-line (pane (syntax basic-syntax))
   (with-slots (saved-offset bot scan cursor-x cursor-y space-width tab-width) syntax
      (loop when (mark= scan (point pane))
 	     do (multiple-value-bind (x y) (stream-cursor-position pane)
@@ -129,3 +135,23 @@
 		       cursor-x (- cursor-y (* 0.2 height))
 		       cursor-x (+ cursor-y (* 0.8 height))
 		       :ink +red+))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Texinfo syntax
+
+(defclass texinfo-syntax (basic-syntax) ())
+
+(define-presentation-type texinfo-command ()
+  :inherit-from 'string)
+
+(defmethod present-contents (pane (syntax texinfo-syntax))
+  (with-slots (saved-offset scan) syntax
+     (unless (null saved-offset)
+       (let ((word (coerce (region-to-sequence saved-offset scan) 'string)))
+	 (if (char= (aref word 0) #\@)
+	     (with-drawing-options (pane :ink +red+)
+	       (present word 'texinfo-command :stream pane))
+	     (present word 'string :stream pane)))
+       (setf saved-offset nil))))
+

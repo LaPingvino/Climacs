@@ -55,8 +55,9 @@
 
 (defpackage :climacs-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)
-  (:export #:syntax #:basic-syntax
-	   #:redisplay-with-syntax #:full-redisplay))
+  (:export #:syntax #:basic-syntax #:texinfo-syntax
+	   #:redisplay-with-syntax #:full-redisplay
+	   #:url))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax))
