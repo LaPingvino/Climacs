@@ -24,8 +24,14 @@
 
 (defclass stack-entry ()
   ((start-mark :initarg :start-mark :reader start-mark)
-   (end-mark :initarg :end-mark :reader end-mark))
+   (size :initarg :size))
   (:documentation "A stack entry corresponds to a syntactic category"))
+
+(defgeneric end-offset (stack-entry))
+
+(defmethod end-offset ((entry stack-entry))
+  (with-slots (start-mark size) entry
+     (+ (offset start-mark) size)))
 
 (defclass error-entry (stack-entry) ())
 
@@ -167,14 +173,15 @@ macro characters that start more complex expressions."))
 		    :buffer buffer
 		    :offset 0)))
        (insert* elements 0 (make-instance 'start-entry
-			      :start-mark mark :end-mark mark)))))
+			      :start-mark mark :size 0)))))
 
 (defun next-entry (scan)
   (let ((start-mark (clone-mark scan)))
     (flet ((fo () (forward-object scan)))
       (macrolet ((make-entry (type)
 		   `(return-from next-entry
-		      (make-instance ,type :start-mark start-mark :end-mark (clone-mark scan)))))
+		      (make-instance ,type :start-mark start-mark
+				     :size (- (offset scan) (offset start-mark))))))
 	(loop with object = (object-after scan)
 	      until (end-of-buffer-p scan)
 	      do (case object
@@ -245,12 +252,12 @@ macro characters that start more complex expressions."))
        (when (mark<= low-mark high-mark)
 	 ;; go back to a position before low-mark
 	 (loop until (or (= guess-pos 1)
-			 (mark< (end-mark (element* elements (1- guess-pos))) low-mark))
+			 (mark< (end-offset (element* elements (1- guess-pos))) low-mark))
 	       do (decf guess-pos))
 	 ;; go forward to the last position before low-mark
 	 (loop with nb-elements = (nb-elements elements)
 	       until (or (= guess-pos nb-elements)
-			 (mark>= (end-mark (element* elements guess-pos)) low-mark))
+			 (mark>= (end-offset (element* elements guess-pos)) low-mark))
 	       do (incf guess-pos))
 	 ;; delete entries that must be reparsed
 	 (loop until (or (= guess-pos (nb-elements elements))
@@ -260,7 +267,7 @@ macro characters that start more complex expressions."))
 		       :buffer buffer
 		       :offset (if (zerop guess-pos)
 				   0
-				   (offset (end-mark (element* elements (1- guess-pos)))))))
+				   (end-offset (element* elements (1- guess-pos))))))
 	 ;; scan
 	 (unless (end-of-buffer-p scan)
 	   (loop with start-mark = nil
