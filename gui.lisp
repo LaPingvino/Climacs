@@ -29,7 +29,7 @@
 
 (defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin)
   ((name :initform "*scratch*" :accessor name)
-   (modified :initform nil :accessor modified-p)))
+   (needs-saving :initform nil :accessor needs-saving)))
 
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
@@ -48,6 +48,12 @@
 		      :buffer buffer)))
      (setf syntax (make-instance 'texinfo-syntax :pane pane))))
 
+(defclass minibuffer-pane (application-pane) ())
+
+(defmethod stream-accept :before ((pane minibuffer-pane) type &rest args)
+  (declare (ignore type args))
+  (window-clear pane))
+
 (define-application-frame climacs ()
   ((win :reader win))
   (:panes
@@ -57,13 +63,14 @@
 		   :incremental-redisplay t
 		   :display-function 'display-win))
     (info :application
- 	 :width 900 :height 20 :max-height 20
- 	 :name 'info :background +light-gray+
-	 :scroll-bars nil
- 	 :incremental-redisplay t
- 	 :display-function 'display-info)
-    (int :application :width 900 :height 20 :max-height 20
-	 :scroll-bars nil))
+	  :width 900 :height 20 :max-height 20
+	  :name 'info :background +light-gray+
+	  :scroll-bars nil
+	  :incremental-redisplay t
+	  :display-function 'display-info)
+    (int (make-pane 'minibuffer-pane
+		    :width 900 :height 20 :max-height 20 :min-height 20
+		    :scroll-bars nil)))
   (:layouts
    (default
        (vertically (:scroll-bars nil)
@@ -71,6 +78,10 @@
 	 info
 	 int)))
   (:top-level (climacs-top-level)))
+
+(defmethod redisplay-frame-panes :after ((frame climacs) &rest args)
+  (declare (ignore args))
+  (clear-modify (buffer (win frame))))
 
 (defun climacs ()
   "Starts up a climacs session"
@@ -81,7 +92,7 @@
   (let* ((win (win frame))
 	 (buf (buffer win))
 	 (name-info (format nil "   ~a   ~a"
-			    (if (modified-p buf) "**" "--")
+			    (if (needs-saving buf) "**" "--")
 			    (name buf))))
     (princ name-info pane)))
 
@@ -108,8 +119,6 @@
 			  partial-command-parser prompt)
   (declare (ignore command-parser command-unparser partial-command-parser prompt))
   (setf (slot-value frame 'win) (find-pane-named frame 'win))
-;;  (let ((*standard-output* (frame-standard-output frame))
-;;	(*standard-input* (frame-standard-input frame))
   (let ((*standard-output* (find-pane-named frame 'win))
 	(*standard-input* (find-pane-named frame 'int))
 	(*print-pretty* nil)
@@ -140,6 +149,9 @@
 			    (format *error-output* "~a~%" condition)))
 			(setf gestures '()))
 		       (t nil))))
+	     (let ((buffer (buffer (win frame))))
+	       (when (modified-p buffer)
+		 (setf (needs-saving buffer) t)))
 	     (redisplay-frame-panes frame))))
 
 (define-command (com-quit :name "Quit" :command-table climacs) ()
@@ -148,8 +160,7 @@
 (define-command com-self-insert ()
   (unless (constituentp *current-gesture*)
     (possibly-expand-abbrev (point (win *application-frame*))))
-  (insert-object (point (win *application-frame*)) *current-gesture*)
-  (setf (modified-p (buffer (win *application-frame*))) t))
+  (insert-object (point (win *application-frame*)) *current-gesture*))
 
 (define-command com-backward-object ()
   (decf (offset (point (win *application-frame*)))))
@@ -164,12 +175,10 @@
   (end-of-line (point (win *application-frame*))))
 
 (define-command com-delete-object ()
-  (delete-range (point (win *application-frame*)))
-  (setf (modified-p (buffer (win *application-frame*))) t))
+  (delete-range (point (win *application-frame*))))
 
 (define-command com-backward-delete-object ()
-  (delete-range (point (win *application-frame*)) -1)
-  (setf (modified-p (buffer (win *application-frame*))) t))
+  (delete-range (point (win *application-frame*)) -1))
 
 (define-command com-previous-line ()
   (previous-line (point (win *application-frame*))))
@@ -178,12 +187,10 @@
   (next-line (point (win *application-frame*))))
 
 (define-command com-open-line ()
-  (open-line (point (win *application-frame*)))
-  (setf (modified-p (buffer (win *application-frame*))) t))
+  (open-line (point (win *application-frame*))))
 
 (define-command com-kill-line ()
-  (kill-line (point (win *application-frame*)))
-  (setf (modified-p (buffer (win *application-frame*))) t))
+  (kill-line (point (win *application-frame*))))
 
 (define-command com-forward-word ()
   (forward-word (point (win *application-frame*))))
@@ -199,20 +206,7 @@
 
 (define-command com-extended-command ()
   (let ((item (accept 'command :prompt "Extended Command")))
-    (window-clear *standard-input*)
     (execute-frame-command *application-frame* item)))
-
-(defclass weird () ()
-  (:documentation "An open ended class."))
-
-(define-command com-insert-weird-stuff ()
-  (insert-object (point (win *application-frame*)) (make-instance 'weird))
-  (setf (modified-p (buffer (win *application-frame*))) t))
-
-(define-command com-insert-reversed-string ()
-  (insert-sequence (point (win *application-frame*))
-		   (reverse (accept 'string)))
-  (setf (modified-p (buffer (win *application-frame*))) t))
 
 (define-presentation-type completable-pathname ()
   :inherit-from 'pathname)
@@ -303,7 +297,11 @@
        (with-open-file (stream filename :direction :input :if-does-not-exist :create)
 	 (input-from-stream stream buffer 0))
        (setf (filename buffer) filename
-	     (name buffer) (pathname-filename filename))
+	     (name buffer) (pathname-filename filename)
+	     (needs-saving buffer) nil)
+       ;; this one is needed so that the buffer modification protocol
+       ;; resets the low and high marks after redisplay
+       (redisplay-frame-panes *application-frame*)
        (beginning-of-buffer point))))
 
 (define-command com-save-buffer ()
@@ -314,8 +312,8 @@
     (with-open-file (stream filename :direction :output :if-exists :supersede)
       (output-to-stream stream buffer 0 (size buffer)))
     (setf (filename buffer) filename
-	  (name buffer) (pathname-filename filename))
-    (setf (modified-p (buffer (win *application-frame*))) nil)))
+	  (name buffer) (pathname-filename filename)
+	  (needs-saving buffer) nil)))
 
 (define-command com-write-buffer ()
   (let ((filename (accept 'completable-pathname
@@ -324,8 +322,8 @@
     (with-open-file (stream filename :direction :output :if-exists :supersede)
       (output-to-stream stream buffer 0 (size buffer)))
     (setf (filename buffer) filename
-	  (name buffer) (pathname-filename filename))
-    (setf (modified-p (buffer (win *application-frame*))) nil)))
+	  (name buffer) (pathname-filename filename)
+	  (needs-saving buffer) nil)))
 
 (define-command com-beginning-of-buffer ()
   (beginning-of-buffer (point (win *application-frame*))))
@@ -409,8 +407,6 @@
 (global-set-key '(#\f :meta) 'com-forward-word)
 (global-set-key '(#\b :meta) 'com-backward-word)
 (global-set-key '(#\x :meta) 'com-extended-command)
-(global-set-key '(#\a :meta) 'com-insert-weird-stuff)
-(global-set-key '(#\c :meta) 'com-insert-reversed-string)
 (global-set-key '(#\y :meta) 'com-kr-rotate) ;currently rotates only
 (global-set-key '(#\w :meta) 'com-copy-out)
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)

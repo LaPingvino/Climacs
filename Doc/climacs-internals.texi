@@ -432,10 +432,20 @@ the screen needs to be updated.  These values can also be used to
 update information about syntax highlighting and other cached
 information.
 
-@deffn {Generic Function} {reset-low-high-marks} buffer
+In addition to these marks, the buffer maintains a modification flag
+that determines.  Whether the buffer has been modified since the last
+call to clear-modify. 
+
+@deffn {Generic Function} {modified-p} buffer
+
+Return true if and only if the buffer has beeen modified. 
+@end deffn
+
+@deffn {Generic Function} {clear-modify} buffer
 
 Set the high-mark to the beginning of the beginning of the buffer and
-the low-mark to the end of the buffer. 
+the low-mark to the end of the buffer, and clear the modification
+flag. 
 @end deffn
 
 This function is used by the redisplay module after all of the panes
