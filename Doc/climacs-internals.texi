@@ -716,6 +716,91 @@ module should work even if there is no graphic user interface
 present, and it should be exploitable by several, potentially totally
 different, display units. 
 
+@section Incremental parsing framework
+
+@subsection Earley parser
+
+Climacs contains an incremental parser that uses the Earley
+algorithm.  This algorithm accepts the full set of context-free
+grammars, allowing greater freedom for the developer to define natural
+grammars without having to think about restrictions such as LL(k) or
+LALR(k). 
+
+Beware, though, that the Earley algorithm can be quite inefficient if
+the grammar is sufficiently complicated, in particular if the grammar
+is ambiguous.
+
+@subsection Specifying a grammar
+
+An incremental parser is created from a grammar.  
+
+@deffn {Macro} {grammar} &body rules
+
+Create a grammar object from a set of rules
+@end deffn
+
+@deffn {Rule} {} symbol -> (&rest arguments) &optional body
+
+Each rule is a list of this form. 
+@end deffn
+
+@noindent
+Here @var{symbol} is the target symbol of the rule, and should be the name of
+a CLOS class.
+
+@deffn {Rule argument} {} (var type test)
+
+The most general form of a rule argument. 
+@end deffn
+
+@noindent
+Here @var{var} is the name of a lexical variable.  The scope of the
+variable contains the test, all the following arguments and the body
+of the rule.  The @var{type} is a Common Lisp type specification.  The
+rule applies only of the @var{type} of the object contain in var is of
+that type.  The @var{test} contains arbitrary Common Lisp code for
+additional checks as to the applicability of the rule.
+
+@deffn {Rule argument} {} (var type)
+
+Abbreviated form of a rule argument.
+@end deffn
+
+@noindent
+Here, @var{type} must be a symbol typically the name of a CLOS class.
+This form is an abbreviation for @code{(@var{var} @var{type} t)}.
+
+@deffn {Rule argument} {} (var test)
+
+Abbreviated form of a rule argument.
+@end deffn
+
+@noindent
+Here, @var{test} must not be a symbol.  This form is an abbreviation
+of @code{(@var{var} @var{var} @var{test})}, i.e., the name of the
+variable is also the name of a type, typically a CLOS class.
+
+@deffn {Rule argument} {} var
+
+Abbreviated form of a rule argument.
+@end deffn
+
+@noindent
+This form is an abbreviation of @code{(@var{var} @var{var} t)}. 
+
+The @var{body} of a rule, if present, contains an expression that should
+have an instance (not necessarily direct) of the class named by the
+symbol (the left-hand-side) of the rule.  It is important that this
+restriction be respected, since the Earley algorithm will not work
+otherwise. 
+
+If the @var{body} is absent, it is the same as if a body of the form
+@code{(make-instance '@var{symbol})} had been given.
+
+The body can also be a sequence of forms, the first one of which
+must be a symbol.  These forms typically contain initargs, and will be
+passed as additional arguments to @code{(make-instance '@var{symbol})}. 
+
 @section Common Lisp syntax
 
 Technically, comments and such are not expressions, but it is OK for
