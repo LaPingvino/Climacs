@@ -665,7 +665,7 @@ our purposes to consider that they are.
 @end multitable
 
 @multitable @columnfractions .3 .3 .3
-@headitem Expression @tab Syntax @tab handle/read
+@item Expression @tab Syntax @tab handle/read
 @item quoted-expression @tab 'expr  @tab handle
 @item comment @tab ; chars <newline> @tab handle
 @item string @tab " chars " @tab read
@@ -1502,11 +1502,9 @@ application.
 Undo might be presented in a CLIM gadget in the form of a tree where
 branches are added to the right over time, in @xref{figundo}.
 
-@float
+
 @image{undo}
 @anchor{figundo} 
-@caption{Suggested CLIM pane for `undo'}
-@end float
 
 where the bigger black circle indicates the current state.  The tree
 will be fairly tall and skinny, so the gadget should probably be a
@@ -1726,6 +1724,29 @@ the start of ring position.
 Returns the vector of objects currently pointed to by the cursor.  If reset is T, then a 
 call to reset-yank-position is called before the object is yanked.  The default for reset 
 is NIL.
+@end deffn
+
+@section Implementation
+
+The kill ring structure is built mainly of two parts: the stack like ring portion, which is 
+a cursorchain, and the yank point, which is a left-sticky-flexicursor.
+To initialize a kill ring, the :max-size slot initarg is simply used to set the max 
+size.  The remaining slots constisting of the cursorchain and the left-sticky-flexicursor 
+are instantized upon creation of the kill ring. 
+
+Stored onto the cursorchain are simple-vectors of objects, mainly characters from a 
+climacs buffer.  In order to facilitate this, the kill ring implementation borrows heavily from
+the flexichain library of functions. The following functions lie outside the kill ring and 
+flexichain protocols, but are pertinent to the kill ring implementation.
+
+@deffn {accessor} kill-ring-chain kill-ring
+A slot accessor provided by the Climacs implemention of the kill ring class, which returns the
+cursorchain associated with kill-ring.
+@end deffn
+
+@deffn {accessor} kill-ring-cursor kill-ring
+A slot accessor provided by the Climacs implemention of the kill ring class, which returns the
+flexicursor assocated with kill-ring.
 @end deffn
 
 @node Index
