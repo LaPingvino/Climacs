@@ -741,6 +741,7 @@
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
 (global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
 (global-set-key '(#\m :meta) 'com-back-to-indentation)
+(global-set-key '(#\^ :meta) 'com-delete-indentation)
 (global-set-key '(#\d :meta) 'com-delete-word)
 (global-set-key '(#\Backspace :meta) 'com-backward-delete-word)
 (global-set-key '(#\/ :meta) 'com-dabbrev-expand)
