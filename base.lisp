@@ -75,8 +75,12 @@ The body is executed for each element, with object being the current object
 	       (beginning-of-line mark)
 	       (incf (offset mark) column)))))
 
-(defun open-line (mark)
-  "Create a new line in a buffer."
+(defmethod open-line ((mark left-sticky-mark))
+  "Create a new line in a buffer after the mark."
+  (insert-object mark #\Newline))
+
+(defmethod open-line ((mark right-sticky-mark))
+  "Create a new line in a buffer after the mark."
   (insert-object mark #\Newline)
   (decf (offset mark)))
 
@@ -132,13 +136,23 @@ one of the marks"))
 
 (defmethod number-of-lines-in-region ((mark1 mark) (mark2 mark))
   (assert (eq (buffer mark1) (buffer mark2)))
-  (buffer-number-of-lines-in-region (buffer mark1) (offset mark1) (offset mark2)))
+  (let ((offset1 (offset mark1))
+	(offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (buffer-number-of-lines-in-region (buffer mark1) offset1 offset2)))
 
-(defmethod number-of-lines-in-region ((offset integer) (mark mark))
-  (buffer-number-of-lines-in-region (buffer mark) offset (offset mark)))
+(defmethod number-of-lines-in-region ((offset1 integer) (mark2 mark))
+  (let ((offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (buffer-number-of-lines-in-region (buffer mark2) offset1 offset2)))
 
-(defmethod number-of-lines-in-region ((mark mark) (offset integer))
-  (buffer-number-of-lines-in-region (buffer mark) (offset mark) offset))
+(defmethod number-of-lines-in-region ((mark1 mark) (offset2 integer))
+  (let ((offset1 (offset mark1)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (buffer-number-of-lines-in-region (buffer mark1) offset1 offset2)))
 
 (defun constituentp (obj)
   "A predicate to ensure that an object is a constituent character."
@@ -153,7 +167,7 @@ one of the marks"))
        #-sbcl (member obj '(#\Space #\Tab))))
 
 (defun forward-to-word-boundary (mark)
-  "Forward the mark forward to the beginning of the next word."
+  "Move the mark forward to the beginning of the next word."
   (loop until (end-of-buffer-p mark)
 	until (constituentp (object-after mark))
 	do (incf (offset mark))))

@@ -526,6 +526,23 @@ climacs")
       (= 0 (line-number m1) (1- (line-number m2)))))
   t)
 
+(deftest standard-buffer-buffer-column-number.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "		climacs")
+    (values
+     (buffer-object buffer 2)
+     (buffer-column-number buffer 2)))
+  #\c 2)
+
+(deftest standard-buffer-buffer-column-number.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "
+		climacs")
+    (values
+     (buffer-object buffer 3)
+     (buffer-column-number buffer 3)))
+  #\c 2)
+
 (deftest standard-buffer-column-number.test-1
   (let ((buffer (make-instance 'standard-buffer)))
     (insert-buffer-sequence buffer 0 "climacs
