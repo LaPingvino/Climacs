@@ -603,7 +603,10 @@
       (setf (offset point) (offset point-backup)))))
 
 (define-command com-extended-command ()
-  (let ((item (accept 'command :prompt "Extended Command")))
+  (let ((item (handler-case (accept 'command :prompt "Extended Command")
+		(error () (progn (beep)
+				 (display-message "No such command")
+				 (return-from com-extended-command nil))))))		       
     (execute-frame-command *application-frame* item)))
 
 (eval-when (:compile-toplevel :load-toplevel)
@@ -729,12 +732,18 @@
 (define-named-command (com-quit) ()
   (loop for buffer in (buffers *application-frame*)
 	when (and (needs-saving buffer)
-		  (accept 'boolean
-			  :prompt (format nil "Save buffer: ~a ?" (name buffer))))
+		  (handler-case (accept 'boolean
+					:prompt (format nil "Save buffer: ~a ?" (name buffer)))
+		    (error () (progn (beep)
+				     (display-message "Invalid answer")
+				     (return-from com-quit nil)))))
 	  do (save-buffer buffer))
   (when (or (notany #'needs-saving
 		    (buffers *application-frame*))
-	    (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?"))
+	    (handler-case (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?")
+	      (error () (progn (beep)
+			       (display-message "Invalid answer")
+			       (return-from com-quit nil)))))
     (frame-exit *application-frame*)))
 
 (define-named-command com-write-buffer ()
@@ -776,7 +785,10 @@
   (with-slots (buffers) *application-frame*
     (let ((buffer (buffer (current-window))))
       (when (and (needs-saving buffer)
-		 (accept 'boolean :prompt "Save buffer first?"))
+		 (handler-case (accept 'boolean :prompt "Save buffer first?")
+		   (error () (progn (beep)
+				    (display-message "Invalid answer")
+				    (return-from com-kill-buffer nil)))))
         (com-save-buffer))
       (setf buffers (remove buffer buffers))
       ;; Always need one buffer.
@@ -816,14 +828,20 @@
 
 (define-named-command com-goto-position ()
   (setf (offset (point (current-window)))
-	(accept 'integer :prompt "Goto Position")))
+	(handler-case (accept 'integer :prompt "Goto Position")
+	  (error () (progn (beep)
+			   (display-message "Not a valid position")
+			   (return-from com-goto-position nil))))))  
 
 (define-named-command com-goto-line ()
   (loop with mark = (make-instance 'standard-right-sticky-mark ;PB
 		       :buffer (buffer (current-window)))
 	do (end-of-line mark)
 	until (end-of-buffer-p mark)
-	repeat (accept 'integer :prompt "Goto Line")
+	repeat (handler-case (accept 'integer :prompt "Goto Line")
+		 (error () (progn (beep)
+				  (display-message "Not a valid line number")
+				  (return-from com-goto-line nil))))
 	do (incf (offset mark))
 	   (end-of-line mark)
 	finally (beginning-of-line mark)
@@ -846,7 +864,10 @@
   (let* ((pane (current-window))
 	 (buffer (buffer pane)))
     (setf (syntax buffer)
-	  (make-instance (accept 'syntax :prompt "Set Syntax")
+	  (make-instance (or (accept 'syntax :prompt "Set Syntax")
+			     (progn (beep)
+				    (display-message "No such syntax")
+				    (return-from com-set-syntax nil)))
 	     :buffer buffer))
     (setf (offset (low-mark buffer)) 0
 	  (offset (high-mark buffer)) (size buffer))))
@@ -1021,7 +1042,10 @@ as two values"
     (insert-sequence point (kill-ring-yank *kill-ring*))))
 
 (define-named-command com-resize-kill-ring ()
-  (let ((size (accept 'integer :prompt "New kill ring size")))
+  (let ((size (handler-case (accept 'integer :prompt "New kill ring size")
+		(error () (progn (beep)
+				 (display-message "Not a valid kill ring size")
+				 (return-from com-resize-kill-ring nil))))))
     (setf (kill-ring-max-size *kill-ring*) size)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1141,10 +1165,16 @@ as two values"
       (/= (offset mark) offset-before))))
 
 (define-named-command com-query-replace ()
-  (let* ((string1 (accept 'string :prompt "Query replace"))
-         (string2 (accept 'string
-                          :prompt (format nil "Query replace ~A with"
-                                          string1)))
+  (let* ((string1 (handler-case (accept 'string :prompt "Query replace")
+		    (error () (progn (beep)
+				     (display-message "Empty string")
+				     (return-from com-query-replace nil)))))
+         (string2 (handler-case (accept 'string
+					:prompt (format nil "Query replace ~A with"
+							string1))
+		    (error () (progn (beep)
+				     (display-message "Empty string")
+				     (return-from com-query-replace nil)))))
          (pane (current-window))
          (point (point pane)))
     (when (query-replace-find-next-match point string1)
@@ -1264,8 +1294,15 @@ as two values"
 
 (define-named-command com-eval-expression ((insertp 'boolean :prompt "Insert?"))
   (let* ((*package* (find-package :climacs-gui))
-	 (string (accept 'string :prompt "Eval"))
-	 (result (format nil "~a" (eval (read-from-string string)))))
+	 (string (handler-case (accept 'string :prompt "Eval")
+		   (error () (progn (beep)
+				    (display-message "Empty string")
+				    (return-from com-eval-expression nil)))))
+	 (result (format nil "~a"
+			 (handler-case (eval (read-from-string string))
+			   (error (condition) (progn (beep)
+						     (display-message "~a" condition)
+						     (return-from com-eval-expression nil)))))))
     (if insertp
 	(insert-sequence (point (current-window)) result)
 	(display-message result))))
