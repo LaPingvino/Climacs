@@ -56,6 +56,7 @@
    "io"
    "abbrev"
    "syntax"
+   "text-syntax"
    "kill-ring"
    "gui")
 

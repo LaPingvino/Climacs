@@ -600,9 +600,13 @@
 	    (offset point) (offset mark))))
 
 (define-named-command com-set-syntax ()
-  (setf (syntax (win *application-frame*))
-	(make-instance (accept 'syntax :prompt "Set Syntax")
-	   :pane (win *application-frame*))))
+  (let* ((pane (win *application-frame*))
+	 (buffer (buffer pane)))
+    (setf (syntax (win *application-frame*))
+	  (make-instance (accept 'syntax :prompt "Set Syntax")
+	     :pane pane))
+    (setf (offset (low-mark buffer)) 0
+	  (offset (high-mark buffer)) (size buffer))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
