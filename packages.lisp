@@ -33,6 +33,7 @@
 	   #:beginning-of-buffer-p #:end-of-buffer-p
 	   #:beginning-of-line #:end-of-line
 	   #:beginning-of-line-p #:end-of-line-p
+	   #:buffer-line-number #:buffer-column-number
 	   #:line-number #:column-number
 	   #:insert-buffer-object #:insert-buffer-sequence
 	   #:insert-object #:insert-sequence
@@ -54,6 +55,7 @@
 	   #:delete-word #:backward-delete-word
            #:upcase-region #:downcase-region #:capitalize-region
            #:upcase-word #:downcase-word #:capitalize-word
+           #:tabify-region #:untabify-region
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
 	   #:buffer-lookin-at #:looking-at
@@ -69,6 +71,7 @@
 (defpackage :climacs-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
   (:export #:syntax #:define-syntax
+           #:tabify-mixin #:tab-space-count
 	   #:basic-syntax #:texinfo-syntax
 	   #:redisplay-pane #:redisplay-with-syntax #:full-redisplay
 	   #:page-down #:page-up

@@ -299,14 +299,30 @@ at the end of the buffer if no following newline character exists."))
 	  do (incf offset))
     (setf (offset mark) offset)))
 
+(defgeneric buffer-line-number (buffer offset)
+  (:documentation "Return the line number of the offset.  Lines are numbered from zero."))
+
+(defmethod buffer-line-number ((buffer standard-buffer) (offset integer))
+  (loop for i from 0 below offset
+	count (eql (buffer-object buffer i) #\Newline)))
+
+(defgeneric buffer-column-number (buffer offset)
+  (:documentation "Return the column number of the offset. The column number of an offset is
+ the number of objects between it and the preceding newline, or
+ between it and the beginning of the buffer if the offset is on the
+ first line of the buffer."))
+
+(defmethod buffer-column-number ((buffer standard-buffer) (offset integer))
+  (loop for i downfrom offset
+	while (> i 0)
+	until (eql (buffer-object buffer (1- i)) #\Newline)
+	count t))
+
 (defgeneric line-number (mark)
   (:documentation "Return the line number of the mark.  Lines are numbered from zero."))
 
 (defmethod line-number ((mark mark-mixin))
-  (loop with buffer = (buffer mark)
-	with end = (offset mark)
-	for offset from 0 below end
-	count (eql (buffer-object buffer offset) #\Newline)))
+  (buffer-line-number (buffer mark) (offset mark)))
 
 (defgeneric column-number (mark)
   (:documentation "Return the column number of the mark. The column number of a mark is
@@ -315,10 +331,7 @@ at the end of the buffer if no following newline character exists."))
  first line of the buffer."))
 
 (defmethod column-number ((mark mark-mixin))
-  (loop for offset downfrom (offset mark)
-	while (> offset 0)
-	until (eql (buffer-object (buffer mark) (1- offset)) #\Newline)
-	count t))
+  (buffer-column-number (buffer mark) (offset mark)))
 
 (defgeneric insert-buffer-object (buffer offset object)
   (:documentation "Insert the object at the offset in the buffer.  Any left-sticky marks

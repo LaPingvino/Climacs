@@ -96,6 +96,15 @@ characters in the region between offset1 and offset2"
 	count (eql (buffer-object buffer offset1) #\Newline)
 	do (incf offset1)))
 
+(defun buffer-display-column-number (buffer offset tab-width)
+  (let ((line-start-offset (- offset (buffer-column-number buffer offset))))
+    (loop with column = 0
+          for i from line-start-offset below offset
+          do (incf column (if (eql (buffer-object buffer i) #\Tab)
+                              (- tab-width (mod column tab-width))
+                              1))
+          finally (return column))))
+
 (defgeneric number-of-lines-in-region (mark1 mark2)
   (:documentation "Return the number of lines (or rather the number of
 Newline characters) in the region between MARK and MARK2.  It is
@@ -270,6 +279,72 @@ It is acceptable to pass an offset in place of one of the marks."))
            (let ((offset (offset mark)))
              (forward-word mark)
              (capitalize-region offset mark))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Tabify
+
+(defun tabify-buffer-region (buffer offset1 offset2 tab-width)
+  (flet ((looking-at-spaces (buffer offset count)
+           (loop for i from offset
+                 repeat count
+                 unless (char= (buffer-object buffer i) #\Space)
+                 return nil
+                 finally (return t))))
+    (loop for offset = offset1 then (1+ offset)
+          until (>= offset offset2)
+          do (let* ((column (buffer-display-column-number
+                             buffer offset tab-width))
+                    (count (- tab-width (mod column tab-width))))
+               (when (looking-at-spaces buffer offset count)
+                 (finish-output)
+                 (delete-buffer-range buffer offset count)
+                 (insert-buffer-object buffer offset #\Tab)
+                 (decf offset2 (1- count)))))))
+
+(defgeneric tabify-region (mark1 mark2 tab-width)
+  (:documentation "Replace sequences of tab-width spaces with tabs
+in the region delimited by mark1 and mark2."))
+
+(defmethod tabify-region ((mark1 mark) (mark2 mark) tab-width)
+  (assert (eq (buffer mark1) (buffer mark2)))
+  (tabify-buffer-region (buffer mark1) (offset mark1) (offset mark2)
+                         tab-width))
+
+(defmethod tabify-region ((offset integer) (mark mark) tab-width)
+  (tabify-buffer-region (buffer mark) offset (offset mark) tab-width))
+
+(defmethod tabify-region ((mark mark) (offset integer) tab-width)
+  (tabify-buffer-region (buffer mark) (offset mark) offset tab-width))
+
+(defun untabify-buffer-region (buffer offset1 offset2 tab-width)
+  (loop for offset = offset1 then (1+ offset)
+        until (>= offset offset2)
+        when (char= (buffer-object buffer offset) #\Tab)
+        do (let* ((column (buffer-display-column-number
+                           buffer offset tab-width))
+                  (count (- tab-width (mod column tab-width))))
+             (delete-buffer-range buffer offset 1)
+             (loop repeat count
+                   do (insert-buffer-object buffer offset #\Space))
+             (incf offset (1- count))
+             (finish-output *error-output*)
+             (incf offset2 (1- count)))))
+
+(defgeneric untabify-region (mark1 mark2 tab-width)
+  (:documentation "Replace tabs with tab-width spaces in the region
+delimited by mark1 and mark2."))
+
+(defmethod untabify-region ((mark1 mark) (mark2 mark) tab-width)
+  (assert (eq (buffer mark1) (buffer mark2)))
+  (untabify-buffer-region (buffer mark1) (offset mark1) (offset mark2)
+                          tab-width))
+
+(defmethod untabify-region ((offset integer) (mark mark) tab-width)
+  (untabify-buffer-region (buffer mark) offset (offset mark) tab-width))
+
+(defmethod untabify-region ((mark mark) (offset integer) tab-width)
+  (untabify-buffer-region (buffer mark) (offset mark) offset tab-width))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

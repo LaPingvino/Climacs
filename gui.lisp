@@ -416,6 +416,16 @@
 (define-named-command com-capitalize-word ()
   (capitalize-word (point (win *application-frame*))))
 
+(define-named-command com-tabify-region ()
+  (let ((pane (win *application-frame*)))
+    (multiple-value-bind (start end) (region-limits pane)
+      (tabify-region start end (tab-space-count (syntax pane))))))
+
+(define-named-command com-untabify-region ()
+  (let ((pane (win *application-frame*)))
+    (multiple-value-bind (start end) (region-limits pane)
+      (untabify-region start end (tab-space-count (syntax pane))))))
+
 (define-named-command com-toggle-layout ()
   (setf (frame-current-layout *application-frame*)
 	(if (eq (frame-current-layout *application-frame*) 'default)

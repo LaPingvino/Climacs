@@ -1,7 +1,9 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-BUFFER -*-
 
-;;;  (c) copyright 2004 by
+;;;  (c) copyright 2004-2005 by
 ;;;           Robert Strandh (strandh@labri.fr)
+;;;  (c) copyright 2005 by
+;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -33,6 +35,22 @@
   (redisplay-with-syntax pane (syntax pane)))
 
 (defgeneric full-redisplay (pane syntax))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Tabify
+
+(defclass tabify-mixin ()
+  ((space-width :initarg nil :reader space-width)
+   (tab-width :initarg nil :reader tab-width)))
+
+(defgeneric tab-space-count (tabify))
+
+(defmethod tab-space-count (tabify)
+  1)
+
+(defmethod tab-space-count ((tabify tabify-mixin))
+  (round (tab-width tabify) (space-width tabify)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -69,14 +87,12 @@
     (insert* cache 0 nil)
     cache))
 
-(define-syntax basic-syntax ("Basic" (syntax))
+(define-syntax basic-syntax ("Basic" (syntax tabify-mixin))
   ((top :reader top)
    (bot :reader bot)
    (scan :reader scan)
    (cursor-x :initform 2)
    (cursor-y :initform 2)
-   (space-width :initform nil)
-   (tab-width :initform nil)
    (cache :initform (make-cache))))
 
 (defmethod initialize-instance :after ((syntax basic-syntax) &rest args &key pane)
