@@ -37,7 +37,8 @@
 	   #:delete-buffer-range #:delete-range
 	   #:delete-region
 	   #:buffer-object #:buffer-sequence
-	   #:object-before #:object-after #:region-to-sequence))
+	   #:object-before #:object-after #:region-to-sequence
+	   #:low-mark #:high-mark #:reset-low-high-marks))
 
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer)

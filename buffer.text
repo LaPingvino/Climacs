@@ -323,12 +323,13 @@ high-mark buffer                                    [generic function]
  of its current value and the position of the modification.
 
  Redisplay code may use these values to determine what part of the
- screen needs to be updated.  At the end of an invocation of
- redisplay, the offset of the low mark is set to the size of the
- buffer, and the offset of the high mark is set to zero.
+ screen needs to be updated.  These values can also be used to update
+ information about syntax highlighting and other cached information.
 
- These values can also be used to update information about syntax
- highlighting and other cached information. 
+reset-low-high-marks buffer                         [generic function]
+
+ Set the high-mark to the beginning of the beginning of the buffer and
+ the low-mark to the end of the buffer. 
 
 The redisplay protocol
 ======================

@@ -34,8 +34,14 @@ large array of arbitrary objects.  Lines of objects are separated by
 newline characters.  The last object of the buffer is not
 necessarily a newline character."))
 
+(defgeneric low-mark (buffer))
+
+(defgeneric high-mark (buffer))
+
 (defclass standard-buffer (buffer)
-  ((contents :initform (make-instance 'standard-cursorchain)))
+  ((contents :initform (make-instance 'standard-cursorchain))
+   (low-mark :reader low-mark)
+   (high-mark :reader high-mark))
   (:documentation "The Climacs standard buffer [an instantable subclass of buffer]."))
 
 (defgeneric buffer (mark)
@@ -98,6 +104,13 @@ the size of the buffer."))
 	(make-instance 'right-sticky-flexicursor
 	   :chain (slot-value (buffer mark) 'contents)
 	   :position offset)))
+
+(defmethod initialize-instance :after ((buffer standard-buffer) &rest args)
+  "Create the low-mark and high-mark"
+  (declare (ignore args))
+  (with-slots (low-mark high-mark) buffer
+     (setf low-mark (make-instance 'standard-left-sticky-mark :buffer buffer))
+     (setf high-mark (make-instance 'standard-right-sticky-mark :buffer buffer))))
 
 (defgeneric clone-mark (mark &optional type)
   (:documentation "Clone a mark.  By default (when type is NIL) the same type of mark is
@@ -240,27 +253,6 @@ of the marks."))
 (defmethod end-of-buffer-p ((mark mark-mixin))
   (= (offset mark) (size (buffer mark))))
 
-(defgeneric beginning-of-line (mark)
-  (:documentation "Move the mark to the beginning of the line.  The mark will be
- positioned either immediately after the closest preceding newline
- character, or at the beginning of the buffer if no preceding newline
- character exists."))
-
-(defmethod beginning-of-line ((mark mark-mixin))
-  (loop until (or (beginning-of-buffer-p mark)
-		  (eql (object-before mark) #\Newline))
-	do (decf (offset mark))))
-
-(defgeneric end-of-line (mark)
-  (:documentation "Move the mark to the end of the line. The mark will be positioned
-either immediately before the closest following newline character, or
-at the end of the buffer if no following newline character exists."))
-
-(defmethod end-of-line ((mark mark-mixin))
-  (loop until (or (end-of-buffer-p mark)
-		  (eql (object-after mark) #\Newline))
-	do (incf (offset mark))))
-
 (defgeneric beginning-of-line-p (mark)
   (:documentation "Return t if the mark is at the beginning of the line (i.e., if the
 character preceding the mark is a newline character or if the mark is
@@ -278,6 +270,25 @@ end of the buffer), nil otherwise."))
 (defmethod end-of-line-p ((mark mark-mixin))
   (or (end-of-buffer-p mark)
       (eql (object-after mark) #\Newline)))
+
+(defgeneric beginning-of-line (mark)
+  (:documentation "Move the mark to the beginning of the line.  The mark will be
+ positioned either immediately after the closest preceding newline
+ character, or at the beginning of the buffer if no preceding newline
+ character exists."))
+
+(defmethod beginning-of-line ((mark mark-mixin))
+  (loop until (beginning-of-line-p mark)
+	do (decf (offset mark))))
+
+(defgeneric end-of-line (mark)
+  (:documentation "Move the mark to the end of the line. The mark will be positioned
+either immediately before the closest following newline character, or
+at the end of the buffer if no following newline character exists."))
+
+(defmethod end-of-line ((mark mark-mixin))
+  (loop until (end-of-line-p mark)
+	do (incf (offset mark))))
 
 (defgeneric line-number (mark)
   (:documentation "Return the line number of the mark.  Lines are numbered from zero."))
@@ -439,4 +450,32 @@ acceptable to pass an offset in place of one of the marks."))
   (assert (eq (buffer mark1) (buffer mark2)))
   (buffer-sequence (buffer mark1) (offset mark1) (offset mark2)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Buffer modification protocol
 
+(defmethod insert-buffer-object :before ((buffer standard-buffer) offset object)
+  (declare (ignore object))
+  (setf (offset (low-mark buffer))
+	(min (offset (low-mark buffer)) offset))
+  (setf (offset (high-mark buffer))
+	(max (offset (high-mark buffer)) offset)))
+
+(defmethod insert-buffer-sequence :before ((buffer standard-buffer) offset sequence)
+  (declare (ignore sequence))
+  (setf (offset (low-mark buffer))
+	(min (offset (low-mark buffer)) offset))
+  (setf (offset (high-mark buffer))
+	(max (offset (high-mark buffer)) offset)))
+
+(defmethod delete-buffer-range :before ((buffer standard-buffer) offset n)
+  (setf (offset (low-mark buffer))
+	(min (offset (low-mark buffer)) offset))
+  (setf (offset (high-mark buffer))
+	(max (offset (high-mark buffer)) (+ offset n))))
+
+(defgeneric reset-low-high-marks (buffer))
+
+(defmethod reset-low-high-marks ((buffer standard-buffer))
+  (beginning-of-buffer (high-mark buffer))
+  (end-of-buffer (low-mark buffer)))
