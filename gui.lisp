@@ -27,7 +27,9 @@
 (defclass filename-mixin ()
   ((filename :initform nil :accessor filename)))
 
-(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin) ())
+(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin)
+  ((name :initform "*scratch*" :accessor name)
+   (modified :initform nil :accessor modified-p)))
 
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
@@ -50,11 +52,19 @@
 		   :name 'win
 		   :incremental-redisplay t
 		   :display-function 'display-win))
-   (int :interactor :width 900 :height 50 :max-height 50))
+    (info :application
+ 	 :width 900 :height 20 :max-height 20
+ 	 :name 'info :background +light-gray+
+	 :scroll-bars nil
+ 	 :incremental-redisplay t
+ 	 :display-function 'display-info)
+    (int :application :width 900 :height 20 :max-height 20
+	 :scroll-bars nil))
   (:layouts
    (default
-       (vertically ()
+       (vertically (:scroll-bars nil)
 	 (scrolling (:width 900 :height 400) win)
+	 info
 	 int)))
   (:top-level (climacs-top-level)))
 
@@ -62,6 +72,14 @@
   "Starts up a climacs session"
   (let ((frame (make-application-frame 'climacs)))
     (run-frame-top-level frame)))
+
+(defun display-info (frame pane)
+  (let* ((win (win frame))
+	 (buf (buffer win))
+	 (name-info (format nil "   ~a   ~a"
+			    (if (modified-p buf) "**" "--")
+			    (name buf))))
+    (princ name-info pane)))
 
 (defun display-win (frame pane)
   "The display function used by the climacs application frame."
@@ -85,8 +103,10 @@
 			  partial-command-parser prompt)
   (declare (ignore command-parser command-unparser partial-command-parser prompt))
   (setf (slot-value frame 'win) (find-pane-named frame 'win))
-  (let ((*standard-output* (frame-standard-output frame))
-	(*standard-input* (frame-standard-input frame))
+;;  (let ((*standard-output* (frame-standard-output frame))
+;;	(*standard-input* (frame-standard-input frame))
+  (let ((*standard-output* (find-pane-named frame 'win))
+	(*standard-input* (find-pane-named frame 'int))
 	(*print-pretty* nil)
 	(*abort-gestures* nil))
     (redisplay-frame-panes frame :force-p t)
@@ -123,7 +143,8 @@
 (define-command com-self-insert ()
   (unless (constituentp *current-gesture*)
     (possibly-expand-abbrev (point (win *application-frame*))))
-  (insert-object (point (win *application-frame*)) *current-gesture*))
+  (insert-object (point (win *application-frame*)) *current-gesture*)
+  (setf (modified-p (buffer (win *application-frame*))) t))
 
 (define-command com-backward-object ()
   (decf (offset (point (win *application-frame*)))))
@@ -138,10 +159,12 @@
   (end-of-line (point (win *application-frame*))))
 
 (define-command com-delete-object ()
-  (delete-range (point (win *application-frame*))))
+  (delete-range (point (win *application-frame*)))
+  (setf (modified-p (buffer (win *application-frame*))) t))
 
 (define-command com-backward-delete-object ()
-  (delete-range (point (win *application-frame*)) -1))
+  (delete-range (point (win *application-frame*)) -1)
+  (setf (modified-p (buffer (win *application-frame*))) t))
 
 (define-command com-previous-line ()
   (previous-line (point (win *application-frame*))))
@@ -150,10 +173,12 @@
   (next-line (point (win *application-frame*))))
 
 (define-command com-open-line ()
-  (open-line (point (win *application-frame*))))
+  (open-line (point (win *application-frame*)))
+  (setf (modified-p (buffer (win *application-frame*))) t))
 
 (define-command com-kill-line ()
-  (kill-line (point (win *application-frame*))))
+  (kill-line (point (win *application-frame*)))
+  (setf (modified-p (buffer (win *application-frame*))) t))
 
 (define-command com-forward-word ()
   (forward-word (point (win *application-frame*))))
@@ -174,11 +199,13 @@
   (:documentation "An open ended class."))
 
 (define-command com-insert-weird-stuff ()
-  (insert-object (point (win *application-frame*)) (make-instance 'weird)))
+  (insert-object (point (win *application-frame*)) (make-instance 'weird))
+  (setf (modified-p (buffer (win *application-frame*))) t))
 
 (define-command com-insert-reversed-string ()
   (insert-sequence (point (win *application-frame*))
-		   (reverse (accept 'string))))
+		   (reverse (accept 'string)))
+  (setf (modified-p (buffer (win *application-frame*))) t))
 
 (define-presentation-type completable-pathname ()
   :inherit-from 'pathname)
@@ -227,7 +254,7 @@
 		(values completed-string nil nil (length pathnames) nil))))
 	(:complete
 	 (cond ((null pathnames)
-		(values so-far nil nil 0 nil))
+		(values so-far t so-far 1 nil))
 	       ((null (cdr pathnames))
 		(values completed-string t (car pathnames) 1 nil))
 	       ((find full-completed-string strings :test #'string-equal)
@@ -259,10 +286,11 @@
     (with-slots (buffer point syntax) (win *application-frame*)
        (setf buffer (make-instance 'climacs-buffer)
 	     point (make-instance 'standard-right-sticky-mark :buffer buffer)
-	     syntax (make-instance 'texinfo-syntax :pane (win *application-frame*))
-	     (filename buffer) filename)
-       (with-open-file (stream filename :direction :input)
+	     syntax (make-instance 'texinfo-syntax :pane (win *application-frame*)))
+       (with-open-file (stream filename :direction :input :if-does-not-exist :create)
 	 (input-from-stream stream buffer 0))
+       (setf (filename buffer) filename
+	     (name buffer) (pathname-name filename))
        (beginning-of-buffer point))))
 
 (define-command com-save-buffer ()
@@ -271,7 +299,18 @@
 			      :prompt "Save Buffer to File")))
 	(buffer (buffer (win *application-frame*))))
     (with-open-file (stream filename :direction :output :if-exists :supersede)
-      (output-to-stream stream buffer 0 (size buffer)))))
+      (output-to-stream stream buffer 0 (size buffer)))
+    (setf (modified-p (buffer (win *application-frame*))) nil)))
+
+(define-command com-write-buffer ()
+  (let ((filename (accept 'completable-pathname
+			  :prompt "Write Buffer to File"))
+	(buffer (buffer (win *application-frame*))))
+    (with-open-file (stream filename :direction :output :if-exists :supersede)
+      (output-to-stream stream buffer 0 (size buffer)))
+    (setf (filename buffer) filename
+	  (name buffer) (pathname-name filename))
+    (setf (modified-p (buffer (win *application-frame*))) nil)))
 
 (define-command com-beginning-of-buffer ()
   (beginning-of-buffer (point (win *application-frame*))))
@@ -345,3 +384,4 @@
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
+(c-x-set-key '(#\w :control) 'com-write-buffer)
