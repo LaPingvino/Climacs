@@ -305,11 +305,23 @@ following the mark is a newline character, or if the mark is at the
 end of the buffer), nil otherwise.
 @end deffn
 
+@deffn {Generic Function} {buffer-line-number} buffer offset
+
+Return the line number of the line at offset.  Lines are numbered from
+zero.
+@end deffn
+
+@deffn {Generic Function} {buffer-column-number} buffer offset
+
+Return the column number of the line at offset. It is the number of
+objects between it and the preceding newline, or between it and the
+beginning of the buffer if offset is on the first line of the buffer.
+@end deffn
+
 @deffn {Generic Function} {line-number} mark
 
 Return the line number of the mark.  Lines are numbered from zero.
 @end deffn
-
 
 @deffn {Generic Function} {column-number} mark
 
@@ -318,7 +330,6 @@ the number of objects between it and the preceding newline, or
 between it and the beginning of the buffer if the mark is on the
 first line of the buffer.
 @end deffn
-
 
 @section Inserting and deleting objects
 
