@@ -345,6 +345,31 @@
 ;; outputs to inputs and inputs to outputs.  Copying into a buffer 
 ;; first requires coping out of the kill ring.
 
+(defgeneric kr-copy-in (buffer kr offset1 offset2)
+  (:documentation "Non destructively copies in buffer region to the kill ring"))
+
+(defmethod kr-copy-in ((buffer standard-buffer) (kr kill-ring) offset1 offset2)
+  (kr-push kr (buffer-sequence buffer offset1 offset2)))
+ 
+(defgeneric kr-cut-in (buffer kr offset1 offset2)
+  (:documentation "Destructively cut a given buffer region into the kill-ring"))
+
+(defmethod kr-cut-in ((buffer standard-buffer) (kr kill-ring) offset1 offset2)  
+  (kr-copy-in buffer kr offset1 offset2)
+  (climacs-buffer::delete-buffer-range buffer offset1 (- offset2 offset1))) 
+
+(defgeneric kr-copy-out (mark kr)
+  (:documentation "Copies an element from a kill-ring to a buffer at the given offset"))
+
+(defmethod kr-copy-out ((mark standard-right-sticky-mark)(kr kill-ring))
+  (insert-sequence mark (kr-copy kr)))
+
+(defgeneric kr-cut-out (mark kr)
+  (:documentation "Cuts an element from a kill-ring out to a buffer at a given offset"))
+
+(defmethod kr-cut-out ((mark standard-right-sticky-mark) (kr kill-ring))
+  (insert-sequence mark (kr-pop kr)))
+
 (define-command com-copy-in ()
   (kr-copy-out (point (win *application-frame*)) *kill-ring*))
 
@@ -375,7 +400,6 @@
 (define-command com-kr-resize ()
   (let ((size (accept 'fixnum :prompt "New kill ring size: ")))
     (kr-resize *kill-ring* size)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

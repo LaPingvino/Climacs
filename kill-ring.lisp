@@ -39,23 +39,27 @@
 		 :max-size size
 		 :flexichain (make-instance 'standard-flexichain)))
 
-;; Didn't see a real reason to make gf's for these.
 
-(defun kr-length (kr)
-  "Returns the length of a kill-rings flexichain"
+(defgeneric kr-length (kr)
+  (:documentation "Returns the length of a kill-ring's flexichain"))
+
+(defmethod kr-length ((kr kill-ring))
   (nb-elements (kr-flexi kr)))
 
-(defun kr-resize (kr size)
-  "Resize a kill-ring to the value of size"
-  (kr-p kr)
+(defgeneric kr-resize (kr size)
+  (:documentation "Resize a kill ring to the value of SIZE"))
+
+(defmethod kr-resize ((kr kill-ring) size)
   (setf (slot-value kr 'max-size) size)
   (let ((len (kr-length kr)))
     (if (> len size)
 	(loop for n from 1 to (- len size)
 	      do (pop-end (kr-flexi kr))))))
 
-(defun kr-push (kr object)
-  "Push an object onto a kill-ring with size considerations"
+(defgeneric kr-push (kr object)
+  (:documentation "Push an object onto a kill ring with size considerations"))
+  
+(defmethod kr-push ((kr kill-ring) object)
   (let ((flexi (kr-flexi kr)))
     (if (>= (kr-length kr)(kr-max-size kr))
 	((lambda (flex obj)
@@ -64,37 +68,27 @@
 	 flexi object)
         (push-start flexi object))))
 
-(defun kr-pop (kr)
-  "Pops an object off of a kill-ring"
+(defgeneric kr-pop (kr)
+  (:documentation "Pops an object off of a kill ring"))
+
+(defmethod kr-pop ((kr kill-ring))
   (if (> (nb-elements (kr-flexi kr)) 0)
       (pop-start (kr-flexi kr))
       nil))
 
-(defun kr-rotate (kr &optional (n -1))
-  "Rotates the kill-ring either once forward or an optional amount +/-"
+(defgeneric kr-rotate (kr &optional n)
+  (:documentation "Rotates the kill ring either once forward or an optional amound +/-"))
+
+(defmethod kr-rotate ((kr kill-ring) &optional (n -1))
   (assert (typep n 'fixnum)(n) "Can not rotate the kill ring ~S positions" n)
   (let ((flexi (kr-flexi kr)))
     (rotate flexi n)))
 
-(defun kr-copy (kr)
-  "Copies out a member of a kill-ring without deleting it"
+(defgeneric kr-copy (kr)
+  (:documentation "Copies out a member of a kill ring without deleting it"))
+
+(defmethod kr-copy ((kr kill-ring))
   (let ((object (kr-pop kr)))
     (kr-push kr object)
     object))
 
-(defun kr-copy-in (buffer kr offset1 offset2)
-  "Non destructively copies in buffer region to the kill-ring"
-  (kr-push kr (buffer-sequence buffer offset1 offset2)))
-
-(defun kr-cut-in (buffer kr offset1 offset2)
-  "Destructively cuts a given buffer region into the kill-ring"
-  (kr-copy-in buffer kr offset1 offset2)
-  (climacs-buffer::delete-buffer-range buffer offset1 (- offset2 offset1))) 
-				       
-(defun kr-copy-out (mark kr)
-  "Copies an element from a kill-ring to a buffer at the given offset"
-  (insert-sequence mark (kr-copy kr)))
-
-(defun kr-cut-out (mark kr)
-  "Cuts an element from a kill-ring out to a buffer at a given offset"
-  (insert-sequence mark (kr-pop kr)))

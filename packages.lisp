@@ -62,9 +62,9 @@
 
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :climacs-buffer :flexichain)
-  (:export #:initialize-kill-ring #:kr-length #:kr-resize
-	   #:kr-rotate #:kr-copy-in #:kr-cut-in #:kr-copy-out 
-	   #:kr-cut-out))
+  (:export #:initialize-kill-ring #:kr-length
+	   #:kr-resize #:kr-rotate #:kill-ring
+	   #:kr-copy #:kr-push #:kr-pop))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax :climacs-kill-ring))
