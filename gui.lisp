@@ -238,6 +238,12 @@
 	      (setf (needs-saving buffer) t)))
 	  (redisplay-frame-panes frame))))
 
+(defun region-limits (pane)
+  (with-slots (point mark) pane
+    (if (< (offset mark) (offset point))
+        (values mark point)
+        (values point mark))))
+
 (defmacro define-named-command (command-name args &body body)
   `(define-climacs-command ,(if (listp command-name)
 				`(,@command-name :name t)
@@ -382,6 +388,18 @@
 
 (define-named-command com-backward-delete-word ()
   (backward-delete-word (point (win *application-frame*))))
+
+(define-named-command com-upcase-region ()
+  (multiple-value-bind (start end) (region-limits (win *application-frame*))
+    (upcase-region start end)))
+
+(define-named-command com-downcase-region ()
+  (multiple-value-bind (start end) (region-limits (win *application-frame*))
+    (downcase-region start end)))
+
+(define-named-command com-capitalize-region ()
+  (multiple-value-bind (start end) (region-limits (win *application-frame*))
+    (capitalize-region start end)))
 
 (define-named-command com-upcase-word ()
   (upcase-word (point (win *application-frame*))))
@@ -593,13 +611,9 @@
 
 ;; Destructively cut a given buffer region into the kill-ring
 (define-named-command com-cut-out ()
-  (with-slots (point mark)(win *application-frame*)
-     (cond ((< (offset mark)(offset point))
-	    (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
-	    (delete-region (offset mark) point))
-	   (t
-	    (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
-	    (delete-region (offset point) mark)))))
+  (multiple-value-bind (start end) (region-limits (win *application-frame*))
+    (kill-ring-standard-push *kill-ring* (region-to-sequence start end))
+    (delete-region (offset start) end)))
 
 ;; Non destructively copies in buffer region to the kill ring
 (define-named-command com-copy-out ()

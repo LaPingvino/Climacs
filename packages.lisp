@@ -42,13 +42,15 @@
 
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer)
-  (:export #:forward-object #:backward-object
+  (:export #:do-buffer-region
+           #:forward-object #:backward-object
 	   #:previous-line #:next-line
 	   #:open-line #:kill-line
 	   #:number-of-lines-in-region
 	   #:constituentp #:whitespacep
 	   #:forward-word #:backward-word
 	   #:delete-word #:backward-delete-word
+           #:upcase-region #:downcase-region #:capitalize-region
            #:upcase-word #:downcase-word #:capitalize-word
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name

@@ -28,12 +28,23 @@
 
 (in-package :climacs-base)
 
+(defmacro do-buffer-region ((object offset buffer offset1 offset2)
+                            &body body)
+  "Iterate over the elements of the region delimited by offset1 and offset2.
+The body is executed for each element, with object being the current object
+(setf-able), and offset being its offset."
+  `(symbol-macrolet ((,object (buffer-object ,buffer ,offset)))
+     (loop for ,offset from ,offset1 to ,offset2
+           do ,@body)))
+
 (defgeneric backward-object (mark &optional count))
+
 (defmethod backward-object ((mark climacs-buffer::mark-mixin)
                             &optional (count 1))
   (decf (offset mark) count))
 
 (defgeneric forward-object (mark &optional count))
+
 (defmethod forward-object ((mark climacs-buffer::mark-mixin)
                            &optional (count 1))
   (incf (offset mark) count))
@@ -164,44 +175,106 @@ acceptable to pass an offset in place of one of the marks"))
 	 finally (return i))
    mark))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Character case
+
+(defun downcase-buffer-region (buffer offset1 offset2)
+  (do-buffer-region (object offset buffer offset1 offset2)
+    (when (and (constituentp object) (upper-case-p object))
+      (setf object (char-downcase object)))))
+
+(defgeneric downcase-region (mark1 mark2)
+  (:documentation "Convert all characters after mark1 and before mark2 to
+lowercase. An error is signaled if the two marks are positioned in different
+buffers. It is acceptable to pass an offset in place of one of the marks."))
+
+(defmethod downcase-region ((mark1 climacs-buffer::mark-mixin)
+                            (mark2 climacs-buffer::mark-mixin))
+  (assert (eq (buffer mark1) (buffer mark2)))
+  (downcase-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
+
+(defmethod downcase-region ((offset integer) (mark climacs-buffer::mark-mixin))
+  (downcase-buffer-region (buffer mark) offset (offset mark)))
+
+(defmethod downcase-region ((mark climacs-buffer::mark-mixin) (offset integer))
+  (downcase-buffer-region (buffer mark) (offset mark) offset))
+
 (defun downcase-word (mark &optional (n 1))
   "Convert the next N words to lowercase, leaving mark after the last word."
-  (dotimes (i n)
-    (forward-to-word-boundary mark)
-    (loop until (end-of-buffer-p mark)
-       while (constituentp (object-after mark))
-       for character = (object-after mark)
-       if (upper-case-p character)
-       do (progn (delete-range mark 1)
-                 (insert-object mark (char-downcase character)))
-       else
-       do (incf (offset mark)))))
+  (loop repeat n
+        do (forward-to-word-boundary mark)
+           (let ((offset (offset mark)))
+             (forward-word mark)
+             (downcase-region offset mark))))
+
+(defun upcase-buffer-region (buffer offset1 offset2)
+  (do-buffer-region (object offset buffer offset1 offset2)
+    (when (and (constituentp object) (lower-case-p object))
+      (setf object (char-upcase object)))))
+
+(defgeneric upcase-region (mark1 mark2)
+  (:documentation "Convert all characters after mark1 and before mark2 to
+uppercase. An error is signaled if the two marks are positioned in different
+buffers. It is acceptable to pass an offset in place of one of the marks."))
+
+(defmethod upcase-region ((mark1 climacs-buffer::mark-mixin)
+                          (mark2 climacs-buffer::mark-mixin))
+  (assert (eq (buffer mark1) (buffer mark2)))
+  (upcase-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
+
+(defmethod upcase-region ((offset integer) (mark climacs-buffer::mark-mixin))
+  (upcase-buffer-region (buffer mark) offset (offset mark)))
+
+(defmethod upcase-region ((mark climacs-buffer::mark-mixin) (offset integer))
+  (upcase-buffer-region (buffer mark) (offset mark) offset))
 
 (defun upcase-word (mark &optional (n 1))
   "Convert the next N words to uppercase, leaving mark after the last word."
-  (dotimes (i n)
-    (forward-to-word-boundary mark)
-    (loop until (end-of-buffer-p mark)
-       while (constituentp (object-after mark))
-       for character = (object-after mark)
-       when (lower-case-p character)
-       do (progn
-            (delete-range mark 1)
-            (insert-object mark (char-upcase character)))
-       else
-       do (incf (offset mark)))))
+  (loop repeat n
+        do (forward-to-word-boundary mark)
+           (let ((offset (offset mark)))
+             (forward-word mark)
+             (upcase-region offset mark))))
+
+(defun capitalize-buffer-region (buffer offset1 offset2)
+  (let ((previous-char-constituent-p
+         (and (plusp offset1)
+              (constituentp (buffer-object buffer (1- offset1))))))
+    (do-buffer-region (object offset buffer offset1 offset2)
+      (when (constituentp object)
+        (if previous-char-constituent-p
+            (when (upper-case-p object)
+              (setf object (char-downcase object)))
+            (when (lower-case-p object)
+              (setf object (char-upcase object)))))
+      (setf previous-char-constituent-p (constituentp object)))))
+
+(defgeneric capitalize-region (mark1 mark2)
+  (:documentation "Capitalize all words after mark1 and before mark2.
+An error is signaled if the two marks are positioned in different buffers.
+It is acceptable to pass an offset in place of one of the marks."))
+
+(defmethod capitalize-region ((mark1 climacs-buffer::mark-mixin)
+                              (mark2 climacs-buffer::mark-mixin))
+  (assert (eq (buffer mark1) (buffer mark2)))
+  (capitalize-buffer-region (buffer mark1) (offset mark1) (offset mark2)))
+
+(defmethod capitalize-region ((offset integer)
+                              (mark climacs-buffer::mark-mixin))
+  (capitalize-buffer-region (buffer mark) offset (offset mark)))
+
+(defmethod capitalize-region ((mark climacs-buffer::mark-mixin)
+                              (offset integer))
+  (capitalize-buffer-region (buffer mark) (offset mark) offset))
 
 (defun capitalize-word (mark &optional (n 1))
   "Capitalize the next N words, leaving mark after the last word."
-  (dotimes (i n)
-    (forward-to-word-boundary mark)
-    (unless (end-of-buffer-p mark)
-      (let ((character (object-after mark)))
-        (when (lower-case-p character)
-          (delete-range mark 1)
-          (insert-object mark (char-upcase character))))
-      (when (constituentp (object-after mark))
-        (downcase-word mark)))))
+  (loop repeat n
+        do (forward-to-word-boundary mark)
+           (let ((offset (offset mark)))
+             (forward-word mark)
+             (capitalize-region offset mark))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
