@@ -496,6 +496,52 @@ climacs
       (= (climacs-buffer::condition-offset c) -1)))
   t)
 
+(deftest binseq-buffer-backward-object.test-1
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let* ((m1 (make-instance 'persistent-left-sticky-mark
+			      :buffer buffer :offset 4))
+	   (m2 (clone-mark m1)))
+      (backward-object m1 2)
+      (region-to-sequence m1 m2)))
+  "im")
+
+(deftest binseq-buffer-backward-object.test-2
+  (handler-case
+      (let ((buffer (make-instance 'binseq-buffer)))
+	(insert-buffer-sequence buffer 0 "climacs")
+	(let* ((m1 (make-instance 'persistent-right-sticky-mark
+				  :buffer buffer :offset 2))
+	       (m2 (clone-mark m1)))
+	  (backward-object m1 3)
+	  (region-to-sequence m1 m2)))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) -1)))
+  t)
+
+(deftest binseq-buffer-forward-object.test-1
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let* ((m1 (make-instance 'persistent-left-sticky-mark
+			      :buffer buffer :offset 4))
+	   (m2 (clone-mark m1)))
+      (forward-object m1 2)
+      (region-to-sequence m1 m2)))
+  "ac")
+
+(deftest binseq-buffer-forward-object.test-2
+  (handler-case
+      (let ((buffer (make-instance 'binseq-buffer)))
+	(insert-buffer-sequence buffer 0 "climacs")
+	(let* ((m1 (make-instance 'persistent-right-sticky-mark
+				  :buffer buffer :offset 6))
+	       (m2 (clone-mark m1)))
+	  (forward-object m1 3)
+	  (region-to-sequence m1 m2)))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) 9)))
+  t)
+
 (deftest binseq-buffer-mark<.test-1
   (handler-case
       (let ((buffer (make-instance 'binseq-buffer))
@@ -1262,6 +1308,52 @@ climacs
 	(setf (buffer-object buffer -1) #\a))
     (climacs-buffer::no-such-offset (c)
       (= (climacs-buffer::condition-offset c) -1)))
+  t)
+
+(deftest obinseq-buffer-backward-object.test-1
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let* ((m1 (make-instance 'persistent-left-sticky-mark
+			      :buffer buffer :offset 4))
+	   (m2 (clone-mark m1)))
+      (backward-object m1 2)
+      (region-to-sequence m1 m2)))
+  "im")
+
+(deftest obinseq-buffer-backward-object.test-2
+  (handler-case
+      (let ((buffer (make-instance 'obinseq-buffer)))
+	(insert-buffer-sequence buffer 0 "climacs")
+	(let* ((m1 (make-instance 'persistent-right-sticky-mark
+				  :buffer buffer :offset 2))
+	       (m2 (clone-mark m1)))
+	  (backward-object m1 3)
+	  (region-to-sequence m1 m2)))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) -1)))
+  t)
+
+(deftest obinseq-buffer-forward-object.test-1
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let* ((m1 (make-instance 'persistent-left-sticky-mark
+			      :buffer buffer :offset 4))
+	   (m2 (clone-mark m1)))
+      (forward-object m1 2)
+      (region-to-sequence m1 m2)))
+  "ac")
+
+(deftest obinseq-buffer-forward-object.test-2
+  (handler-case
+      (let ((buffer (make-instance 'obinseq-buffer)))
+	(insert-buffer-sequence buffer 0 "climacs")
+	(let* ((m1 (make-instance 'persistent-right-sticky-mark
+				  :buffer buffer :offset 6))
+	       (m2 (clone-mark m1)))
+	  (forward-object m1 3)
+	  (region-to-sequence m1 m2)))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) 9)))
   t)
 
 (deftest obinseq-buffer-mark<.test-1

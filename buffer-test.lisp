@@ -459,6 +459,52 @@ climacs
       (= (climacs-buffer::condition-offset c) 8)))
   t)
 
+(deftest standard-buffer-backward-object.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let* ((m1 (make-instance 'standard-left-sticky-mark
+			      :buffer buffer :offset 4))
+	   (m2 (clone-mark m1)))
+      (backward-object m1 2)
+      (region-to-sequence m1 m2)))
+  "im")
+
+(deftest standard-buffer-backward-object.test-2
+  (handler-case
+      (let ((buffer (make-instance 'standard-buffer)))
+	(insert-buffer-sequence buffer 0 "climacs")
+	(let* ((m1 (make-instance 'standard-right-sticky-mark
+				  :buffer buffer :offset 2))
+	       (m2 (clone-mark m1)))
+	  (backward-object m1 3)
+	  (region-to-sequence m1 m2)))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) -1)))
+  t)
+
+(deftest standard-buffer-forward-object.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let* ((m1 (make-instance 'standard-left-sticky-mark
+			      :buffer buffer :offset 4))
+	   (m2 (clone-mark m1)))
+      (forward-object m1 2)
+      (region-to-sequence m1 m2)))
+  "ac")
+
+(deftest standard-buffer-forward-object.test-2
+  (handler-case
+      (let ((buffer (make-instance 'standard-buffer)))
+	(insert-buffer-sequence buffer 0 "climacs")
+	(let* ((m1 (make-instance 'standard-right-sticky-mark
+				  :buffer buffer :offset 6))
+	       (m2 (clone-mark m1)))
+	  (forward-object m1 3)
+	  (region-to-sequence m1 m2)))
+    (climacs-buffer::no-such-offset (c)
+      (= (climacs-buffer::condition-offset c) 9)))
+  t)
+
 (deftest standard-buffer-setf-buffer-object.test-1
   (let ((buffer (make-instance 'standard-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
