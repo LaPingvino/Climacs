@@ -47,9 +47,8 @@
 (define-syntax text-syntax ("Text" (basic-syntax))
   ((paragraphs :initform (make-instance 'standard-flexichain))))
 
-(defmethod redisplay-with-syntax :before (pane (syntax text-syntax))
-  (let* ((buffer (buffer pane))
-	 (high-offset (min (+ (offset (high-mark buffer)) 3) (size buffer)))
+(defmethod update-syntax (buffer (syntax text-syntax))
+  (let* ((high-offset (min (+ (offset (high-mark buffer)) 3) (size buffer)))
 	 (low-offset (max (- (offset (low-mark buffer)) 3) 0)))
     (with-slots (paragraphs) syntax
        (let* ((nb-paragraphs (nb-elements paragraphs))

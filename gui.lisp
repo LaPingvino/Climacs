@@ -28,20 +28,8 @@
 
 (in-package :climacs-gui)
 
-(defclass filename-mixin ()
-  ((filename :initform nil :accessor filename)))
-
-(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin)
-  ((needs-saving :initform nil :accessor needs-saving))
-  (:default-initargs :name "*scratch*"))
-
-
-(defclass climacs-pane (application-pane)
-  ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
-   (point :initform nil :initarg :point :reader point)
-   (syntax :initarg :syntax :accessor syntax)
-   (mark :initform nil :initarg :mark :reader mark)
-   ;; allows a certain number of commands to have some minimal memory
+(defclass extended-pane (climacs-pane)
+  (;; allows a certain number of commands to have some minimal memory
    (previous-command :initform nil :accessor previous-command)
    ;; for next-line and previous-line commands
    (goal-column :initform nil)
@@ -50,17 +38,6 @@
    (prefix-start-offset :initform nil)
    (dabbrev-expansion-mark :initform nil)
    (overwrite-mode :initform nil)))
-
-(defmethod initialize-instance :after ((pane climacs-pane) &rest args)
-  (declare (ignore args))
-  (with-slots (buffer point syntax mark) pane
-     (when (null point)
-       (setf point (make-instance 'standard-right-sticky-mark
-		      :buffer buffer)))
-     (when (null mark)
-       (setf mark (make-instance 'standard-right-sticky-mark
-		      :buffer buffer)))
-     (setf syntax (make-instance 'texinfo-syntax :pane pane))))
 
 (defclass minibuffer-pane (application-pane) ())
 
@@ -71,7 +48,7 @@
 (define-application-frame climacs ()
   ((win :reader win))
   (:panes
-   (win (make-pane 'climacs-pane
+   (win (make-pane 'extended-pane
 		   :width 900 :height 400
 		   :name 'win
 		   :incremental-redisplay t
@@ -99,6 +76,11 @@
       info)))
   (:top-level (climacs-top-level)))
 
+(defmethod redisplay-frame-panes :before ((frame climacs) &rest args)
+  (declare (ignore args))
+  (let ((buffer (buffer (win frame))))
+    (update-syntax buffer (syntax buffer))))
+
 (defmethod redisplay-frame-panes :after ((frame climacs) &rest args)
   (declare (ignore args))
   (clear-modify (buffer (win frame))))
@@ -117,7 +99,7 @@
 	 (name-info (format nil "   ~a   ~a   Syntax: ~a ~a"
 			    (if (needs-saving buf) "**" "--")
 			    (name buf)
-			    (name (syntax win))
+			    (name (syntax buf))
 			    (if (slot-value win 'overwrite-mode)
 				"Ovwrt"
 				""))))
@@ -242,10 +224,9 @@
 	  (redisplay-frame-panes frame))))
 
 (defun region-limits (pane)
-  (with-slots (point mark) pane
-    (if (< (offset mark) (offset point))
-        (values mark point)
-        (values point mark))))
+  (if (mark< (mark pane) (point pane))
+      (values (mark pane) (point pane))
+      (values (point pane) (mark pane))))
 
 (defmacro define-named-command (command-name args &body body)
   `(define-climacs-command ,(if (listp command-name)
@@ -419,12 +400,12 @@
 (define-named-command com-tabify-region ()
   (let ((pane (win *application-frame*)))
     (multiple-value-bind (start end) (region-limits pane)
-      (tabify-region start end (tab-space-count (syntax pane))))))
+      (tabify-region start end (tab-space-count (stream-default-view pane))))))
 
 (define-named-command com-untabify-region ()
   (let ((pane (win *application-frame*)))
     (multiple-value-bind (start end) (region-limits pane)
-      (untabify-region start end (tab-space-count (syntax pane))))))
+      (untabify-region start end (tab-space-count (stream-default-view pane))))))
 
 (define-named-command com-toggle-layout ()
   (setf (frame-current-layout *application-frame*)
@@ -518,20 +499,20 @@
 
 (define-named-command com-find-file ()
   (let ((filename (accept 'completable-pathname
-			  :prompt "Find File")))
-    (with-slots (buffer point syntax) (win *application-frame*)
-       (setf buffer (make-instance 'climacs-buffer)
-	     point (make-instance 'standard-right-sticky-mark :buffer buffer)
-	     syntax (make-instance 'texinfo-syntax :pane (win *application-frame*)))
-       (with-open-file (stream filename :direction :input :if-does-not-exist :create)
-	 (input-from-stream stream buffer 0))
-       (setf (filename buffer) filename
-	     (name buffer) (pathname-filename filename)
-	     (needs-saving buffer) nil)
-       (beginning-of-buffer point)
-       ;; this one is needed so that the buffer modification protocol
-       ;; resets the low and high marks after redisplay
-       (redisplay-frame-panes *application-frame*))))
+			  :prompt "Find File"))
+	(buffer (make-instance 'climacs-buffer))
+	(pane (win *application-frame*)))
+    (setf (buffer (win *application-frame*)) buffer)
+    (setf (syntax buffer) (make-instance 'basic-syntax))
+    (with-open-file (stream filename :direction :input :if-does-not-exist :create)
+      (input-from-stream stream buffer 0))
+    (setf (filename buffer) filename
+	  (name buffer) (pathname-filename filename)
+	  (needs-saving buffer) nil)
+    (beginning-of-buffer (point pane))
+    ;; this one is needed so that the buffer modification protocol
+    ;; resets the low and high marks after redisplay
+    (redisplay-frame-panes *application-frame*)))
 
 (define-named-command com-save-buffer ()
   (let* ((buffer (buffer (win *application-frame*)))
@@ -569,11 +550,11 @@
 
 (define-named-command com-page-down ()
   (let ((pane (win *application-frame*)))
-    (page-down pane (syntax pane))))
+    (page-down pane)))
 
 (define-named-command com-page-up ()
   (let ((pane (win *application-frame*)))
-    (page-up pane (syntax pane))))
+    (page-up pane)))
 
 (define-named-command com-end-of-buffer ()
   (end-of-buffer (point (win *application-frame*))))
@@ -605,20 +586,19 @@
   (accept 'url :prompt "Browse URL"))
 
 (define-named-command com-set-mark ()
-  (with-slots (point mark) (win *application-frame*)
-     (setf mark (clone-mark point))))
+  (let ((pane (win *application-frame*)))
+    (setf (mark pane) (clone-mark (point pane)))))
 
 (define-named-command com-exchange-point-and-mark ()
-  (with-slots (point mark) (win *application-frame*)
-     (psetf (offset mark) (offset point)
-	    (offset point) (offset mark))))
+  (let ((pane (win *application-frame*)))
+    (psetf (offset (mark pane)) (offset (point pane))
+	   (offset (point pane)) (offset (mark pane)))))
 
 (define-named-command com-set-syntax ()
   (let* ((pane (win *application-frame*))
 	 (buffer (buffer pane)))
-    (setf (syntax (win *application-frame*))
-	  (make-instance (accept 'syntax :prompt "Set Syntax")
-	     :pane pane))
+    (setf (syntax buffer)
+	  (make-instance (accept 'syntax :prompt "Set Syntax")))
     (setf (offset (low-mark buffer)) 0
 	  (offset (high-mark buffer)) (size buffer))))
 
@@ -637,9 +617,8 @@
 
 ;; Non destructively copies in buffer region to the kill ring
 (define-named-command com-copy-out ()
-  (with-slots (point mark)(win *application-frame*)
-     (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))))
-
+  (let ((pane (win *application-frame*)))
+    (kill-ring-standard-push *kill-ring* (region-to-sequence (point pane) (mark pane)))))
 
 (define-named-command com-rotate-yank ()
   (let* ((pane (win *application-frame*))

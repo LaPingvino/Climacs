@@ -71,11 +71,8 @@
 (defpackage :climacs-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
   (:export #:syntax #:define-syntax
-           #:tabify-mixin #:tab-space-count
-	   #:basic-syntax #:texinfo-syntax
-	   #:redisplay-pane #:redisplay-with-syntax #:full-redisplay
-	   #:page-down #:page-up
-	   #:url))
+	   #:basic-syntax
+	   #:update-syntax))
 
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
@@ -83,6 +80,17 @@
 	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
 	   #:kill-ring-standard-push    #:kill-ring-concatenating-push))
 
+(defpackage :climacs-pane
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
+	:climacs-syntax :flexichain)
+  (:export #:climacs-buffer #:needs-saving #:filename
+	   #:climacs-pane #:point #:mark
+	   #:redisplay-pane #:full-redisplay
+	   #:page-down #:page-up
+           #:tab-space-count
+	   #:url))
+
 (defpackage :climacs-gui
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax :climacs-kill-ring))
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
+	:climacs-kill-ring :climacs-pane))
 

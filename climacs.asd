@@ -58,6 +58,7 @@
    "syntax"
    "text-syntax"
    "kill-ring"
+   "pane"
    "gui")
 
 #+asdf
