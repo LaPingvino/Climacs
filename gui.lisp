@@ -49,15 +49,29 @@
   ((win :reader win)
    (buffers :initform '() :accessor buffers))
   (:panes
-   (win (make-pane 'extended-pane
-		   :width 900 :height 400
-		   :name 'win
-		   :incremental-redisplay t
-		   :display-function 'display-win))
+   (win (vertically ()
+	  (scrolling ()
+	    (make-pane 'extended-pane
+		       :width 900 :height 400
+		       :name 'bla
+		       :incremental-redisplay t
+		       :display-function 'display-win))
+	  (make-pane 'application-pane
+		     :width 900 :height 20 :max-height 20 :min-height 20
+		     ::background +gray85+
+		     :scroll-bars nil
+		     :borders nil
+		     :incremental-redisplay t
+		     :display-function 'display-info)))
+;   (win (make-pane 'extended-pane
+;		   :width 900 :height 400
+;		   :name 'bla
+;		   :incremental-redisplay t
+;		   :display-function 'display-win))
    
    (info :application
-	 :width 900 :height 20 :max-height 20
-	 :name 'info :background +light-gray+
+	 :width 900 :height 20 :max-height 30 :min-height 30
+	 :name 'info :background +gray85+
 	 :scroll-bars nil
 	 :borders nil
 	 :incremental-redisplay t
@@ -68,8 +82,7 @@
   (:layouts
    (default
        (vertically (:scroll-bars nil)
-	 (scrolling (:width 900 :height 400) win)
-	 info
+	 win
 	 int))
    (without-interactor
     (vertically (:scroll-bars nil)
@@ -180,51 +193,61 @@
 	  (t (unread-gesture gesture :stream stream)
 	     (values 1 nil)))))
 
+;;; we know the vbox pane has a scroller pane and an info
+;;; pane in it.  The scroller pane has a viewport in it,
+;;; and the viewport contains the climacs-pane as its only child.
+(defun find-climacs-pane (vbox)
+  (first (sheet-children
+	  (find-if-not (lambda (pane) (typep pane 'scroll-bar-pane))
+		       (sheet-children
+			(find-if (lambda (pane) (typep pane 'scroller-pane))
+				 (sheet-children vbox)))))))
+
 (defun climacs-top-level (frame &key
 			  command-parser command-unparser 
 			  partial-command-parser prompt)
   (declare (ignore command-parser command-unparser partial-command-parser prompt))
   (with-slots (win) frame
-     (setf win (find-pane-named frame 'win))
-     (push (buffer win) (buffers frame)))
-  (let ((*standard-output* (find-pane-named frame 'win))
-	(*standard-input* (find-pane-named frame 'int))
-	(*print-pretty* nil)
-	(*abort-gestures* nil))
-    (redisplay-frame-panes frame :force-p t)
-    (loop (catch 'outer-loop
-	    (loop for gestures = '()
-		  for numarg = (read-numeric-argument :stream *standard-input*)
-		  do (loop (setf *current-gesture* (climacs-read-gesture))
-			   (setf gestures (nconc gestures (list *current-gesture*)))
-			   (let ((item (find-gestures gestures 'global-climacs-table)))
-			     (cond ((not item)
-				    (beep) (return))
-				   ((eq (command-menu-item-type item) :command)
-				    (let ((command (command-menu-item-value item)))
-				      (unless (consp command)
-					(setf command (list command)))
-				      (setf command (substitute-numeric-argument-marker command numarg))
-				      (handler-case 
-					  (execute-frame-command frame command)
-					(error (condition)
-					  (beep)
-					  (format *error-output* "~a~%" condition)))
-				      (setf (previous-command *standard-output*)
-					    (if (consp command)
-						(car command)
-						command))
-				      (return)))
-				   (t nil))))
-		     (let ((buffer (buffer (win frame))))
-		       (when (modified-p buffer)
-			 (setf (needs-saving buffer) t)))
-		     (redisplay-frame-panes frame)))
-	  (beep)
-	  (let ((buffer (buffer (win frame))))
-	    (when (modified-p buffer)
-	      (setf (needs-saving buffer) t)))
-	  (redisplay-frame-panes frame))))
+     (setf win (find-climacs-pane (find-pane-named frame 'win)))
+     (push (buffer win) (buffers frame))
+     (let ((*standard-output* win)
+	   (*standard-input* (find-pane-named frame 'int))
+	   (*print-pretty* nil)
+	   (*abort-gestures* nil))
+       (redisplay-frame-panes frame :force-p t)
+       (loop (catch 'outer-loop
+	       (loop for gestures = '()
+		     for numarg = (read-numeric-argument :stream *standard-input*)
+		     do (loop (setf *current-gesture* (climacs-read-gesture))
+			      (setf gestures (nconc gestures (list *current-gesture*)))
+			      (let ((item (find-gestures gestures 'global-climacs-table)))
+				(cond ((not item)
+				       (beep) (return))
+				      ((eq (command-menu-item-type item) :command)
+				       (let ((command (command-menu-item-value item)))
+					 (unless (consp command)
+					   (setf command (list command)))
+					 (setf command (substitute-numeric-argument-marker command numarg))
+					 (handler-case 
+					     (execute-frame-command frame command)
+					   (error (condition)
+					     (beep)
+					     (format *error-output* "~a~%" condition)))
+					 (setf (previous-command *standard-output*)
+					       (if (consp command)
+						   (car command)
+						   command))
+					 (return)))
+				      (t nil))))
+			(let ((buffer (buffer (win frame))))
+			  (when (modified-p buffer)
+			    (setf (needs-saving buffer) t)))
+			(redisplay-frame-panes frame)))
+	     (beep)
+	     (let ((buffer (buffer (win frame))))
+	       (when (modified-p buffer)
+		 (setf (needs-saving buffer) t)))
+	     (redisplay-frame-panes frame)))))
 
 (defun region-limits (pane)
   (if (mark< (mark pane) (point pane))
@@ -636,6 +659,36 @@
     (setf (offset (low-mark buffer)) 0
 	  (offset (high-mark buffer)) (size buffer))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Commands for splitting windows
+
+(define-named-command com-split-window-vertically ()
+  (with-look-and-feel-realization
+      ((frame-manager *application-frame*) *application-frame*)
+    (let* ((pane (win *application-frame*))
+	   (new-pane (make-pane 'extended-pane
+				:width 900 :height 400
+				:name 'win
+				:incremental-redisplay t
+				:display-function 'display-win))
+	   (parent (sheet-parent (sheet-parent (sheet-parent pane)))))
+      (setf (buffer new-pane) (buffer pane))
+      (sheet-adopt-child parent
+			 (vertically ()
+			   (scrolling () new-pane)
+			   (make-pane 'application-pane
+				      :width 900 :height 20
+				      :max-height 20 :min-height 20
+				      ::background +gray85+
+				      :scroll-bars nil
+				      :borders nil
+				      :incremental-redisplay t
+				      :display-function 'display-info)))
+      (setf (sheet-enabled-p new-pane) t)
+      (full-redisplay pane)
+      (full-redisplay new-pane))))
+
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
 
@@ -811,6 +864,7 @@
   (add-command-to-command-table command 'c-x-climacs-table
 				:keystroke gesture :errorp nil))
 
+(c-x-set-key '(#\2) 'com-split-window-vertically)
 (c-x-set-key '(#\b) 'com-switch-to-buffer)
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
