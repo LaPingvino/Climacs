@@ -194,16 +194,16 @@ one of the marks"))
 		 while (constituentp (object-before mark))
 		 do (decf (offset mark)))))
 
-(defun delete-word (mark)
+(defun delete-word (mark &optional (count 1))
   "Delete until the end of the word"
   (let ((mark2 (clone-mark mark)))
-    (forward-word mark2)
+    (forward-word mark2 count)
     (delete-region mark mark2)))
 
-(defun backward-delete-word (mark)
+(defun backward-delete-word (mark &optional (count 1))
   "Delete until the beginning of the word"
   (let ((mark2 (clone-mark mark)))
-    (backward-word mark2)
+    (backward-word mark2 count)
     (delete-region mark mark2)))
 
 (defun previous-word (mark)

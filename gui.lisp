@@ -471,11 +471,11 @@
 (define-named-command com-backward-word ((count 'integer :prompt "Number of words"))
   (backward-word (point (current-window)) count))
 
-(define-named-command com-delete-word ()
-  (delete-word (point (current-window))))
+(define-named-command com-delete-word ((count 'integer :prompt "Number of words"))
+  (delete-word (point (current-window)) count))
 
-(define-named-command com-backward-delete-word ()
-  (backward-delete-word (point (current-window))))
+(define-named-command com-backward-delete-word ((count 'integer :prompt "Number of words"))
+  (backward-delete-word (point (current-window)) count))
 
 (define-named-command com-upcase-region ()
   (let ((cw (current-window)))
@@ -1284,8 +1284,8 @@ as two values"
 (global-set-key '(#\m :meta) 'com-back-to-indentation)
 (global-set-key '(#\^ :shift :meta) 'com-delete-indentation)
 (global-set-key '(#\q :meta) 'com-fill-paragraph)
-(global-set-key '(#\d :meta) 'com-delete-word)
-(global-set-key '(#\Backspace :meta) 'com-backward-delete-word)
+(global-set-key '(#\d :meta) `(com-delete-word ,*numeric-argument-marker*))
+(global-set-key '(#\Backspace :meta) `(com-backward-delete-word ,*numeric-argument-marker*))
 (global-set-key '(#\/ :meta) 'com-dabbrev-expand)
 (global-set-key '(#\a :control :meta) 'com-beginning-of-paragraph)
 (global-set-key '(#\e :control :meta) 'com-end-of-paragraph)
