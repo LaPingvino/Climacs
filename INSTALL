@@ -33,5 +33,12 @@ paragraph 1 below.  Otherwise start at paragraph 0.
 
    Start the Climacs editor.
  
+Finally, please notice that as we develop Climacs, we occasionally
+find bugs in McCLIM, or ask for functionality of McCLIM that can be
+useful to us.
+
+For that reason, McCLIM often depend on very fresh CVS versions of
+McCLIM.  If you discover a bug, please try to install a new version of
+McCLIM before looking to hard for any other reasons. 
 
 
