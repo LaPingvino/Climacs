@@ -65,6 +65,9 @@
 
 (defclass prolog-lexeme (prolog-token)
   ((state :initarg :state)))
+(defmethod print-object ((o prolog-lexeme) s)
+  (print-unreadable-object (o s :type t)
+    (format s (lexeme-string o))))
 
 (defclass start-lexeme (prolog-lexeme) ())
 
@@ -127,13 +130,25 @@
   
   (def (error)))
 
+;;; open-ct is a special case: by 6.5.1 it cannot be preceded by
+;;; layout text.  We could elide this and its grammar rules, but this
+;;; way we get a clearer relationship between the standard and its
+;;; expression here.
+(defclass open-ct (prolog-nonterminal)
+  ((syntactic-lexeme :initarg :syntactic-lexeme :accessor syntactic-lexeme)))
+(defmethod display-parse-tree ((entity open-ct) (syntax prolog-syntax) pane)
+  (display-parse-tree (syntactic-lexeme entity) syntax pane))
+(define-prolog-rule (open-ct -> (open-ct-lexeme))
+  (make-instance 'open-ct :syntactic-lexeme open-ct-lexeme))
+
 ;;; 6.4.1
 (define-prolog-rule (layout-text -> (comment-lexeme layout-text))
   (make-instance 'layout-text :comment comment-lexeme :cont layout-text))
 (define-prolog-rule (layout-text -> ())
   (make-instance 'layout-text :cont nil))
 
-(defclass prolog-lexer (incremental-lexer) ())
+(defclass prolog-lexer (incremental-lexer)
+  ((valid-lex :initarg :valid-lex :accessor valid-lex :initform 1)))
 
 (defmethod next-lexeme ((lexer prolog-lexer) scan)
   (let ((string (make-array 0 :element-type 'character
@@ -180,10 +195,10 @@
 	       (t (fo) (return (make-instance 'error-lexeme))))
 	   IDENTIFIER
 	     (loop until (end-of-buffer-p scan)
-		while (let ((object (object-after scan)))
-                        (or (alphanumericp object)
-                            (eql object #\_)))
-		do (fo))
+		   while (let ((object (object-after scan)))
+			   (or (alphanumericp object)
+			       (eql object #\_)))
+		   do (fo))
 	     (return (make-instance 'identifier-lexeme))
            LINE-COMMENT
              (loop until (end-of-buffer-p scan)
@@ -429,7 +444,6 @@
 (defclass atom (prolog-nonterminal)
   ((value :initarg :value :accessor value)))
 (defmethod syntactic-lexeme ((thing atom))
-  ;; FIXME: wrong for empty-list atom and curly-brackets atom
   (syntactic-lexeme (value thing)))
 (defclass empty-list (prolog-nonterminal)
   (([ :initarg :[ :accessor [)
@@ -483,6 +497,42 @@
 
 (defmethod display-parse-tree ((entity lterm) (syntax prolog-syntax) pane)
   (display-parse-tree (term entity) syntax pane))
+
+;;; FIXME: the need for these is because it is a protocol violation to
+;;; create nested nonterminals from one rule.
+(defclass operator-compound-lterm (lterm)
+  ((operator :initarg :operator :accessor operator)))
+(defmethod compound-term-p ((l operator-compound-lterm))
+  t)
+(defmethod functor ((l operator-compound-lterm))
+  (operator l))
+(defclass binary-operator-compound-lterm (operator-compound-lterm)
+  ((left :initarg :left :accessor left)
+   (right :initarg :right :accessor right)))
+(defmethod arity ((l binary-operator-compound-lterm))
+  2)
+(defclass prefix-operator-compound-lterm (operator-compound-lterm)
+  ((right :initarg :right :accessor right)))
+(defmethod arity ((l prefix-operator-compound-lterm))
+  1)
+(defclass postfix-operator-compound-lterm (operator-compound-lterm)
+  ((left :initarg :left :accessor left)))
+(defmethod arity ((l postfix-operator-compound-lterm))
+  1)
+
+(defmethod display-parse-tree
+    ((entity binary-operator-compound-lterm) (syntax prolog-syntax) pane)
+  (display-parse-tree (left entity) syntax pane)
+  (display-parse-tree (operator entity) syntax pane)
+  (display-parse-tree (right entity) syntax pane))
+(defmethod display-parse-tree
+    ((entity prefix-operator-compound-lterm) (syntax prolog-syntax) pane)
+  (display-parse-tree (operator entity) syntax pane)
+  (display-parse-tree (right entity) syntax pane))
+(defmethod display-parse-tree
+    ((entity postfix-operator-compound-lterm) (syntax prolog-syntax) pane)
+  (display-parse-tree (left entity) syntax pane)
+  (display-parse-tree (operator entity) syntax pane))
 
 (defclass op (prolog-nonterminal)
   ((name :initarg :name :accessor name)
@@ -579,9 +629,9 @@
   (make-instance 'variable-term :priority 0 :name variable))
 
 ;;; 6.3.3
-(define-prolog-rule (term -> (atom open-ct-lexeme arg-list close))
+(define-prolog-rule (term -> (atom open-ct arg-list close))
   (make-instance 'functional-compound-term :priority 0 :functor atom
-                 :arg-list arg-list :open-ct open-ct-lexeme :close close))
+                 :arg-list arg-list :open-ct open-ct :close close))
 (define-prolog-rule (arg-list -> (exp))
   (make-instance 'arg-list :exp exp))
 (define-prolog-rule (arg-list -> (exp comma arg-list))
@@ -613,17 +663,21 @@
 ;;; term would be, by explicitly writing the second production rule
 ;;; out here, and by using inegality tests rather than equalities for
 ;;; priorities elsewhere.  LTERMs act as containers for terms.
+;;;
+;;; FIXME: why on earth doesn't this cause infinite recursion?  If
+;;; LTERM is a subtype of TERM, as it is, this rule should surely be
+;;; always applicable.
 (define-prolog-rule (lterm -> (term))
   (make-instance 'lterm :term term :priority (1+ (priority term))))
 
 (define-prolog-rule (term -> (open (term (<= (priority term) 1201)) close))
   (make-instance 'bracketed-term :priority 0
                  :open open :term term :close close))
-(define-prolog-rule (term -> (open-ct-lexeme
+(define-prolog-rule (term -> (open-ct
                               (term (<= (priority term) 1201))
                               close))
   (make-instance 'bracketed-term :priority 0
-                 :open open-ct-lexeme :term term :close close))
+                 :open open-ct :term term :close close))
 
 ;;; 6.3.4.2
 ;;;
@@ -636,17 +690,15 @@
                                (right term)))
   (when (and (< (priority left) (priority op))
              (< (priority right) (priority op)))
-    (make-instance 'lterm :priority (priority op) :term
-                   (make-instance 'binary-operator-compound-term
-                                  :left left :operator op :right right))))
+    (make-instance 'binary-operator-compound-lterm :priority (priority op)
+		   :left left :operator op :right right)))
 (define-prolog-rule (lterm -> ((left lterm)
                                (op (eql (specifier op) :yfx))
                                (right term)))
   (when (and (<= (priority left) (priority op))
              (< (priority right) (priority op)))
-    (make-instance 'lterm :priority (priority op) :term
-                   (make-instance 'binary-operator-compound-term
-                                  :left left :operator op :right right))))
+    (make-instance 'binary-operator-compound-lterm :priority (priority op)
+		   :left left :operator op :right right)))
 (define-prolog-rule (term -> ((left term)
                               (op (eql (specifier op) :xfy))
                               (right term)))
@@ -656,14 +708,12 @@
                    :left left :operator op :right right)))
 (define-prolog-rule (lterm -> (lterm (op (eql (specifier op) :yf))))
   (when (<= (priority lterm) (priority op))
-    (make-instance 'lterm :priority (priority op) :term
-                   (make-instance 'postfix-operator-compound-term
-                                  :left lterm :operator op))))
+    (make-instance 'postfix-operator-compound-lterm :priority (priority op)
+		   :left lterm :operator op)))
 (define-prolog-rule (lterm -> (term (op (eql (specifier op) :xf))))
   (when (< (priority term) (priority op))
-    (make-instance 'lterm :priority (priority op) :term
-                   (make-instance 'postfix-operator-compound-term
-                                  :left term :operator op))))
+    (make-instance 'postfix-operator-compound-lterm :priority (priority op)
+		   :left term :operator op)))
 (define-prolog-rule (term -> ((op (eql (specifier op) :fy)) term))
   (when (and (or (not (string= (lexeme-string (syntactic-lexeme op)) "-"))
                  (not (numeric-constant-p term)))
@@ -676,9 +726,8 @@
                  (not (numeric-constant-p term)))
              (not (typep (first-lexeme term) 'open-ct-lexeme))
              (< (priority term) (priority op)))
-    (make-instance 'lterm :priority (priority op) :term
-                   (make-instance 'prefix-operator-compound-term
-                                  :right term :operator op))))
+    (make-instance 'prefix-operator-compound-lterm :priority (priority op)
+		   :right term :operator op)))
 
 ;;; 6.3.4.3
 (macrolet ((def (class &rest specifiers)
@@ -782,7 +831,7 @@
              (and (consp value)
                   (typep (car value) 'atom)
                   (typep (cadr value) 'integer))))))
-  
+
 (defun first-lexeme (thing)
   ;; FIXME: we'll need to implement this.
   (declare (ignore thing))
@@ -792,25 +841,66 @@
 
 (defmethod update-syntax-for-display (buffer (syntax prolog-syntax) top bot)
   (with-slots (parser lexer valid-parse) syntax
-     (loop until (= valid-parse (nb-lexemes lexer))
-	   while (mark<= (end-offset (lexeme lexer valid-parse)) bot)
-	   do (let ((current-token (lexeme lexer (1- valid-parse)))
-		    (next-lexeme (lexeme lexer valid-parse)))
-		(setf (slot-value next-lexeme 'state)
-		      (advance-parse parser (list next-lexeme) (slot-value current-token 'state))))
-	      (incf valid-parse))))
+    (with-slots (climacs-syntax::lexemes valid-lex) lexer
+      (let ((scan (clone-mark (low-mark buffer) :left)))
+        (setf (offset scan)
+              (end-offset (lexeme lexer (1- valid-lex))))
+	;; lex as far as we need.  We actually win quite a lot if we
+	;; can implement the splicing described in the FIXME note,
+	;; below, because there's then a good chance that CLIM's
+	;; incremental redisplay will Do The Right Thing (on the EQ
+	;; lexemes)
+        (loop do (skip-inter-lexeme-objects lexer scan)
+	      ;; FIXME: are we allowed to mix DO and UNTIL like this?
+	      ;; I doubt it.
+              until (end-of-buffer-p scan)
+	      until (mark< bot (start-offset (lexeme lexer (1- valid-lex))))
+	      ;; FIXME: a further criterion is when scan matches the
+	      ;; start-offset of an element in lexemes, at which point
+	      ;; we know that the entirety of the rest of the old lex
+	      ;; is valid without doing any further work.
+	      do (let* ((start-mark (clone-mark scan))
+			(lexeme (next-lexeme lexer scan))
+			(size (- (offset scan) (offset start-mark))))
+		   (setf (slot-value lexeme 'climacs-syntax::start-mark) start-mark
+			 (slot-value lexeme 'climacs-syntax::size) size)
+		   (insert-lexeme lexer valid-lex lexeme)
+		   (incf valid-lex)))
+	;; remove lexemes which we know to be invalid
+	(let ((end (end-offset (lexeme lexer (1- valid-lex)))))
+	  (loop until (= (nb-lexemes lexer) valid-lex)
+		while (< (start-offset (lexeme lexer valid-lex)) end)
+		do (delete* climacs-syntax::lexemes valid-lex))))
+      ;; parse up to the limit of validity imposed by the lexer, or
+      ;; the bottom of the visible area
+      (loop until (= valid-parse valid-lex)
+	    while (mark<= (end-offset (lexeme lexer valid-parse)) bot)
+	    do (let ((current-token (lexeme lexer (1- valid-parse)))
+		     (next-lexeme (lexeme lexer valid-parse)))
+		 (setf (slot-value next-lexeme 'state)
+		       (advance-parse parser (list next-lexeme) 
+				      (slot-value current-token 'state)))
+		 (incf valid-parse))))))
 
 (defmethod inter-lexeme-object-p ((lexer prolog-lexer) object)
   (member object '(#\Space #\Newline)))
 
 (defmethod update-syntax (buffer (syntax prolog-syntax))
   (with-slots (lexer valid-parse) syntax
-     (let* ((low-mark (low-mark buffer))
-	    (high-mark (high-mark buffer)))
-       (when (mark<= low-mark high-mark)
-	 (let ((first-invalid-position (delete-invalid-lexemes lexer low-mark high-mark)))
-	   (setf valid-parse first-invalid-position)
-	   (update-lex lexer first-invalid-position high-mark))))))
+    (let* ((low-mark (low-mark buffer))
+	   (high-mark (high-mark buffer)))
+      (when (mark<= low-mark high-mark)
+	(with-slots (climacs-syntax::lexemes valid-lex) lexer
+	  (let ((start 1)
+		(end (nb-elements climacs-syntax::lexemes)))
+	    (loop while (< start end)
+		  do (let ((middle (floor (+ start end) 2)))
+		       (if (mark< (end-offset (element* climacs-syntax::lexemes middle))
+				  low-mark)
+			   (setf start (1+ middle))
+			   (setf end middle))))
+	    (setf valid-lex start)
+	    (setf valid-parse start)))))))
 
 ;;; display
 
@@ -866,10 +956,7 @@
 		  'string
 		  :stream pane))))
 
-;;; KLUDGE: below this line, this is just s/html/prolog/ on the
-;;; definitions in html-syntax.lisp
-
-(defmethod display-parse-tree :before ((entity prolog-token) (syntax prolog-syntax) pane)
+(defmethod display-parse-tree :before ((entity prolog-lexeme) (syntax prolog-syntax) pane)
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
   (setf *white-space-start* (end-offset entity)))
 
@@ -888,13 +975,16 @@
 	(display-parse-stack (parse-stack-symbol top) top syntax pane)
 	(display-parse-tree (target-parse-tree state) syntax pane))))
 
+(defun nb-valid-lexemes (lexer)
+  (slot-value lexer 'valid-lex))
+
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax prolog-syntax) current-p)
   (with-slots (top bot) pane
      (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
 	   *current-line* 0
 	   (aref *cursor-positions* 0) (stream-cursor-position pane))
      (with-slots (lexer) syntax
-	(let ((average-token-size (max (float (/ (size (buffer pane)) (nb-lexemes lexer)))
+	(let ((average-token-size (max (float (/ (size (buffer pane)) (nb-valid-lexemes lexer)))
 				       1.0)))
 	  ;; find the last token before bot
 	  (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
@@ -902,7 +992,7 @@
 	    (loop until (mark<= (end-offset (lexeme lexer (1- end-token-index))) bot)
 		  do (decf end-token-index))
 	    ;; go forward to the last token before bot
-	    (loop until (or (= end-token-index (nb-lexemes lexer))
+	    (loop until (or (= end-token-index (nb-valid-lexemes lexer))
 			    (mark> (start-offset (lexeme lexer end-token-index)) bot))
 		  do (incf end-token-index))
 	    (let ((start-token-index end-token-index))
