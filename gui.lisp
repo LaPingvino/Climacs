@@ -77,7 +77,11 @@
        (vertically (:scroll-bars nil)
 	 (scrolling (:width 900 :height 400) win)
 	 info
-	 int)))
+	 int))
+   (without-interactor
+    (vertically (:scroll-bars nil)
+      (scrolling (:width 900 :height 400) win)
+      info)))
   (:top-level (climacs-top-level)))
 
 (defmethod redisplay-frame-panes :after ((frame climacs) &rest args)
@@ -275,6 +279,29 @@
         (insert-sequence point w2)
         (forward-word point)))))
 
+(define-named-command com-transpose-lines ()
+  (let ((point (point (win *application-frame*))))
+    (beginning-of-line point)
+    (unless (beginning-of-buffer-p point)
+      (previous-line point))
+    (let* ((bol (offset point))
+           (eol (progn (end-of-line point)
+                       (offset point)))
+           (line (buffer-sequence (buffer point) bol eol)))
+      (delete-region bol point)
+      ;; Remove newline at end of line as well.
+      (unless (end-of-buffer-p point)
+        (delete-range point))
+      ;; If the current line is at the end of the buffer, we want to
+      ;; be able to insert past it, so we need to get an extra line
+      ;; at the end.
+      (when (progn (end-of-line point)
+                   (end-of-buffer-p point))
+        (insert-object point #\Newline))
+      (next-line point)
+      (insert-sequence point line)
+      (insert-object point #\Newline))))
+
 (define-named-command com-previous-line ()
   (previous-line (point (win *application-frame*))))
 
@@ -302,7 +329,7 @@
 (define-named-command com-toggle-layout ()
   (setf (frame-current-layout *application-frame*)
 	(if (eq (frame-current-layout *application-frame*) 'default)
-	    'with-interactor
+	    'without-interactor
 	    'default)))
 
 (define-command com-extended-command ()
@@ -474,7 +501,12 @@
 
 (define-named-command com-set-mark ()
   (with-slots (point mark) (win *application-frame*)
-	      (setf mark (clone-mark point))))
+     (setf mark (clone-mark point))))
+
+(define-named-command com-exchange-point-and-mark ()
+  (with-slots (point mark) (win *application-frame*)
+     (psetf (offset mark) (offset point)
+	    (offset point) (offset mark))))
 
 (define-named-command com-set-syntax ()
   (setf (syntax (win *application-frame*))
@@ -597,7 +629,9 @@
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
+(c-x-set-key '(#\t :control) 'com-transpose-lines)
 (c-x-set-key '(#\w :control) 'com-write-buffer)
+(c-x-set-key '(#\x :control) 'com-exchange-point-and-mark)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -634,8 +668,6 @@
 (dead-acute-set-key '(#\y) '(com-insert-charcode 253))
 (dead-acute-set-key '(#\C) '(com-insert-charcode 199))
 (dead-acute-set-key '(#\c) '(com-insert-charcode 231))
-(dead-acute-set-key '(#\B) '(com-insert-charcode 197)) ; not great
-(dead-acute-set-key '(#\b) '(com-insert-charcode 229)) ; not great
 (dead-acute-set-key '(#\x) '(com-insert-charcode 215))
 (dead-acute-set-key '(#\-) '(com-insert-charcode 247))
 (dead-acute-set-key '(#\T) '(com-insert-charcode 222))
@@ -643,6 +675,18 @@
 (dead-acute-set-key '(#\s) '(com-insert-charcode 223))
 (dead-acute-set-key '(#\Space) '(com-insert-charcode 39))
 
+(make-command-table 'dead-acute-dead-accute-climacs-table :errorp nil)
+
+(add-menu-item-to-command-table 'dead-acute-climacs-table "dead-acute-dead-accute"
+				:menu 'dead-acute-dead-accute-climacs-table
+				:keystroke '(:dead--acute))
+
+(defun dead-acute-dead-accute-set-key (gesture command)
+  (add-command-to-command-table command 'dead-acute-dead-accute-climacs-table
+				:keystroke gesture :errorp nil))
+
+(dead-acute-dead-accute-set-key '(#\A) '(com-insert-charcode 197))
+(dead-acute-dead-accute-set-key '(#\a) '(com-insert-charcode 229))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Dead-grave command table

@@ -88,7 +88,7 @@
 (define-presentation-type url ()
   :inherit-from 'string)
 
-(defgeneric present-contents (contenst pane syntax))
+(defgeneric present-contents (contents pane syntax))
 
 (defmethod present-contents (contents pane (syntax basic-syntax))
   (unless (null contents)
