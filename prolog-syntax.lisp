@@ -148,7 +148,7 @@
   (make-instance 'layout-text :cont nil))
 
 (defclass prolog-lexer (incremental-lexer)
-  ((valid-lex :initarg :valid-lex :accessor valid-lex :initform 1)))
+  ((valid-lex :initarg :valid-lex :initform 1)))
 
 (defmethod next-lexeme ((lexer prolog-lexer) scan)
   (let ((string (make-array 0 :element-type 'character
@@ -852,21 +852,26 @@
 (defmethod update-syntax-for-display (buffer (syntax prolog-syntax) top bot)
   (with-slots (parser lexer valid-parse) syntax
     (with-slots (climacs-syntax::lexemes valid-lex) lexer
-      (let ((scan (clone-mark (low-mark buffer) :left)))
+      (let ((scan (clone-mark (low-mark buffer) :left))
+	    (high-mark (high-mark buffer)))
         (setf (offset scan)
               (end-offset (lexeme lexer (1- valid-lex))))
-	;; lex as far as we need.  We actually win quite a lot if we
-	;; can implement the splicing described in the FIXME note,
-	;; below, because there's then a good chance that CLIM's
-	;; incremental redisplay will Do The Right Thing (on the EQ
-	;; lexemes)
-        (loop do (skip-inter-lexeme-objects lexer scan)
+        (loop named relex
+	      do (skip-inter-lexeme-objects lexer scan)
               until (end-of-buffer-p scan)
 	      until (mark<= bot (start-offset (lexeme lexer (1- valid-lex))))
-	      ;; FIXME: a further criterion is when scan matches the
-	      ;; start-offset of an element in lexemes, at which point
-	      ;; we know that the entirety of the rest of the old lex
-	      ;; is valid without doing any further work.
+	      do (when (mark>= scan high-mark)
+		   (do ()
+		       ((= (nb-lexemes lexer) valid-lex))
+		     (let ((l (lexeme lexer i)))
+		       (cond
+			 ((mark< scan (start-offset l))
+			  (return nil))
+			 ((mark= scan (start-offset l))
+			  (setf valid-lex (nb-lexemes lexer))
+			  (return-from relex))
+			 (t
+			  (delete* climacs-syntax::lexemes valid-lex))))))
 	      do (let* ((start-mark (clone-mark scan))
 			(lexeme (next-lexeme lexer scan))
 			(size (- (offset scan) (offset start-mark))))
@@ -874,16 +879,18 @@
 			 (slot-value lexeme 'climacs-syntax::size) size)
 		   (insert-lexeme lexer valid-lex lexeme)
 		   (incf valid-lex)))
-	;; remove lexemes which we know to be invalid
-	(let ((end (end-offset (lexeme lexer (1- valid-lex)))))
-	  (loop until (= (nb-lexemes lexer) valid-lex)
-		while (< (start-offset (lexeme lexer valid-lex)) end)
-		do (delete* climacs-syntax::lexemes valid-lex))))
+	;; remove lexemes which we know to be invalid.
+	;;
+	;; If we wanted some additional complexity, we could maintain
+	;; the possibility of not matching a start lexeme in the
+	;; visible region, but possibly elsewhere instead; however,
+	;; for now, simply assume that the VALID-LEX from above is
+	;; definitive.
+	(loop until (= (nb-lexemes lexer) valid-lex)
+	      do (delete* climacs-syntax::lexemes valid-lex)))
       ;; parse up to the limit of validity imposed by the lexer, or
-      ;; the bottom of the visible area
+      ;; the bottom of the visible area, whichever comes sooner
       (loop until (= valid-parse valid-lex)
-	    ;; NOTE: this ceases being the same condition as the above
-	    ;; as soon as the FIXME note above is implemented.
 	    until (mark<= bot (start-offset (lexeme lexer (1- valid-parse))))
 	    do (let ((current-token (lexeme lexer (1- valid-parse)))
 		     (next-lexeme (lexeme lexer valid-parse)))
@@ -900,7 +907,8 @@
     (let* ((low-mark (low-mark buffer))
 	   (high-mark (high-mark buffer)))
       (when (mark<= low-mark high-mark)
-	(with-slots (climacs-syntax::lexemes valid-lex) lexer
+	(with-slots (climacs-syntax::lexemes valid-lex)
+	    lexer
 	  (let ((start 1)
 		(end (nb-elements climacs-syntax::lexemes)))
 	    (loop while (< start end)
