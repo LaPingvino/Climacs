@@ -558,77 +558,77 @@ This operation is part of the buffer protocol because some
 implementations may implement it fairly efficiently, say O(log n)
 where n is the number of lines in the buffer.
 
-@chapter Redisplay and the syntax protocol 
+@chapter The syntax protocol
 
 @section General
 
-A buffer can be on display in several panes.  The redisplay
-algorithm is invoked on each such pane.  Each pane is associated
-with a distinguished mark called the `point' of the pane.  The point
-is a right-sticky mark independently of whether you are typing
-left-to-right or right-to-left.
-
-The redisplay function works by dispatching on an object of type
-syntax, which determines exactly how the buffer contents is going to
-be rendered in this particular pane. 
+A buffer may have a syntax module associated with it.  The syntax
+module usually consists of an incremental parser that analyzes the
+contents of the buffer and creates some kind of parse tree or other
+representation of the contents in order that it can be exploited by
+the redisplay module and by user commands. 
 
 @deftp {Protocol Class} syntax
 
 The base class for all syntaxes.  
-
-A syntax object is a placeholder for many kinds of information
-depending on the exact syntax, but in particular, it holds information
-(in the form of two marks) about what part of the buffer was on
-display after the previous invocation of the redisplay algorithm.
 @end deftp
 
-@deftp {:initarg} :pane
-Indicates the pane where rendering is to take place. 
-@end deftp
+The redisplay module exploits the syntax module for several things:
 
-All subclasses of the syntax class must support the :pane initarg.
-The pane that is passed as an initarg must have a valid buffer
-associated with it. 
+@itemize @bullet
+@item highlighting of various syntactic entities of the buffer
+@item highlighting of matching parenthesis,
+@item turning syntactic entities into clickable presentations,
+@item marking lines with inconsistent indentation,
+@item etc.
+@end itemize
 
-@deffn {Function} {redisplay-pane} pane
+User commands can use the syntax module for:
 
-This function is called by the command loop on every pane that is on
-display.  It simply calls redisplay-with-syntax with the pane and the
-syntax of the pane.  
+@itemize @bullet
+@item moving point by units that are specific to a particular buffer
+syntax, such as expressions, statements, or paragraphs,
+@item transposing syntactic units, 
+@item sending the text of a syntactic unit to a language processor,
+@item indenting lines according to the syntax,
+@item etc.
+@end itemize
+
+The view that the syntax module has of the buffer is updated only when
+needed, and then only for the parts of the buffer that are needed.
+Most syntax modules (such as for programming languages) need to
+compute their representations from the beginning of the buffer up to a
+particular point beyond which the structure of the buffer does not
+need to be known. 
+
+There are two situations where updating might be needed:
+
+@itemize @bullet
+@item before redisplay is about to show the contents of part of the
+buffer in a pane.
+@item as a result of a command that exploits the syntactic entities of
+the buffer contents. 
+@end itemize
+
+The first case is handled by the redisplay invoking the following
+generic function before proceeding to display the buffer contents in a
+pane:
+
+@deffn {Generic Function} {update-syntax} buffer syntax mark
+
+Inform the syntax module that it must update its view of the buffer
+contents up to the point indicated by the mark.  It is acceptable to
+pass an offset instead of the mark. 
 @end deffn
 
-@deffn {Generic Function} {redisplay-with-syntax} pane syntax
+The second case is handled by the syntax module itself when needed in
+order to correctly compute the effects of a command. 
 
-Redisplay a pane using a given syntax.  
-@end deffn
-
-This function can behave radically differently for different syntaxes.
-In all cases, however, it starts by determining the current dimensions
-of the pane, and compare that to the size of the region of the buffer
-that is currently on display.  Adjustments are made as necessary.  It
-then determines whether the point of the pane is within the region on
-display.  If not, a new region is computed in a way that the point is
-as close to the middle of the pane as possible.  It is important to
-maintain the region on display as much as possible, so as to avoid
-unnecessary scrolling. 
-
-The final step of this function is to render the region of the buffer
-that is to be displayed.  Some syntaxes can use simple algorithms that
-simply draw everything in the region.  Others can optimize so that
-only the portions of the pane that have actually changed are redrawn.
-
-The redisplay-with-syntax function also implements parsing of the
-buffer text.  
-
-Simple parsers may be restricted to dividing the text into words,
-possibly recognizing special words like URLs or email addresses, and
-then using `present' to render these words.
-
-More complicated parsers may use incremental parsing techniques to
-maintain sophisticated information of the buffer contents.  Such a
-parser needs to use the low-mark and high-mark to determine which
-parts of the buffer have changed, and recompute parsing information as
-necessary. 
+It is important to realize that the syntax module is not directly
+involved in displaying buffer contents in a pane.  In fact, the syntax
+module should work even if there is no graphic user interface
+present, and it should be exploitable by several, potentially totally
+different, display units. 
 
 @section Common Lisp syntax
 
@@ -1404,6 +1404,58 @@ number of expressions allowed, and we have reached it, we pop off the
 top element, increment the expression count of the new top entry, and
 perform a count check again.
 @end deffn
+
+@chapter Redisplay
+
+A buffer can be on display in several panes.  The redisplay
+algorithm is invoked on each such pane.  Each pane is associated
+with a distinguished mark called the `point' of the pane.  The point
+is a right-sticky mark independently of whether you are typing
+left-to-right or right-to-left.
+
+@deffn {Generic Function} {redisplay-pane} pane view current-p
+
+This function is invoked on all panes at the end of each iteration of
+the command loop.  The current-p argument is a boolean that indicates
+whether the pane is the one that currently has the input focus
+@end deffn
+
+For maximum flexibility, the redisplay-pane function dispatches off of
+two objects, a pane and a CLIM view.  The reason for this is that the
+same type of pane, such as a simple CLIM application pane, can be used
+to show the buffer contents in slightly different ways:
+
+@itemize @bullet
+@item highlighted or not,
+@item highlighting tabulation characters (for makefiles)
+@item showing control characters in a special font
+@item etc.
+@end itemize
+
+These minor variations are obtained by creating a special view type
+and a method that dispatches on that type.
+
+Major differences such as the need to have pane-specific output
+recording are best handled by creating a different pane type. 
+
+The redisplay-pane function may use the current-p argument to slightly
+alter the presentation such as drawing the cursor in a different
+color. 
+
+The redisplay-pane function starts by determining the current
+dimensions of the pane, and compare that to the size of the region of
+the buffer that is currently on display.  Adjustments are made as
+necessary.  It then determines whether the point of the pane is within
+the region on display.  If not, a new region is computed in a way that
+the point is as close to the middle of the pane as possible.  It is
+important to maintain the region on display as much as possible, so as
+to avoid unnecessary scrolling.
+
+The final step of this function is to render the region of the buffer
+that is to be displayed.  Some pane types can use simple algorithms
+that simply draw everything in the region.  Others can optimize so
+that only the portions of the pane that have actually changed are
+redrawn.
 
 @chapter The undo protocol
 
