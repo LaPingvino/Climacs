@@ -684,6 +684,18 @@
 						(setf (offset dabbrev-expansion-mark) offset))))
 		      (move))))))))
 	   
+(define-named-command com-beginning-of-paragraph ()
+  (let* ((pane (win *application-frame*))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (beginning-of-paragraph point syntax)))
+
+(define-named-command com-end-of-paragraph ()
+  (let* ((pane (win *application-frame*))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (end-of-paragraph point syntax)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Global command table
@@ -729,6 +741,8 @@
 (global-set-key '(#\d :meta) 'com-delete-word)
 (global-set-key '(#\Backspace :meta) 'com-backward-delete-word)
 (global-set-key '(#\/ :meta) 'com-dabbrev-expand)
+(global-set-key '(#\a :control :meta) 'com-beginning-of-paragraph)
+(global-set-key '(#\e :control :meta) 'com-end-of-paragraph)
 
 (global-set-key '(:up) 'com-previous-line)
 (global-set-key '(:down) 'com-next-line)

@@ -72,7 +72,8 @@
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
   (:export #:syntax #:define-syntax
 	   #:basic-syntax
-	   #:update-syntax))
+	   #:update-syntax
+	   #:beginning-of-paragraph #:end-of-paragraph))
 
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
