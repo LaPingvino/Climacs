@@ -143,7 +143,8 @@ the mark, according to the specified syntax."))
 (defclass rule-item () ())
 
 (defclass incomplete-item (rule-item)
-  ((rule :initarg :rule :reader rule)
+  ((orig-state :initarg :orig-state :reader orig-state)
+   (rule :initarg :rule :reader rule)
    (dot-position :initarg :dot-position :reader dot-position)
    (parse-trees :initarg :parse-trees :reader parse-trees)
    (suffix :initarg :suffix :reader suffix)))
@@ -171,6 +172,7 @@ the mark, according to the specified syntax."))
 	   nil)
 	  ((functionp remaining)
 	   (make-instance 'incomplete-item
+	      :orig-state (orig-state prev-item)
 	      :rule (rule prev-item)
 	      :dot-position (1+ (dot-position prev-item))
 	      :parse-trees (cons parse-tree (parse-trees prev-item))
@@ -249,6 +251,7 @@ the mark, according to the specified syntax."))
 			  (or (subtypep sym1 sym2) (subtypep sym2 sym1)))
 		    (handle-item (if (functionp (right-hand-side rule))
 				     (make-instance 'incomplete-item
+					:orig-state to-state
 					:rule rule
 					:dot-position 0
 					:parse-trees '()
@@ -273,6 +276,7 @@ the mark, according to the specified syntax."))
 			  (subtypep sym (target parser))))
 		(handle-item (if (functionp (right-hand-side rule))
 				 (make-instance 'incomplete-item
+				    :orig-state initial-state
 				    :rule rule
 				    :dot-position 0
 				    :parse-trees '()
