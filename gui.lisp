@@ -856,54 +856,32 @@
 ;;; 
 ;;; Commands for splitting windows
 
-;;; put this in for real when we find a solution for the problem
-;;; it causes for com-delete-window 
-;; (defun replace-constellation (constellation additional-constellation vertical-p)
-;;   (let* ((parent (sheet-parent constellation))
-;; 	 (children (sheet-children parent))
-;; 	 (first (first children))
-;; 	 (second (second children))
-;;          (adjust (make-pane 'clim-extensions:box-adjuster-gadget)))
-;;     (assert (member constellation children))
-;;     (cond ((eq constellation first)
-;; 	   (sheet-disown-child parent constellation)
-;; 	   (let ((new (if vertical-p
-;; 			  (vertically ()
-;;                             constellation adjust additional-constellation)
-;; 			  (horizontally ()
-;;                             constellation adjust additional-constellation))))
-;; 	     (sheet-adopt-child parent new)
-;; 	     (reorder-sheets parent (list new second))))
-;; 	  (t
-;; 	   (sheet-disown-child parent constellation)
-;; 	   (let ((new (if vertical-p
-;; 			  (vertically ()
-;;                             constellation adjust additional-constellation)
-;; 			  (horizontally ()
-;;                             constellation adjust additional-constellation))))
-;; 	     (sheet-adopt-child parent new)
-;; 	     (reorder-sheets parent (list first new)))))))
-
+;; put this in for real when we find a solution for the problem
+;; it causes for com-delete-window 
 (defun replace-constellation (constellation additional-constellation vertical-p)
   (let* ((parent (sheet-parent constellation))
 	 (children (sheet-children parent))
 	 (first (first children))
-	 (second (second children)))
+	 (second (second children))
+	 (third (third children))
+         (adjust (make-pane 'clim-extensions:box-adjuster-gadget)))
+    (format *query-io* "~S" children)
     (assert (member constellation children))
-    (cond ((eq constellation first)
-	   (sheet-disown-child parent constellation)
-	   (let ((new (if vertical-p
-			  (vertically () constellation additional-constellation)
-			  (horizontally () constellation additional-constellation))))
-	     (sheet-adopt-child parent new)
-	     (reorder-sheets parent (list new second))))
-	  (t
-	   (sheet-disown-child parent constellation)
-	   (let ((new (if vertical-p
-			  (vertically () constellation additional-constellation)
-			  (horizontally () constellation additional-constellation))))
-	     (sheet-adopt-child parent new)
-	     (reorder-sheets parent (list first new)))))))
+    (sheet-disown-child parent constellation)
+    (let ((new (if vertical-p
+		   (vertically ()
+		     constellation adjust additional-constellation)
+		   (horizontally ()
+		     constellation adjust additional-constellation))))
+      (sheet-adopt-child parent new)
+      (reorder-sheets parent 
+		      (if (eq constellation first)
+			  (if third
+			      (list new second third)
+			      (list new second))
+			  (if third
+			      (list first second new)
+			      (list first new)))))))
 
 (defun parent3 (sheet)
   (sheet-parent (sheet-parent (sheet-parent sheet))))
@@ -967,53 +945,36 @@ as two values"
 	(append (cdr (windows *application-frame*))
 		(list (car (windows *application-frame*))))))
 
-(define-named-command com-delete-window ()
-  (unless (null (cdr (windows *application-frame*)))
-    (let* ((constellation (parent3 (current-window)))
-	   (box (sheet-parent constellation))
-	   (box-children (sheet-children box))
-	   (other (if (eq constellation (first box-children))
-		      (second box-children)
-		      (first box-children)))
-	   (parent (sheet-parent box))
-	   (children (sheet-children parent))
-	   (first (first children))
-	   (second (second children)))
-      (pop (windows *application-frame*))
-      (sheet-disown-child box other)
-      (sheet-disown-child parent box)
-      (sheet-adopt-child parent other)
-      (reorder-sheets parent (if (eq box first)
-				 (list other second)
-				 (list first other))))))
-
 (define-named-command com-single-window ()
   (loop until (null (cdr (windows *application-frame*)))
 	do (rotatef (car (windows *application-frame*))
 		    (cadr (windows *application-frame*)))
 	   (com-delete-window)))
 
-;; (define-named-command com-delete-window ()
-;;   (unless (null (cdr (windows *application-frame*)))
-;;     (let* ((constellation (parent3 (current-window)))
-;; 	   (box (sheet-parent constellation))
-;; 	   (box-children (sheet-children box))
-;; 	   (other (if (eq constellation (first box-children))
-;; 		      (third box-children)
-;; 		      (first box-children)))
-;; 	   (parent (sheet-parent box))
-;; 	   (children (sheet-children parent))
-;; 	   (first (first children))
-;; 	   (second (second children))
-;; 	   (third (third children)))
-;;       (pop (windows *application-frame*))
-;;       (sheet-disown-child box other)
-;;       (sheet-disown-child parent box)
-;; 	 (sheet-adopt-child parent other)
-;;       (cond ((eq box first)
-;; 	     (reorder-sheets parent (list other second third)))
-;; 	    (t
-;; 	     (reorder-sheets parent (list first second other)))))))
+(define-named-command com-delete-window ()
+  (unless (null (cdr (windows *application-frame*)))
+    (let* ((constellation (parent3 (current-window)))
+	   (box (sheet-parent constellation))
+	   (box-children (sheet-children box))
+	   (other (if (eq constellation (first box-children))
+		      (third box-children)
+		      (first box-children)))
+	   (parent (sheet-parent box))
+	   (children (sheet-children parent))
+	   (first (first children))
+	   (second (second children))
+	   (third (third children)))
+      (pop (windows *application-frame*))
+      (sheet-disown-child box other)
+      (sheet-disown-child parent box)
+	 (sheet-adopt-child parent other)
+      (reorder-sheets parent (if (eq box first)
+				 (if third
+				     (list other second third)
+				     (list other second))
+				 (if third
+				     (list first second other)
+				     (list first other)))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
