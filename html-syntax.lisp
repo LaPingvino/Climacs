@@ -149,6 +149,31 @@
 	  (display-parse-tree items syntax pane)
 	  (display-parse-tree item syntax pane)))))     
 
+;;;;;;;;;;;;;;; string
+
+(defclass string-lexeme (html-lexeme) ())
+
+(add-html-rule (string-lexeme -> ((html-lexeme (not (word-is html-lexeme "\""))))))
+
+(defclass html-string (html-token)
+  ((start :initarg :start)
+   (lexemes :initarg :lexemes)
+   (end :initarg :end)))
+
+(define-list string-lexemes empty-string-lexeme nonempty-string-lexeme string-lexeme)
+
+(add-html-rule (html-string -> ((start delimiter (word-is start "\""))
+				string-lexemes
+				(end delimiter (word-is end "\"")))
+			    :start start :lexemes string-lexemes :end end))
+
+(defmethod display-parse-tree ((entity html-string) (syntax html-syntax) pane)
+  (with-slots (start lexemes end) entity
+     (display-parse-tree start syntax pane)
+     (with-text-face (pane :italic)
+       (display-parse-tree lexemes syntax pane))
+     (display-parse-tree end syntax pane)))
+
 ;;;;;;;;;;;;;;; attributes
 
 (defclass html-attribute (html-nonterminal)
@@ -193,6 +218,22 @@
 (defmethod display-parse-tree ((entity dir-attr) (syntax html-syntax) pane)
   (with-slots (dir) entity
      (display-parse-tree dir syntax pane)))
+
+
+;;;;;;;;;;;;;;; href attribute
+
+(defclass href-attr (html-attribute)
+  ((href :initarg :href)))
+
+(add-html-rule (href-attr -> ((name word (word-is name "href"))
+			      (equals delimiter (and (= (end-offset name) (start-offset equals))
+						     (word-is equals "=")))
+			      (href html-string))
+			  :name name :equals equals :href href))
+
+(defmethod display-parse-tree ((entity href-attr) (syntax html-syntax) pane)
+  (with-slots (href) entity
+     (display-parse-tree href syntax pane)))
 
 
 ;;;;;;;;;;;;;;; <html>-tag
@@ -295,36 +336,35 @@
 
 ;;;;;;;;;;;;;;; <a>-tag
 
-(defclass a-tag-item (html-nonterminal)
-  ((item :initarg :item)))
+(defclass <a>-attribute (html-nonterminal)
+  ((attribute :initarg :attribute)))
 
-(add-html-rule (a-tag-item -> (word) :item word))
-(add-html-rule (a-tag-item -> (delimiter) :item delimiter))
+(add-html-rule (<a>-attribute -> (href-attr) :attribute href-attr))
 
-(defmethod display-parse-tree ((entity a-tag-item) (syntax html-syntax) pane)
-  (with-slots (item) entity
-     (display-parse-tree item syntax pane)))
+(defmethod display-parse-tree ((entity <a>-attribute) (syntax html-syntax) pane)
+  (with-slots (attribute) entity
+     (display-parse-tree attribute syntax pane)))
 
-(define-list a-tag-items empty-a-tag-items nonempty-a-tag-items a-tag-item)
+(define-list <a>-attributes empty-<a>-attributes nonempty-<a>-attributes <a>-attribute)
 
 (defclass <a> (html-tag)
   ((start :initarg :start)
    (name :initarg :name)
-   (items :initarg :items)
+   (attributes :initarg :attributes)
    (end :initarg :end)))
 
 (add-html-rule (<a> -> (tag-start
-				 (word (and (= (end-offset tag-start) (start-offset word))
-					    (word-is word "a")))
-				 a-tag-items
-				 tag-end)
-		    :start tag-start :name word :items a-tag-items :end tag-end))
+			(word (and (= (end-offset tag-start) (start-offset word))
+				   (word-is word "a")))
+			<a>-attributes
+			tag-end)
+		    :start tag-start :name word :attributes <a>-attributes :end tag-end))
 
 (defmethod display-parse-tree ((entity <a>) (syntax html-syntax) pane)
-  (with-slots (start name items end) entity
+  (with-slots (start name attributes end) entity
     (display-parse-tree start syntax pane)
     (display-parse-tree name syntax pane)
-    (display-parse-tree items syntax pane)
+    (display-parse-tree attributes syntax pane)
     (display-parse-tree end syntax pane)))
 
 (define-end-tag </a> "a")
@@ -340,7 +380,8 @@
 (defmethod display-parse-tree ((entity a) (syntax html-syntax) pane)
   (with-slots (<a> items </a>) entity
      (display-parse-tree <a> syntax pane)
-     (display-parse-tree items syntax pane)     
+     (with-text-face (pane :bold)
+       (display-parse-tree items syntax pane))
      (display-parse-tree </a> syntax pane)))
 
 ;;;;;;;;;;;;;;; head
