@@ -28,7 +28,10 @@ are not found neither in Goatee nor in Portable Hemlock:
 How to contribute
 -----------------
 
-[fill this in when we have a cl.net project]
+Discussion happens on the mailing lists accessible from
+<URL:http://common-lisp.net/project/climacs/>; arcives are likewise
+accessible.  Contributions to make the framework and the editor a
+nicer environment are actively sought.
 
 What to work on
 ---------------
@@ -64,4 +67,4 @@ We ARE however interested in the following items:
 Installation
 ------------
 
-To install Climacs, se the INSTALL file.
+To install Climacs, see the INSTALL file.
