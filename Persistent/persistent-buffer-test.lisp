@@ -248,11 +248,14 @@
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((m (make-instance 'persistent-left-sticky-mark
-			    :buffer buffer :offset 3)))
+			    :buffer buffer :offset 3))
+	  (m2 (make-instance 'persistent-left-sticky-mark
+			     :buffer buffer :offset 5)))
       (insert-sequence m "ClimacS")
       (and (= (size buffer) 14)
 	   (eq (buffer m) buffer)
 	   (= (offset m) 3)
+	   (= (offset m2) 12)
 	   (buffer-sequence buffer 0 14))))
   "cliClimacSmacs")
 
@@ -260,11 +263,14 @@
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((m (make-instance 'persistent-right-sticky-mark
-			    :buffer buffer :offset 3)))
+			    :buffer buffer :offset 3))
+	  (m2 (make-instance 'persistent-right-sticky-mark
+			     :buffer buffer :offset 5)))
       (insert-sequence m "ClimacS")
       (and (= (size buffer) 14)
 	   (eq (buffer m) buffer)
 	   (= (offset m) 10)
+	   (= (offset m2) 12)
 	   (buffer-sequence buffer 0 14))))
   "cliClimacSmacs")
 
@@ -1062,11 +1068,14 @@ climacs")
   (let ((buffer (make-instance 'obinseq-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((m (make-instance 'persistent-left-sticky-mark
-			    :buffer buffer :offset 3)))
+			    :buffer buffer :offset 3))
+	  (m2 (make-instance 'persistent-left-sticky-mark
+			     :buffer buffer :offset 5)))
       (insert-sequence m "ClimacS")
       (and (= (size buffer) 14)
 	   (eq (buffer m) buffer)
 	   (= (offset m) 3)
+	   (= (offset m2) 12)
 	   (buffer-sequence buffer 0 14))))
   "cliClimacSmacs")
 
@@ -1074,11 +1083,14 @@ climacs")
   (let ((buffer (make-instance 'obinseq-buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((m (make-instance 'persistent-right-sticky-mark
-			    :buffer buffer :offset 3)))
+			    :buffer buffer :offset 3))
+	  (m2 (make-instance 'persistent-right-sticky-mark
+			     :buffer buffer :offset 5)))
       (insert-sequence m "ClimacS")
       (and (= (size buffer) 14)
 	   (eq (buffer m) buffer)
 	   (= (offset m) 10)
+	   (= (offset m2) 12)
 	   (buffer-sequence buffer 0 14))))
   "cliClimacSmacs")
 

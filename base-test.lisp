@@ -770,3 +770,107 @@ climacs  ")
        (buffer-sequence buffer 0 (size buffer))
        (offset m))))
   "Cli Ma Cs climacs" 9)
+
+(deftest standard-buffer-tabify-buffer-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "c       l       im              acs")
+    (climacs-base::tabify-buffer-region buffer 0 (size buffer) 8)    
+    (buffer-sequence buffer 0 (size buffer)))
+  "c	l	im		acs")
+
+(deftest standard-buffer-tabify-buffer-region.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "c      l       im              acs")
+    (climacs-base::tabify-buffer-region buffer 0 (size buffer) 8)    
+    (buffer-sequence buffer 0 (size buffer)))
+  "c      l       im	       acs")
+
+(deftest standard-buffer-tabify-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "clim    acs")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 3))
+	  (m2 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 7)))
+      (tabify-region m2 m1 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "clim	acs")
+
+(deftest standard-buffer-tabify-region.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "clim    acs")
+    (let ((m1 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 3)))
+      (tabify-region 7 m1 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "clim	acs")
+
+(deftest standard-buffer-tabify-region.test-3
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "clim    acs")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 7)))
+      (tabify-region 3 m1 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "clim	acs")
+
+(deftest standard-buffer-untabify-buffer-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "c	l	im		acs")
+    (climacs-base::untabify-buffer-region buffer 0 (size buffer) 8)
+    (buffer-sequence buffer 0 (size buffer)))
+  "c       l       im              acs")
+
+(deftest standard-buffer-untabify-buffer-region.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "c      l       im	       acs")
+    (climacs-base::untabify-buffer-region buffer 0 (size buffer) 8)    
+    (buffer-sequence buffer 0 (size buffer)))
+  "c      l       im              acs")
+
+(deftest standard-buffer-untabify-region.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "clim	acs")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 3))
+	  (m2 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 5)))
+      (untabify-region m2 m1 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "clim    acs")
+
+(deftest standard-buffer-untabify-region.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "clim	acs")
+    (let ((m1 (make-instance 'standard-right-sticky-mark
+			     :buffer buffer :offset 3)))
+      (untabify-region 5 m1 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "clim    acs")
+
+(deftest standard-buffer-untabify-region.test-3
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "clim	acs")
+    (let ((m1 (make-instance 'standard-left-sticky-mark
+			     :buffer buffer :offset 5)))
+      (untabify-region 3 m1 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "clim    acs")
+
+(deftest standard-buffer-indent-line.test-1
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "  	climacs   ")
+    (let ((m (make-instance 'standard-left-sticky-mark
+			    :buffer buffer :offset 0)))
+      (indent-line m 4 nil)
+      (buffer-sequence buffer 0 (size buffer))))
+  "    climacs   ")
+
+(deftest standard-buffer-indent-line.test-2
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "  	climacs   ")
+    (let ((m (make-instance 'standard-right-sticky-mark
+			    :buffer buffer :offset 0)))
+      (indent-line m 5 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "	 climacs   ")
