@@ -90,8 +90,6 @@ the size of the buffer."))
 (defclass standard-right-sticky-mark (right-sticky-mark mark-mixin) ()
   (:documentation "A right-sticky-mark subclass suitable for use in a standard-buffer"))
 
-(defclass standard-right-sticky-mark (right-sticky-mark mark-mixin) ())
-
 (defmethod initialize-instance :after ((mark left-sticky-mark) &rest args &key (offset 0))
   "Associates a created mark with the buffer it was created for."
   (declare (ignore args))
