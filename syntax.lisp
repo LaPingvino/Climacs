@@ -199,6 +199,7 @@
 	 (declare (ignore x y w))
 	 (let ((nb-lines-in-pane (max 1 (floor h (+ height (stream-vertical-spacing pane)))))
 	       (nb-lines-on-display (1+ (number-of-lines-in-region top bot))))
+	   (format *query-io* "~a ~a~%" (offset top) (offset bot))
 	   ;; adjust the region on display to fit the pane
 	   (loop repeat (- nb-lines-on-display nb-lines-in-pane)
 		 do (beginning-of-line bot)
@@ -226,6 +227,14 @@
 		   do (incf (offset bot))
 		      (end-of-line bot))))))))
 
+(defun page-down (pane syntax)
+  (position-window pane syntax)
+  (with-slots (top bot cache) syntax
+     (when (mark> (size (buffer bot)) bot)
+       (setf (offset top) (offset bot))
+       (beginning-of-line top)
+       (setf (offset (point pane)) (offset top))
+       (setf cache nil))))
 
 ;;; this one should not be necessary. 
 (defun round-up (x)
