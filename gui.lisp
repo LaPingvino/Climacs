@@ -27,9 +27,10 @@
 (defclass filename-mixin ()
   ((filename :initform nil :accessor filename)))
 
-(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin)
-  ((name :initform "*scratch*" :accessor name)
-   (needs-saving :initform nil :accessor needs-saving)))
+(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin)
+  ((needs-saving :initform nil :accessor needs-saving))
+  (:default-initargs :name "*scratch*"))
+
 
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
@@ -94,9 +95,10 @@
 (defun display-info (frame pane)
   (let* ((win (win frame))
 	 (buf (buffer win))
-	 (name-info (format nil "   ~a   ~a"
+	 (name-info (format nil "   ~a   ~a   Syntax: ~a"
 			    (if (needs-saving buf) "**" "--")
-			    (name buf))))
+			    (name buf)
+			    (name (syntax win)))))
     (princ name-info pane)))
 
 (defun display-win (frame pane)
@@ -420,6 +422,11 @@
 (define-named-command com-set-mark ()
   (with-slots (point mark) (win *application-frame*)
 	      (setf mark (clone-mark point))))
+
+(define-named-command com-set-syntax ()
+  (setf (syntax (win *application-frame*))
+	(make-instance (accept 'syntax :prompt "Set Syntax")
+	   :pane (win *application-frame*))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands

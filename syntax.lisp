@@ -24,7 +24,7 @@
 
 (in-package :climacs-syntax)
 
-(defclass syntax () ())
+(defclass syntax (name-mixin) ())
 
 (defgeneric redisplay-with-syntax (pane syntax))
 
@@ -34,7 +34,37 @@
 
 (defgeneric full-redisplay (pane syntax))
 
-(defclass basic-syntax (syntax)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Syntax completion
+
+(defparameter *syntaxes* '())
+
+(defmacro define-syntax (class-name (name superclasses) &body body)
+  `(progn (push '(,name . ,class-name) *syntaxes*)
+	  (defclass ,class-name ,superclasses
+	       ,@body
+	    (:default-initargs :name ,name))))
+
+(define-presentation-method accept
+    ((type syntax) stream (view textual-view) &key)
+  (multiple-value-bind (pathname success string)
+      (complete-input stream
+		      (lambda (so-far action)
+			(complete-from-possibilities
+			 so-far *syntaxes* '() :action action
+			 :name-key #'car
+			 :value-key #'cdr))
+		      :partial-completers '(#\Space)
+		      :allow-any-input t)
+    (declare (ignore success))
+    (or pathname string)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Basic syntax
+
+(define-syntax basic-syntax ("Basic" (syntax))
   ((top :reader top)
    (bot :reader bot)
    (scan :reader scan)
@@ -58,6 +88,8 @@
 (define-presentation-type url ()
   :inherit-from 'string)
 
+(defgeneric present-contents (contenst pane syntax))
+
 (defmethod present-contents (contents pane (syntax basic-syntax))
   (unless (null contents)
     (present contents
@@ -65,6 +97,8 @@
 		 'url
 		 'string)
 	     :stream pane)))
+
+(defgeneric display-line (pane syntax line))
 
 (defmethod display-line (pane (syntax basic-syntax) line)
   (let ((saved-index nil)
@@ -116,6 +150,8 @@
 				 cursor-y y)))
 		       (terpri pane)
 		       (incf scan))))))
+
+(defgeneric compute-cache (pane syntax))
 
 (defmethod compute-cache (pane (syntax basic-syntax))
   (with-slots (top bot cache) syntax
@@ -225,7 +261,7 @@
 ;;;
 ;;; Texinfo syntax
 
-(defclass texinfo-syntax (basic-syntax) ())
+(define-syntax texinfo-syntax ("Texinfo" (basic-syntax)) ())
 
 (define-presentation-type texinfo-command ()
   :inherit-from 'string)
@@ -236,4 +272,5 @@
 	(with-drawing-options (pane :ink +red+)
 	  (present contents 'texinfo-command :stream pane))
 	(present contents 'string :stream pane))))
+
 

@@ -135,3 +135,12 @@ acceptable to pass an offset in place of one of the marks"))
 	while (constituentp (object-before mark))
 	do (delete-range mark -1)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Named objects
+
+(defgeneric name (obj))
+
+(defclass name-mixin ()
+  ((name :initarg :name :accessor name)))
+

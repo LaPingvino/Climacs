@@ -48,7 +48,8 @@
 	   #:constituentp #:whitespacep
 	   #:forward-word #:backward-word
 	   #:delete-word #:backward-delete-word
-	   #:input-from-stream #:output-to-stream))
+	   #:input-from-stream #:output-to-stream
+	   #:name-mixin #:name))
 
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)
