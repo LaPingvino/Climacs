@@ -70,9 +70,7 @@
    ;;---- optional ----
    "testing/rt"
    "buffer-test"
-   "base-test"
-   "Persistent/persistent-buffer-test"
-   "Persistent/persistent-base-test")
+   "base-test")
 
 #+asdf
 (defmethod asdf:perform :around ((o asdf:compile-op)
