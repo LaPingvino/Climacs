@@ -922,6 +922,30 @@ as two values"
 	     (sheet-adopt-child parent other)
 	     (reorder-sheets parent (list first other)))))))
 
+;; (define-named-command com-delete-window ()
+;;   (unless (null (cdr (windows *application-frame*)))
+;;     (let* ((constellation (parent3 (current-window)))
+;; 	   (box (sheet-parent constellation))
+;; 	   (box-children (sheet-children box))
+;; 	   (other (if (eq constellation (first box-children))
+;; 		      (third box-children)
+;; 		      (first box-children)))
+;; 	   (parent (sheet-parent box))
+;; 	   (children (sheet-children parent))
+;; 	   (first (first children))
+;; 	   (second (second children))
+;; 	   (third (third children)))
+;;       (pop (windows *application-frame*))
+;;       (sheet-disown-child box other)
+;;       (cond ((eq box first)
+;; 	     (sheet-disown-child parent box)
+;; 	     (sheet-adopt-child parent other)
+;; 	     (reorder-sheets parent (list other second third)))
+;; 	    (t
+;; 	     (sheet-disown-child parent box)
+;; 	     (sheet-adopt-child parent other)
+;; 	     (reorder-sheets parent (list first second other)))))))
+
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
 

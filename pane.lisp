@@ -315,7 +315,7 @@
 	     for id from 0 below (nb-elements cache)
 	     do (setf scan start-offset)
 		(updating-output
-		    (pane :unique-id id
+		    (pane :unique-id (element* cache id)
 			  :cache-value (if (<= start-offset
 					       (offset (point pane))
 					       (+ start-offset (length (element* cache id))))
