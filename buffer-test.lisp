@@ -693,3 +693,117 @@ climacs")
       (declare (ignore c))
       'caught))
   caught)
+
+
+;;;; performance tests
+
+(defmacro deftimetest (name form &rest results)
+  `(deftest ,name
+     (time
+      (progn
+	(format t "~&; Performance test ~a" ',name)
+	,form))
+     ,@results))
+
+(deftimetest standard-buffer-performance.test-1
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-object b 0 #\a)
+     finally (return (size b)))
+  100000)
+
+(deftimetest standard-buffer-performance.test-1a
+  (let ((b (loop with b = (make-instance 'standard-buffer)
+	      for i from 0 below 100000
+	      do (insert-buffer-object b 0 #\a)
+	      finally (return b))))
+    (loop for i from 0 below 100000
+       do (delete-buffer-range b 0 1)
+       finally (return (size b))))
+  0)
+
+(deftimetest standard-buffer-performance.test-1b
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-object b (size b) #\a)
+     finally (return (size b)))
+  100000)
+
+(deftimetest standard-buffer-performance.test-1ba
+  (let ((b (loop with b = (make-instance 'standard-buffer)
+	      for i from 0 below 100000
+	      do (insert-buffer-object b (size b) #\a)
+	      finally (return b))))
+    (loop for i from 0 below 100000
+       do (delete-buffer-range b 0 1)
+       finally (return (size b))))
+  0)
+
+(deftimetest standard-buffer-performance.test-1c
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-object b (floor (size b) 2) #\a)
+     finally (return (size b)))
+  100000)
+
+(deftimetest standard-buffer-performance.test-1ca
+  (let ((b (loop with b = (make-instance 'standard-buffer)
+	      for i from 0 below 100000
+	      do (insert-buffer-object b (floor (size b) 2) #\a)
+	      finally (return b))))
+    (loop for i from 0 below 100000
+       do (delete-buffer-range b 0 1)
+       finally (return (size b))))
+  0)
+
+(deftimetest standard-buffer-performance.test-1cb
+  (let ((b (loop with b = (make-instance 'standard-buffer)
+	      for i from 0 below 100000
+	      do (insert-buffer-object b (floor (size b) 2) #\a)
+	      finally (return b))))
+    (loop for i from 0 below 100000
+       do (delete-buffer-range b (floor (size b) 2) 1)
+       finally (return (size b))))
+  0)
+
+(deftimetest standard-buffer-performance.test-2
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-sequence b 0 "a")
+     finally (return (size b)))
+  100000)
+
+(deftimetest standard-buffer-performance.test-2b
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-sequence b (size b) "a")
+     finally (return (size b)))
+  100000)
+
+(deftimetest standard-buffer-performance.test-2c
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-sequence b (floor (size b) 2) "a")
+     finally (return (size b)))
+  100000)
+
+(deftimetest standard-buffer-performance.test-3
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-sequence b 0 "abcdefghij")
+     finally (return (size b)))
+  1000000)
+
+(deftimetest standard-buffer-performance.test-3b
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-sequence b (size b) "abcdefghij")
+     finally (return (size b)))
+  1000000)
+
+(deftimetest standard-buffer-performance.test-3c
+  (loop with b = (make-instance 'standard-buffer)
+     for i from 0 below 100000
+     do (insert-buffer-sequence b (floor (size b) 2) "abcdefghij")
+     finally (return (size b)))
+  1000000)

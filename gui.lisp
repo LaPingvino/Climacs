@@ -85,7 +85,7 @@
 	 int)))
   (:top-level (climacs-top-level)))
 
-(defmacro current-window ()
+(defmacro current-window () ; shouldn't this be an inlined function? --amb
   `(car (windows *application-frame*)))
 
 (defmethod redisplay-frame-panes :around ((frame climacs) &rest args)
@@ -284,9 +284,8 @@
   (frame-exit *application-frame*))
 
 (define-named-command com-toggle-overwrite-mode ()
-  (let ((win (current-window)))
-    (setf (slot-value win 'overwrite-mode)
-	  (not (slot-value win 'overwrite-mode)))))
+  (with-slots (overwrite-mode) (current-window)
+    (setf overwrite-mode (not overwrite-mode))))
 
 (defun insert-character (char)
   (let* ((win (current-window))
