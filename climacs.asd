@@ -42,7 +42,7 @@
 						     :defaults *climacs-directory*))
 			     collect `(:file ,(pathname-name p) :pathname ,p))))))
 
-(climacs-defsystem (:climacs :depends-on (:clim-clx :flexichain))
+(climacs-defsystem (:climacs :depends-on (:mcclim :flexichain))
    "Persistent/binseq-package"
    "Persistent/binseq"
    "Persistent/obinseq"
