@@ -56,7 +56,7 @@
 	   #:expand-abbrev #:abbrev-mixin #:possibly-expand-abbrev))
 
 (defpackage :climacs-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base)
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
   (:export #:syntax #:basic-syntax #:texinfo-syntax
 	   #:redisplay-pane #:redisplay-with-syntax #:full-redisplay
 	   #:url))

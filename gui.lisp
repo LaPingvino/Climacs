@@ -354,10 +354,10 @@
        (setf (filename buffer) filename
 	     (name buffer) (pathname-filename filename)
 	     (needs-saving buffer) nil)
+       (beginning-of-buffer point)
        ;; this one is needed so that the buffer modification protocol
        ;; resets the low and high marks after redisplay
-       (redisplay-frame-panes *application-frame*)
-       (beginning-of-buffer point))))
+       (redisplay-frame-panes *application-frame*))))
 
 (define-named-command com-save-buffer ()
   (let* ((buffer (buffer (win *application-frame*)))
