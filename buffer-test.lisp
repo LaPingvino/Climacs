@@ -4,8 +4,9 @@
 ;;; 
 
 (in-package :cl-user)
-(use-package :rtest)
-(use-package :climacs-buffer)
+(eval-when (:compile-toplevel :load-toplevel)
+  (use-package :rtest)
+  (use-package :climacs-buffer))
 
 (deftest standard-buffer-make-instance.test-1
   (let* ((buffer (make-instance 'standard-buffer))
