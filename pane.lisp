@@ -361,6 +361,7 @@
   (let ((nb-lines-in-pane (nb-lines-in-pane pane)))
     (with-slots (top bot cache) pane
        (setf (offset bot) (offset top))
+       (end-of-line bot)
        (loop until (end-of-buffer-p bot)
 	     repeat (1- nb-lines-in-pane)
 	     do (forward-object bot)
@@ -392,8 +393,8 @@
 ;;; Make the cache reflect the contents of the buffer starting at top,
 ;;; trying to preserve contents as much as possible, and inserting a
 ;;; nil entry where buffer contents is unknonwn.  The size of the
-;;; cache size at the end may be smaller than, equal to, or greater
-;;; than the number of lines in the pane. 
+;;; cache at the end may be smaller than, equal to, or greater than
+;;; the number of lines in the pane.
 (defun adjust-cache (pane)
   (let* ((buffer (buffer pane))
 	 (high-mark (high-mark buffer))
