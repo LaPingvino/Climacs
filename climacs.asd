@@ -59,7 +59,10 @@
    "text-syntax"
    "kill-ring"
    "pane"
-   "gui")
+   "gui"
+   ;;---- optional ----
+   "testing/rt"
+   "buffer-test")
 
 #+asdf
 (defmethod asdf:perform :around ((o asdf:compile-op)
