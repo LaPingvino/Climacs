@@ -49,6 +49,7 @@
    "Flexichain/utilities"
    "Flexichain/flexichain"
    "Flexichain/flexicursor"
+   "translate"
    "packages"
    "buffer"
    "base"

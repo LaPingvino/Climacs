@@ -598,3 +598,152 @@
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
 (c-x-set-key '(#\w :control) 'com-write-buffer)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Some Unicode stuff
+
+(define-named-command com-insert-charcode ((code 'integer :prompt "Code point"))
+  (insert-object (point (win *application-frame*)) (code-char code)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Dead-acute command table
+
+(make-command-table 'dead-acute-climacs-table :errorp nil)
+
+(add-menu-item-to-command-table 'global-climacs-table "dead-acute"
+				:menu 'dead-acute-climacs-table
+				:keystroke '(:dead--acute))
+
+(defun dead-acute-set-key (gesture command)
+  (add-command-to-command-table command 'dead-acute-climacs-table
+				:keystroke gesture :errorp nil))
+
+(dead-acute-set-key '(#\A) '(com-insert-charcode 193))
+(dead-acute-set-key '(#\E) '(com-insert-charcode 201))
+(dead-acute-set-key '(#\I) '(com-insert-charcode 205))
+(dead-acute-set-key '(#\O) '(com-insert-charcode 211))
+(dead-acute-set-key '(#\U) '(com-insert-charcode 218))
+(dead-acute-set-key '(#\Y) '(com-insert-charcode 221))
+(dead-acute-set-key '(#\a) '(com-insert-charcode 225))
+(dead-acute-set-key '(#\e) '(com-insert-charcode 233))
+(dead-acute-set-key '(#\i) '(com-insert-charcode 237))
+(dead-acute-set-key '(#\o) '(com-insert-charcode 243))
+(dead-acute-set-key '(#\u) '(com-insert-charcode 250))
+(dead-acute-set-key '(#\y) '(com-insert-charcode 253))
+(dead-acute-set-key '(#\C) '(com-insert-charcode 199))
+(dead-acute-set-key '(#\c) '(com-insert-charcode 231))
+(dead-acute-set-key '(#\B) '(com-insert-charcode 197)) ; not great
+(dead-acute-set-key '(#\b) '(com-insert-charcode 229)) ; not great
+(dead-acute-set-key '(#\x) '(com-insert-charcode 215))
+(dead-acute-set-key '(#\-) '(com-insert-charcode 247))
+(dead-acute-set-key '(#\T) '(com-insert-charcode 222))
+(dead-acute-set-key '(#\t) '(com-insert-charcode 254))
+(dead-acute-set-key '(#\s) '(com-insert-charcode 223))
+(dead-acute-set-key '(#\Space) '(com-insert-charcode 39))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Dead-grave command table
+
+(make-command-table 'dead-grave-climacs-table :errorp nil)
+
+(add-menu-item-to-command-table 'global-climacs-table "dead-grave"
+				:menu 'dead-grave-climacs-table
+				:keystroke '(:dead--grave))
+
+(defun dead-grave-set-key (gesture command)
+  (add-command-to-command-table command 'dead-grave-climacs-table
+				:keystroke gesture :errorp nil))
+
+(dead-grave-set-key '(#\A) '(com-insert-charcode 192))
+(dead-grave-set-key '(#\E) '(com-insert-charcode 200))
+(dead-grave-set-key '(#\I) '(com-insert-charcode 204))
+(dead-grave-set-key '(#\O) '(com-insert-charcode 210))
+(dead-grave-set-key '(#\U) '(com-insert-charcode 217))
+(dead-grave-set-key '(#\a) '(com-insert-charcode 224))
+(dead-grave-set-key '(#\e) '(com-insert-charcode 232))
+(dead-grave-set-key '(#\i) '(com-insert-charcode 236))
+(dead-grave-set-key '(#\o) '(com-insert-charcode 242))
+(dead-grave-set-key '(#\u) '(com-insert-charcode 249))
+(dead-grave-set-key '(#\Space) '(com-insert-charcode 96))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Dead-diaeresis command table
+
+(make-command-table 'dead-diaeresis-climacs-table :errorp nil)
+
+(add-menu-item-to-command-table 'global-climacs-table "dead-diaeresis"
+				:menu 'dead-diaeresis-climacs-table
+				:keystroke '(:dead--diaeresis :shift))
+
+(defun dead-diaeresis-set-key (gesture command)
+  (add-command-to-command-table command 'dead-diaeresis-climacs-table
+				:keystroke gesture :errorp nil))
+
+(dead-diaeresis-set-key '(#\A) '(com-insert-charcode 196))
+(dead-diaeresis-set-key '(#\E) '(com-insert-charcode 203))
+(dead-diaeresis-set-key '(#\I) '(com-insert-charcode 207))
+(dead-diaeresis-set-key '(#\O) '(com-insert-charcode 214))
+(dead-diaeresis-set-key '(#\U) '(com-insert-charcode 220))
+(dead-diaeresis-set-key '(#\a) '(com-insert-charcode 228))
+(dead-diaeresis-set-key '(#\e) '(com-insert-charcode 235))
+(dead-diaeresis-set-key '(#\i) '(com-insert-charcode 239))
+(dead-diaeresis-set-key '(#\o) '(com-insert-charcode 246))
+(dead-diaeresis-set-key '(#\u) '(com-insert-charcode 252))
+(dead-diaeresis-set-key '(#\y) '(com-insert-charcode 255))
+(dead-diaeresis-set-key '(#\Space) '(com-insert-charcode 34))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Dead-tilde command table
+
+(make-command-table 'dead-tilde-climacs-table :errorp nil)
+
+(add-menu-item-to-command-table 'global-climacs-table "dead-tilde"
+				:menu 'dead-tilde-climacs-table
+				:keystroke '(:dead--tilde :shift))
+
+(defun dead-tilde-set-key (gesture command)
+  (add-command-to-command-table command 'dead-tilde-climacs-table
+				:keystroke gesture :errorp nil))
+
+(dead-tilde-set-key '(#\A) '(com-insert-charcode 195))
+(dead-tilde-set-key '(#\N) '(com-insert-charcode 209))
+(dead-tilde-set-key '(#\a) '(com-insert-charcode 227))
+(dead-tilde-set-key '(#\n) '(com-insert-charcode 241))
+(dead-tilde-set-key '(#\E) '(com-insert-charcode 198))
+(dead-tilde-set-key '(#\e) '(com-insert-charcode 230))
+(dead-tilde-set-key '(#\D) '(com-insert-charcode 208))
+(dead-tilde-set-key '(#\d) '(com-insert-charcode 240))
+(dead-tilde-set-key '(#\O) '(com-insert-charcode 216))
+(dead-tilde-set-key '(#\o) '(com-insert-charcode 248))
+(dead-tilde-set-key '(#\Space) '(com-insert-charcode 126))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Dead-circumflex command table
+
+(make-command-table 'dead-circumflex-climacs-table :errorp nil)
+
+(add-menu-item-to-command-table 'global-climacs-table "dead-circumflex"
+				:menu 'dead-circumflex-climacs-table
+				:keystroke '(:dead--circumflex :shift))
+
+(defun dead-circumflex-set-key (gesture command)
+  (add-command-to-command-table command 'dead-circumflex-climacs-table
+				:keystroke gesture :errorp nil))
+
+(dead-circumflex-set-key '(#\A) '(com-insert-charcode 194))
+(dead-circumflex-set-key '(#\E) '(com-insert-charcode 202))
+(dead-circumflex-set-key '(#\I) '(com-insert-charcode 206))
+(dead-circumflex-set-key '(#\O) '(com-insert-charcode 212))
+(dead-circumflex-set-key '(#\U) '(com-insert-charcode 219))
+(dead-circumflex-set-key '(#\a) '(com-insert-charcode 226))
+(dead-circumflex-set-key '(#\e) '(com-insert-charcode 234))
+(dead-circumflex-set-key '(#\i) '(com-insert-charcode 238))
+(dead-circumflex-set-key '(#\o) '(com-insert-charcode 244))
+(dead-circumflex-set-key '(#\u) '(com-insert-charcode 251))
+(dead-circumflex-set-key '(#\Space) '(com-insert-charcode 94))
