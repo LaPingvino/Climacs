@@ -410,6 +410,16 @@ the size of the buffer, a no-such-offset condition is signaled."))
 	  (make-condition 'no-such-offset :offset offset))
   (element* (slot-value buffer 'contents) offset))
 
+(defgeneric (setf buffer-object) (object buffer offset)
+  (:documentation "Set the object at the offset in the buffer. The first object
+has offset 0. If offset is less than zero or greater than or equal to
+the size of the buffer, a no-such-offset condition is signaled."))
+
+(defmethod (setf buffer-object) (object (buffer standard-buffer) offset)
+  (assert (<= 0 offset (1- (size buffer))) ()
+          (make-condition 'no-such-offset :offset offset))
+  (setf (element* (slot-value buffer 'contents) offset) object))
+
 (defgeneric buffer-sequence (buffer offset1 offset2)
   (:documentation "Return the contents of the buffer starting at offset1 and ending at
 offset2-1 as a sequence.  If either of the offsets is less than zero
@@ -464,6 +474,14 @@ acceptable to pass an offset in place of one of the marks."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Buffer modification protocol
+
+(defmethod (setf buffer-object) :before (object (buffer standard-buffer) offset)
+  (declare (ignore object))
+  (setf (offset (low-mark buffer))
+        (min (offset (low-mark buffer)) offset))
+  (setf (offset (high-mark buffer))
+        (max (offset (high-mark buffer)) offset))
+  (setf (slot-value buffer 'modified) t))
 
 (defmethod insert-buffer-object :before ((buffer standard-buffer) offset object)
   (declare (ignore object))
