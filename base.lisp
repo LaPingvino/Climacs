@@ -137,6 +137,15 @@ acceptable to pass an offset in place of one of the marks"))
 	while (constituentp (object-before mark))
 	do (delete-range mark -1)))
 
+(defun previous-word (mark)
+  "Return a freshly allocated sequence, that is word before the mark"
+  (region-to-sequence
+   (loop for i downfrom (offset mark)
+	 while (and (plusp i)
+		    (constituentp (buffer-object (buffer mark) (1- i))))
+	 finally (return i))
+   mark))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Named objects
@@ -195,4 +204,20 @@ containing VECTOR or NIL if no such offset exists"
     (when offset
       (setf (offset mark) offset))))
 
+(defun buffer-search-word-backward (buffer offset word &key (test #'eql))
+  "return the largest offset of BUFFER <= (- OFFSET (length WORD))
+containing WORD as a word or NIL if no such offset exists"
+  (loop for i downfrom (- offset (length word)) to 0
+	when (and (or (zerop i) (whitespacep (buffer-object buffer (1- i))))
+	      (buffer-looking-at buffer i word :test test))
+	  return i
+	finally (return nil)))
 
+(defun buffer-search-word-forward (buffer offset word &key (test #'eql))
+  "Return the smallest offset of BUFFER >= (+ OFFSET (length WORD))
+containing WORD as a word or NIL if no such offset exists"
+  (loop for i upfrom (+ offset (length word)) to (- (size buffer) (max (length word) 1))
+	when (and (whitespacep (buffer-object buffer (1- i)))
+		  (buffer-looking-at buffer i word :test test))
+	  return i
+	finally (return nil)))

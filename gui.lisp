@@ -36,7 +36,15 @@
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
    (point :initform nil :initarg :point :reader point)
    (syntax :initarg :syntax :accessor syntax)
-   (mark :initform nil :initarg :mark :reader mark)))
+   (mark :initform nil :initarg :mark :reader mark)
+   ;; allows a certain number of commands to have some minimal memory
+   (previous-command :initform nil :accessor previous-command)
+   ;; for next-line and previous-line commands
+   (goal-column :initform nil)
+   ;; for dynamic abbrev expansion
+   (original-prefix :initform nil)
+   (prefix-start-offset :initform nil)
+   (dabbrev-expansion-mark :initform nil)))
 
 (defmethod initialize-instance :after ((pane climacs-pane) &rest args)
   (declare (ignore args))
@@ -178,8 +186,6 @@
 	  (t (unread-gesture gesture :stream stream)
 	     (values 1 nil)))))
 
-(defvar *previous-command*)
-
 (defun climacs-top-level (frame &key
 			  command-parser command-unparser 
 			  partial-command-parser prompt)
@@ -209,9 +215,10 @@
 				    (beep)
 				    (format *error-output* "~a~%" condition)))
 				(setf gestures '())
-				(setf *previous-command* (if (consp command)
-							     (car command)
-							     command))))
+				(setf (previous-command *standard-output*)
+				      (if (consp command)
+					  (car command)
+					  command))))
 			     (t nil)))
 		     (let ((buffer (buffer (win frame))))
 		       (when (modified-p buffer)
@@ -320,21 +327,21 @@
       (insert-sequence point line)
       (insert-object point #\Newline))))
 
-(defvar *goal-column*)
-
 (define-named-command com-previous-line ()
-  (let ((point (point (win *application-frame*))))
-    (unless (or (eq *previous-command* 'com-previous-line)
-		(eq *previous-command* 'com-next-line))
-      (setf *goal-column* (column-number point)))
-    (previous-line point *goal-column*)))
+  (let* ((win (win *application-frame*))
+	 (point (point win)))
+    (unless (or (eq (previous-command win) 'com-previous-line)
+		(eq (previous-command win) 'com-next-line))
+      (setf (slot-value win 'goal-column) (column-number point)))
+    (previous-line point (slot-value win 'goal-column))))
 
 (define-named-command com-next-line ()
-  (let ((point (point (win *application-frame*))))
-    (unless (or (eq *previous-command* 'com-previous-line)
-		(eq *previous-command* 'com-next-line))
-      (setf *goal-column* (column-number point)))
-    (next-line point *goal-column*)))
+  (let* ((win (win *application-frame*))
+	 (point (point win)))
+    (unless (or (eq (previous-command win) 'com-previous-line)
+		(eq (previous-command win) 'com-next-line))
+      (setf (slot-value win 'goal-column) (column-number point)))
+    (next-line point (slot-value win 'goal-column))))
 
 (define-named-command com-open-line ()
   (open-line (point (win *application-frame*))))
@@ -596,6 +603,43 @@
 		   :test (lambda (a b)
 			   (and (characterp b) (char-equal a b)))))
 
+(define-named-command com-dabbrev-expand ()
+  (let* ((win (win *application-frame*))
+	 (point (point win)))
+    (with-slots (original-prefix prefix-start-offset dabbrev-expansion-mark) win
+       (flet ((move () (cond ((beginning-of-buffer-p dabbrev-expansion-mark)
+			      (setf (offset dabbrev-expansion-mark)
+				    (offset point))
+			      (forward-word dabbrev-expansion-mark))
+			     ((mark< dabbrev-expansion-mark point)
+			      (backward-object dabbrev-expansion-mark))
+			     (t (forward-object dabbrev-expansion-mark)))))
+	 (unless (or (beginning-of-buffer-p point)
+		     (not (constituentp (object-before point))))
+	   (unless (and (eq (previous-command win) 'com-dabbrev-expand)
+			(not (null prefix-start-offset)))
+	     (setf dabbrev-expansion-mark (clone-mark point))
+	     (backward-word dabbrev-expansion-mark)
+	     (setf prefix-start-offset (offset dabbrev-expansion-mark))
+	     (setf original-prefix (region-to-sequence prefix-start-offset point))
+	     (move))
+	   (loop until (or (end-of-buffer-p dabbrev-expansion-mark)
+			   (and (or (beginning-of-buffer-p dabbrev-expansion-mark)
+				    (not (constituentp (object-before dabbrev-expansion-mark))))
+				(looking-at dabbrev-expansion-mark original-prefix)))
+		 do (move))
+	   (if (end-of-buffer-p dabbrev-expansion-mark)
+	       (progn (delete-region prefix-start-offset point)
+		      (insert-sequence point original-prefix)
+		      (setf prefix-start-offset nil))
+	       (progn (delete-region prefix-start-offset point)
+		      (insert-sequence point
+				       (let ((offset (offset dabbrev-expansion-mark)))
+					 (prog2 (forward-word dabbrev-expansion-mark)
+						(region-to-sequence offset dabbrev-expansion-mark)
+						(setf (offset dabbrev-expansion-mark) offset))))
+		      (move))))))))
+	   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Global command table
@@ -638,6 +682,7 @@
 (global-set-key '(#\m :meta) 'com-back-to-indentation)
 (global-set-key '(#\d :meta) 'com-delete-word)
 (global-set-key '(#\Backspace :meta) 'com-backward-delete-word)
+(global-set-key '(#\/ :meta) 'com-dabbrev-expand)
 
 (global-set-key '(:up) 'com-previous-line)
 (global-set-key '(:down) 'com-next-line)
