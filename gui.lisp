@@ -88,6 +88,9 @@
   (let ((frame (make-application-frame 'climacs)))
     (run-frame-top-level frame)))
 
+(defun display-message (format-string &rest format-args)
+  (apply #'format *standard-input* format-string format-args))
+
 (defun display-info (frame pane)
   (let* ((win (win frame))
 	 (buf (buffer win))
@@ -305,15 +308,19 @@
        (beginning-of-buffer point))))
 
 (define-command com-save-buffer ()
-  (let ((filename (or (filename (buffer (win *application-frame*)))
-		      (accept 'completable-pathname
-			      :prompt "Save Buffer to File")))
-	(buffer (buffer (win *application-frame*))))
-    (with-open-file (stream filename :direction :output :if-exists :supersede)
-      (output-to-stream stream buffer 0 (size buffer)))
-    (setf (filename buffer) filename
-	  (name buffer) (pathname-filename filename)
-	  (needs-saving buffer) nil)))
+  (let* ((buffer (buffer (win *application-frame*)))
+	 (filename (or (filename buffer)
+		       (accept 'completable-pathname
+			       :prompt "Save Buffer to File"))))
+    (if (or (null (filename buffer))
+	    (needs-saving buffer))
+	(progn (with-open-file (stream filename :direction :output :if-exists :supersede)
+		 (output-to-stream stream buffer 0 (size buffer)))
+	       (setf (filename buffer) filename
+		     (name buffer) (pathname-filename filename))
+	       (display-message "Wrote: ~a" (filename buffer)))
+	(display-message "No changes need to be saved from ~a" (name buffer)))
+    (setf (needs-saving buffer) nil)))
 
 (define-command com-write-buffer ()
   (let ((filename (accept 'completable-pathname
@@ -323,7 +330,8 @@
       (output-to-stream stream buffer 0 (size buffer)))
     (setf (filename buffer) filename
 	  (name buffer) (pathname-filename filename)
-	  (needs-saving buffer) nil)))
+	  (needs-saving buffer) nil)
+    (display-message "Wrote: ~a" (filename buffer))))
 
 (define-command com-beginning-of-buffer ()
   (beginning-of-buffer (point (win *application-frame*))))
