@@ -80,12 +80,7 @@
 ;;;
 ;;; parser
 
-(defparameter *html-grammar*
-  (grammar
-    (html -> (<html> head body </html>)
-	  :<html> <html> :head head :body body :</html> </html>)
-    (head -> (<head> title </head>)
-	  :<head> <head> :title title :</head> </head>)))
+(defparameter *html-grammar* (grammar))
 
 (defun word-is (word string)
   (string-equal (coerce (buffer-sequence (buffer word) (start-offset word) (end-offset word)) 'string)
@@ -279,6 +274,10 @@
    (title :initarg :title)
    (</head> :initarg :</head>)))
 
+(add-rule (grammar-rule (head -> (<head> title </head>)
+			      :<head> <head> :title title :</head> </head>))
+	  *html-grammar*)
+
 (defmethod display-parse-tree ((entity head) (syntax html-syntax) pane)
   (with-slots (<head> title </head>) entity
      (display-parse-tree <head> syntax pane)
@@ -292,6 +291,10 @@
    (head :initarg :head)
    (body :initarg :body)
    (</html> :initarg :</html>)))
+
+(add-rule (grammar-rule (html -> (<html> head body </html>)
+			      :<html> <html> :head head :body body :</html> </html>))
+	  *html-grammar*)    
 
 (defmethod display-parse-tree ((entity html) (syntax html-syntax) pane)
   (with-slots (<html> head body </html>) entity
