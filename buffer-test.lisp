@@ -77,8 +77,8 @@
 	   (high (slot-value buffer 'high-mark))
 	   (low2 (clone-mark low))
 	   (high2 (clone-mark high))
-	   (low3 (clone-mark high %%left-sticky-mark))
-	   (high3 (clone-mark low %%right-sticky-mark)))
+	   (low3 (clone-mark high :left))
+	   (high3 (clone-mark low :right)))
       (and (reduce #'%all-eq
 		  (list (class-of low) (class-of low2) (class-of low3)))
 	   (reduce #'%all-eq

@@ -179,14 +179,29 @@ made to move a mark after the end of the buffer."))
      (setf low-mark (make-instance 'standard-left-sticky-mark :buffer buffer))
      (setf high-mark (make-instance 'standard-right-sticky-mark :buffer buffer))))
 
-(defgeneric clone-mark (mark &optional type)
-  (:documentation "Clone a mark.  By default (when type is NIL) the same type of mark is
-returned.  Otherwise type is the name of a class (subclass of the mark
-class) to be used as a class of the clone."))
+(defgeneric clone-mark (mark &optional stick-to)
+  (:documentation "Clone a mark.  By default (when stick-to is NIL)
+the same type of mark is returned.  Otherwise stick-to is either :left
+or :right indicating whether a left-sticky or a right-sticky mark
+should be created."))
 
-(defmethod clone-mark ((mark mark) &optional type)
-  (make-instance (or type (class-of mark))
-                 :buffer (buffer mark) :offset (offset mark)))
+(defmethod clone-mark ((mark standard-left-sticky-mark) &optional stick-to)
+  (cond ((or (null stick-to) (eq stick-to :left))
+	 (make-instance 'standard-left-sticky-mark
+	    :buffer (buffer mark) :offset (offset mark)))
+	((eq stick-to :right)
+	 (make-instance 'standard-right-sticky-mark
+	    :buffer (buffer mark) :offset (offset mark)))
+	(t (error "invalid value for stick-to"))))
+
+(defmethod clone-mark ((mark standard-right-sticky-mark) &optional stick-to)
+  (cond ((or (null stick-to) (eq stick-to :right))
+	 (make-instance 'standard-right-sticky-mark
+	    :buffer (buffer mark) :offset (offset mark)))
+	((eq stick-to :left)
+	 (make-instance 'standard-left-sticky-mark
+	    :buffer (buffer mark) :offset (offset mark)))
+	(t (error "invalid value for stick-to"))))
 
 (defgeneric size (buffer)
   (:documentation "Return the number of objects in the buffer."))
