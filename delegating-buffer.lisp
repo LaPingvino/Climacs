@@ -18,7 +18,7 @@
 ;;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;;; Boston, MA  02111-1307  USA.
 
-;;; GUI for the Climacs editor. 
+;;; Buffer class that allow specifying buffer implementation at run time.
 
 (in-package :climacs-buffer)
 
