@@ -971,6 +971,29 @@ as two values"
 	     (sheet-adopt-child parent other)
 	     (reorder-sheets parent (list first other)))))))
 
+
+(define-named-command com-single-window ()
+  (unless (null (cdr (windows *application-frame*)))
+    (let* ((saver (parent3 (current-window)))
+	    (top-level (do 
+			   ((a 1 (1+ a))
+			    (n saver (setf n (sheet-parent n))))
+			   ((clim-internals::top-level-sheet-pane-p n) n)))
+	    (level1 (car (sheet-children top-level)))          ;; should be the only thing on level1
+	    (level2 (if (typep (car (sheet-children level1)) 'vrack-pane) ;;don't select raised pane
+		         (car (sheet-children level1))
+		         (cadr (sheet-children level1))))
+	    (level2-children (sheet-children level2))
+	    (junker (if (typep (car level2-children) 'vrack-pane) ;;don't select minibuffer
+		         (car level2-children)
+		         (cadr level2-children))))
+      (sheet-disown-child (sheet-parent saver) saver)
+      (sheet-disown-child level2 junker)
+      (sheet-adopt-child level2 saver)
+      (reorder-sheets level2 (reverse (sheet-children level2))) ;;minibuffer goes on bottom
+      (setf (windows *application-frame*) (list (car (windows *application-frame*)))))))
+
+
 ;; (define-named-command com-delete-window ()
 ;;   (unless (null (cdr (windows *application-frame*)))
 ;;     (let* ((constellation (parent3 (current-window)))
@@ -1367,6 +1390,7 @@ as two values"
 				:keystroke gesture :errorp nil))
 
 (c-x-set-key '(#\0) 'com-delete-window)
+(c-x-set-key '(#\1) 'com-single-window)
 (c-x-set-key '(#\2) 'com-split-window-vertically)
 (c-x-set-key '(#\3) 'com-split-window-horizontally)
 (c-x-set-key '(#\() 'com-start-kbd-macro)
