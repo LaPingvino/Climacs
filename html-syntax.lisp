@@ -128,25 +128,9 @@
 (defparameter *html-grammar*
   (grammar
    (html -> (<html> head body </html>))
-   (<html> -> (html-sym) :badness 5 :message "substituted <html>")
-   (</html> -> (html-sym) :badness 5 :message "substituted </html>")
-   (<html> -> () :badness 10 :message "missing <html> inserted")
-   (</html> -> () :badness 10 :message "missing </html> inserted")
    (head -> (<head> title </head>))
-   (<head> -> (html-sym) :badness 5 :message "substituted <head>")
-   (</head> -> (html-sym) :badness 5 :message "substituted </head>")
-   (<head> -> () :badness 10 :message "missing <head> inserted")
-   (</head> -> () :badness 10 :message "missing </head> inserted")
    (title -> (<title> texts </title>))
-   (<title> -> (html-sym) :badness 5 :message "substituted <title>")
-   (</title> -> (html-sym) :badness 5 :message "substituted </title>")
-   (<title> -> () :badness 10 :message "missing <title> inserted")
-   (</title> -> () :badness 10 :message "missing </title> inserted")
    (body -> (<body> texts </body>))
-   (<body> -> (html-sym) :badness 5 :message "substituted <body>")
-   (</body> -> (html-sym) :badness 5 :message "substituted </body>")
-   (<body> -> () :badness 10 :message "missing <body> inserted")
-   (</body> -> () :badness 10 :message "missing </body> inserted")
    (texts -> ())
    (texts -> (texts text))))
 
@@ -178,7 +162,11 @@
 		   do (let ((token (lex lexer)))
 			(push (cons (clone-mark mark)
 				    (advance-parse parser (list token) (cdar states)))
-			      states))))))))
+			      states)))))
+       (print (find 'html (gethash (initial-state parser) (parse-trees (cdar states)))
+		    :key #'type-of)
+	      *query-io*)
+       (finish-output *query-io*))))
 
 (defgeneric forward-to-error (point syntax))
 (defgeneric backward-to-error (point syntax))
@@ -193,11 +181,31 @@
 		 (return-from find-bad-parse-tree parse-tree))))
 	   (parse-trees state)))
 
+(defmethod empty-state-p (state)
+  (maphash (lambda (key val)
+	     (declare (ignore key))
+	     (loop for parse-tree in val
+		   do (return-from empty-state-p nil)))
+	   (parse-trees state))
+  (maphash (lambda (key val)
+	     (declare (ignore key))
+	     (loop for parse-tree in val
+		   do (return-from empty-state-p nil)))
+	   (incomplete-items state)))
+
 (defmethod backward-to-error (point (syntax html-syntax))
   (let ((states (slot-value syntax 'states)))
+    ;; find the last state before point
     (loop until (or (null states)
 		    (mark< (caar states) point))
 	  do (pop states))
+    (when (null states)
+      (return-from backward-to-error "no more errors"))
+    (when (empty-state-p (cdar states))
+      (loop for ((m1 . s1) (m2 . s2)) on states
+	    until (not (empty-state-p s2))
+	    finally (setf (offset point) (offset m1)))
+      (return-from backward-to-error "no valid parse from this point"))
     (loop for (mark . state) in states
 	  for tree = (find-bad-parse-tree state)
 	  when tree
