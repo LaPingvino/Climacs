@@ -102,5 +102,5 @@
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
-	:climacs-kill-ring :climacs-pane))
+	:climacs-kill-ring :climacs-pane :clim-extensions))
 

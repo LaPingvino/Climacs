@@ -681,6 +681,19 @@
     (beginning-of-buffer (point (current-window)))
     (full-redisplay (current-window))))
 
+(define-named-command com-kill-buffer ()
+  (with-slots (buffers) *application-frame*
+    (let ((buffer (buffer (current-window))))
+      (when (and (needs-saving buffer)
+		 (accept 'boolean :prompt "Save buffer first?"))
+        (com-save-buffer))
+      (setf buffers (remove buffer buffers))
+      ;; Always need one buffer.
+      (when (null buffers)
+	(push (make-instance 'climacs-buffer :name "*scratch*")
+	      buffers))
+      (setf (buffer (current-window)) (car buffers)))))
+
 (define-named-command com-full-redisplay ()
   (full-redisplay (current-window)))
 
@@ -768,6 +781,34 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Commands for splitting windows
+
+;;; put this in for real when we find a solution for the problem
+;;; it causes for com-delete-window 
+;; (defun replace-constellation (constellation additional-constellation vertical-p)
+;;   (let* ((parent (sheet-parent constellation))
+;; 	 (children (sheet-children parent))
+;; 	 (first (first children))
+;; 	 (second (second children))
+;;          (adjust (make-pane 'clim-extensions:box-adjuster-gadget)))
+;;     (assert (member constellation children))
+;;     (cond ((eq constellation first)
+;; 	   (sheet-disown-child parent constellation)
+;; 	   (let ((new (if vertical-p
+;; 			  (vertically ()
+;;                             constellation adjust additional-constellation)
+;; 			  (horizontally ()
+;;                             constellation adjust additional-constellation))))
+;; 	     (sheet-adopt-child parent new)
+;; 	     (reorder-sheets parent (list new second))))
+;; 	  (t
+;; 	   (sheet-disown-child parent constellation)
+;; 	   (let ((new (if vertical-p
+;; 			  (vertically ()
+;;                             constellation adjust additional-constellation)
+;; 			  (horizontally ()
+;;                             constellation adjust additional-constellation))))
+;; 	     (sheet-adopt-child parent new)
+;; 	     (reorder-sheets parent (list first new)))))))
 
 (defun replace-constellation (constellation additional-constellation vertical-p)
   (let* ((parent (sheet-parent constellation))
@@ -1070,6 +1111,7 @@ as two values"
 (c-x-set-key '(#\e) 'com-call-last-kbd-macro)
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
+(c-x-set-key '(#\k) 'com-kill-buffer)
 (c-x-set-key '(#\l :control) 'com-load-file)
 (c-x-set-key '(#\o) 'com-other-window)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
