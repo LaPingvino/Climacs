@@ -46,14 +46,14 @@
   ((win :reader win))
   (:panes
    (win (make-pane 'climacs-pane
-		   :width 600 :height 400
+		   :width 900 :height 400
 		   :name 'win
 		   :display-function 'display-win))
-   (int :interactor :width 600 :height 50))
+   (int :interactor :width 900 :height 50 :max-height 50))
   (:layouts
    (default
        (vertically ()
-	 (scrolling (:width 600 :height 400) win)
+	 (scrolling (:width 900 :height 400) win)
 	 int)))
   (:top-level (climacs-top-level)))
 

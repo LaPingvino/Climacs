@@ -44,6 +44,7 @@
   (:use :clim-lisp :climacs-buffer)
   (:export #:previous-line #:next-line
 	   #:open-line #:kill-line
+	   #:number-of-lines-in-region
 	   #:constituentp
 	   #:forward-word #:backward-word
 	   #:input-from-stream #:output-to-stream))

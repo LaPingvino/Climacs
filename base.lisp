@@ -66,6 +66,37 @@
 	(end-of-line mark)
 	(delete-region offset mark))))
 
+(defun buffer-number-of-lines-in-region (mark1 mark2)
+  "Helper function for number-of-lines-in-region.  Moves the position
+of mark1 until it is greater than or equal to that of mark2 and counts
+Newline characters along the way"
+  (loop do (end-of-line mark1)
+	while (mark< mark1 mark2)
+	count t
+	do (incf (offset mark1))))
+
+(defgeneric number-of-lines-in-region (mark1 mark2)
+  (:documentation "Return the number of lines (or rather the number of
+Newline characters) in the region between MARK and MARK2.  It is
+acceptable to pass an offset in place of one of the marks"))
+
+(defmethod number-of-lines-in-region ((mark1 mark) (mark2 mark))
+  (buffer-number-of-lines-in-region (clone-mark mark1) mark2))
+
+(defmethod number-of-lines-in-region ((offset integer) (mark mark))
+  (buffer-number-of-lines-in-region
+   (make-instance 'standard-left-sticky-mark
+      :buffer (buffer mark)
+      :offset offset)
+   mark))		  
+
+(defmethod number-of-lines-in-region ((mark mark) (offset integer))
+  (buffer-number-of-lines-in-region
+   (clone-mark mark)
+   (make-instance 'standard-left-sticky-mark
+      :buffer (buffer mark)
+      :offset offset)))
+
 (defun constituentp (obj)
   "A predicate to ensure that an object is a constituent character."
   (and (characterp obj)
