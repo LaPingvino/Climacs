@@ -704,6 +704,8 @@
 (define-prolog-rule (items -> ((left exp) head-tail-separator (right exp)))
   (make-instance 'items-pair :exp left
                  :htsep head-tail-separator :texp right))
+(define-prolog-rule (items -> (exp))
+  (make-instance 'items :exp exp))
 
 ;;; 6.3.6
 (define-prolog-rule (term -> (open-curly term close-curly))
