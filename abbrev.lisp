@@ -52,10 +52,7 @@ expanded abbrev, or NIL if no expansion exists"))
 
 (defun string-upper-case-p (string)
   "A predicate testing if each character of a string is uppercase."
-  (loop for c across string
-	unless (upper-case-p c)
-	  do (return nil)
-	finally (return t)))
+  (every #'upper-case-p string))
 
 (defmethod expand-abbrev (word (expander dictionary-abbrev-expander))
   "Expands an abbrevated word by attempting to assocate it with a member of
