@@ -349,56 +349,36 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
 
-;; The naming may sound odd here, but think of electronic wireing:
-;; outputs to inputs and inputs to outputs.  Copying into a buffer 
-;; first requires coping out of the kill ring.
-
-(defgeneric kr-copy-in (buffer kr offset1 offset2)
-  (:documentation "Non destructively copies in buffer region to the kill ring"))
-
-(defmethod kr-copy-in ((buffer standard-buffer) (kr kill-ring) offset1 offset2)
-  (kr-push kr (buffer-sequence buffer offset1 offset2)))
- 
-(defgeneric kr-cut-in (buffer kr offset1 offset2)
-  (:documentation "Destructively cut a given buffer region into the kill-ring"))
-
-(defmethod kr-cut-in ((buffer standard-buffer) (kr kill-ring) offset1 offset2)  
-  (kr-copy-in buffer kr offset1 offset2)
-  (climacs-buffer::delete-buffer-range buffer offset1 (- offset2 offset1))) 
-
-(defgeneric kr-copy-out (mark kr)
-  (:documentation "Copies an element from a kill-ring to a buffer at the given offset"))
-
-(defmethod kr-copy-out ((mark standard-right-sticky-mark)(kr kill-ring))
-  (insert-sequence mark (kr-copy kr)))
-
-(defgeneric kr-cut-out (mark kr)
-  (:documentation "Cuts an element from a kill-ring out to a buffer at a given offset"))
-
-(defmethod kr-cut-out ((mark standard-right-sticky-mark) (kr kill-ring))
-  (insert-sequence mark (kr-pop kr)))
-
+;; Copies an element from a kill-ring to a buffer at the given offset
 (define-command com-copy-in ()
-  (kr-copy-out (point (win *application-frame*)) *kill-ring*))
+  (insert-sequence (point (win *application-frame*)) (kr-copy *kill-ring*)))
 
+;; Cuts an element from a kill-ring out to a buffer at a given offset
 (define-command com-cut-in ()
-  (kr-cut-out (point (win *application-frame*)) *kill-ring*))
+  (insert-sequence (point (win *application-frame*)) (kr-pop *kill-ring*)))
 
+;; Destructively cut a given buffer region into the kill-ring
 (define-command com-cut-out ()
   (with-slots (buffer point mark)(win *application-frame*)
-     (let ((off1 (offset point))
-	   (off2 (offset mark)))
-       (if (< off1 off2)
-	   (kr-cut-in buffer *kill-ring* off1 off2)
-	   (kr-cut-in buffer *kill-ring* off2 off1)))))
+     (if (< (offset point) (offset mark))
+	 ((lambda (b o1 o2)
+	    (kr-push *kill-ring* (buffer-sequence b o1 o2))
+	    (delete-buffer-range b o1 (- o2 o1))) 
+	  buffer (offset point) (offset mark))
+         ((lambda (b o1 o2)
+	    (kr-push *kill-ring* (buffer-sequence b o2 o1))
+	    (delete-buffer-range b o1 (- o2 o1)))
+	  buffer (offset mark) (offset point)))))
+	     
 
+;; Non destructively copies in buffer region to the kill ring
 (define-command com-copy-out ()
   (with-slots (buffer point mark)(win *application-frame*)
      (let ((off1 (offset point))
 	   (off2 (offset mark)))
        (if (< off1 off2)
-	   (kr-copy-in buffer *kill-ring* off1 off2)
-	   (kr-copy-in buffer *kill-ring* off2 off1)))))
+	   (kr-push *kill-ring* (buffer-sequence buffer off1 off2))
+	   (kr-push *kill-ring* (buffer-sequence buffer off2 off1))))))
 
 ;; Needs adjustment to be like emacs M-y
 (define-command com-kr-rotate ()
