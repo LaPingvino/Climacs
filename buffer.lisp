@@ -81,9 +81,55 @@ the size of the buffer."))
 (defmethod offset ((mark mark-mixin))
   (cursor-pos (cursor mark)))
 
+(define-condition no-such-offset (simple-error)
+  ((offset :reader condition-offset :initarg :offset))
+  (:report (lambda (condition stream)
+	     (format stream "No such offset: ~a" (condition-offset condition))))
+  (:documentation "This condition is signaled whenever an attempt is
+made to access buffer contents that is before the beginning or after
+the end of the buffer."))
+
+(define-condition offset-before-beginning (no-such-offset)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "Offset before beginning: ~a" (condition-offset condition))))
+  (:documentation "This condition is signaled whenever an attempt is
+made to access buffer contents that is before the beginning of the buffer."))
+
+(define-condition offset-after-end (no-such-offset)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "Offset after end: ~a" (condition-offset condition))))
+  (:documentation "This condition is signaled whenever an attempt is
+made to access buffer contents that is after the end of the buffer."))
+
+(define-condition invalid-motion (simple-error)
+  ((offset :reader condition-offset :initarg :offset))
+  (:report (lambda (condition stream)
+	     (format stream "Invalid motion to offset: ~a" (condition-offset condition))))
+  (:documentation "This condition is signaled whenever an attempt is
+made to move a mark before the beginning or after the end of the
+buffer."))
+
+(define-condition motion-before-beginning (invalid-motion)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "Motion before beginning: ~a" (condition-offset condition))))
+  (:documentation "This condition is signaled whenever an attempt is
+made to move a mark before the beginning of the buffer."))
+
+(define-condition motion-after-end (invalid-motion)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "Motion after end: ~a" (condition-offset condition))))
+  (:documentation "This condition is signaled whenever an attempt is
+made to move a mark after the end of the buffer."))
+
 (defmethod (setf offset) (new-offset (mark mark-mixin))
-  (assert (<= 0 new-offset (size (buffer mark))) ()
-	  (make-condition 'no-such-offset :offset new-offset))
+  (assert (<= 0 new-offset) ()
+	  (make-condition 'motion-before-beginning :offset new-offset))
+  (assert (<= new-offset (size (buffer mark))) ()
+	  (make-condition 'motion-after-end :offset new-offset))
   (setf (cursor-pos (cursor mark)) new-offset))
 
 (defgeneric backward-object (mark &optional count))
@@ -105,8 +151,10 @@ the size of the buffer."))
 (defmethod initialize-instance :after ((mark standard-left-sticky-mark) &rest args &key (offset 0))
   "Associates a created mark with the buffer it was created for."
   (declare (ignore args))
-  (assert (<= 0 offset (size (buffer mark))) ()
-	  (make-condition 'no-such-offset :offset offset))
+  (assert (<= 0 offset) ()
+	  (make-condition 'motion-before-beginning :offset offset))
+  (assert (<= offset (size (buffer mark))) ()
+	  (make-condition 'motion-after-end :offset offset))
   (setf (slot-value mark 'cursor)
 	(make-instance 'left-sticky-flexicursor
 	   :chain (slot-value (buffer mark) 'contents)
@@ -115,8 +163,10 @@ the size of the buffer."))
 (defmethod initialize-instance :after ((mark standard-right-sticky-mark) &rest args &key (offset 0))
   "Associates a created mark with the buffer it was created for."
   (declare (ignore args))
-  (assert (<= 0 offset (size (buffer mark))) ()
-	  (make-condition 'no-such-offset :offset offset))
+  (assert (<= 0 offset) ()
+	  (make-condition 'motion-before-beginning :offset offset))
+  (assert (<= offset (size (buffer mark))) ()
+	  (make-condition 'motion-after-end :offset offset))
   (setf (slot-value mark 'cursor)
 	(make-instance 'right-sticky-flexicursor
 	   :chain (slot-value (buffer mark) 'contents)
@@ -137,13 +187,6 @@ class) to be used as a class of the clone."))
 (defmethod clone-mark ((mark mark) &optional type)
   (make-instance (or type (class-of mark))
                  :buffer (buffer mark) :offset (offset mark)))
-
-(define-condition no-such-offset (simple-error)
-  ((offset :reader condition-offset :initarg :offset))
-  (:report (lambda (condition stream)
-	     (format stream "No such offset: ~a" (condition-offset condition))))
-  (:documentation "This condition is signaled whenever an attempt is made at an operation
-that is before the beginning or after the end of the buffer."))
 
 (defgeneric size (buffer)
   (:documentation "Return the number of objects in the buffer."))
@@ -348,8 +391,10 @@ at the end of the buffer if no following newline character exists."))
  offset will be positioned after the inserted object."))
 
 (defmethod insert-buffer-object ((buffer standard-buffer) offset object)
-  (assert (<= 0 offset (size buffer)) ()
-	  (make-condition 'no-such-offset :offset offset))
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
   (insert* (slot-value buffer 'contents) offset object))
 
 (defgeneric insert-buffer-sequence (buffer offset sequence)
@@ -380,8 +425,10 @@ mark."))
  no-such-offset condition is signaled."))
 
 (defmethod delete-buffer-range ((buffer standard-buffer) offset n)
-  (assert (<= 0 offset (size buffer)) ()
-	  (make-condition 'no-such-offset :offset offset))
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset))
   (loop repeat n
 	do (delete* (slot-value buffer 'contents) offset)))
 
@@ -427,8 +474,10 @@ has offset 0. If offset is less than zero or greater than or equal to
 the size of the buffer, a no-such-offset condition is signaled."))
 
 (defmethod buffer-object ((buffer standard-buffer) offset)
-  (assert (<= 0 offset (1- (size buffer))) ()
-	  (make-condition 'no-such-offset :offset offset))
+  (assert (<= 0 offset) ()
+	  (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (1- (size buffer))) ()
+	  (make-condition 'offset-after-end :offset offset))
   (element* (slot-value buffer 'contents) offset))
 
 (defgeneric (setf buffer-object) (object buffer offset)
@@ -437,8 +486,10 @@ has offset 0. If offset is less than zero or greater than or equal to
 the size of the buffer, a no-such-offset condition is signaled."))
 
 (defmethod (setf buffer-object) (object (buffer standard-buffer) offset)
-  (assert (<= 0 offset (1- (size buffer))) ()
-          (make-condition 'no-such-offset :offset offset))
+  (assert (<= 0 offset) ()
+          (make-condition 'offset-before-beginning :offset offset))
+  (assert (<= offset (1- (size buffer))) ()
+          (make-condition 'offset-after-end :offset offset))
   (setf (element* (slot-value buffer 'contents) offset) object))
 
 (defgeneric buffer-sequence (buffer offset1 offset2)
@@ -449,10 +500,14 @@ condition is signaled.  If offset2 is smaller than or equal to
 offset1, an empty sequence will be returned."))
 
 (defmethod buffer-sequence ((buffer standard-buffer) offset1 offset2)
-  (assert (<= 0 offset1 (size buffer)) ()
-	  (make-condition 'no-such-offset :offset offset1))
-  (assert (<= 0 offset2 (size buffer)) ()
-	  (make-condition 'no-such-offset :offset offset2))
+  (assert (<= 0 offset1) ()
+	  (make-condition 'offset-before-beginning :offset offset1))
+  (assert (<= offset1 (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset1))
+  (assert (<= 0 offset2) ()
+	  (make-condition 'offset-before-beginning :offset offset2))
+  (assert (<= offset2 (size buffer)) ()
+	  (make-condition 'offset-after-end :offset offset2))
   (if (< offset1 offset2)
       (loop with result = (make-array (- offset2 offset1))
 	    for offset from offset1 below offset2

@@ -27,7 +27,10 @@
   (:export #:buffer #:standard-buffer
 	   #:mark #:left-sticky-mark #:right-sticky-mark
 	   #:standard-left-sticky-mark #:standard-right-sticky-mark
-	   #:clone-mark #:no-such-offset #:size #:number-of-lines
+	   #:clone-mark
+	   #:no-such-offset #:offset-before-beginning #:offset-after-end
+	   #:invalid-motion #:motion-before-beginning #:motion-after-end
+	   #:size #:number-of-lines
 	   #:offset #:mark< #:mark<= #:mark= #:mark> #:mark>=
            #:forward-object #:backward-object
 	   #:beginning-of-buffer #:end-of-buffer

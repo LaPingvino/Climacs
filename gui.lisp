@@ -263,9 +263,14 @@
       (flet ((do-command (command)
 	       (handler-case
 		   (execute-frame-command frame command)
-		 (error (condition)
-		   (beep)
-		   (format *error-output* "~a~%" condition)))
+		 (offset-before-beginning ()
+		   (beep) (display-message "Beginning of buffer"))
+		 (offset-after-end ()
+		   (beep) (display-message "End of buffer"))
+		 (motion-before-beginning ()
+		   (beep) (display-message "Beginning of buffer"))
+		 (motion-after-end ()
+		   (beep) (display-message "End of buffer")))
 	       (setf (previous-command *standard-output*)
 		     (if (consp command)
 			 (car command)
@@ -314,8 +319,7 @@
 (defmacro simple-command-loop (command-table loop-condition end-clauses)
   (let ((gesture (gensym))
         (item (gensym))
-        (command (gensym))
-        (condition (gensym)))
+        (command (gensym)))
     `(progn 
        (redisplay-frame-panes *application-frame*)
        (loop while ,loop-condition
@@ -329,9 +333,14 @@
                          (handler-case 
                              (execute-frame-command *application-frame*
                                                     ,command)
-                           (error (,condition)
-                             (beep)
-                             (format *error-output* "~a~%" ,condition)))))
+                           (offset-before-beginning ()
+			     (beep) (display-message "Beginning of buffer"))
+			   (offset-after-end ()
+			     (beep) (display-message "End of buffer"))
+			   (motion-before-beginning ()
+			     (beep) (display-message "Beginning of buffer"))
+			   (motion-after-end ()
+			     (beep) (display-message "End of buffer")))))
                       (t
                        (unread-gesture ,gesture)
                        ,@end-clauses))
