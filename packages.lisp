@@ -89,6 +89,10 @@
 	   #:beginning-of-paragraph #:end-of-paragraph
 	   #:forward-to-error #:backward-to-error))
 
+(defpackage :climacs-cl-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain :climacs-syntax)
+  (:export))
+
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
   (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size 

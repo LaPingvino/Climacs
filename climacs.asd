@@ -62,6 +62,7 @@
    "syntax"
    "text-syntax"
    "html-syntax"
+   "cl-syntax"
    "kill-ring"
    "undo"
    "pane"
