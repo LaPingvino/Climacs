@@ -298,9 +298,7 @@ buffers. It is acceptable to pass an offset in place of one of the marks."))
              (upcase-region offset mark))))
 
 (defun capitalize-buffer-region (buffer offset1 offset2)
-  (let ((previous-char-constituent-p
-         (and (plusp offset1)
-              (constituentp (buffer-object buffer (1- offset1))))))
+  (let ((previous-char-constituent-p nil))
     (do-buffer-region (object offset buffer offset1 offset2)
       (when (constituentp object)
         (if previous-char-constituent-p
