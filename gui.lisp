@@ -990,9 +990,8 @@ as two values"
 ;;; 
 ;;; Incremental search
 
-(define-named-command com-isearch-mode ()
-  (let* ((pane (current-window))
-         (point (point pane)))
+(defun isearch-command-loop (pane forwardp)
+  (let ((point (point pane)))
     (unless (endp (isearch-states pane))
       (setf (isearch-previous-string pane)
             (search-string (first (isearch-states pane)))))
@@ -1000,7 +999,8 @@ as two values"
     (setf (isearch-states pane)
           (list (make-instance 'isearch-state
                                :search-string ""
-                               :search-mark (clone-mark point))))
+                               :search-mark (clone-mark point)
+                               :search-forward-p forwardp)))
     (redisplay-frame-panes *application-frame*)
     (loop while (isearch-mode pane)
           as gesture = (climacs-read-gesture)
@@ -1020,33 +1020,47 @@ as two values"
                     (setf (isearch-mode pane) nil)))
              (redisplay-frame-panes *application-frame*))))
 
-(defun isearch-from-mark (pane mark string)
-  (let* ((point (point pane))
-         (mark2 (clone-mark mark)))
-    (when (search-forward mark2 string
-                          :test (lambda (x y)
-                                  (if (characterp x)
-                                      (and (characterp y) (char-equal x y))
-                                      (eql x y))))
-      (setf (offset point) (offset mark2))
-      (setf (offset mark) (- (offset mark2) (length string))))))
+(defun isearch-from-mark (pane mark string forwardp)
+  (flet ((object-equal (x y)
+           (if (characterp x)
+               (and (characterp y) (char-equal x y))
+               (eql x y))))
+    (let* ((point (point pane))
+           (mark2 (clone-mark mark))
+           (success (funcall (if forwardp #'search-forward #'search-backward)
+                             mark2
+                             string
+                             :test #'object-equal)))
+      (cond (success
+             (setf (offset point) (offset mark2)
+                   (offset mark) (if forwardp
+                                     (- (offset mark2) (length string))
+                                     (+ (offset mark2) (length string))))
+             (push (make-instance 'isearch-state
+                                  :search-string string
+                                  :search-mark mark
+                                  :search-forward-p forwardp)
+                   (isearch-states pane)))
+            (t
+             (beep))))))
+
+(define-named-command com-isearch-mode-forward ()
+  (isearch-command-loop (current-window) t))
+
+(define-named-command com-isearch-mode-backward ()
+  (isearch-command-loop (current-window) nil))
 
 (define-named-command com-isearch-append-char ()
   (let* ((pane (current-window))
-         (point (point pane))
          (states (isearch-states pane))
          (string (concatenate 'string
                               (search-string (first states))
                               (string *current-gesture*)))
          (mark (clone-mark (search-mark (first states))))
-         (previous-point-offset (offset point)))
-    (isearch-from-mark pane mark string)
-    (if (/= (offset point) previous-point-offset)
-        (push (make-instance 'isearch-state
-                             :search-string string
-                             :search-mark mark)
-              (isearch-states pane))
-        (beep))))
+         (forwardp (search-forward-p (first states))))
+    (unless forwardp
+      (incf (offset mark)))
+    (isearch-from-mark pane mark string forwardp)))
 
 (define-named-command com-isearch-delete-char ()
   (let* ((pane (current-window)))
@@ -1056,8 +1070,11 @@ as two values"
            (pop (isearch-states pane))
            (let ((state (first (isearch-states pane))))
              (setf (offset (point pane))
-                   (+ (offset (search-mark state))
-                      (length (search-string state)))))))))
+                   (if (search-forward-p state)
+                       (+ (offset (search-mark state))
+                          (length (search-string state)))
+                       (- (offset (search-mark state))
+                          (length (search-string state))))))))))
 
 (define-named-command com-isearch-forward ()
   (let* ((pane (current-window))
@@ -1066,15 +1083,18 @@ as two values"
          (string (if (null (second states))
                      (isearch-previous-string pane)
                      (search-string (first states))))
-         (mark (clone-mark point))
-         (previous-point-offset (offset point)))
-    (isearch-from-mark pane mark string)
-    (if (/= (offset point) previous-point-offset)
-        (push (make-instance 'isearch-state
-                             :search-string string
-                             :search-mark mark)
-              (isearch-states pane))
-        (beep))))
+         (mark (clone-mark point)))
+    (isearch-from-mark pane mark string t)))
+
+(define-named-command com-isearch-backward ()
+  (let* ((pane (current-window))
+         (point (point pane))
+         (states (isearch-states pane))
+         (string (if (null (second states))
+                     (isearch-previous-string pane)
+                     (search-string (first states))))
+         (mark (clone-mark point)))
+    (isearch-from-mark pane mark string nil)))
 
 (define-named-command com-isearch-exit ()
   (setf (isearch-mode (current-window)) nil))
@@ -1197,7 +1217,8 @@ as two values"
 (global-set-key '(#\/ :meta) 'com-dabbrev-expand)
 (global-set-key '(#\a :control :meta) 'com-beginning-of-paragraph)
 (global-set-key '(#\e :control :meta) 'com-end-of-paragraph)
-(global-set-key '(#\s :control) 'com-isearch-mode)
+(global-set-key '(#\s :control) 'com-isearch-mode-forward)
+(global-set-key '(#\r :control) 'com-isearch-mode-backward)
 
 (global-set-key '(:up) 'com-previous-line)
 (global-set-key '(:down) 'com-next-line)
@@ -1422,4 +1443,4 @@ as two values"
 (isearch-set-key '(#\Newline) 'com-isearch-exit)
 (isearch-set-key '(#\Backspace) 'com-isearch-delete-char)
 (isearch-set-key '(#\s :control) 'com-isearch-forward)
-
+(isearch-set-key '(#\r :control) 'com-isearch-backward)

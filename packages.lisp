@@ -98,7 +98,7 @@
            #:tab-space-count
            #:indent-tabs-mode
            #:auto-fill-mode #:auto-fill-column
-           #:isearch-state #:search-string #:search-mark
+           #:isearch-state #:search-string #:search-mark #:search-forward-p
            #:isearch-mode #:isearch-states #:isearch-previous-string
 	   #:url))
 
