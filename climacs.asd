@@ -55,12 +55,12 @@
    "abbrev"
    "syntax"
    "text-syntax"
-   "html-syntax"
    "cl-syntax"
    "kill-ring"
    "undo"
    "delegating-buffer"
    "pane"
+   "html-syntax"
    "gui"
    ;;---- optional ----
    "testing/rt"

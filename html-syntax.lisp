@@ -287,5 +287,52 @@
 ;;;
 ;;; display
 
+(defun handle-whitespace (pane buffer start end)
+  (let ((space-width (space-width pane))
+	(tab-width (tab-width pane)))
+    (loop while (< start end)
+	  do (ecase (buffer-object buffer start)
+	       (#\Newline (terpri pane))
+	       (#\Space (stream-increment-cursor-position
+			 pane space-width 0))
+	       (#\Tab (let ((x (stream-cursor-position pane)))
+			(stream-increment-cursor-position
+			 pane (- tab-width (mod x tab-width)) 0))))
+	     (incf start))))		    
 
-
+(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax html-syntax) current-p)
+  (with-slots (top bot) pane
+     (with-slots (tokens) syntax
+	(let ((average-token-size (max (float (/ (size (buffer pane)) (nb-elements tokens)))
+				       1.0)))
+	  ;; find the last token before bot
+	  (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
+	    ;; go back to a token before bot
+	    (loop until (mark<= (end-offset (element* tokens (1- end-token-index))) bot)
+		  do (decf end-token-index))
+	    ;; for forward to the last token before bot
+	    (loop until (or (= end-token-index (nb-elements tokens))
+			    (mark> (start-offset (element* tokens end-token-index)) bot))
+		  do (incf end-token-index))
+	    (let ((start-token-index end-token-index))
+	      ;; go back to the first token after top
+	      (loop until (mark<= (end-offset (element* tokens (1- start-token-index))) top)
+		    do (decf start-token-index))
+	      ;; display the tokens
+	      (loop with prev-offset = (offset top)
+		    while (< start-token-index end-token-index)
+		    do (let ((token (element* tokens start-token-index)))
+			 (handle-whitespace pane (buffer pane) prev-offset (start-offset token))
+			 (updating-output (pane :unique-id token 
+						:id-test #'eq
+						:cache-value token
+						:cache-test #'eq)
+			   (present (coerce (region-to-sequence (start-mark token)
+								(end-offset token))
+					    'string)
+				    'string
+				    :stream pane))
+			 (setf prev-offset (end-offset token)))
+		       (incf start-token-index))))))))
+	    
+		

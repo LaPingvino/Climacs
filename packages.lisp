@@ -122,7 +122,8 @@
 	   #:climacs-pane #:point #:mark
 	   #:redisplay-pane #:full-redisplay
 	   #:page-down #:page-up
-           #:tab-space-count
+	   #:top #:bot
+           #:tab-space-count #:space-width #:tab-width
            #:indent-tabs-mode
            #:auto-fill-mode #:auto-fill-column
            #:isearch-state #:search-string #:search-mark
