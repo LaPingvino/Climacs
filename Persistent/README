@@ -1,0 +1,31 @@
+This directory contains code with persistent data structures that are
+primarily meant to be used for buffer implementation, but may also be
+used as just balanced trees.
+
+To use any of these buffer implementations (binseq-buffer or
+obinseq-buffer), substitute "standard-buffer" in the superclass list
+of climacs-buffer class in pane.lisp (marked by a "PB" comment). At
+all other places marked with "PB" comments, substitute "standard" for
+"persistent" in order to use the corresponding mark classes.
+
+Also, end-of-line method in buffer.lisp has to be fixed and look like:
+
+(defmethod end-of-line ((mark mark-mixin))
+  (let* ((offset (offset mark))
+	 (buffer (buffer mark))
+	 (size (size buffer)))
+    (loop until (or (= offset size)
+		    (eql (buffer-object buffer offset) #\Newline))
+	  do (incf offset))
+    (setf (offset mark) offset)))
+
+(It is currently "broken" for performance reasons.) Until then,
+(o)binseq-end-of-line and (o)binseq-next-line tests will fail (20 of
+them).
+
+NOTE: There is a dependency of Persistent/persistent-buffer.lisp on
+Flexichain/utilities.lisp (the weak pointer handling).
+
+NOTE: Package :binseq is now used by package :climacs-buffer, and
+the latter also exports persistent buffer and mark related symbols
+mentioned above in connection to "PB" comments.

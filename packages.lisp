@@ -23,7 +23,7 @@
 ;;; Package definitions for the Climacs editor.
 
 (defpackage :climacs-buffer
-  (:use :clim-lisp :flexichain)
+  (:use :clim-lisp :flexichain :binseq)
   (:export #:buffer #:standard-buffer
 	   #:mark #:left-sticky-mark #:right-sticky-mark
 	   #:standard-left-sticky-mark #:standard-right-sticky-mark
@@ -41,7 +41,10 @@
 	   #:delete-region
 	   #:buffer-object #:buffer-sequence
 	   #:object-before #:object-after #:region-to-sequence
-	   #:low-mark #:high-mark #:modified-p #:clear-modify))
+	   #:low-mark #:high-mark #:modified-p #:clear-modify
+
+	   #:binseq-buffer #:obinseq-buffer
+	   #:persistent-left-sticky-mark #:persistent-right-sticky-mark))
 
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer)

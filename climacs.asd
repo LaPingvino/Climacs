@@ -49,9 +49,13 @@
    "Flexichain/utilities"
    "Flexichain/flexichain"
    "Flexichain/flexicursor"
+   "Persistent/binseq-package"
+   "Persistent/binseq"
+   "Persistent/obinseq"
    "translate"
    "packages"
    "buffer"
+   "Persistent/persistent-buffer"
    "base"
    "io"
    "abbrev"
@@ -64,7 +68,9 @@
    ;;---- optional ----
    "testing/rt"
    "buffer-test"
-   "base-test")
+   "base-test"
+   "Persistent/persistent-buffer-test"
+   "Persistent/persistent-base-test")
 
 #+asdf
 (defmethod asdf:perform :around ((o asdf:compile-op)

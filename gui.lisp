@@ -747,7 +747,7 @@
 	(accept 'integer :prompt "Goto Position")))
 
 (define-named-command com-goto-line ()
-  (loop with mark = (make-instance 'standard-right-sticky-mark
+  (loop with mark = (make-instance 'standard-right-sticky-mark ;PB
 		       :buffer (buffer (current-window)))
 	do (end-of-line mark)
 	until (end-of-buffer-p mark)

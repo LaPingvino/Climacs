@@ -156,7 +156,7 @@
 
 ;(defgeneric indent-tabs-mode (climacs-buffer))
 
-(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin undo-mixin)
+(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin undo-mixin) ;PB
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :initarg :syntax :initform (make-instance 'basic-syntax) :accessor syntax)
    (indent-tabs-mode :initarg indent-tabs-mode :initform t
@@ -195,14 +195,14 @@
   (declare (ignore args))
   (with-slots (buffer point mark) pane
      (when (null point)
-       (setf point (make-instance 'standard-right-sticky-mark
+       (setf point (make-instance 'standard-right-sticky-mark ;PB
 		      :buffer buffer)))
      (when (null mark)
-       (setf mark (make-instance 'standard-right-sticky-mark
+       (setf mark (make-instance 'standard-right-sticky-mark ;PB
 		      :buffer buffer))))
   (with-slots (buffer top bot scan) pane
-     (setf top (make-instance 'standard-left-sticky-mark :buffer buffer)
-	   bot (make-instance 'standard-right-sticky-mark :buffer buffer)))
+     (setf top (make-instance 'standard-left-sticky-mark :buffer buffer) ;PB
+	   bot (make-instance 'standard-right-sticky-mark :buffer buffer))) ;PB
   (setf (stream-default-view pane) (make-instance 'climacs-textual-view))
   (with-slots (space-width tab-width) (stream-default-view pane)
      (let* ((medium (sheet-medium pane))
@@ -212,12 +212,12 @@
 
 (defmethod (setf buffer) :after (buffer (pane climacs-pane))
   (with-slots (point mark top bot) pane
-       (setf point (make-instance 'standard-right-sticky-mark
+       (setf point (make-instance 'standard-right-sticky-mark ;PB
 		      :buffer buffer)
-	     mark (make-instance 'standard-right-sticky-mark
+	     mark (make-instance 'standard-right-sticky-mark ;PB
 		     :buffer buffer)
-	     top (make-instance 'standard-left-sticky-mark :buffer buffer)
-	     bot (make-instance 'standard-right-sticky-mark :buffer buffer))))
+	     top (make-instance 'standard-left-sticky-mark :buffer buffer) ;PB
+	     bot (make-instance 'standard-right-sticky-mark :buffer buffer)))) ;PB
 
 (define-presentation-type url ()
   :inherit-from 'string)

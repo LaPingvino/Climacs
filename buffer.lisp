@@ -92,7 +92,7 @@ the size of the buffer."))
 (defclass standard-right-sticky-mark (right-sticky-mark mark-mixin) ()
   (:documentation "A right-sticky-mark subclass suitable for use in a standard-buffer"))
 
-(defmethod initialize-instance :after ((mark left-sticky-mark) &rest args &key (offset 0))
+(defmethod initialize-instance :after ((mark standard-left-sticky-mark) &rest args &key (offset 0))
   "Associates a created mark with the buffer it was created for."
   (declare (ignore args))
   (assert (<= 0 offset (size (buffer mark))) ()
@@ -102,7 +102,7 @@ the size of the buffer."))
 	   :chain (slot-value (buffer mark) 'contents)
 	   :position offset)))
 
-(defmethod initialize-instance :after ((mark right-sticky-mark) &rest args &key (offset 0))
+(defmethod initialize-instance :after ((mark standard-right-sticky-mark) &rest args &key (offset 0))
   "Associates a created mark with the buffer it was created for."
   (declare (ignore args))
   (assert (<= 0 offset (size (buffer mark))) ()
@@ -287,7 +287,7 @@ end of the buffer), nil otherwise."))
 either immediately before the closest following newline character, or
 at the end of the buffer if no following newline character exists."))
 
-(defmethod end-of-line ((mark mark-mixin))
+(defmethod end-of-line ((mark mark-mixin)) ;PB
   (let* ((offset (offset mark))
 	 (buffer (buffer mark))
 	 (chain (slot-value buffer 'contents))
