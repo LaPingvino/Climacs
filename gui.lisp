@@ -350,11 +350,13 @@
   (let* ((payne (win *application-frame*))
 	 (pnt (point payne))
          (mrk (offset pnt)))
-    (end-of-line pnt)
-    (cond ((or (beginning-of-buffer-p pnt)
-	       (end-of-buffer-p pnt)) nil)
-	  ((and (beginning-of-line-p pnt)
-		(end-of-line-p pnt))(forward-object pnt)))
+    (if (end-of-line-p pnt)
+	(forward-object pnt)
+	(progn
+	  (end-of-line pnt)
+	  (cond ((or (beginning-of-buffer-p pnt)
+		     (end-of-buffer-p pnt)) nil)
+		((beginning-of-line-p pnt)(forward-object pnt)))))
     (if (eq (previous-command payne) 'com-kill-line)
 	(kill-ring-concatenating-push *kill-ring*
 				      (region-to-sequence mrk pnt))
