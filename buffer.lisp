@@ -327,9 +327,7 @@ at the end of the buffer if no following newline character exists."))
 sequence."))
       
 (defmethod insert-buffer-sequence ((buffer standard-buffer) offset sequence)
-  (loop for elem across sequence
-	do (insert-buffer-object buffer offset elem)
-	   (incf offset)))
+  (insert-vector* (slot-value buffer 'contents) offset sequence))
 
 (defgeneric insert-object (mark object)
   (:documentation "Insert the object at the mark.  This function simply calls

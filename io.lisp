@@ -23,11 +23,14 @@
 (in-package :climacs-base)
 
 (defun input-from-stream (stream buffer offset)
-  (let ((eof-object (cons nil nil)))
-    (loop for obj = (read-char stream nil eof-object)
-	  until (eq obj eof-object)
-	  do (insert-buffer-object buffer offset obj)
-	     (incf offset))))
+  (loop with vec = (make-array 10000 :element-type 'character)
+	for count = (read-sequence vec stream)
+	while (plusp count)
+	do (if (= count (length vec))
+	       (insert-buffer-sequence buffer offset vec)
+	       (insert-buffer-sequence buffer offset
+				       (subseq vec 0 count)))
+	   (incf offset count)))
 
 (defun output-to-stream (stream buffer offset1 offset2)
   (loop for offset from offset1 below offset2
