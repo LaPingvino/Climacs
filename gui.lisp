@@ -282,9 +282,6 @@
 				`(,@command-name :name t)
 				`(,command-name :name t)) ,args ,@body))
 
-(define-named-command (com-quit) ()
-  (frame-exit *application-frame*))
-
 (define-named-command com-toggle-overwrite-mode ()
   (with-slots (overwrite-mode) (current-window)
     (setf overwrite-mode (not overwrite-mode))))
@@ -631,20 +628,34 @@
     ;; resets the low and high marks after redisplay
     (redisplay-frame-panes *application-frame*)))
 
+(defun save-buffer (buffer)
+  (let ((filename (or (filename buffer)
+		      (accept 'completable-pathname
+			      :prompt "Save Buffer to File"))))
+    (with-open-file (stream filename :direction :output :if-exists :supersede)
+      (output-to-stream stream buffer 0 (size buffer)))
+    (setf (filename buffer) filename
+	  (name buffer) (pathname-filename filename))
+    (display-message "Wrote: ~a" (filename buffer))
+    (setf (needs-saving buffer) nil)))
+
 (define-named-command com-save-buffer ()
-  (let* ((buffer (buffer (current-window)))
-	 (filename (or (filename buffer)
-		       (accept 'completable-pathname
-			       :prompt "Save Buffer to File"))))
+  (let ((buffer (buffer (current-window))))
     (if (or (null (filename buffer))
 	    (needs-saving buffer))
-	(progn (with-open-file (stream filename :direction :output :if-exists :supersede)
-		 (output-to-stream stream buffer 0 (size buffer)))
-	       (setf (filename buffer) filename
-		     (name buffer) (pathname-filename filename))
-	       (display-message "Wrote: ~a" (filename buffer)))
-	(display-message "No changes need to be saved from ~a" (name buffer)))
-    (setf (needs-saving buffer) nil)))
+	(save-buffer buffer)
+	(display-message "No changes need to be saved from ~a" (name buffer)))))
+
+(define-named-command (com-quit) ()
+  (loop for buffer in (buffers *application-frame*)
+	when (and (needs-saving buffer)
+		  (accept 'boolean
+			  :prompt (format nil "Save buffer: ~a ?" (name buffer))))
+	  do (save-buffer buffer))
+  (when (or (notany #'needs-saving
+		    (buffers *application-frame*))
+	    (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?"))
+    (frame-exit *application-frame*)))
 
 (define-named-command com-write-buffer ()
   (let ((filename (accept 'completable-pathname
