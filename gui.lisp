@@ -856,8 +856,6 @@
 ;;; 
 ;;; Commands for splitting windows
 
-;; put this in for real when we find a solution for the problem
-;; it causes for com-delete-window 
 (defun replace-constellation (constellation additional-constellation vertical-p)
   (let* ((parent (sheet-parent constellation))
 	 (children (sheet-children parent))
@@ -865,7 +863,6 @@
 	 (second (second children))
 	 (third (third children))
          (adjust (make-pane 'clim-extensions:box-adjuster-gadget)))
-    (format *query-io* "~S" children)
     (assert (member constellation children))
     (sheet-disown-child parent constellation)
     (let ((new (if vertical-p
