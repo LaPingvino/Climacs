@@ -90,6 +90,11 @@
   (:export #:syntax #:define-syntax
 	   #:basic-syntax
 	   #:update-syntax #:update-syntax-for-display
+	   #:grammar #:parser #:initial-state
+	   #:advance-parse
+	   #:parse-stack-top #:target-parse-tree
+	   #:parse-stack-next #:parse-stack-symbol
+	   #:parse-stack-parse-trees #:map-over-parse-trees
            #:syntax-line-indentation
 	   #:beginning-of-paragraph #:end-of-paragraph))
 
@@ -126,7 +131,12 @@
            #:query-replace-state #:string1 #:string2
            #:query-replace-mode
 	   #:with-undo
+	   #:redisplay-pane-with-syntax
 	   #:url))
+
+(defpackage :climacs-html-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base
+	:climacs-syntax :flexichain :climacs-pane))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax

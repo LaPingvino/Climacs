@@ -487,6 +487,11 @@
 			  (+ cursor-x 2) (+ cursor-y (* 0.8 height))
 			  :ink cursor-ink)))))  
 
+(defgeneric redisplay-pane-with-syntax (pane syntax current-p))
+
+(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax basic-syntax) current-p)
+  (display-cache pane (if current-p +red+ +blue+)))
+
 (defgeneric redisplay-pane (pane current-p))
 
 (defmethod redisplay-pane ((pane climacs-pane) current-p)
@@ -497,7 +502,7 @@
       (adjust-cache pane))
   (fill-cache pane)
   (update-syntax-for-display (buffer pane) (syntax (buffer pane)) (top pane) (bot pane))
-  (display-cache pane (if current-p +red+ +blue+)))
+  (redisplay-pane-with-syntax pane (syntax (buffer pane)) current-p))
 
 (defgeneric full-redisplay (pane))
 

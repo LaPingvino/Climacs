@@ -312,6 +312,37 @@ the mark, according to the specified syntax."))
 ;;;
 ;;; Code for analysing parse stack
 
+(defun parse-stack-top (state)
+  "for a given state, return the top of the parse stack, or NIL if the parse stack
+is empty in that state."
+  (when (plusp (hash-table-count (incomplete-items state)))
+    (maphash (lambda (state items)
+	       (declare (ignore state))
+	       (return-from parse-stack-top (car items)))
+	     (incomplete-items state))))
+
+(defun target-parse-tree (state)
+  "for a given state, return a target parse tree, or NIL if this state does not
+represent a complete parse of the target."
+  (state-contains-target-p state))
+
+(defun parse-stack-next (parse-stack)
+  "given a parse stack frame, return the next frame in the stack."
+  (assert (not (null parse-stack)))
+  (predicted-from parse-stack))
+
+(defun parse-stack-symbol (parse-stack)
+  "given a parse stack frame, return the target symbol of the frame."
+  (assert (not (null parse-stack)))
+  (left-hand-side (rule parse-stack)))
+
+(defun parse-stack-parse-trees (parse-stack)
+  "given a parse stack frame, return a list (in the reverse order of
+analysis) of the parse trees recognized.  The return value reveals 
+internal state of the parser.  Do not alter it!"
+  (assert (not (null parse-stack)))
+  (parse-trees parse-stack))
+
 (defun map-over-parse-trees (function state)
   (labels ((map-incomplete-item (item)
 	     (unless (null (predicted-from item))

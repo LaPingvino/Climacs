@@ -146,7 +146,7 @@
 (defun display-win (frame pane)
   "The display function used by the climacs application frame."
   (declare (ignore frame))
-  (redisplay-pane pane (eq pane (car (windows *application-frame*)))))
+  (redisplay-pane pane (eq pane (current-window))))
 
 (defmethod handle-repaint :before ((pane extended-pane) region)
   (declare (ignore region))

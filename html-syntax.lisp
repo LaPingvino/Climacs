@@ -20,7 +20,7 @@
 
 ;;; Syntax for analysing HTML
 
-(in-package :climacs-syntax) ;;; Put this in a separate package once it works
+(in-package :climacs-html-syntax)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -34,7 +34,11 @@
   (and (eq (class-of t1) (class-of t2))
        (< (badness t1) (badness t2))))
 
-(defclass words (html-sym) ())
+(defclass html-nonterminal (html-sym)
+  ((start-offset :initarg :start-offset :reader start-offset)
+   (end-offset :initarg :end-offset :reader end-offset)))
+
+(defclass words (html-nonterminal) ())
 
 (defclass empty-words (words) ())
 
@@ -42,7 +46,7 @@
   ((words :initarg :words)
    (word :initarg :word)))
 
-(defclass html-balanced (html-sym)
+(defclass html-balanced (html-nonterminal)
   ((start :initarg :start)
    (end :initarg :end)))
 
@@ -195,17 +199,24 @@
 		 (tag-end (= (end-offset word) (start-offset tag-end))))
 	     :start-mark (start-mark tag-start))
     (html -> (<html> head body </html>)
+	  :start-offset (start-offset <html>) :end-offset (end-offset </html>)
 	  :start <html> :head head :body body :end </html>)
     (head -> (<head> title </head>)
+	  :start-offset (start-offset <head>) :end-offset (end-offset </head>)
 	  :start <head> :title title :end </head>)
     (title -> (<title> words </title>)
+	   :start-offset (start-offset <title>) :end-offset (end-offset </title>)
 	   :start <title> :words words :end </title>)
     (body -> (<body> words </body>)
+	  :start-offset (start-offset <body>) :end-offset (end-offset </body>)
 	  :start <body> :words words :end </body>)
     (words -> ()
-	   (make-instance 'empty-words))
+	   (make-instance 'empty-words :start-offset nil))
     (words -> (words word)
-	   (make-instance 'nonempty-words :words words :word word))))
+	   (make-instance 'nonempty-words
+	      :start-offset (or (start-offset words) (start-offset word))
+	      :end-offset (end-offset word)
+	      :words words :word word))))
 
 (defmethod initialize-instance :after ((syntax html-syntax) &rest args)
   (declare (ignore args))
@@ -219,6 +230,10 @@
 					 :offset 0)
 			  :size 0
 			  :state (initial-state parser)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; update syntax
 
 (defmethod update-syntax-for-display (buffer (syntax html-syntax) top bot)
   (with-slots (parser tokens valid-parse) syntax
@@ -267,4 +282,10 @@
 	       do (setf start-mark (clone-mark scan))
 		  (insert* tokens guess-pos (next-token scan))
 		  (incf guess-pos))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; display
+
+
 
