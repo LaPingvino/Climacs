@@ -2,6 +2,8 @@
 
 ;;;  (c) copyright 2005 by
 ;;;           Robert Strandh (strandh@labri.fr)
+;;;  (c) copyright 2005 by
+;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -119,3 +121,12 @@
 	       (if (typep (element* paragraphs pos1) 'left-sticky-mark)
 		   (offset (element* paragraphs (1+ pos1)))
 		   (offset (element* paragraphs pos1))))))))
+
+(defmethod syntax-line-indentation (mark tab-width (syntax text-syntax))
+  (loop with indentation = 0
+        with mark2 = (clone-mark mark)
+        until (beginning-of-buffer-p mark2)
+        do (previous-line mark2)
+           (setf indentation (line-indentation mark2 tab-width))
+        while (empty-line-p mark2)
+        finally (return indentation)))

@@ -2,6 +2,8 @@
 
 ;;;  (c) copyright 2005 by
 ;;;           Robert Strandh (strandh@labri.fr)
+;;;  (c) copyright 2005 by
+;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -50,9 +52,13 @@
 (defclass filename-mixin ()
   ((filename :initform nil :accessor filename)))
 
+;(defgeneric indent-tabs-mode (climacs-buffer))
+
 (defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin)
   ((needs-saving :initform nil :accessor needs-saving)
-   (syntax :initarg :syntax :initform (make-instance 'basic-syntax) :accessor syntax))
+   (syntax :initarg :syntax :initform (make-instance 'basic-syntax) :accessor syntax)
+   (indent-tabs-mode :initarg indent-tabs-mode :initform t
+                     :accessor indent-tabs-mode))
   (:default-initargs :name "*scratch*"))
 
 

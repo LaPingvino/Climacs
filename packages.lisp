@@ -49,6 +49,8 @@
            #:forward-object #:backward-object
 	   #:previous-line #:next-line
 	   #:open-line #:kill-line
+           #:empty-line-p
+           #:line-indentation
 	   #:number-of-lines-in-region
 	   #:constituentp #:whitespacep
 	   #:forward-word #:backward-word
@@ -56,6 +58,7 @@
            #:upcase-region #:downcase-region #:capitalize-region
            #:upcase-word #:downcase-word #:capitalize-word
            #:tabify-region #:untabify-region
+           #:indent-line
            #:delete-indentation
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
@@ -74,6 +77,7 @@
   (:export #:syntax #:define-syntax
 	   #:basic-syntax
 	   #:update-syntax
+           #:syntax-line-indentation
 	   #:beginning-of-paragraph #:end-of-paragraph))
 
 (defpackage :climacs-kill-ring
@@ -90,6 +94,7 @@
 	   #:redisplay-pane #:full-redisplay
 	   #:page-down #:page-up
            #:tab-space-count
+           #:indent-tabs-mode
 	   #:url))
 
 (defpackage :climacs-gui

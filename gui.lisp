@@ -433,6 +433,27 @@
     (multiple-value-bind (start end) (region-limits pane)
       (untabify-region start end (tab-space-count (stream-default-view pane))))))
 
+(defun indent-current-line (pane point)
+  (let* ((buffer (buffer pane))
+         (view (stream-default-view pane))
+         (tab-space-count (tab-space-count view))
+         (indentation (syntax-line-indentation point
+                                               tab-space-count
+                                               (syntax buffer))))
+    (indent-line point indentation (and (indent-tabs-mode buffer)
+                                        tab-space-count))))
+
+(define-named-command com-indent-line ()
+  (let* ((pane (win *application-frame*))
+         (point (point pane)))
+    (indent-current-line pane point)))
+
+(define-named-command com-newline-and-indent ()
+  (let* ((pane (win *application-frame*))
+	 (point (point pane)))
+    (insert-object point #\Newline)
+    (indent-current-line pane point)))
+
 (define-named-command com-delete-indentation ()
   (delete-indentation (point (win *application-frame*))))
 
@@ -799,7 +820,8 @@
       do (global-set-key (code-char code) 'com-self-insert))
 
 (global-set-key #\newline 'com-self-insert)
-(global-set-key #\tab 'com-self-insert)
+(global-set-key #\tab 'com-indent-line)
+(global-set-key '(#\j :control) 'com-newline-and-indent)
 (global-set-key '(#\f :control) `(com-forward-object ,*numeric-argument-marker*))
 (global-set-key '(#\b :control) `(com-backward-object ,*numeric-argument-marker*))
 (global-set-key '(#\a :control) 'com-beginning-of-line)

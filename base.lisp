@@ -89,6 +89,24 @@ The body is executed for each element, with object being the current object
 	(end-of-line mark)
 	(delete-region offset mark))))
 
+(defun empty-line-p (mark)
+  "Check whether the mark is in an empty line."
+  (and (beginning-of-line-p mark) (end-of-line-p mark)))
+
+(defun line-indentation (mark tab-width)
+  "Return the distance from the beginning of the line and the first
+constituent character of the line."
+  (let ((mark2 (clone-mark mark)))
+    (beginning-of-line mark2)
+    (loop with indentation = 0
+          until (end-of-buffer-p mark2)
+          as object = (object-after mark2)
+          while (or (eql object #\Space) (eql object #\Tab))
+          do (incf indentation
+                   (if (eql (object-after mark2) #\Tab) tab-width 1))
+             (incf (offset mark2))
+          finally (return indentation))))
+
 (defun buffer-number-of-lines-in-region (buffer offset1 offset2)
   "Helper function for number-of-lines-in-region.  Count newline
 characters in the region between offset1 and offset2"
@@ -328,7 +346,6 @@ in the region delimited by mark1 and mark2."))
              (loop repeat count
                    do (insert-buffer-object buffer offset #\Space))
              (incf offset (1- count))
-             (finish-output *error-output*)
              (incf offset2 (1- count)))))
 
 (defgeneric untabify-region (mark1 mark2 tab-width)
@@ -348,7 +365,24 @@ delimited by mark1 and mark2."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
-;;; Delete indentation
+;;; Indentation
+
+(defun indent-line (mark indentation tab-width)
+  "Indent the line containing mark with indentation spaces. Use tabs and spaces
+if tab-width is not nil, otherwise use spaces only."
+  (let ((mark2 (clone-mark mark)))
+    (beginning-of-line mark2)
+    (loop until (end-of-buffer-p mark2)
+          as object = (object-after mark2)
+          while (or (eql object #\Space) (eql object #\Tab))
+          do (delete-range mark2 1))
+    (loop until (zerop indentation)
+          do (cond ((and tab-width (>= indentation tab-width))
+                    (insert-object mark2 #\Tab)
+                    (decf indentation tab-width))
+                   (t
+                    (insert-object mark2 #\Space)
+                    (decf indentation))))))
 
 (defun delete-indentation (mark)
   (beginning-of-line mark)
