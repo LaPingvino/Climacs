@@ -25,7 +25,7 @@
 (in-package :climacs-kill-ring)
 
 (defclass kill-ring ()
-  ((max-size :type 'fixnum
+  ((max-size :type unsigned-byte
 	     :initarg :max-size
 	     :accessor kr-max-size)
    (flexichain :type standard-flexichain
