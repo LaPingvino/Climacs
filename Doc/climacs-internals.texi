@@ -323,10 +323,10 @@ is not zero.
 
 @deffn {Generic Function} {delete-region} mark1 mark2
 
-Delete the objects in the buffer that are
-between mark1 and mark2.  An error is signaled if the two marks
-are positioned in different buffers.  It is acceptable to pass an
-offset in place of one of the marks.
+Delete the objects in the buffer that are between mark1 and mark2.  An
+error is signaled if the two marks are positioned in different
+buffers.  It is acceptable to pass an offset in place of one of the
+marks.
 
 This function calls delete-buffer-range with the appropriate arguments.
 @end deffn
@@ -349,7 +349,7 @@ condition is signaled.  If offset2 is smaller than or equal to
 offset1, an empty sequence will be returned.
 @end deffn
 
-@deffn {Generic Function} {objecct-before} mark
+@deffn {Generic Function} {object-before} mark
 
 Return the object that is immediately before the mark.  If mark is at
 the beginning of the buffer, a no-such-offset condition is signaled.
@@ -357,7 +357,7 @@ If the mark is at the beginning of a line, but not at the beginning
 of the buffer, a newline character is returned.
 @end deffn
 
-@deffn {Generic Function} {objecct-after} mark
+@deffn {Generic Function} {object-after} mark
 
 Return the object that is immediately after the mark.  If mark is at
 the end of the buffer, a no-such-offset condition is signaled.  If
@@ -367,11 +367,10 @@ newline character is returned.
 
 @deffn {Generic Function} {region-to-sequence} mark1 mark2
 
-Return a freshly allocated sequence of the objects after mark1 and
-before mark2.  An error is signaled if the two marks are positioned
-in different buffers.  If mark1 is positioned at an offset equal to
-or greater than that of mark2, an empty sequence is returned.  It is
-acceptable to pass an offset in place of one of the marks.
+Return a freshly allocated sequence of the objects between mark1 and
+mark2.  An error is signaled if the two marks are positioned in
+different buffers.  It is acceptable to pass an offset in place of one
+of the marks.
 @end deffn
 
 @section Implementation hints

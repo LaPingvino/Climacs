@@ -488,13 +488,23 @@ acceptable to pass an offset in place of one of the marks."))
 
 (defmethod region-to-sequence ((mark1 mark-mixin) (mark2 mark-mixin))
   (assert (eq (buffer mark1) (buffer mark2)))
-  (buffer-sequence (buffer mark1) (offset mark1) (offset mark2)))
+  (let ((offset1 (offset mark1))
+	(offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (buffer-sequence (buffer mark1) offset1 offset2)))
 
-(defmethod region-to-sequence ((offset integer) (mark mark-mixin))
-  (buffer-sequence (buffer mark) offset (offset mark)))
+(defmethod region-to-sequence ((offset1 integer) (mark2 mark-mixin))
+  (let ((offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (buffer-sequence (buffer mark2) offset1 offset2)))
 
-(defmethod region-to-sequence ((mark mark-mixin) (offset integer))
-  (buffer-sequence (buffer mark) (offset mark) offset))
+(defmethod region-to-sequence ((mark1 mark-mixin) (offset2 integer))
+  (let ((offset1 (offset mark1)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (buffer-sequence (buffer mark1) offset1 offset2)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

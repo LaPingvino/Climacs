@@ -710,6 +710,14 @@ climacs")
       (and (not (eq seq seq2)) seq2)))
   "climacs")
 
+(deftest standard-buffer-region-to-sequence.test-1aa
+  (let ((seq "climacs")
+	(buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 seq)
+    (let ((seq2 (region-to-sequence (high-mark buffer) 0)))
+      (and (not (eq seq seq2)) seq2)))
+  "climacs")
+
 (deftest standard-buffer-region-to-sequence.test-1b
   (let ((seq "climacs")
 	(buffer (make-instance 'standard-buffer)))
@@ -718,12 +726,20 @@ climacs")
       (and (not (eq seq seq2)) seq2)))
   "climacs")
 
+(deftest standard-buffer-region-to-sequence.test-1ba
+  (let ((seq "climacs")
+	(buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 seq)
+    (let ((seq2 (region-to-sequence 7 (low-mark buffer))))
+      (and (not (eq seq seq2)) seq2)))
+  "climacs")
+
 (deftest standard-buffer-region-to-sequence.test-2
   (let ((seq "climacs")
 	(buffer (make-instance 'standard-buffer)))
     (insert-buffer-sequence buffer 0 seq)
     (region-to-sequence (high-mark buffer) (low-mark buffer)))
-  #())
+  "climacs")
 
 (deftest standard-buffer-region-to-sequence.test-3
   (handler-case
