@@ -53,6 +53,11 @@
   (:export #:abbrev-expander #:dictionary-abbrev-expander #:dictionary
 	   #:expand-abbrev #:abbrev-mixin #:possibly-expand-abbrev))
 
+(defpackage :climacs-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base)
+  (:export #:syntax #:basic-syntax
+	   #:redisplay-with-syntax #:full-redisplay))
+
 (defpackage :climacs-gui
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev))
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax))
 

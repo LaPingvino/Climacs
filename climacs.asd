@@ -54,4 +54,5 @@
    "base"
    "io"
    "abbrev"
+   "syntax"
    "gui")
