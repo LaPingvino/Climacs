@@ -869,6 +869,15 @@ climacs  ")
 (deftest standard-buffer-indent-line.test-2
   (let ((buffer (make-instance 'standard-buffer)))
     (insert-buffer-sequence buffer 0 "  	climacs   ")
+    (let ((m (make-instance 'standard-left-sticky-mark
+			    :buffer buffer :offset 0)))
+      (indent-line m 5 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "	 climacs   ")
+
+(deftest standard-buffer-indent-line.test-3
+  (let ((buffer (make-instance 'standard-buffer)))
+    (insert-buffer-sequence buffer 0 "  	climacs   ")
     (let ((m (make-instance 'standard-right-sticky-mark
 			    :buffer buffer :offset 0)))
       (indent-line m 5 4)

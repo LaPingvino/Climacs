@@ -866,6 +866,15 @@ climacs  ")
 (deftest binseq-buffer-indent-line.test-2
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-sequence buffer 0 "  	climacs   ")
+    (let ((m (make-instance 'persistent-left-sticky-mark
+			    :buffer buffer :offset 0)))
+      (indent-line m 5 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "	 climacs   ")
+
+(deftest binseq-buffer-indent-line.test-3
+  (let ((buffer (make-instance 'binseq-buffer)))
+    (insert-buffer-sequence buffer 0 "  	climacs   ")
     (let ((m (make-instance 'persistent-right-sticky-mark
 			    :buffer buffer :offset 0)))
       (indent-line m 5 4)
@@ -1716,6 +1725,15 @@ climacs  ")
   "    climacs   ")
 
 (deftest obinseq-buffer-indent-line.test-2
+  (let ((buffer (make-instance 'obinseq-buffer)))
+    (insert-buffer-sequence buffer 0 "  	climacs   ")
+    (let ((m (make-instance 'persistent-left-sticky-mark
+			    :buffer buffer :offset 0)))
+      (indent-line m 5 4)
+      (buffer-sequence buffer 0 (size buffer))))
+  "	 climacs   ")
+
+(deftest obinseq-buffer-indent-line.test-3
   (let ((buffer (make-instance 'obinseq-buffer)))
     (insert-buffer-sequence buffer 0 "  	climacs   ")
     (let ((m (make-instance 'persistent-right-sticky-mark

@@ -145,16 +145,6 @@ PERSISTENT-BUFFER."))
     (setf high-mark (make-instance 'persistent-right-sticky-mark
 				   :buffer buffer))))
 
-;; (defmethod clone-mark ((mark persistent-left-sticky-mark) &optional type)
-;;   (unless type
-;;     (setf type 'persistent-left-sticky-mark))
-;;   (make-instance type :buffer (buffer mark) :offset (offset mark)))
-
-;; (defmethod clone-mark ((mark persistent-right-sticky-mark) &optional type)
-;;   (unless type
-;;     (setf type 'persistent-right-sticky-mark))
-;;   (make-instance type :buffer (buffer mark) :offset (offset mark)))
-
 (defmethod size ((buffer binseq-buffer))
   (binseq-length (slot-value buffer 'contents)))
 

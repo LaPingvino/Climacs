@@ -6,6 +6,8 @@
 ;;;           Elliott Johnson (ejohnson@fasl.info)
 ;;;  (c) copyright 2005 by
 ;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
+;;;  (c) copyright 2005 by
+;;;           Aleksandar Bakic (a_bakic@yahoo.com)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -442,22 +444,33 @@ delimited by mark1 and mark2."))
 ;;; 
 ;;; Indentation
 
-(defun indent-line (mark indentation tab-width)
-  "Indent the line containing mark with indentation spaces. Use tabs and spaces
-if tab-width is not nil, otherwise use spaces only."
+(defgeneric indent-line (mark indentation tab-width)
+  (:documentation "Indent the line containing mark with indentation
+spaces. Use tabs and spaces if tab-width is not nil, otherwise use
+spaces only."))
+
+(defun indent-line* (mark indentation tab-width left)
   (let ((mark2 (clone-mark mark)))
     (beginning-of-line mark2)
     (loop until (end-of-buffer-p mark2)
-          as object = (object-after mark2)
-          while (or (eql object #\Space) (eql object #\Tab))
-          do (delete-range mark2 1))
+       as object = (object-after mark2)
+       while (or (eql object #\Space) (eql object #\Tab))
+       do (delete-range mark2 1))
     (loop until (zerop indentation)
-          do (cond ((and tab-width (>= indentation tab-width))
-                    (insert-object mark2 #\Tab)
-                    (decf indentation tab-width))
-                   (t
-                    (insert-object mark2 #\Space)
-                    (decf indentation))))))
+       do (cond ((and tab-width (>= indentation tab-width))
+		 (insert-object mark2 #\Tab)
+		 (when left ; spaces must follow tabs
+		   (forward-object mark2))
+		 (decf indentation tab-width))
+		(t
+		 (insert-object mark2 #\Space)
+		 (decf indentation))))))
+
+(defmethod indent-line ((mark left-sticky-mark) indentation tab-width)
+  (indent-line* mark indentation tab-width t))
+
+(defmethod indent-line ((mark right-sticky-mark) indentation tab-width)
+  (indent-line* mark indentation tab-width nil))
 
 (defun delete-indentation (mark)
   (beginning-of-line mark)
