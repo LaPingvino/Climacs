@@ -88,6 +88,11 @@
 (defmacro current-window () ; shouldn't this be an inlined function? --amb
   `(car (windows *application-frame*)))
 
+(defmethod execute-frame-command :around ((frame climacs) command)
+  (declare (ignore command))
+  (with-undo ((buffer (current-window)))
+    (call-next-method)))
+
 (defmethod redisplay-frame-panes :around ((frame climacs) &rest args)
   (declare (ignore args))
   (let ((buffers (remove-duplicates (mapcar #'buffer (windows frame)))))
@@ -1099,6 +1104,12 @@ as two values"
 (define-named-command com-isearch-exit ()
   (setf (isearch-mode (current-window)) nil))
 
+(define-named-command com-undo ()
+  (undo (undo-tree (buffer (current-window)))))
+
+(define-named-command com-redo ()
+  (redo (undo-tree (buffer (current-window)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Dynamic abbrevs
@@ -1263,6 +1274,8 @@ as two values"
 (c-x-set-key '(#\k) 'com-kill-buffer)
 (c-x-set-key '(#\l :control) 'com-load-file)
 (c-x-set-key '(#\o) 'com-other-window)
+(c-x-set-key '(#\r) 'com-redo)
+(c-x-set-key '(#\u) 'com-undo)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
 (c-x-set-key '(#\t :control) 'com-transpose-lines)
 (c-x-set-key '(#\w :control) 'com-write-buffer)

@@ -44,6 +44,99 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; Undo
+
+(defclass undo-mixin ()
+  ((tree :initform (make-instance 'standard-undo-tree) :reader undo-tree)
+   (undo-accumulate :initform '() :accessor undo-accumulate)
+   (performing-undo :initform nil :accessor performing-undo)))
+
+(defclass climacs-undo-record (standard-undo-record)
+  ((buffer :initarg :buffer)))
+
+(defclass simple-undo-record (climacs-undo-record)
+  ((offset :initarg :offset)))
+
+(defclass insert-record (simple-undo-record)
+  ((objects :initarg :objects)))
+
+(defclass delete-record (simple-undo-record)
+  ((length :initarg :length)))
+
+(defclass compound-record (climacs-undo-record)
+  ((records :initform '() :initarg :records)))
+
+(defmethod print-object  ((object delete-record) stream)
+  (with-slots (offset length) object
+     (format stream "[offset: ~a length: ~a]" offset length)))
+
+(defmethod print-object  ((object insert-record) stream)
+  (with-slots (offset objects) object
+     (format stream "[offset: ~a objects: ~a]" offset objects)))
+
+(defmethod print-object  ((object compound-record) stream)
+  (with-slots (records) object
+     (format stream "[records: ~a]" records)))
+
+(defmethod insert-buffer-object :before ((buffer undo-mixin) offset object)
+  (declare (ignore object))
+  (unless (performing-undo buffer)
+    (push (make-instance 'delete-record
+	     :buffer buffer :offset offset :length 1)
+	  (undo-accumulate buffer))))
+
+(defmethod insert-buffer-sequence :before ((buffer undo-mixin) offset sequence)
+  (unless (performing-undo buffer)
+    (push (make-instance 'delete-record
+	     :buffer buffer :offset offset :length (length sequence))
+	  (undo-accumulate buffer))))
+
+
+(defmethod delete-buffer-range :before ((buffer undo-mixin) offset n)
+  (unless (performing-undo buffer)
+    (push (make-instance 'insert-record
+	     :buffer buffer :offset offset
+	     :objects (buffer-sequence buffer offset (+ offset n)))
+	  (undo-accumulate buffer))))
+
+(defmacro with-undo ((buffer) &body body)
+  (let ((buffer-var (gensym)))
+    `(let ((,buffer-var ,buffer))
+       (setf (undo-accumulate ,buffer-var) '())
+       ,@body
+       (cond ((null (undo-accumulate ,buffer-var)) nil)
+	     ((null (cdr (undo-accumulate ,buffer-var)))
+	      (add-undo (car (undo-accumulate ,buffer-var)) (undo-tree ,buffer-var)))
+	     (t
+	      (add-undo (make-instance 'compound-record :records (undo-accumulate ,buffer-var))
+			(undo-tree ,buffer-var)))))))
+
+(defmethod flip-undo-record :around ((record climacs-undo-record))
+  (with-slots (buffer) record
+     (let ((performing-undo (performing-undo buffer)))
+       (setf (performing-undo buffer) t)
+       (unwind-protect (call-next-method)
+	 (setf (performing-undo buffer) performing-undo)))))
+
+(defmethod flip-undo-record ((record insert-record))
+  (with-slots (buffer offset objects) record
+     (change-class record 'delete-record
+		   :length (length objects))
+     (insert-buffer-sequence buffer offset objects)))
+
+(defmethod flip-undo-record ((record delete-record))
+  (with-slots (buffer offset length) record
+     (change-class record 'insert-record
+		   :objects (buffer-sequence buffer offset (+ offset length)))
+     (delete-buffer-range buffer offset length)))
+
+(defmethod flip-undo-record ((record compound-record))
+  (with-slots (records) record
+     (mapc #'flip-undo-record records)
+     (setf records (nreverse records))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Isearch
 
 (defclass isearch-state ()
@@ -63,7 +156,7 @@
 
 ;(defgeneric indent-tabs-mode (climacs-buffer))
 
-(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin)
+(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin undo-mixin)
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :initarg :syntax :initform (make-instance 'basic-syntax) :accessor syntax)
    (indent-tabs-mode :initarg indent-tabs-mode :initform t

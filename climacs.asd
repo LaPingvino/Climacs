@@ -59,6 +59,7 @@
    "text-syntax"
    "kill-ring"
    "pane"
+   "undo"
    "gui"
    ;;---- optional ----
    "testing/rt"

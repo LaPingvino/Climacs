@@ -88,9 +88,16 @@
 	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
 	   #:kill-ring-standard-push    #:kill-ring-concatenating-push))
 
+(defpackage :undo
+  (:use :common-lisp)
+  (:export #:no-more-undo
+	   #:undo-tree #:standard-undo-tree
+	   #:undo-record #:standard-undo-record
+	   #:add-undo #:flip-undo-record #:undo #:redo))
+
 (defpackage :climacs-pane
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
-	:climacs-syntax :flexichain)
+	:climacs-syntax :flexichain :undo)
   (:export #:climacs-buffer #:needs-saving #:filename
 	   #:climacs-pane #:point #:mark
 	   #:redisplay-pane #:full-redisplay
@@ -100,9 +107,10 @@
            #:auto-fill-mode #:auto-fill-column
            #:isearch-state #:search-string #:search-mark #:search-forward-p
            #:isearch-mode #:isearch-states #:isearch-previous-string
+	   #:with-undo
 	   #:url))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
-	:climacs-kill-ring :climacs-pane :clim-extensions))
+	:climacs-kill-ring :climacs-pane :clim-extensions :undo))
 
