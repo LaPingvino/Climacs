@@ -67,14 +67,16 @@ The body is executed for each element, with object being the current object
     (beginning-of-line mark)
     (incf (offset mark) column)))
 
-(defmethod open-line ((mark left-sticky-mark))
+(defmethod open-line ((mark left-sticky-mark) &optional (count 1))
   "Create a new line in a buffer after the mark."
-  (insert-object mark #\Newline))
+  (loop repeat count
+	do (insert-object mark #\Newline)))
 
-(defmethod open-line ((mark right-sticky-mark))
+(defmethod open-line ((mark right-sticky-mark) &optional (count 1))
   "Create a new line in a buffer after the mark."
-  (insert-object mark #\Newline)
-  (decf (offset mark)))
+  (loop repeat count
+	do (insert-object mark #\Newline)
+	   (decf (offset mark))))
 
 (defun kill-line (mark)
   "Remove a line from a buffer."

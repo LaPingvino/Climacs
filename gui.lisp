@@ -462,8 +462,8 @@
       (setf (slot-value win 'goal-column) (column-number point)))
     (next-line point (slot-value win 'goal-column) numarg)))
 
-(define-named-command com-open-line ()
-  (open-line (point (current-window))))
+(define-named-command com-open-line ((numarg 'integer :prompt "How many lines?"))
+  (open-line (point (current-window)) numarg))
 
 (define-named-command com-kill-line ((numarg 'integer :prompt "Kill how many lines?")
 				     (numargp 'boolean :prompt "Kill entire lines?"))
@@ -1348,7 +1348,7 @@ as two values"
 (global-set-key '(#\p :control) `(com-previous-line ,*numeric-argument-marker*))
 (global-set-key '(#\l :control) 'com-full-redisplay)
 (global-set-key '(#\n :control) `(com-next-line ,*numeric-argument-marker*))
-(global-set-key '(#\o :control) 'com-open-line)
+(global-set-key '(#\o :control) `(com-open-line ,*numeric-argument-marker*))
 (global-set-key '(#\k :control) `(com-kill-line ,*numeric-argument-marker* ,*numeric-argument-p*))
 (global-set-key '(#\t :control) 'com-transpose-objects)
 (global-set-key '(#\Space :control) 'com-set-mark)
