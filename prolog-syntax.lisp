@@ -926,7 +926,6 @@
 			 pane (- tab-width (mod x tab-width)) 0))))
 	     (incf start))))		    
 
-#+nil
 (defmethod display-parse-tree :around ((entity prolog-parse-tree) syntax pane)
   (with-slots (top bot) pane
      (when (and (end-offset entity) (mark> (end-offset entity) top))
@@ -1024,3 +1023,17 @@
 			  (1- cursor-x) (- cursor-y (* 0.2 height))
 			  (+ cursor-x 2) (+ cursor-y (* 0.8 height))
 			  :ink (if current-p +red+ +blue+))))))
+
+#|
+(climacs-gui::define-named-command com-inspect-lex ()
+  (with-slots (lexer) (slot-value (buffer (climacs-gui::current-window)) 'climacs-syntax::syntax)
+    (let ((*standard-input* *query-io*)
+	  (*standard-output* *query-io*))
+      (inspect lexer))))
+
+(climacs-gui::define-named-command com-inspect-parse ()
+  (with-slots (parser) (slot-value (buffer (climacs-gui::current-window)) 'climacs-syntax::syntax)
+    (let ((*standard-input* *query-io*)
+	  (*standard-output* *query-io*))
+      (inspect parser))))
+|#
