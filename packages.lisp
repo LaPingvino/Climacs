@@ -110,6 +110,8 @@
            #:auto-fill-mode #:auto-fill-column
            #:isearch-state #:search-string #:search-mark #:search-forward-p
            #:isearch-mode #:isearch-states #:isearch-previous-string
+           #:query-replace-state #:string1 #:string2
+           #:query-replace-mode
 	   #:with-undo
 	   #:url))
 

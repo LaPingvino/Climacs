@@ -146,6 +146,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; Query replace
+
+(defclass query-replace-state ()
+  ((string1 :initarg :string1 :accessor string1)
+   (string2 :initarg :string2 :accessor string2)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; View
 
 (defclass climacs-textual-view (textual-view tabify-mixin)
@@ -180,6 +188,8 @@
    (isearch-mode :initform nil :accessor isearch-mode)
    (isearch-states :initform '() :accessor isearch-states)
    (isearch-previous-string :initform nil :accessor isearch-previous-string)
+   (query-replace-mode :initform nil :accessor query-replace-mode)
+   (query-replace-state :initform nil :accessor query-replace-state)
    (full-redisplay-p :initform nil :accessor full-redisplay-p)
    (cache :initform (let ((cache (make-instance 'standard-flexichain)))
 		      (insert* cache 0 nil)

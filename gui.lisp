@@ -280,6 +280,32 @@
 	       (setf (executingp *application-frame*) nil)
 	       (redisplay-frame-panes frame))))))
 
+(defmacro simple-command-loop (command-table loop-condition end-clauses)
+  (let ((gesture (gensym))
+        (item (gensym))
+        (command (gensym))
+        (condition (gensym)))
+    `(progn 
+       (redisplay-frame-panes *application-frame*)
+       (loop while ,loop-condition
+             as ,gesture = (climacs-read-gesture)
+             as ,item = (find-gestures (list ,gesture) ,command-table)
+             do (cond ((and ,item (eq (command-menu-item-type ,item) :command))
+                       (setf *current-gesture* ,gesture)
+                       (let ((,command (command-menu-item-value ,item)))
+                         (unless (consp ,command)
+                           (setf ,command (list ,command)))
+                         (handler-case 
+                             (execute-frame-command *application-frame*
+                                                    ,command)
+                           (error (,condition)
+                             (beep)
+                             (format *error-output* "~a~%" ,condition)))))
+                      (t
+                       (unread-gesture ,gesture)
+                       ,@end-clauses))
+             (redisplay-frame-panes *application-frame*)))))
+
 (defun region-limits (pane)
   (if (mark< (mark pane) (point pane))
       (values (mark pane) (point pane))
@@ -1006,24 +1032,9 @@ as two values"
                                :search-string ""
                                :search-mark (clone-mark point)
                                :search-forward-p forwardp)))
-    (redisplay-frame-panes *application-frame*)
-    (loop while (isearch-mode pane)
-          as gesture = (climacs-read-gesture)
-          as item = (find-gestures (list gesture) 'isearch-climacs-table)
-          do (cond ((and item (eq (command-menu-item-type item) :command))
-                    (setf *current-gesture* gesture)
-                    (let ((command (command-menu-item-value item)))
-                      (unless (consp command)
-                        (setf command (list command)))
-                      (handler-case 
-                          (execute-frame-command *application-frame* command)
-                        (error (condition)
-                          (beep)
-                          (format *error-output* "~a~%" condition)))))
-                   (t
-                    (unread-gesture gesture)
-                    (setf (isearch-mode pane) nil)))
-             (redisplay-frame-panes *application-frame*))))
+    (simple-command-loop 'isearch-climacs-table
+                         (isearch-mode pane)
+                         ((setf (isearch-mode pane) nil)))))
 
 (defun isearch-from-mark (pane mark string forwardp)
   (flet ((object-equal (x y)
@@ -1103,6 +1114,56 @@ as two values"
 
 (define-named-command com-isearch-exit ()
   (setf (isearch-mode (current-window)) nil))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Query replace
+
+(defun query-replace-find-next-match (mark string)
+  (let ((offset-before (offset mark)))
+    (search-forward mark string)
+    (/= (offset mark) offset-before)))
+
+(define-named-command com-query-replace ()
+  (let* ((string1 (accept 'string :prompt "Query replace"))
+         (string2 (accept 'string
+                          :prompt (format nil "Query replace ~A with"
+                                          string1)))
+         (pane (current-window))
+         (point (point pane)))
+    (when (query-replace-find-next-match point string1)
+      (setf (query-replace-state pane) (make-instance 'query-replace-state
+                                                      :string1 string1
+                                                      :string2 string2)
+            (query-replace-mode pane) t)
+      (simple-command-loop 'query-replace-climacs-table
+                           (query-replace-mode pane)
+                           ((setf (query-replace-mode pane) nil))))))
+
+(define-named-command com-query-replace-replace ()
+  (let* ((pane (current-window))
+         (point (point pane))
+         (state (query-replace-state pane))
+         (string1-length (length (string1 state))))
+    (backward-object point string1-length)
+    (delete-range point string1-length)
+    (insert-sequence point (string2 state))
+    (unless (query-replace-find-next-match point (string1 state))
+      (setf (query-replace-mode pane) nil))))
+
+(define-named-command com-query-replace-skip ()
+  (let* ((pane (current-window))
+         (point (point pane))
+         (state (query-replace-state pane)))
+    (unless (query-replace-find-next-match point (string1 state))
+      (setf (query-replace-mode pane) nil))))
+
+(define-named-command com-query-replace-exit ()
+  (setf (query-replace-mode (current-window)) nil))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Undo/redo
 
 (define-named-command com-undo ()
   (undo (undo-tree (buffer (current-window)))))
@@ -1230,6 +1291,7 @@ as two values"
 (global-set-key '(#\e :control :meta) 'com-end-of-paragraph)
 (global-set-key '(#\s :control) 'com-isearch-mode-forward)
 (global-set-key '(#\r :control) 'com-isearch-mode-backward)
+(global-set-key '(#\% :shift :meta) 'com-query-replace)
 
 (global-set-key '(:up) 'com-previous-line)
 (global-set-key '(:down) 'com-next-line)
@@ -1457,3 +1519,21 @@ as two values"
 (isearch-set-key '(#\Backspace) 'com-isearch-delete-char)
 (isearch-set-key '(#\s :control) 'com-isearch-forward)
 (isearch-set-key '(#\r :control) 'com-isearch-backward)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Query replace command table
+
+(make-command-table 'query-replace-climacs-table :errorp nil)
+
+(defun query-replace-set-key (gesture command)
+  (add-command-to-command-table command 'query-replace-climacs-table
+                                :keystroke gesture :errorp nil))
+
+(query-replace-set-key '(#\Newline) 'com-query-replace-exit)
+(query-replace-set-key '(#\Space) 'com-query-replace-replace)
+(query-replace-set-key '(#\Backspace) 'com-query-replace-skip)
+(query-replace-set-key '(#\Rubout) 'com-query-replace-skip)
+(query-replace-set-key '(#\q) 'com-query-replace-exit)
+(query-replace-set-key '(#\y) 'com-query-replace-replace)
+(query-replace-set-key '(#\n) 'com-query-replace-skip)
