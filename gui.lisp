@@ -173,10 +173,12 @@
 
 (defun climacs-unread-gesture (gesture stream)
   (cond ((recordingp *application-frame*)
-	 (pop (recorded-keys *application-frame*)))
+	 (pop (recorded-keys *application-frame*))
+	 (unread-gesture gesture :stream stream))
 	((executingp *application-frame*)
-	 (push gesture (remaining-keys *application-frame*))))
-  (unread-gesture gesture :stream stream))
+	 (push gesture (remaining-keys *application-frame*)))
+	(t 
+	 (unread-gesture gesture :stream stream))))
 
 (defun read-numeric-argument (&key (stream *standard-input*))
   (let ((gesture (climacs-read-gesture)))
