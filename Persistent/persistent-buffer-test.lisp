@@ -53,11 +53,7 @@
   (flet ((%all-eq (&optional x y)
 	   (cond
 	     ((null x) nil)
-	     (t (when (eq x y) y))))
-	 (%all-= (&optional x y)
-	   (cond
-	     ((null x) nil)
-	     (t (when (= x y) y)))))
+	     (t (when (eq x y) y)))))
     (let* ((buffer (make-instance 'binseq-buffer))
 	   (low (slot-value buffer 'low-mark))
 	   (high (slot-value buffer 'high-mark))
@@ -762,11 +758,7 @@ climacs")
   (flet ((%all-eq (&optional x y)
 	   (cond
 	     ((null x) nil)
-	     (t (when (eq x y) y))))
-	 (%all-= (&optional x y)
-	   (cond
-	     ((null x) nil)
-	     (t (when (= x y) y)))))
+	     (t (when (eq x y) y)))))
     (let* ((buffer (make-instance 'obinseq-buffer))
 	   (low (slot-value buffer 'low-mark))
 	   (high (slot-value buffer 'high-mark))

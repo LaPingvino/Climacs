@@ -24,6 +24,9 @@
 
 (in-package :climacs-buffer)
 
+;;; For now, pos contains just an integer, while it might contain a cons
+;;; of two adjacent buffer elements for higher performance (with the help
+;;; of buffer implementation, especially the rebalancing part).
 (defclass persistent-cursor ()
   ((buffer :reader buffer :initarg :buffer) ; TODO: fix overlap with mark?
    (pos :accessor cursor-pos))
@@ -151,6 +154,9 @@ PERSISTENT-BUFFER."))
      while (> i 0)
      until (eql (buffer-object buffer (1- i)) #\Newline)
      count t))
+
+;;; the old value of the CONTENTS slot is dropped upon modification
+;;; it can be saved for UNDO purposes in a history tree, by an UNDOABLE-BUFFER
 
 (defmethod insert-buffer-object ((buffer binseq-buffer) offset object)
   (assert (<= 0 offset (size buffer)) ()

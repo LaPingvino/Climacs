@@ -461,26 +461,6 @@ climacs")
        (number-of-lines-in-region 10 m2r))))
   1 1 1 1 0 0 0 1 1)
 
-(deftest constituentp.test-1 ; NOTE: more tests may be needed for sbcl
-  (values
-   (constituentp #\a)
-   (constituentp #\Newline)
-   (constituentp #\Space)
-   (constituentp #\Tab)
-   (constituentp "a")
-   (constituentp #\Null))
-  t nil nil nil nil nil)
-
-(deftest whitespacep.test-1
-  (values
-   (not (null (whitespacep #\a)))
-   (not (null (whitespacep #\Newline)))
-   (not (null (whitespacep #\Space)))
-   (not (null (whitespacep #\Tab)))
-   (not (null (whitespacep " ")))
-   (not (null (whitespacep #\Null))))
-  nil nil t t nil nil)
-
 (deftest binseq-buffer-forward-to-word-boundary.test-1
   (let ((buffer (make-instance 'binseq-buffer)))
     (insert-buffer-sequence buffer 0 "  climacs
@@ -1080,26 +1060,6 @@ climacs")
        (number-of-lines-in-region m2l 10)
        (number-of-lines-in-region 10 m2r))))
   1 1 1 1 0 0 0 1 1)
-
-(deftest constituentp.test-1 ; NOTE: more tests may be needed for sbcl
-  (values
-   (constituentp #\a)
-   (constituentp #\Newline)
-   (constituentp #\Space)
-   (constituentp #\Tab)
-   (constituentp "a")
-   (constituentp #\Null))
-  t nil nil nil nil nil)
-
-(deftest whitespacep.test-1
-  (values
-   (not (null (whitespacep #\a)))
-   (not (null (whitespacep #\Newline)))
-   (not (null (whitespacep #\Space)))
-   (not (null (whitespacep #\Tab)))
-   (not (null (whitespacep " ")))
-   (not (null (whitespacep #\Null))))
-  nil nil t t nil nil)
 
 (deftest obinseq-buffer-forward-to-word-boundary.test-1
   (let ((buffer (make-instance 'obinseq-buffer)))
