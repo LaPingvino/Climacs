@@ -71,15 +71,17 @@
 		   :name 'win
 		   :incremental-redisplay t
 		   :display-function 'display-win))
-    (info :application
-	  :width 900 :height 20 :max-height 20
-	  :name 'info :background +light-gray+
-	  :scroll-bars nil
-	  :incremental-redisplay t
-	  :display-function 'display-info)
-    (int (make-pane 'minibuffer-pane
-		    :width 900 :height 20 :max-height 20 :min-height 20
-		    :scroll-bars nil)))
+   
+   (info :application
+	 :width 900 :height 20 :max-height 20
+	 :name 'info :background +light-gray+
+	 :scroll-bars nil
+	 :borders nil
+	 :incremental-redisplay t
+	 :display-function 'display-info)
+   (int (make-pane 'minibuffer-pane
+		   :width 900 :height 20 :max-height 20 :min-height 20
+		   :scroll-bars nil)))
   (:layouts
    (default
        (vertically (:scroll-bars nil)
@@ -162,10 +164,10 @@
 
 (defun read-numeric-argument (&key (stream *standard-input*))
   (let ((gesture (climacs-read-gesture)))
-    (cond ((event-matches-gesture-name-p gesture '(#\u :control))
+    (cond ((event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
 	   (let ((numarg 4))
 	     (loop for gesture = (climacs-read-gesture)
-		   while (event-matches-gesture-name-p gesture '(#\u :control))
+		   while (event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
 		   do (setf numarg (* 4 numarg))
 		   finally (unread-gesture gesture :stream stream))
 	     (let ((gesture (climacs-read-gesture)))
@@ -175,11 +177,12 @@
 		      (loop for gesture = (climacs-read-gesture)
 			    while (and (characterp gesture)
 				       (digit-char-p gesture 10))
-			    do (setf gesture (+ (* 10 numarg)
-						(- (char-code gesture) (char-code #\0))))
+			    do (setf numarg (+ (* 10 numarg)
+					       (- (char-code gesture) (char-code #\0))))
 			    finally (unread-gesture gesture :stream stream)
 				    (return (values numarg t))))
 		     (t
+		      (unread-gesture gesture :stream stream)
 		      (values numarg t))))))
 	  ((meta-digit gesture)
 	   (let ((numarg (meta-digit gesture)))
@@ -202,29 +205,29 @@
 	(*abort-gestures* nil))
     (redisplay-frame-panes frame :force-p t)
     (loop (catch 'outer-loop
-	    (loop with gestures = '()
-		  with numarg = 1 ; FIXME (read-numeric-argument :stream *standard-input*)
-		  do (setf *current-gesture* (climacs-read-gesture))
-		     (setf gestures (nconc gestures (list *current-gesture*)))
-		     (let ((item (find-gestures gestures 'global-climacs-table)))
-		       (cond ((not item)
-			      (beep) (setf gestures '()))
-			     ((eq (command-menu-item-type item) :command)
-			      (let ((command (command-menu-item-value item)))
-				(unless (consp command)
-				  (setf command (list command)))
-				(setf command (substitute-numeric-argument-marker command numarg))
-				(handler-case 
-				    (execute-frame-command frame command)
-				  (error (condition)
-				    (beep)
-				    (format *error-output* "~a~%" condition)))
-				(setf gestures '())
-				(setf (previous-command *standard-output*)
-				      (if (consp command)
-					  (car command)
-					  command))))
-			     (t nil)))
+	    (loop for gestures = '()
+		  for numarg = (read-numeric-argument :stream *standard-input*)
+		  do (loop (setf *current-gesture* (climacs-read-gesture))
+			   (setf gestures (nconc gestures (list *current-gesture*)))
+			   (let ((item (find-gestures gestures 'global-climacs-table)))
+			     (cond ((not item)
+				    (beep) (return))
+				   ((eq (command-menu-item-type item) :command)
+				    (let ((command (command-menu-item-value item)))
+				      (unless (consp command)
+					(setf command (list command)))
+				      (setf command (substitute-numeric-argument-marker command numarg))
+				      (handler-case 
+					  (execute-frame-command frame command)
+					(error (condition)
+					  (beep)
+					  (format *error-output* "~a~%" condition)))
+				      (setf (previous-command *standard-output*)
+					    (if (consp command)
+						(car command)
+						command))
+				      (return)))
+				   (t nil))))
 		     (let ((buffer (buffer (win frame))))
 		       (when (modified-p buffer)
 			 (setf (needs-saving buffer) t)))
@@ -236,7 +239,9 @@
 	  (redisplay-frame-panes frame))))
 
 (defmacro define-named-command (command-name args &body body)
-  `(define-climacs-command ,(if (listp command-name) `(,@command-name :name t) `(,command-name :name t)) ,args ,@body))
+  `(define-climacs-command ,(if (listp command-name)
+				`(,@command-name :name t)
+				`(,command-name :name t)) ,args ,@body))
 
 (define-named-command (com-quit) ()
   (frame-exit *application-frame*))
@@ -260,11 +265,11 @@
 (define-named-command com-end-of-line ()
   (end-of-line (point (win *application-frame*))))
 
-(define-named-command com-delete-object ()
-  (delete-range (point (win *application-frame*))))
+(define-named-command com-delete-object ((count 'integer :prompt "Number of Objects"))
+  (delete-range (point (win *application-frame*)) count))
 
-(define-named-command com-backward-delete-object ()
-  (delete-range (point (win *application-frame*)) -1))
+(define-named-command com-backward-delete-object ((count 'integer :prompt "Number of Objects"))
+  (delete-range (point (win *application-frame*)) (- count)))
 
 (define-named-command com-transpose-objects ()
   (let* ((point (point (win *application-frame*))))
@@ -277,11 +282,11 @@
        (insert-object point object)
        (forward-object point)))))
 
-(define-named-command com-backward-object ()
-  (backward-object (point (win *application-frame*))))
+(define-named-command com-backward-object ((count 'integer :prompt "Number of Objects"))
+  (backward-object (point (win *application-frame*)) count))
 
-(define-named-command com-forward-object ()
-  (forward-object (point (win *application-frame*))))
+(define-named-command com-forward-object ((count 'integer :prompt "Number of Objects"))
+  (forward-object (point (win *application-frame*)) count))
 
 (define-named-command com-transpose-words ()
   (let* ((point (point (win *application-frame*))))
@@ -676,11 +681,11 @@
 
 (global-set-key #\newline 'com-self-insert)
 (global-set-key #\tab 'com-self-insert)
-(global-set-key '(#\f :control) 'com-forward-object)
-(global-set-key '(#\b :control) 'com-backward-object)
+(global-set-key '(#\f :control) `(com-forward-object ,*numeric-argument-marker*))
+(global-set-key '(#\b :control) `(com-backward-object ,*numeric-argument-marker*))
 (global-set-key '(#\a :control) 'com-beginning-of-line)
 (global-set-key '(#\e :control) 'com-end-of-line)
-(global-set-key '(#\d :control) 'com-delete-object)
+(global-set-key '(#\d :control) `(com-delete-object ,*numeric-argument-marker*))
 (global-set-key '(#\p :control) 'com-previous-line)
 (global-set-key '(#\n :control) 'com-next-line)
 (global-set-key '(#\o :control) 'com-open-line)
@@ -709,8 +714,8 @@
 
 (global-set-key '(:up) 'com-previous-line)
 (global-set-key '(:down) 'com-next-line)
-(global-set-key '(:left) 'com-backward-object)
-(global-set-key '(:right) 'com-forward-object)
+(global-set-key '(:left) `(com-backward-object ,*numeric-argument-marker*))
+(global-set-key '(:right) `(com-forward-object *numeric-argument-marker*))
 (global-set-key '(:left :control) 'com-backward-word)
 (global-set-key '(:right :control) 'com-forward-word)
 (global-set-key '(:home) 'com-beginning-of-line)
@@ -719,8 +724,8 @@
 (global-set-key '(:next) 'com-page-down)
 (global-set-key '(:home :control) 'com-beginning-of-buffer)
 (global-set-key '(:end :control) 'com-end-of-buffer)
-(global-set-key #\Rubout 'com-delete-object)
-(global-set-key #\Backspace 'com-backward-delete-object)
+(global-set-key #\Rubout `(com-delete-object ,*numeric-argument-marker*))
+(global-set-key #\Backspace `(com-backward-delete-object ,*numeric-argument-marker*))
 
 (global-set-key '(:insert) 'com-toggle-overwrite-mode)
 

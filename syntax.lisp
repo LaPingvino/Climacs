@@ -279,12 +279,6 @@
 	 (beginning-of-line (point pane))
 	 (empty-cache cache)))))
 
-;;; this one should not be necessary. 
-(defun round-up (x)
-  (cond ((zerop x) 2)
-	((evenp x) x)
-	(t (1+ x))))
-
 (defmethod redisplay-with-syntax (pane (syntax basic-syntax))
   (let* ((medium (sheet-medium pane))
 	 (style (medium-text-style medium))
@@ -310,13 +304,10 @@
 	   (setf cursor-x x
 		 cursor-y y)))
        (updating-output (pane :unique-id -1)
-	 (draw-line* pane
-		     ;; cursors with odd or zero x-positions were invisible
-		     ;; so we round them up to even. 
-		     ;; We don't know why, though.
-		     (round-up cursor-x) (- cursor-y (* 0.2 height))
-		     (round-up cursor-x) (+ cursor-y (* 0.8 height))
-		     :ink +red+)))))
+	 (draw-rectangle* pane
+			  cursor-x (- cursor-y (* 0.2 height))
+			  (1+ cursor-x) (+ cursor-y (* 0.8 height))
+			  :ink +red+)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
