@@ -93,7 +93,15 @@
 	  do (setf *current-gesture* (read-gesture :stream *standard-input*))
 	     (when (or (characterp *current-gesture*)
 		       (and (typep *current-gesture* 'keyboard-event)
-			    (keyboard-event-character *current-gesture*)))
+			    (or (keyboard-event-character *current-gesture*)
+				(not (member (keyboard-event-key-name
+					      *current-gesture*)
+					     '(:control-left :control-right
+					       :shift-left :shift-right
+					       :meta-left :meta-right
+					       :super-left :super-right
+					       :hyper-left :hyper-right
+					       :shift-lock :caps-lock))))))
 	       (setf gestures (nconc gestures (list *current-gesture*)))
 	       (let ((item (find-gestures gestures 'global-climacs-table)))
 		 (cond ((not item)
@@ -130,6 +138,9 @@
 
 (define-command com-delete-object ()
   (delete-range (point (win *application-frame*))))
+
+(define-command com-backward-delete-object ()
+  (delete-range (point (win *application-frame*)) -1))
 
 (define-command com-previous-line ()
   (previous-line (point (win *application-frame*))))
@@ -302,6 +313,19 @@
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
 (global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
 (global-set-key '(#\u :meta) 'com-browse-url)
+
+(global-set-key '(:up) 'com-previous-line)
+(global-set-key '(:down) 'com-next-line)
+(global-set-key '(:left) 'com-backward-object)
+(global-set-key '(:right) 'com-forward-object)
+(global-set-key '(:left :control) 'com-backward-word)
+(global-set-key '(:right :control) 'com-forward-word)
+(global-set-key '(:home) 'com-beginning-of-line)
+(global-set-key '(:end) 'com-end-of-line)
+(global-set-key '(:home :control) 'com-beginning-of-buffer)
+(global-set-key '(:end :control) 'com-end-of-buffer)
+(global-set-key #\Rubout 'com-delete-object)
+(global-set-key #\Backspace 'com-backward-delete-object)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
