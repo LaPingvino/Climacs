@@ -1,7 +1,9 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-BASE -*-
 
 ;;;  (c) copyright 2004 by
-;;;           Robert Strandh (strandh@labri.u-bordeaux.fr)
+;;;           Robert Strandh (strandh@labri.fr)
+;;;  (c) copyright 2004 by
+;;;           Elliott Johnson (ejohnson@fasl.info)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -27,6 +29,7 @@
 (in-package :climacs-base)
 
 (defun previous-line (mark)
+  "Move a mark up one line conserving horizontal position."
   (let ((column (column-number mark)))
     (beginning-of-line mark)
     (if (beginning-of-buffer-p mark)
@@ -37,6 +40,7 @@
 		 (incf (offset mark) column))))))
 
 (defun next-line (mark)
+  "Move a mark down one line conserving horizontal position."
   (let ((column (column-number mark)))
     (end-of-line mark)
     (if (end-of-buffer-p mark)
@@ -49,10 +53,12 @@
 		 (incf (offset mark) column))))))
 
 (defun open-line (mark)
+  "Create a new line in a buffer."
   (insert-object mark #\Newline)
   (decf (offset mark)))
 
 (defun kill-line (mark)
+  "Remove a line from a buffer."
   (if (end-of-line-p mark)
       (unless (end-of-buffer-p mark)
 	(delete-range mark))
@@ -61,11 +67,13 @@
 	(delete-region offset mark))))
 
 (defun constituentp (obj)
+  "A predicate to ensure that an object is a constituent character."
   (and (characterp obj)
        #+sbcl (sb-impl::constituentp obj)
        #-sbcl (alphanumericp obj)))
 
 (defun forward-word (mark)
+  "Forward the mark to the next word."
   (loop until (end-of-buffer-p mark)
 	until (constituentp (object-after mark))
 	do (incf (offset mark)))
@@ -74,6 +82,7 @@
 	do (incf (offset mark))))
 
 (defun backward-word (mark)
+  "Shuttle the mark to the start of the previous word."
   (loop until (beginning-of-buffer-p mark)
 	until (constituentp (object-before mark))
 	do (decf (offset mark)))

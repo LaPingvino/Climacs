@@ -1,7 +1,9 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-ABBREV -*-
 
 ;;;  (c) copyright 2004 by
-;;;           Robert Strandh (strandh@labri.u-bordeaux.fr)
+;;;           Robert Strandh (strandh@labri.fr)
+;;;  (c) copyright 2004 by
+;;;           Elliott Johnson (ejohnson@fasl.info)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -33,25 +35,32 @@
 (in-package :climacs-abbrev)
 
 ;;; the protocol class for all abbrev expanders. 
-(defclass abbrev-expander () ())
+(defclass abbrev-expander () ()
+  (:documentation "The protocol class for all abbreviation expanders"))
 
 (defgeneric expand-abbrev (word abbrev-expander)
-  (:documentation "Given a word and an abbrev expander, 
-return the expanded abbrev, or NIL if no expansion exists"))
+  (:documentation "Given a word and an abbrev expander, return the 
+expanded abbrev, or NIL if no expansion exists"))
 
 (defclass dictionary-abbrev-expander (abbrev-expander)
-  ((dictionary :initform '() :accessor dictionary)))
+  ((dictionary :initform '() :accessor dictionary
+	       :documentation "A dictionary of abbreviations."))
+  (:documentation "A protocol class specified for dictionary abbreviation expanders."))
 
 (defgeneric add-abbrev (word expansion dictionary-abbrev-expander)
   (:documentation "Add an abbrev expansion to a dictionary abbrev expander"))
 
 (defun string-upper-case-p (string)
+  "A predicate testing if each character of a string is uppercase."
   (loop for c across string
 	unless (upper-case-p c)
 	  do (return nil)
 	finally (return t)))
 
 (defmethod expand-abbrev (word (expander dictionary-abbrev-expander))
+  "Expands an abbrevated word by attempting to assocate it with a member of
+an abbreviation dictionary.  If such an association is found, an uppercase,
+expanded version of the abbrevation is returned."
   (let ((expansion (cdr (assoc word (dictionary expander) :test #'string-equal))))
     (when expansion
       (cond ((string-upper-case-p word) (string-upcase expansion))
@@ -59,6 +68,7 @@ return the expanded abbrev, or NIL if no expansion exists"))
 	    (t expansion)))))
 
 (defun possibly-expand-abbrev (mark)
+  "Replaces a bit of abbreviated text with its fully expanded counterpart."
   (let ((buffer (buffer mark)))
     (when (and (not (beginning-of-buffer-p mark))
 	       (constituentp (object-before mark)))
@@ -75,4 +85,6 @@ return the expanded abbrev, or NIL if no expansion exists"))
 
 (defclass abbrev-mixin ()
   ((expander :initform (make-instance 'dictionary-abbrev-expander)
-	     :initarg :expander :accessor abbrev-expander)))
+	     :initarg :expander :accessor abbrev-expander))
+  (:documentation "A mixin class which adds abbreviation expansion facilities to
+a buffer via the accessor \"abbrev-expander\""))

@@ -1,7 +1,9 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-GUI -*-
 
 ;;;  (c) copyright 2004 by
-;;;           Robert Strandh (strandh@labri.u-bordeaux.fr)
+;;;           Robert Strandh (strandh@labri.fr)
+;;;  (c) copyright 2004 by
+;;;           Elliott Johnson (ejohnson@fasl.info)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -54,10 +56,12 @@
   (:top-level (climacs-top-level)))
 
 (defun climacs ()
+  "Starts up a climacs session"
   (let ((frame (make-application-frame 'climacs)))
     (run-frame-top-level frame)))
 
 (defun display-win (frame pane)
+  "The display function used by the climacs application frame."
   (let* ((medium (sheet-medium pane))
 	 (style (medium-text-style medium))
 	 (height (text-style-height style medium))
@@ -200,7 +204,8 @@
 (define-command com-extended-command ()
   (accept 'command :prompt "Extended Command"))
 
-(defclass weird () ())
+(defclass weird () ()
+  (:documentation "An open ended class."))
 
 (define-command com-insert-weird-stuff ()
   (insert-object (point (win *application-frame*)) (make-instance 'weird)))
@@ -283,7 +288,8 @@
   (let ((filename (accept 'completable-pathname
 			  :prompt "Find File"))
 	(buffer (make-instance 'climacs-buffer)))
-    (setf (buffer (win *application-frame*)) buffer)
+    (setf (buffer (win *application-frame*)) buffer
+	  (filename (buffer (win *application-frame*)) filename))
     (with-open-file (stream filename :direction :input)
       (input-from-stream stream buffer 0))
     (setf (slot-value (win *application-frame*) 'point)

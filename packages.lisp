@@ -1,7 +1,7 @@
 ;;; -*- Mode: Lisp; Package: COMMON-LISP-USER -*-
 
 ;;;  (c) copyright 2004 by
-;;;           Robert Strandh (strandh@labri.u-bordeaux.fr)
+;;;           Robert Strandh (strandh@labri.fr)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
