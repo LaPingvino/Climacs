@@ -40,7 +40,7 @@
 
 (define-presentation-method accept
     ((type syntax) stream (view textual-view) &key)
-  (multiple-value-bind (pathname success string)
+  (multiple-value-bind (object success string)
       (complete-input stream
 		      (lambda (so-far action)
 			(complete-from-possibilities
@@ -49,8 +49,8 @@
 			 :value-key #'cdr))
 		      :partial-completers '(#\Space)
 		      :allow-any-input t)
-    (declare (ignore success))
-    (or pathname string)))
+    (declare (ignore success string))
+    object))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

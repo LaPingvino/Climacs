@@ -46,7 +46,8 @@
   (window-clear pane))
 
 (define-application-frame climacs ()
-  ((win :reader win))
+  ((win :reader win)
+   (buffers :initform '() :accessor buffers))
   (:panes
    (win (make-pane 'extended-pane
 		   :width 900 :height 400
@@ -183,7 +184,9 @@
 			  command-parser command-unparser 
 			  partial-command-parser prompt)
   (declare (ignore command-parser command-unparser partial-command-parser prompt))
-  (setf (slot-value frame 'win) (find-pane-named frame 'win))
+  (with-slots (win) frame
+     (setf win (find-pane-named frame 'win))
+     (push (buffer win) (buffers frame)))
   (let ((*standard-output* (find-pane-named frame 'win))
 	(*standard-input* (find-pane-named frame 'int))
 	(*print-pretty* nil)
@@ -505,6 +508,7 @@
 			  :prompt "Find File"))
 	(buffer (make-instance 'climacs-buffer))
 	(pane (win *application-frame*)))
+    (push buffer (buffers *application-frame*))
     (setf (buffer (win *application-frame*)) buffer)
     (setf (syntax buffer) (make-instance 'basic-syntax))
     (with-open-file (stream filename :direction :input :if-does-not-exist :create)
@@ -542,6 +546,31 @@
 	  (name buffer) (pathname-filename filename)
 	  (needs-saving buffer) nil)
     (display-message "Wrote: ~a" (filename buffer))))
+
+(define-presentation-method accept
+    ((type buffer) stream (view textual-view) &key)
+  (multiple-value-bind (object success string)
+      (complete-input stream
+		      (lambda (so-far action)
+			(complete-from-possibilities
+			 so-far (buffers *application-frame*) '() :action action
+			 :name-key #'name
+			 :value-key #'identity))
+		      :partial-completers '(#\Space)
+		      :allow-any-input t)
+    (declare (ignore success string))
+    object))
+
+(define-named-command com-switch-to-buffer ()
+  (let ((buffer (accept 'buffer
+			:prompt "Switch to buffer")))
+    (setf (buffer (win *application-frame*)) buffer)
+    (setf (syntax buffer) (make-instance 'basic-syntax))
+    (beginning-of-buffer (point (win *application-frame*)))
+    (full-redisplay (win *application-frame*))))
+
+(define-named-command com-full-redisplay ()
+  (full-redisplay (win *application-frame*)))
 
 (define-named-command com-load-file ()
   (let ((filename (accept 'completable-pathname
@@ -720,6 +749,7 @@
 (global-set-key '(#\e :control) 'com-end-of-line)
 (global-set-key '(#\d :control) `(com-delete-object ,*numeric-argument-marker*))
 (global-set-key '(#\p :control) 'com-previous-line)
+(global-set-key '(#\l :control) 'com-full-redisplay)
 (global-set-key '(#\n :control) 'com-next-line)
 (global-set-key '(#\o :control) 'com-open-line)
 (global-set-key '(#\k :control) 'com-kill-line)
@@ -779,6 +809,7 @@
   (add-command-to-command-table command 'c-x-climacs-table
 				:keystroke gesture :errorp nil))
 
+(c-x-set-key '(#\b) 'com-switch-to-buffer)
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\l :control) 'com-load-file)

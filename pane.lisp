@@ -67,6 +67,7 @@
    (cursor-y :initform 2)
    (space-width :initform nil)
    (tab-width :initform nil)
+   (full-redisplay-p :initform nil :accessor full-redisplay-p)
    (cache :initform (let ((cache (make-instance 'standard-flexichain)))
 		      (insert* cache 0 nil)
 		      cache))))
@@ -223,7 +224,7 @@
 ;;; of the pane by moving top half a pane-size up.
 (defun reposition-window (pane)
   (let ((nb-lines-in-pane (nb-lines-in-pane pane)))
-    (with-slots (top bot cache) pane
+    (with-slots (top cache) pane
        (empty-cache cache)
        (setf (offset top) (offset (point pane)))
        (loop do (beginning-of-line top)
@@ -296,15 +297,11 @@
 	 (beginning-of-line (point pane))
 	 (empty-cache cache)))))
 
-(defgeneric redisplay-pane (pane))
-
-(defmethod redisplay-pane ((pane climacs-pane))
+(defun display-cache (pane)
   (let* ((medium (sheet-medium pane))
 	 (style (medium-text-style medium))
 	 (height (text-style-height style medium)))
     (with-slots (top bot scan cache cursor-x cursor-y) pane
-       (adjust-cache pane)
-       (fill-cache pane)
        (loop with start-offset = (offset top)
 	     for id from 0 below (nb-elements cache)
 	     do (setf scan start-offset)
@@ -327,7 +324,20 @@
 	 (draw-rectangle* pane
 			  (1- cursor-x) (- cursor-y (* 0.2 height))
 			  (+ cursor-x 2) (+ cursor-y (* 0.8 height))
-			  :ink +red+)))))
+			  :ink +red+)))))  
+
+(defgeneric redisplay-pane (pane))
+
+(defmethod redisplay-pane ((pane climacs-pane))
+  (if (full-redisplay-p pane)
+      (progn (reposition-window pane)
+	     (adjust-cache-size-and-bot pane)
+	     (setf (full-redisplay-p pane) nil))
+      (adjust-cache pane))
+  (fill-cache pane)
+  (display-cache pane))
 
 (defgeneric full-redisplay (pane))
 
+(defmethod full-redisplay ((pane climacs-pane))
+  (setf (full-redisplay-p pane) t))
