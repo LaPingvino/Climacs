@@ -178,6 +178,8 @@
 	  (t (unread-gesture gesture :stream stream)
 	     (values 1 nil)))))
 
+(defvar *previous-command*)
+
 (defun climacs-top-level (frame &key
 			  command-parser command-unparser 
 			  partial-command-parser prompt)
@@ -206,7 +208,10 @@
 				  (error (condition)
 				    (beep)
 				    (format *error-output* "~a~%" condition)))
-				(setf gestures '())))
+				(setf gestures '())
+				(setf *previous-command* (if (consp command)
+							     (car command)
+							     command))))
 			     (t nil)))
 		     (let ((buffer (buffer (win frame))))
 		       (when (modified-p buffer)
@@ -315,11 +320,21 @@
       (insert-sequence point line)
       (insert-object point #\Newline))))
 
+(defvar *goal-column*)
+
 (define-named-command com-previous-line ()
-  (previous-line (point (win *application-frame*))))
+  (let ((point (point (win *application-frame*))))
+    (unless (or (eq *previous-command* 'com-previous-line)
+		(eq *previous-command* 'com-next-line))
+      (setf *goal-column* (column-number point)))
+    (previous-line point *goal-column*)))
 
 (define-named-command com-next-line ()
-  (next-line (point (win *application-frame*))))
+  (let ((point (point (win *application-frame*))))
+    (unless (or (eq *previous-command* 'com-previous-line)
+		(eq *previous-command* 'com-next-line))
+      (setf *goal-column* (column-number point)))
+    (next-line point *goal-column*)))
 
 (define-named-command com-open-line ()
   (open-line (point (win *application-frame*))))
