@@ -147,6 +147,10 @@
   (declare (ignore frame))
   (redisplay-pane pane (eq pane (car (windows *application-frame*)))))
 
+(defmethod handle-repaint :before ((pane extended-pane) region)
+  (declare (ignore region))
+  (redisplay-frame-panes *application-frame*))
+
 (defun find-gestures (gestures start-table)
   (loop with table = (find-command-table start-table)
 	for (gesture . rest) on gestures

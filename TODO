@@ -8,5 +8,3 @@
 - handle wrapped lines instead of making McCLIM handle them
 
 - replace the use of the scroller pane by custom pane
-
-- invoke redisplay after resize
