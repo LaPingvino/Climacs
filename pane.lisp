@@ -304,7 +304,7 @@
 	 (beginning-of-line (point pane))
 	 (empty-cache cache)))))
 
-(defun display-cache (pane)
+(defun display-cache (pane cursor-ink)
   (let* ((medium (sheet-medium pane))
 	 (style (medium-text-style medium))
 	 (height (text-style-height style medium)))
@@ -331,18 +331,18 @@
 	 (draw-rectangle* pane
 			  (1- cursor-x) (- cursor-y (* 0.2 height))
 			  (+ cursor-x 2) (+ cursor-y (* 0.8 height))
-			  :ink +red+)))))  
+			  :ink cursor-ink)))))  
 
-(defgeneric redisplay-pane (pane))
+(defgeneric redisplay-pane (pane current-p))
 
-(defmethod redisplay-pane ((pane climacs-pane))
+(defmethod redisplay-pane ((pane climacs-pane) current-p)
   (if (full-redisplay-p pane)
       (progn (reposition-window pane)
 	     (adjust-cache-size-and-bot pane)
 	     (setf (full-redisplay-p pane) nil))
       (adjust-cache pane))
   (fill-cache pane)
-  (display-cache pane))
+  (display-cache pane (if current-p +red+ +blue+)))
 
 (defgeneric full-redisplay (pane))
 

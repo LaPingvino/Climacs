@@ -49,7 +49,7 @@
   (window-clear pane))
 
 (define-application-frame climacs ()
-  ((win :reader win)
+  ((windows :accessor windows)
    (buffers :initform '() :accessor buffers))
   (:panes
    (win (let* ((extended-pane 
@@ -82,14 +82,16 @@
   (:top-level (climacs-top-level)))
 
 (defmacro current-window ()
-  `(win *application-frame*))
+  `(car (windows *application-frame*)))
 
 (defmethod redisplay-frame-panes :around ((frame climacs) &rest args)
   (declare (ignore args))
-  (let ((buffer (buffer (win frame))))
-    (update-syntax buffer (syntax buffer))
+  (let ((buffers (remove-duplicates (mapcar #'buffer (windows frame)))))
+    (loop for buffer in buffers
+	  do (update-syntax buffer (syntax buffer)))
     (call-next-method)
-    (clear-modify buffer)))
+    (loop for buffer in buffers
+	  do (clear-modify buffer))))
 
 (defun climacs ()
   "Starts up a climacs session"
@@ -115,7 +117,7 @@
 (defun display-win (frame pane)
   "The display function used by the climacs application frame."
   (declare (ignore frame))
-  (redisplay-pane pane))
+  (redisplay-pane pane (eq pane (car (windows *application-frame*)))))
 
 (defun find-gestures (gestures start-table)
   (loop with table = (find-command-table start-table)
@@ -200,10 +202,10 @@
 			  command-parser command-unparser 
 			  partial-command-parser prompt)
   (declare (ignore command-parser command-unparser partial-command-parser prompt))
-  (with-slots (win) frame
-     (setf win (find-climacs-pane (find-pane-named frame 'win)))
-     (push (buffer win) (buffers frame))
-     (let ((*standard-output* win)
+  (with-slots (windows) frame
+     (setf windows (list (find-climacs-pane (find-pane-named frame 'win))))
+     (push (buffer (car windows)) (buffers frame))
+     (let ((*standard-output* (car windows))
 	   (*standard-input* (find-pane-named frame 'int))
 	   (*print-pretty* nil)
 	   (*abort-gestures* nil))
@@ -232,12 +234,12 @@
 						   command))
 					 (return)))
 				      (t nil))))
-			(let ((buffer (buffer (win frame))))
+			(let ((buffer (buffer (current-window))))
 			  (when (modified-p buffer)
 			    (setf (needs-saving buffer) t)))
 			(redisplay-frame-panes frame)))
 	     (beep)
-	     (let ((buffer (buffer (win frame))))
+	     (let ((buffer (buffer (current-window))))
 	       (when (modified-p buffer)
 		 (setf (needs-saving buffer) t)))
 	     (redisplay-frame-panes frame)))))
@@ -673,32 +675,106 @@
 ;;; 
 ;;; Commands for splitting windows
 
+(defun replace-constellation (constellation additional-constellation vertical-p)
+  (let* ((parent (sheet-parent constellation))
+	 (children (sheet-children parent))
+	 (first (first children))
+	 (second (second children)))
+    (assert (member constellation children))
+    (cond ((eq constellation first)
+	   (sheet-disown-child parent constellation)
+	   (let ((new (if vertical-p
+			  (vertically () constellation additional-constellation)
+			  (horizontally () constellation additional-constellation))))
+	     (sheet-adopt-child parent new)
+	     (reorder-sheets parent (list new second))))
+	  (t
+	   (sheet-disown-child parent constellation)
+	   (let ((new (if vertical-p
+			  (vertically () constellation additional-constellation)
+			  (horizontally () constellation additional-constellation))))
+	     (sheet-adopt-child parent new)
+	     (reorder-sheets parent (list first new)))))))
+
+(defun parent3 (sheet)
+  (sheet-parent (sheet-parent (sheet-parent sheet))))
+
+(defun make-pane-constellation ()
+  "make a vbox containing a scroller pane as its first child and an
+info pane as its second child.  The scroller pane contains a viewport
+which contains an extended pane.  Return the vbox and the extended pane
+as two values"
+  (let* ((extended-pane
+	  (make-pane 'extended-pane
+		     :width 900 :height 400
+		     :name 'win
+		     :incremental-redisplay t
+		     :display-function 'display-win))
+	 (vbox
+	  (vertically ()
+	    (scrolling () extended-pane)
+	    (make-pane 'info-pane
+		       :climacs-pane extended-pane
+		       :width 900 :height 20
+		       :max-height 20 :min-height 20
+		       ::background +gray85+
+		       :scroll-bars nil
+		       :borders nil
+		       :incremental-redisplay t
+		       :display-function 'display-info))))
+    (values vbox extended-pane)))
+
 (define-named-command com-split-window-vertically ()
   (with-look-and-feel-realization
       ((frame-manager *application-frame*) *application-frame*)
-    (let* ((pane (current-window))
-	   (new-pane (make-pane 'extended-pane
-				:width 900 :height 400
-				:name 'win
-				:incremental-redisplay t
-				:display-function 'display-win))
-	   (parent (sheet-parent (sheet-parent (sheet-parent pane)))))
-      (setf (buffer new-pane) (buffer pane))
-      (sheet-adopt-child parent
-			 (vertically ()
-			   (scrolling () new-pane)
-			   (make-pane 'info-pane
-				      :climacs-pane new-pane
-				      :width 900 :height 20
-				      :max-height 20 :min-height 20
-				      ::background +gray85+
-				      :scroll-bars nil
-				      :borders nil
-				      :incremental-redisplay t
-				      :display-function 'display-info)))
-      (setf (sheet-enabled-p new-pane) t)
-      (full-redisplay pane)
-      (full-redisplay new-pane))))
+    (multiple-value-bind (vbox new-pane) (make-pane-constellation)
+      (let* ((current-window (current-window))
+	     (constellation-root (parent3 current-window)))
+	(setf (buffer new-pane) (buffer current-window))
+	(push new-pane (windows *application-frame*))
+	(replace-constellation constellation-root vbox t)
+	(full-redisplay current-window)
+	(full-redisplay new-pane)))))
+
+(define-named-command com-split-window-horizontally ()
+  (with-look-and-feel-realization
+      ((frame-manager *application-frame*) *application-frame*)
+    (multiple-value-bind (vbox new-pane) (make-pane-constellation)
+      (let* ((current-window (current-window))
+	     (constellation-root (parent3 current-window)))
+	(setf (buffer new-pane) (buffer current-window))
+	(push new-pane (windows *application-frame*))
+	(replace-constellation constellation-root vbox nil)
+	(full-redisplay current-window)
+	(full-redisplay new-pane)))))
+
+(define-named-command com-other-window ()
+  (setf (windows *application-frame*)
+	(append (cdr (windows *application-frame*))
+		(list (car (windows *application-frame*))))))
+
+(define-named-command com-delete-window ()
+  (unless (null (cdr (windows *application-frame*)))
+    (let* ((constellation (parent3 (current-window)))
+	   (box (sheet-parent constellation))
+	   (box-children (sheet-children box))
+	   (other (if (eq constellation (first box-children))
+		      (second box-children)
+		      (first box-children)))
+	   (parent (sheet-parent box))
+	   (children (sheet-children parent))
+	   (first (first children))
+	   (second (second children)))
+      (pop (windows *application-frame*))
+      (sheet-disown-child box other)
+      (cond ((eq box first)
+	     (sheet-disown-child parent box)
+	     (sheet-adopt-child parent other)
+	     (reorder-sheets parent (list other second)))
+	    (t
+	     (sheet-disown-child parent box)
+	     (sheet-adopt-child parent other)
+	     (reorder-sheets parent (list first other)))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
@@ -890,11 +966,14 @@
   (add-command-to-command-table command 'c-x-climacs-table
 				:keystroke gesture :errorp nil))
 
+(c-x-set-key '(#\0) 'com-delete-window)
 (c-x-set-key '(#\2) 'com-split-window-vertically)
+(c-x-set-key '(#\3) 'com-split-window-horizontally)
 (c-x-set-key '(#\b) 'com-switch-to-buffer)
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\l :control) 'com-load-file)
+(c-x-set-key '(#\o) 'com-other-window)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
 (c-x-set-key '(#\t :control) 'com-transpose-lines)
 (c-x-set-key '(#\w :control) 'com-write-buffer)
