@@ -32,14 +32,15 @@
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
    (point :initform nil :initarg :point :reader point)
-   (syntax :initform (make-instance 'basic-syntax) :initarg :syntax :accessor syntax)))
+   (syntax :initarg :syntax :accessor syntax)))
 
 (defmethod initialize-instance :after ((pane climacs-pane) &rest args)
   (declare (ignore args))
-  (with-slots (buffer point) pane
+  (with-slots (buffer point syntax) pane
      (when (null point)
        (setf point (make-instance 'standard-right-sticky-mark
-		      :buffer buffer)))))
+		      :buffer buffer)))
+     (setf syntax (make-instance 'basic-syntax :buffer buffer :pane pane))))
 
 (define-application-frame climacs ()
   ((win :reader win))
@@ -162,6 +163,9 @@
 (define-command com-insert-weird-stuff ()
   (insert-object (point (win *application-frame*)) (make-instance 'weird)))
 
+(define-command com-insert-reversed-string ()
+  (insert-sequence (point (win *application-frame*))
+		   (reverse (accept 'string))))
 
 (define-presentation-type completable-pathname ()
   :inherit-from 'pathname)
@@ -238,14 +242,14 @@
 
 (define-command com-find-file ()
   (let ((filename (accept 'completable-pathname
-			  :prompt "Find File"))
-	(buffer (make-instance 'climacs-buffer)))
-    (setf (buffer (win *application-frame*)) buffer
-	  (filename (buffer (win *application-frame*))) filename)
-    (with-open-file (stream filename :direction :input)
-      (input-from-stream stream buffer 0))
-    (setf (slot-value (win *application-frame*) 'point)
-	  (make-instance 'standard-right-sticky-mark :buffer buffer))))
+			  :prompt "Find File")))
+    (with-slots (buffer point syntax) (win *application-frame*)
+       (setf buffer (make-instance 'climacs-buffer)
+	     point (make-instance 'standard-right-sticky-mark :buffer buffer)
+	     syntax (make-instance 'basic-syntax :buffer buffer :pane (win *application-frame*))
+	     (filename buffer) filename)
+       (with-open-file (stream filename :direction :input)
+	 (input-from-stream stream buffer 0)))))
 
 (define-command com-save-buffer ()
   (let ((filename (or (filename (buffer (win *application-frame*)))
@@ -283,6 +287,7 @@
 (global-set-key '(#\b :meta) 'com-backward-word)
 (global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\a :meta) 'com-insert-weird-stuff)
+(global-set-key '(#\c :meta) 'com-insert-reversed-string)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

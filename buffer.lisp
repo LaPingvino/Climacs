@@ -450,6 +450,12 @@ acceptable to pass an offset in place of one of the marks."))
   (assert (eq (buffer mark1) (buffer mark2)))
   (buffer-sequence (buffer mark1) (offset mark1) (offset mark2)))
 
+(defmethod region-to-sequence ((offset integer) (mark mark-mixin))
+  (buffer-sequence (buffer mark) offset (offset mark)))
+
+(defmethod region-to-sequence ((mark mark-mixin) (offset integer))
+  (buffer-sequence (buffer mark) (offset mark) offset))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Buffer modification protocol
