@@ -340,10 +340,10 @@
       ;; If the current line is at the end of the buffer, we want to
       ;; be able to insert past it, so we need to get an extra line
       ;; at the end.
-      (when (progn (end-of-line point)
-                   (end-of-buffer-p point))
+      (end-of-line point)
+      (when (end-of-buffer-p point)
         (insert-object point #\Newline))
-      (next-line point)
+      (next-line point 0)
       (insert-sequence point line)
       (insert-object point #\Newline))))
 

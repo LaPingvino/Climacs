@@ -4,9 +4,9 @@
 ;;; 
 
 (cl:defpackage :climacs-tests
-  (:use :rtest :climacs-buffer #+cmu :cl))
+  (:use :rtest :climacs-buffer :cl))
 
-(in-package :climacs-tests)
+(cl:in-package :climacs-tests)
 
 (deftest standard-buffer-make-instance.test-1
   (let* ((buffer (make-instance 'standard-buffer))
@@ -302,13 +302,13 @@
 	  (m2 (make-instance 'standard-left-sticky-mark
 			     :buffer buffer :offset 5)))
       (delete-region m2 m)
-      (and (= (size buffer) 7)
+      (and (= (size buffer) 5)
 	   (eq (buffer m) buffer)
 	   (eq (buffer m2) buffer)
 	   (= (offset m) 3)
-	   (= (offset m2) 5)
-	   (buffer-sequence buffer 0 7))))
-  "climacs")
+	   (= (offset m2) 3)
+	   (buffer-sequence buffer 0 5))))
+  "clics")
 
 (deftest standard-buffer-delete-region.test-4
   (let ((buffer (make-instance 'standard-buffer)))
@@ -318,13 +318,13 @@
 	  (m2 (make-instance 'standard-right-sticky-mark
 			     :buffer buffer :offset 5)))
       (delete-region m2 m)
-      (and (= (size buffer) 7)
+      (and (= (size buffer) 5)
 	   (eq (buffer m) buffer)
 	   (eq (buffer m2) buffer)
 	   (= (offset m) 3)
-	   (= (offset m2) 5)
-	   (buffer-sequence buffer 0 7))))
-  "climacs")
+	   (= (offset m2) 3)
+	   (buffer-sequence buffer 0 5))))
+  "clics")
 
 (deftest standard-buffer-delete-region.test-5
   (handler-case

@@ -124,15 +124,9 @@ the size of the buffer."))
 returned.  Otherwise type is the name of a class (subclass of the mark
 class) to be used as a class of the clone."))
 
-(defmethod clone-mark ((mark standard-left-sticky-mark) &optional type)
-  (unless type
-    (setf type 'standard-left-sticky-mark))
-  (make-instance type :buffer (buffer mark) :offset (offset mark)))
-
-(defmethod clone-mark ((mark standard-right-sticky-mark) &optional type)
-  (unless type
-    (setf type 'standard-right-sticky-mark))
-  (make-instance type :buffer (buffer mark) :offset (offset mark)))
+(defmethod clone-mark ((mark mark) &optional type)
+  (make-instance (or type (class-of mark))
+                 :buffer (buffer mark) :offset (offset mark)))
 
 (define-condition no-such-offset (simple-error)
   ((offset :reader condition-offset :initarg :offset))
@@ -392,32 +386,30 @@ is not zero."))
 	(t nil)))
 
 (defgeneric delete-region (mark1 mark2)
-  (:documentation "Delete the objects in the buffer that are after mark1 and before
-mark2.  An error is signaled if the two marks are positioned in
-different buffers.  If mark1 is positioned at an offset equal to or
-greater than that of mark2, no objects are deleted.  If objects are
-to be deleted, this function calls delete-buffer-range with the
-appropriate arguments.  It is acceptable to pass an offset in place
-of one of the marks."))
+  (:documentation "Delete the objects in the buffer that are
+between mark1 and mark2.  An error is signaled if the two marks
+are positioned in different buffers.  It is acceptable to pass an
+offset in place of one of the marks."))
 
 (defmethod delete-region ((mark1 mark-mixin) (mark2 mark-mixin))
   (assert (eq (buffer mark1) (buffer mark2)))
-  (when (> (offset mark2) (offset mark1))
-    (delete-buffer-range (buffer mark1)
-			 (offset mark1)
-			 (- (offset mark2) (offset mark1)))))
+  (let ((offset1 (offset mark1))
+        (offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (delete-buffer-range (buffer mark1) offset1 (- offset2 offset1))))
 
 (defmethod delete-region ((mark1 mark-mixin) offset2)
-  (when (> offset2 (offset mark1))
-    (delete-buffer-range (buffer mark1)
-			 (offset mark1)
-			 (- offset2 (offset mark1)))))
+  (let ((offset1 (offset mark1)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (delete-buffer-range (buffer mark1) offset1 (- offset2 offset1))))
 
 (defmethod delete-region (offset1 (mark2 mark-mixin))
-  (when (> (offset mark2) offset1)
-    (delete-buffer-range (buffer mark2)
-			 offset1
-			 (- (offset mark2) offset1))))
+  (let ((offset2 (offset mark2)))
+    (when (> offset1 offset2)
+      (rotatef offset1 offset2))
+    (delete-buffer-range (buffer mark2) offset1 (- offset2 offset1))))
 
 (defgeneric buffer-object (buffer offset)
   (:documentation "Return the object at the offset in the buffer.  The first object
