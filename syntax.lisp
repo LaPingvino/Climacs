@@ -60,4 +60,5 @@
   ())
 
 (defmethod update-syntax (buffer (syntax basic-syntax))
+  (declare (ignore buffer))
   nil)

@@ -457,7 +457,9 @@
     (let* ((directory-prefix
 	    (if (and (plusp (length so-far)) (eql (aref so-far 0) #\/))
 		""
-		(namestring #+sbcl (car (directory ".")) #+cmu (ext:default-directory))))
+		(namestring #+sbcl *default-pathname-defaults*
+                            #+cmu (ext:default-directory)
+                            #-(or sbcl cmu) *default-pathname-defaults*)))
 	   (full-so-far (concatenate 'string directory-prefix so-far))
 	   (pathnames
 	    (loop with length = (length full-so-far)

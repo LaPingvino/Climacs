@@ -44,6 +44,17 @@
 
 (in-package :climacs-syntax) ;;; Put this in a separate package once it works
 
+(defun index-of-mark-after-offset (flexichain offset)
+  "Searches for the mark after `offset' in the marks stored in `flexichain'."
+  (loop with low-position = 0
+     with high-position = (nb-elements flexichain)
+     for middle-position = (floor (+ low-position high-position) 2)
+     until (= low-position high-position)
+     do (if (mark>= (element* flexichain middle-position) offset)
+            (setf high-position middle-position)
+            (setf low-position (floor (+ low-position 1 high-position) 2)))
+     finally (return low-position)))
+
 (define-syntax text-syntax ("Text" (basic-syntax))
   ((paragraphs :initform (make-instance 'standard-flexichain))))
 
@@ -51,18 +62,10 @@
   (let* ((high-offset (min (+ (offset (high-mark buffer)) 3) (size buffer)))
 	 (low-offset (max (- (offset (low-mark buffer)) 3) 0)))
     (with-slots (paragraphs) syntax
-       (let* ((nb-paragraphs (nb-elements paragraphs))
-	      (pos2 nb-paragraphs)
-	      (pos1 0))
+       (let ((pos1 (index-of-mark-after-offset paragraphs low-offset)))
 	 ;; start by deleting all syntax marks that are between the low and
 	 ;; the high marks
-	 (loop until (= pos1 pos2)
-	       do (cond ((mark< (element* paragraphs (floor (+ pos1 pos2) 2))
-				low-offset)
-			 (setf pos1 (floor (+ pos1 1 pos2) 2)))
-			(t
-			 (setf pos2 (floor (+ pos1 pos2) 2)))))
-	 (loop repeat (- nb-paragraphs pos1)
+	 (loop repeat (- (nb-elements paragraphs) pos1)
 	       while (mark<= (element* paragraphs pos1) high-offset)
 	       do (delete* paragraphs pos1))
 	 ;; check the zone between low-offset and high-offset for
@@ -95,31 +98,23 @@
 
 (defmethod beginning-of-paragraph (mark (syntax text-syntax))
   (with-slots (paragraphs) syntax
-     (let* ((nb-paragraphs (nb-elements paragraphs))
-	    (pos2 nb-paragraphs)
-	    (pos1 0)
-	    (offset (offset mark)))
-       (loop until (= pos1 pos2)
-	     do (if (mark>= (element* paragraphs (floor (+ pos1 pos2) 2)) offset)
-		    (setf pos2 (floor (+ pos1 pos2) 2))
-		    (setf pos1 (floor (+ pos1 1 pos2) 2))))
+     (let ((pos1 (index-of-mark-after-offset paragraphs (offset mark))))
        (when (> pos1 0)
 	 (setf (offset mark)
 	       (if (typep (element* paragraphs (1- pos1)) 'right-sticky-mark)
 		   (offset (element* paragraphs (- pos1 2)))
 		   (offset (element* paragraphs (1- pos1)))))))))
 
+(defgeneric end-of-paragraph (mark text-syntax))
+
 (defmethod end-of-paragraph (mark (syntax text-syntax))
   (with-slots (paragraphs) syntax
-     (let* ((nb-paragraphs (nb-elements paragraphs))
-	    (pos2 nb-paragraphs)
-	    (pos1 0)
-	    (offset (offset mark)))
-       (loop until (= pos1 pos2)
-	     do (if (mark<= (element* paragraphs (floor (+ pos1 pos2) 2)) offset)
-		    (setf pos1 (floor (+ pos1 1 pos2) 2))
-		    (setf pos2 (floor (+ pos1 pos2) 2))))
-       (when (< pos1 nb-paragraphs)
+    (let ((pos1 (index-of-mark-after-offset
+                 paragraphs
+                 ;; if mark is at paragraph-end, jump to end of next
+                 ;; paragraph
+                 (1+ (offset mark)))))
+      (when (< pos1 (nb-elements paragraphs))
 	 (setf (offset mark)
 	       (if (typep (element* paragraphs pos1) 'left-sticky-mark)
 		   (offset (element* paragraphs (1+ pos1)))

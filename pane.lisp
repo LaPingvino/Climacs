@@ -34,7 +34,7 @@
   ((space-width :initform nil :reader space-width)
    (tab-width :initform nil :reader tab-width)))
 
-(defmethod tab-space-count (tabify)
+(defmethod tab-space-count ((tabify t))
   1)
 
 (defmethod tab-space-count ((tabify tabify-mixin))
@@ -122,6 +122,7 @@
 (defgeneric display-line (pane line offset syntax view))
 
 (defmethod display-line (pane line offset (syntax basic-syntax) (view textual-view))
+  (declare (ignore offset))
   (let ((saved-index nil)
 	(id 0))
     (flet ((output-word (index)
