@@ -465,22 +465,28 @@
 (define-named-command com-open-line ()
   (open-line (point (current-window))))
 
-(define-named-command com-kill-line ()
+(define-named-command com-kill-line ((numarg 'integer :prompt "Kill how many lines?")
+				     (numargp 'boolean :prompt "Kill entire lines?"))
   (let* ((pane (current-window))
 	 (point (point pane))
          (mark (offset point)))
-    (cond ((end-of-buffer-p point) nil)
-	  ((end-of-line-p point)(forward-object point))
+    (cond ((or numargp (> numarg 1))
+	   (loop repeat numarg
+		 until (end-of-buffer-p point)
+		 do (end-of-line point)
+		 until (end-of-buffer-p point)
+		 do (forward-object point)))
 	  (t
-	   (end-of-line point)
-	   (cond ((beginning-of-buffer-p point) nil)
-		 ((beginning-of-line-p point)(forward-object point)))))
-    (if (eq (previous-command pane) 'com-kill-line)
-	(kill-ring-concatenating-push *kill-ring*
-				      (region-to-sequence mark point))
-        (kill-ring-standard-push *kill-ring*
-			       (region-to-sequence mark point)))
-    (delete-region mark point)))
+	   (cond ((end-of-buffer-p point) nil)
+		 ((end-of-line-p point)(forward-object point))
+		 (t (end-of-line point)))))
+    (unless (mark= point mark)
+      (if (eq (previous-command pane) 'com-kill-line)
+	  (kill-ring-concatenating-push *kill-ring*
+					(region-to-sequence mark point))
+	  (kill-ring-standard-push *kill-ring*
+				   (region-to-sequence mark point)))
+      (delete-region mark point))))	   
 
 (define-named-command com-forward-word ((count 'integer :prompt "Number of words"))
   (forward-word (point (current-window)) count))
@@ -1343,7 +1349,7 @@ as two values"
 (global-set-key '(#\l :control) 'com-full-redisplay)
 (global-set-key '(#\n :control) 'com-next-line)
 (global-set-key '(#\o :control) 'com-open-line)
-(global-set-key '(#\k :control) 'com-kill-line)
+(global-set-key '(#\k :control) `(com-kill-line ,*numeric-argument-marker* ,*numeric-argument-p*))
 (global-set-key '(#\t :control) 'com-transpose-objects)
 (global-set-key '(#\Space :control) 'com-set-mark)
 (global-set-key '(#\y :control) 'com-yank)
