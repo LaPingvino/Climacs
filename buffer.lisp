@@ -451,9 +451,13 @@ offset1, an empty sequence will be returned."))
 	  (make-condition 'no-such-offset :offset offset1))
   (assert (<= 0 offset2 (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset2))
-  (coerce (loop for offset from offset1 below offset2
-		collect (buffer-object buffer offset))
-	  'vector))
+  (if (< offset1 offset2)
+      (loop with result = (make-array (- offset2 offset1))
+	    for offset from offset1 below offset2
+	    for i upfrom 0
+	    do (setf (aref result i) (buffer-object buffer offset))
+	    finally (return result))
+      (make-array 0)))  
 
 (defgeneric object-before (mark)
   (:documentation "Return the object that is immediately before the mark.  If mark is at

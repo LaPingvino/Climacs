@@ -165,13 +165,13 @@
 			 (output-word index)
 			 (updating-output (pane :unique-id (incf id)
 						:cache-value obj)
-			   (present obj)))
+			   (present obj 'character :stream pane)))
 			(t
 			 (output-word index)
 			 (updating-output (pane :unique-id (incf id)
 						:cache-value obj
 						:cache-test #'eq)
-			   (present obj))))
+			   (present obj 'character :stream pane))))
 		  (incf scan)
 	       finally (output-word index)
 		       (when (mark= scan (point pane))
