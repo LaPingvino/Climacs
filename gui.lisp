@@ -137,7 +137,7 @@
 		       (t nil))))
 	     (redisplay-frame-panes frame))))
 
-(define-command com-quit ()
+(define-command (com-quit :name "Quit" :command-table climacs) ()
   (frame-exit *application-frame*))
 
 (define-command com-self-insert ()
@@ -193,7 +193,9 @@
 	    'default)))
 
 (define-command com-extended-command ()
-  (accept 'command :prompt "Extended Command"))
+  (let ((item (accept 'command :prompt "Extended Command")))
+    (window-clear *standard-input*)
+    (execute-frame-command *application-frame* item)))
 
 (defclass weird () ()
   (:documentation "An open ended class."))
@@ -286,7 +288,7 @@
       (concatenate 'string (pathname-name pathname)
 		   "." (pathname-type pathname))))
 
-(define-command com-find-file ()
+(define-command (com-find-file :name "Find File" :command-table climacs) ()
   (let ((filename (accept 'completable-pathname
 			  :prompt "Find File")))
     (with-slots (buffer point syntax) (win *application-frame*)
