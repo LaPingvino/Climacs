@@ -92,7 +92,7 @@
 	   #:update-syntax #:update-syntax-for-display
 	   #:grammar #:parser #:initial-state
 	   #:advance-parse
-	   #:parse-stack-top #:target-parse-tree
+	   #:parse-stack-top #:target-parse-tree #:parse-state-empty-p
 	   #:parse-stack-next #:parse-stack-symbol
 	   #:parse-stack-parse-trees #:map-over-parse-trees
            #:syntax-line-indentation

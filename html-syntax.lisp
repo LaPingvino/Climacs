@@ -300,6 +300,71 @@
 			 pane (- tab-width (mod x tab-width)) 0))))
 	     (incf start))))		    
 
+(defmethod display-parse-tree :around ((entity html-sym) syntax pane)
+  (with-slots (top bot) pane
+     (when (mark> (end-offset entity) top)
+       (call-next-method))))
+
+(defmethod display-parse-tree :around ((entity empty-words) syntax pane)
+  (declare (ignore syntax pane))
+  nil)
+
+(defmethod display-parse-tree ((entity html-token) (syntax html-syntax) pane)
+  (updating-output (pane :unique-id entity
+			 :id-test #'eq
+			 :cache-value entity
+			 :cache-test #'eq)
+    (present (coerce (region-to-sequence (start-mark entity)
+					 (end-offset entity))
+		     'string)
+	     'string
+	     :stream pane)))
+
+(defmethod display-parse-tree :before ((entity html-balanced) (syntax html-syntax) pane)
+  (with-slots (start) entity
+     (display-parse-tree start syntax pane)))
+
+(defmethod display-parse-tree :after ((entity html-balanced) (syntax html-syntax) pane)
+  (with-slots (end) entity
+     (display-parse-tree end syntax pane)))
+
+(defmethod display-parse-tree ((entity html-words) (syntax html-syntax) pane)
+  (with-slots (words) entity
+     (display-parse-tree words syntax pane)))
+
+(defmethod display-parse-tree ((entity empty-words) (syntax html-syntax) pane)
+  (declare (ignore pane))
+  nil)
+
+(defmethod display-parse-tree ((entity nonempty-words) (syntax html-syntax) pane)
+  (with-slots (words word) entity
+     (display-parse-tree words syntax pane)
+     (display-parse-tree word syntax pane)))
+
+(defmethod display-parse-tree ((entity html) (syntax html-syntax) pane)
+  (with-slots (head body) entity
+     (display-parse-tree head syntax pane)
+     (display-parse-tree body syntax pane)))
+
+(defmethod display-parse-tree ((entity head) (syntax html-syntax) pane)
+  (with-slots (title) entity
+     (display-parse-tree title syntax pane)))
+
+(defgeneric display-parse-stack (symbol stack syntax pane))
+
+(defmethod display-parse-stack (symbol stack (syntax html-syntax) pane)
+  (let ((next (parse-stack-next stack)))
+    (unless (null next)
+      (display-parse-stack (parse-stack-symbol next) next syntax pane))
+    (loop for parse-tree in (reverse (parse-stack-parse-trees stack))
+	  do (display-parse-tree parse-tree syntax pane))))  
+
+(defun display-parse-state (state syntax pane)
+  (let ((top (parse-stack-top state)))
+    (if (not (null top))
+	(display-parse-stack (parse-stack-symbol top) top syntax pane)
+	(display-parse-tree (target-parse-tree state) syntax pane))))
+
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax html-syntax) current-p)
   (with-slots (top bot) pane
      (with-slots (tokens) syntax
@@ -310,16 +375,24 @@
 	    ;; go back to a token before bot
 	    (loop until (mark<= (end-offset (element* tokens (1- end-token-index))) bot)
 		  do (decf end-token-index))
-	    ;; for forward to the last token before bot
+	    ;; go forward to the last token before bot
 	    (loop until (or (= end-token-index (nb-elements tokens))
 			    (mark> (start-offset (element* tokens end-token-index)) bot))
 		  do (incf end-token-index))
 	    (let ((start-token-index end-token-index))
-	      ;; go back to the first token after top
-	      (loop until (mark<= (end-offset (element* tokens (1- start-token-index))) top)
+	      ;; go back to the first token after top, or until the previous token
+	      ;; contains a valid parser state
+	      (loop until (or (mark<= (end-offset (element* tokens (1- start-token-index))) top)
+			      (not (null (parse-stack-top
+					  (slot-value (element* tokens (1- start-token-index)) 'state)))))
 		    do (decf start-token-index))
+	      ;; display the parse tree if any
+	      (unless (parse-state-empty-p (slot-value (element* tokens (1- start-token-index)) 'state))
+		(display-parse-state (slot-value (element* tokens (1- start-token-index)) 'state)
+				     syntax
+				     pane))
 	      ;; display the tokens
-	      (loop with prev-offset = (offset top)
+	      (loop with prev-offset = (end-offset (element* tokens (1- start-token-index)))
 		    while (< start-token-index end-token-index)
 		    do (let ((token (element* tokens start-token-index)))
 			 (handle-whitespace pane (buffer pane) prev-offset (start-offset token))

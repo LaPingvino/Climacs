@@ -326,6 +326,10 @@ is empty in that state."
 represent a complete parse of the target."
   (state-contains-target-p state))
 
+(defun parse-state-empty-p (state)
+  (and (null (parse-stack-top state))
+       (null (target-parse-tree state))))
+
 (defun parse-stack-next (parse-stack)
   "given a parse stack frame, return the next frame in the stack."
   (assert (not (null parse-stack)))
