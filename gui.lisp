@@ -316,10 +316,6 @@
   (add-command-to-command-table command 'c-x-climacs-table
 				:keystroke gesture :errorp nil))
 
-(defun c-x-set-key (gesture command)
-  (add-command-to-command-table command 'c-x-climacs-table
-				:keystroke gesture :errorp nil))
-
 ;;; for some reason, C-c does not seem to arrive as far as CLIM.
 (c-x-set-key '(#\q :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
