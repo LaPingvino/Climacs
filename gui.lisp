@@ -157,7 +157,10 @@
 		 (setf (needs-saving buffer) t)))
 	     (redisplay-frame-panes frame))))
 
-(define-climacs-command (com-quit :name t) ()
+(defmacro define-named-command (command-name args &body body)
+  `(define-climacs-command ,(if (listp command-name) `(,@command-name :name t) `(,command-name :name t)) ,args ,@body))
+
+(define-named-command (com-quit) ()
   (frame-exit *application-frame*))
 
 (define-command com-self-insert ()
@@ -165,49 +168,49 @@
     (possibly-expand-abbrev (point (win *application-frame*))))
   (insert-object (point (win *application-frame*)) *current-gesture*))
 
-(define-command com-backward-object ()
+(define-named-command com-backward-object ()
   (decf (offset (point (win *application-frame*)))))
 
-(define-command com-forward-object ()
+(define-named-command com-forward-object ()
   (incf (offset (point (win *application-frame*)))))
 
-(define-command com-beginning-of-line ()
+(define-named-command com-beginning-of-line ()
   (beginning-of-line (point (win *application-frame*))))
 
-(define-command com-end-of-line ()
+(define-named-command com-end-of-line ()
   (end-of-line (point (win *application-frame*))))
 
-(define-command com-delete-object ()
+(define-named-command com-delete-object ()
   (delete-range (point (win *application-frame*))))
 
-(define-command com-backward-delete-object ()
+(define-named-command com-backward-delete-object ()
   (delete-range (point (win *application-frame*)) -1))
 
-(define-command com-previous-line ()
+(define-named-command com-previous-line ()
   (previous-line (point (win *application-frame*))))
 
-(define-command com-next-line ()
+(define-named-command com-next-line ()
   (next-line (point (win *application-frame*))))
 
-(define-command com-open-line ()
+(define-named-command com-open-line ()
   (open-line (point (win *application-frame*))))
 
-(define-command com-kill-line ()
+(define-named-command com-kill-line ()
   (kill-line (point (win *application-frame*))))
 
-(define-command com-forward-word ()
+(define-named-command com-forward-word ()
   (forward-word (point (win *application-frame*))))
 
-(define-command com-backward-word ()
+(define-named-command com-backward-word ()
   (backward-word (point (win *application-frame*))))
 
-(define-command com-delete-word ()
+(define-named-command com-delete-word ()
   (delete-word (point (win *application-frame*))))
 
-(define-command com-backward-delete-word ()
+(define-named-command com-backward-delete-word ()
   (backward-delete-word (point (win *application-frame*))))
 
-(define-command com-toggle-layout ()
+(define-named-command com-toggle-layout ()
   (setf (frame-current-layout *application-frame*)
 	(if (eq (frame-current-layout *application-frame*) 'default)
 	    'with-interactor
@@ -296,7 +299,7 @@
       (concatenate 'string (pathname-name pathname)
 		   "." (pathname-type pathname))))
 
-(define-climacs-command (com-find-file :name t) ()
+(define-named-command com-find-file ()
   (let ((filename (accept 'completable-pathname
 			  :prompt "Find File")))
     (with-slots (buffer point syntax) (win *application-frame*)
@@ -313,7 +316,7 @@
        (redisplay-frame-panes *application-frame*)
        (beginning-of-buffer point))))
 
-(define-command com-save-buffer ()
+(define-named-command com-save-buffer ()
   (let* ((buffer (buffer (win *application-frame*)))
 	 (filename (or (filename buffer)
 		       (accept 'completable-pathname
@@ -328,7 +331,7 @@
 	(display-message "No changes need to be saved from ~a" (name buffer)))
     (setf (needs-saving buffer) nil)))
 
-(define-command com-write-buffer ()
+(define-named-command com-write-buffer ()
   (let ((filename (accept 'completable-pathname
 			  :prompt "Write Buffer to File"))
 	(buffer (buffer (win *application-frame*))))
@@ -339,24 +342,24 @@
 	  (needs-saving buffer) nil)
     (display-message "Wrote: ~a" (filename buffer))))
 
-(define-command com-beginning-of-buffer ()
+(define-named-command com-beginning-of-buffer ()
   (beginning-of-buffer (point (win *application-frame*))))
 
-(define-command com-end-of-buffer ()
+(define-named-command com-end-of-buffer ()
   (end-of-buffer (point (win *application-frame*))))
 
-(define-command com-back-to-indentation ()
+(define-named-command com-back-to-indentation ()
   (let ((point (point (win *application-frame*))))
     (beginning-of-line point)
     (loop until (end-of-line-p point)
 	  while (whitespacep (object-after point))
 	  do (incf (offset point)))))
 
-(define-climacs-command (com-goto-position :name t) ()
+(define-named-command com-goto-position ()
   (setf (offset (point (win *application-frame*)))
 	(accept 'integer :prompt "Goto Position")))
 
-(define-climacs-command (com-goto-line :name t) ()
+(define-named-command com-goto-line ()
   (loop with mark = (make-instance 'standard-right-sticky-mark
 		       :buffer (buffer (win *application-frame*)))
 	do (end-of-line mark)
@@ -368,10 +371,10 @@
 		(setf (offset (point (win *application-frame*)))
 		      (offset mark))))
 
-(define-climacs-command (com-browse-url :name t) ()
+(define-named-command com-browse-url ()
   (accept 'url :prompt "Browse URL"))
 
-(define-command com-set-mark ()
+(define-named-command com-set-mark ()
   (with-slots (point mark) (win *application-frame*)
 	      (setf mark (clone-mark point))))
 
@@ -379,15 +382,15 @@
 ;; Kill ring commands
 
 ;; Copies an element from a kill-ring to a buffer at the given offset
-(define-command com-copy-in ()
+(define-named-command com-copy-in ()
   (insert-sequence (point (win *application-frame*)) (kr-copy *kill-ring*)))
 
 ;; Cuts an element from a kill-ring out to a buffer at a given offset
-(define-command com-cut-in ()
+(define-named-command com-cut-in ()
   (insert-sequence (point (win *application-frame*)) (kr-pop *kill-ring*)))
 
 ;; Destructively cut a given buffer region into the kill-ring
-(define-command com-cut-out ()
+(define-named-command com-cut-out ()
   (with-slots (buffer point mark)(win *application-frame*)
      (if (< (offset point) (offset mark))
 	 ((lambda (b o1 o2)
@@ -401,7 +404,7 @@
 	     
 
 ;; Non destructively copies in buffer region to the kill ring
-(define-command com-copy-out ()
+(define-named-command com-copy-out ()
   (with-slots (buffer point mark)(win *application-frame*)
      (let ((off1 (offset point))
 	   (off2 (offset mark)))
@@ -410,11 +413,11 @@
 	   (kr-push *kill-ring* (buffer-sequence buffer off2 off1))))))
 
 ;; Needs adjustment to be like emacs M-y
-(define-command com-kr-rotate ()
+(define-named-command com-kr-rotate ()
   (kr-rotate *kill-ring* -1))     
 
 ;; Not bound to a key yet
-(define-command com-kr-resize ()
+(define-named-command com-kr-resize ()
   (let ((size (accept 'fixnum :prompt "New kill ring size: ")))
     (kr-resize *kill-ring* size)))
 
