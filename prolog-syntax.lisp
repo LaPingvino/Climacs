@@ -448,6 +448,8 @@
 (defmethod canonical-name ((thing name))
   ;; FIXME: should canonize
   (lexeme-string (syntactic-lexeme thing)))
+(defmethod canonical-name ((thing comma))
+  ",")
 (defclass empty-list (prolog-nonterminal)
   (([ :initarg :[ :accessor [)
    (] :initarg :] :accessor ])))
