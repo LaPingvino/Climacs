@@ -1282,18 +1282,6 @@ as two values"
 	 (syntax (syntax (buffer pane))))
     (end-of-paragraph point syntax)))
 
-(define-named-command com-backward-to-error ()
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (display-message "~a" (backward-to-error point syntax))))
-
-(define-named-command com-forward-to-error ()
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (display-message "~a" (forward-to-error point syntax))))
-
 (define-named-command com-eval-expression ((insertp 'boolean :prompt "Insert?"))
   (let* ((*package* (find-package :climacs-gui))
 	 (string (handler-case (accept 'string :prompt "Eval")

@@ -91,8 +91,7 @@
 	   #:basic-syntax
 	   #:update-syntax #:update-syntax-for-display
            #:syntax-line-indentation
-	   #:beginning-of-paragraph #:end-of-paragraph
-	   #:forward-to-error #:backward-to-error))
+	   #:beginning-of-paragraph #:end-of-paragraph))
 
 (defpackage :climacs-cl-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain :climacs-syntax)
