@@ -139,14 +139,15 @@ the mark, according to the specified syntax."))
    (target :initarg :target :reader target)
    (initial-state :reader initial-state)))
 
-(defclass rule-item () ())
+(defclass rule-item ()
+  ((parse-trees :initform '() :initarg :parse-trees :reader parse-trees)))
+
 
 (defclass incomplete-item (rule-item)
   ((orig-state :initarg :orig-state :reader orig-state)
    (predicted-from :initarg :predicted-from :reader predicted-from)
    (rule :initarg :rule :reader rule)
    (dot-position :initarg :dot-position :reader dot-position)
-   (parse-trees :initarg :parse-trees :reader parse-trees)
    (suffix :initarg :suffix :reader suffix)))
 
 (defmethod print-object ((item incomplete-item) stream)
@@ -180,7 +181,8 @@ the mark, according to the specified syntax."))
 	      :suffix remaining))
 	  (t
 	   (make-instance 'complete-item
-	      :parse-tree remaining)))))
+	      :parse-tree remaining
+	      :parse-trees (cons parse-tree (parse-trees prev-item)))))))
 
 (defgeneric item-equal (item1 item2))
 
@@ -257,7 +259,6 @@ the mark, according to the specified syntax."))
 					:predicted-from item
 					:rule rule
 					:dot-position 0
-					:parse-trees '()
 					:suffix (right-hand-side rule))
 				     (make-instance 'complete-item
 					:parse-tree (right-hand-side rule)))
@@ -284,7 +285,6 @@ the mark, according to the specified syntax."))
 				    :predicted-from nil
 				    :rule rule
 				    :dot-position 0
-				    :parse-trees '()
 				    :suffix (right-hand-side rule))
 				 (make-instance 'complete-item
 				    :parse-tree (right-hand-side rule)))

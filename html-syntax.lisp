@@ -24,9 +24,28 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; this should really go in syntax.lisp
+
+(defclass parse-tree ()
+  ((start-mark :initarg :start-mark :reader start-mark)
+   (size :initarg :size)))
+
+(defgeneric start-offset (parse-tree))
+
+(defmethod start-offset ((tree parse-tree))
+  (offset (start-mark tree)))
+
+(defgeneric end-offset (parse-tree))
+
+(defmethod end-offset ((tree parse-tree))
+  (with-slots (start-mark size) tree
+     (+ (offset start-mark) size)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; grammar classes
 
-(defclass html-sym ()
+(defclass html-sym (parse-tree)
   ((badness :initform 0 :initarg :badness :reader badness)
    (message :initform "" :initarg :message :reader message)))
 
@@ -34,9 +53,7 @@
   (and (eq (class-of t1) (class-of t2))
        (< (badness t1) (badness t2))))
 
-(defclass html-nonterminal (html-sym)
-  ((start-offset :initarg :start-offset :reader start-offset)
-   (end-offset :initarg :end-offset :reader end-offset)))
+(defclass html-nonterminal (html-sym) ())
 
 (defclass words (html-nonterminal) ())
 
@@ -68,40 +85,30 @@
 (defclass para (html-words) ())
 
 (defclass html-token (html-sym)
-  ((start-mark :initarg :start-mark :reader start-mark)
-   (size :initarg :size)))
+  ((ink) (face)))
 
-(defgeneric end-offset (html-token))
+(defclass html-tag (html-token) ())
 
-(defmethod end-offset ((token html-token))
-  (with-slots (start-mark size) token
-     (+ (offset start-mark) size)))
-
-(defgeneric start-offset (html-token))
-
-(defmethod start-offset ((token html-token))
-  (offset (start-mark token)))
-
-(defclass <html> (html-token) () (:default-initargs :size 6))
-(defclass </html> (html-token) ()(:default-initargs :size 7))
-(defclass <head> (html-token) () (:default-initargs :size 6))
-(defclass </head> (html-token) () (:default-initargs :size 7))
-(defclass <title> (html-token) () (:default-initargs :size 7))
-(defclass </title> (html-token) () (:default-initargs :size 8))
-(defclass <body> (html-token) () (:default-initargs :size 6))
-(defclass </body> (html-token) () (:default-initargs :size 7))
-(defclass <h1> (html-token) () (:default-initargs :size 4))
-(defclass </h1> (html-token) () (:default-initargs :size 5))
-(defclass <h2> (html-token) () (:default-initargs :size 4))
-(defclass </h2> (html-token) () (:default-initargs :size 5))
-(defclass <h3> (html-token) () (:default-initargs :size 4))
-(defclass </h3> (html-token) () (:default-initargs :size 5))
-(defclass <p> (html-token) () (:default-initargs :size 3))
-(defclass </p> (html-token) () (:default-initargs :size 4))
-(defclass <ul> (html-token) () (:default-initargs :size 4))
-(defclass </ul> (html-token) () (:default-initargs :size 5))
-(defclass <li> (html-token) () (:default-initargs :size 4))
-(defclass </li> (html-token) () (:default-initargs :size 5))
+(defclass <html> (html-tag) () (:default-initargs :size 6))
+(defclass </html> (html-tag) ()(:default-initargs :size 7))
+(defclass <head> (html-tag) () (:default-initargs :size 6))
+(defclass </head> (html-tag) () (:default-initargs :size 7))
+(defclass <title> (html-tag) () (:default-initargs :size 7))
+(defclass </title> (html-tag) () (:default-initargs :size 8))
+(defclass <body> (html-tag) () (:default-initargs :size 6))
+(defclass </body> (html-tag) () (:default-initargs :size 7))
+(defclass <h1> (html-tag) () (:default-initargs :size 4))
+(defclass </h1> (html-tag) () (:default-initargs :size 5))
+(defclass <h2> (html-tag) () (:default-initargs :size 4))
+(defclass </h2> (html-tag) () (:default-initargs :size 5))
+(defclass <h3> (html-tag) () (:default-initargs :size 4))
+(defclass </h3> (html-tag) () (:default-initargs :size 5))
+(defclass <p> (html-tag) () (:default-initargs :size 3))
+(defclass </p> (html-tag) () (:default-initargs :size 4))
+(defclass <ul> (html-tag) () (:default-initargs :size 4))
+(defclass </ul> (html-tag) () (:default-initargs :size 5))
+(defclass <li> (html-tag) () (:default-initargs :size 4))
+(defclass </li> (html-tag) () (:default-initargs :size 5))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -199,23 +206,27 @@
 		 (tag-end (= (end-offset word) (start-offset tag-end))))
 	     :start-mark (start-mark tag-start))
     (html -> (<html> head body </html>)
-	  :start-offset (start-offset <html>) :end-offset (end-offset </html>)
+	  :start-mark (start-mark <html>)
+	  :size (- (end-offset </html>) (start-offset <html>))
 	  :start <html> :head head :body body :end </html>)
     (head -> (<head> title </head>)
-	  :start-offset (start-offset <head>) :end-offset (end-offset </head>)
+	  :start-mark (start-mark <head>)
+	  :size (- (end-offset </head>) (start-offset <head>))
 	  :start <head> :title title :end </head>)
     (title -> (<title> words </title>)
-	   :start-offset (start-offset <title>) :end-offset (end-offset </title>)
+	   :start-mark (start-mark <title>)
+	   :size (- (end-offset </title>) (start-offset <title>))
 	   :start <title> :words words :end </title>)
     (body -> (<body> words </body>)
-	  :start-offset (start-offset <body>) :end-offset (end-offset </body>)
+	  :start-mark (start-mark <body>)
+	  :size (- (end-offset </body>) (start-offset <body>))
 	  :start <body> :words words :end </body>)
     (words -> ()
-	   (make-instance 'empty-words :start-offset nil))
+	   (make-instance 'empty-words :start-mark nil))
     (words -> (words word)
 	   (make-instance 'nonempty-words
-	      :start-offset (or (start-offset words) (start-offset word))
-	      :end-offset (end-offset word)
+	      :start-mark (or (start-mark words) (start-mark word))
+	      :size (- (end-offset word) (offset (or (start-mark words) (start-mark word))))
 	      :words words :word word))))
 
 (defmethod initialize-instance :after ((syntax html-syntax) &rest args)
@@ -287,12 +298,20 @@
 ;;;
 ;;; display
 
+(defvar *white-space-start* nil)
+
+(defvar *cursor-positions* nil)
+(defvar *current-line* 0)
+
 (defun handle-whitespace (pane buffer start end)
   (let ((space-width (space-width pane))
 	(tab-width (tab-width pane)))
     (loop while (< start end)
 	  do (ecase (buffer-object buffer start)
-	       (#\Newline (terpri pane))
+	       (#\Newline (terpri pane)
+			  (setf (aref *cursor-positions* (incf *current-line*))
+				(multiple-value-bind (x y) (stream-cursor-position pane)
+				  y)))
 	       (#\Space (stream-increment-cursor-position
 			 pane space-width 0))
 	       (#\Tab (let ((x (stream-cursor-position pane)))
@@ -310,15 +329,32 @@
   nil)
 
 (defmethod display-parse-tree ((entity html-token) (syntax html-syntax) pane)
-  (updating-output (pane :unique-id entity
-			 :id-test #'eq
-			 :cache-value entity
-			 :cache-test #'eq)
-    (present (coerce (region-to-sequence (start-mark entity)
-					 (end-offset entity))
-		     'string)
-	     'string
-	     :stream pane)))
+  (flet ((cache-test (t1 t2)
+	   (and (eq t1 t2)
+		(eq (slot-value t1 'ink)
+		    (medium-ink (sheet-medium pane)))
+		(eq (slot-value t1 'face)
+		    (text-style-face (medium-text-style (sheet-medium pane)))))))
+    (updating-output (pane :unique-id entity
+			   :id-test #'eq
+			   :cache-value entity
+			   :cache-test #'cache-test)
+      (with-slots (ink face) entity
+	 (setf ink (medium-ink (sheet-medium pane))
+	       face (text-style-face (medium-text-style (sheet-medium pane))))
+	 (present (coerce (region-to-sequence (start-mark entity)
+					      (end-offset entity))
+			  'string)
+		  'string
+		  :stream pane)))))
+
+(defmethod display-parse-tree :around ((entity html-tag) (syntax html-syntax) pane)
+  (with-drawing-options (pane :ink +green+)
+    (call-next-method)))
+
+(defmethod display-parse-tree :before ((entity html-token) (syntax html-syntax) pane)
+  (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
+  (setf *white-space-start* (end-offset entity)))
 
 (defmethod display-parse-tree :before ((entity html-balanced) (syntax html-syntax) pane)
   (with-slots (start) entity
@@ -327,6 +363,10 @@
 (defmethod display-parse-tree :after ((entity html-balanced) (syntax html-syntax) pane)
   (with-slots (end) entity
      (display-parse-tree end syntax pane)))
+
+(defmethod display-parse-tree :around ((entity title) (syntax html-syntax) pane)
+  (with-text-face (pane :bold)
+    (call-next-method)))
 
 (defmethod display-parse-tree ((entity html-words) (syntax html-syntax) pane)
   (with-slots (words) entity
@@ -367,6 +407,9 @@
 
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax html-syntax) current-p)
   (with-slots (top bot) pane
+     (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
+	   *current-line* 0
+	   (aref *cursor-positions* 0) (stream-cursor-position pane))
      (with-slots (tokens) syntax
 	(let ((average-token-size (max (float (/ (size (buffer pane)) (nb-elements tokens)))
 				       1.0)))
@@ -383,29 +426,30 @@
 	      ;; go back to the first token after top, or until the previous token
 	      ;; contains a valid parser state
 	      (loop until (or (mark<= (end-offset (element* tokens (1- start-token-index))) top)
-			      (not (null (parse-stack-top
-					  (slot-value (element* tokens (1- start-token-index)) 'state)))))
+			      (not (parse-state-empty-p 
+				    (slot-value (element* tokens (1- start-token-index)) 'state))))
 		    do (decf start-token-index))
-	      ;; display the parse tree if any
-	      (unless (parse-state-empty-p (slot-value (element* tokens (1- start-token-index)) 'state))
-		(display-parse-state (slot-value (element* tokens (1- start-token-index)) 'state)
-				     syntax
-				     pane))
-	      ;; display the tokens
-	      (loop with prev-offset = (end-offset (element* tokens (1- start-token-index)))
-		    while (< start-token-index end-token-index)
-		    do (let ((token (element* tokens start-token-index)))
-			 (handle-whitespace pane (buffer pane) prev-offset (start-offset token))
-			 (updating-output (pane :unique-id token 
-						:id-test #'eq
-						:cache-value token
-						:cache-test #'eq)
-			   (present (coerce (region-to-sequence (start-mark token)
-								(end-offset token))
-					    'string)
-				    'string
-				    :stream pane))
-			 (setf prev-offset (end-offset token)))
-		       (incf start-token-index))))))))
+	      (let ((*white-space-start* (offset top)))
+		;; display the parse tree if any
+		(unless (parse-state-empty-p (slot-value (element* tokens (1- start-token-index)) 'state))
+		  (display-parse-state (slot-value (element* tokens (1- start-token-index)) 'state)
+				       syntax
+				       pane))
+		;; display the tokens
+		(with-drawing-options (pane :ink +red+)
+		  (loop while (< start-token-index end-token-index)
+			do (let ((token (element* tokens start-token-index)))
+			     (display-parse-tree token syntax pane))
+			   (incf start-token-index))))))))
+     (let* ((cursor-line (number-of-lines-in-region top (point pane)))
+	    (height (text-style-height (medium-text-style pane) pane))
+	    (cursor-y (+ (* cursor-line (+ height (stream-vertical-spacing pane)))))
+	    (cursor-column (column-number (point pane)))
+	    (cursor-x (* cursor-column (text-style-width (medium-text-style pane) pane))))
+       (updating-output (pane :unique-id -1)
+	 (draw-rectangle* pane
+			  (1- cursor-x) (- cursor-y (* 0.2 height))
+			  (+ cursor-x 2) (+ cursor-y (* 0.8 height))
+			  :ink (if current-p +red+ +blue+))))))
 	    
 		
