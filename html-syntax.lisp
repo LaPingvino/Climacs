@@ -82,6 +82,7 @@
 (defclass h1 (html-words) ())
 (defclass h2 (html-words) ())
 (defclass h3 (html-words) ())
+(defclass a (html-words) ())
 (defclass para (html-words) ())
 
 (defclass html-token (html-sym)
@@ -109,6 +110,13 @@
 (defclass </ul> (html-tag) () (:default-initargs :size 5))
 (defclass <li> (html-tag) () (:default-initargs :size 4))
 (defclass </li> (html-tag) () (:default-initargs :size 5))
+(defclass <a> (html-tag)
+  ((start :initarg :start)
+   (word :initarg :word)
+   (words :initarg :words)
+   (end :initarg :end)))
+(defclass </a> (html-tag) () (:default-initargs :size 4))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -205,6 +213,20 @@
 			    (word-is word "body")))
 		 (tag-end (= (end-offset word) (start-offset tag-end))))
 	     :start-mark (start-mark tag-start))
+    (<a> -> (tag-start
+	     (word (and (= (end-offset tag-start) (start-offset word))
+			(word-is word "a")))
+	     words
+	     tag-end)
+	 :start-mark (start-mark tag-start)
+	 :size (- (end-offset tag-end) (start-offset tag-start))
+	 :start tag-start :word word :words words :end tag-end)
+    (</a> -> (tag-start
+	      (slash (= (end-offset tag-start) (start-offset slash)))
+	      (word (and (= (end-offset slash) (start-offset word))
+			 (word-is word "a")))
+	      (tag-end (= (end-offset word) (start-offset tag-end))))
+	  :start-mark (start-mark tag-start))
     (html -> (<html> head body </html>)
 	  :start-mark (start-mark <html>)
 	  :size (- (end-offset </html>) (start-offset <html>))
@@ -221,13 +243,24 @@
 	  :start-mark (start-mark <body>)
 	  :size (- (end-offset </body>) (start-offset <body>))
 	  :start <body> :words words :end </body>)
+    (a -> (<a> words </a>)
+       :start-mark (start-mark <a>)
+       :size (- (end-offset </a>) (start-offset <a>))
+       :start <a> :words words :end </a>)
     (words -> ()
 	   (make-instance 'empty-words :start-mark nil))
     (words -> (words word)
 	   (make-instance 'nonempty-words
 	      :start-mark (or (start-mark words) (start-mark word))
 	      :size (- (end-offset word) (offset (or (start-mark words) (start-mark word))))
-	      :words words :word word))))
+	      :words words :word word))
+    (word -> (a)
+	  :start-mark (start-mark a)
+	  :size (- (end-offset a) (start-offset a)))
+    (word -> (delimiter)
+	  :start-mark (start-mark delimiter)
+	  :size (- (end-offset delimiter) (start-offset delimiter)))))
+	  
 
 (defmethod initialize-instance :after ((syntax html-syntax) &rest args)
   (declare (ignore args))
@@ -311,6 +344,7 @@
 	       (#\Newline (terpri pane)
 			  (setf (aref *cursor-positions* (incf *current-line*))
 				(multiple-value-bind (x y) (stream-cursor-position pane)
+				  (declare (ignore x))
 				  y)))
 	       (#\Space (stream-increment-cursor-position
 			 pane space-width 0))
@@ -390,6 +424,13 @@
   (with-slots (title) entity
      (display-parse-tree title syntax pane)))
 
+(defmethod display-parse-tree ((entity <a>) (syntax html-syntax) pane)
+  (with-slots (start word words end) entity
+    (display-parse-tree start syntax pane)
+    (display-parse-tree word syntax pane)
+    (display-parse-tree words syntax pane)
+    (display-parse-tree end syntax pane)))
+
 (defgeneric display-parse-stack (symbol stack syntax pane))
 
 (defmethod display-parse-stack (symbol stack (syntax html-syntax) pane)
@@ -452,4 +493,3 @@
 			  (+ cursor-x 2) (+ cursor-y (* 0.8 height))
 			  :ink (if current-p +red+ +blue+))))))
 	    
-		
