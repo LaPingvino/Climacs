@@ -63,19 +63,6 @@
 		     :borders nil
 		     :incremental-redisplay t
 		     :display-function 'display-info)))
-;   (win (make-pane 'extended-pane
-;		   :width 900 :height 400
-;		   :name 'bla
-;		   :incremental-redisplay t
-;		   :display-function 'display-win))
-   
-   (info :application
-	 :width 900 :height 20 :max-height 30 :min-height 30
-	 :name 'info :background +gray85+
-	 :scroll-bars nil
-	 :borders nil
-	 :incremental-redisplay t
-	 :display-function 'display-info)
    (int (make-pane 'minibuffer-pane
 		   :width 900 :height 20 :max-height 20 :min-height 20
 		   :scroll-bars nil)))
@@ -83,21 +70,18 @@
    (default
        (vertically (:scroll-bars nil)
 	 win
-	 int))
-   (without-interactor
-    (vertically (:scroll-bars nil)
-      (scrolling (:width 900 :height 400) win)
-      info)))
+	 int)))
   (:top-level (climacs-top-level)))
 
-(defmethod redisplay-frame-panes :before ((frame climacs) &rest args)
+(defmacro current-window ()
+  `(win *application-frame*))
+
+(defmethod redisplay-frame-panes :around ((frame climacs) &rest args)
   (declare (ignore args))
   (let ((buffer (buffer (win frame))))
-    (update-syntax buffer (syntax buffer))))
-
-(defmethod redisplay-frame-panes :after ((frame climacs) &rest args)
-  (declare (ignore args))
-  (clear-modify (buffer (win frame))))
+    (update-syntax buffer (syntax buffer))
+    (call-next-method)
+    (clear-modify buffer)))
 
 (defun climacs ()
   "Starts up a climacs session"
@@ -263,12 +247,12 @@
   (frame-exit *application-frame*))
 
 (define-named-command com-toggle-overwrite-mode ()
-  (let ((win (win *application-frame*)))
+  (let ((win (current-window)))
     (setf (slot-value win 'overwrite-mode)
 	  (not (slot-value win 'overwrite-mode)))))
 
 (define-command com-self-insert ()
-  (let* ((win (win *application-frame*))
+  (let* ((win (current-window))
 	 (point (point win)))
     (unless (constituentp *current-gesture*)
       (possibly-expand-abbrev point))
@@ -279,19 +263,19 @@
 	(insert-object point *current-gesture*))))
 
 (define-named-command com-beginning-of-line ()
-  (beginning-of-line (point (win *application-frame*))))
+  (beginning-of-line (point (current-window))))
 
 (define-named-command com-end-of-line ()
-  (end-of-line (point (win *application-frame*))))
+  (end-of-line (point (current-window))))
 
 (define-named-command com-delete-object ((count 'integer :prompt "Number of Objects"))
-  (delete-range (point (win *application-frame*)) count))
+  (delete-range (point (current-window)) count))
 
 (define-named-command com-backward-delete-object ((count 'integer :prompt "Number of Objects"))
-  (delete-range (point (win *application-frame*)) (- count)))
+  (delete-range (point (current-window)) (- count)))
 
 (define-named-command com-transpose-objects ()
-  (let* ((point (point (win *application-frame*))))
+  (let* ((point (point (current-window))))
     (unless (beginning-of-buffer-p point)
       (when (end-of-line-p point)
        (backward-object point))
@@ -302,13 +286,13 @@
        (forward-object point)))))
 
 (define-named-command com-backward-object ((count 'integer :prompt "Number of Objects"))
-  (backward-object (point (win *application-frame*)) count))
+  (backward-object (point (current-window)) count))
 
 (define-named-command com-forward-object ((count 'integer :prompt "Number of Objects"))
-  (forward-object (point (win *application-frame*)) count))
+  (forward-object (point (current-window)) count))
 
 (define-named-command com-transpose-words ()
-  (let* ((point (point (win *application-frame*))))
+  (let* ((point (point (current-window))))
     (let (bw1 bw2 ew1 ew2)
       (backward-word point)
       (setf bw1 (offset point))
@@ -332,7 +316,7 @@
         (forward-word point)))))
 
 (define-named-command com-transpose-lines ()
-  (let ((point (point (win *application-frame*))))
+  (let ((point (point (current-window))))
     (beginning-of-line point)
     (unless (beginning-of-buffer-p point)
       (previous-line point))
@@ -355,7 +339,7 @@
       (insert-object point #\Newline))))
 
 (define-named-command com-previous-line ()
-  (let* ((win (win *application-frame*))
+  (let* ((win (current-window))
 	 (point (point win)))
     (unless (or (eq (previous-command win) 'com-previous-line)
 		(eq (previous-command win) 'com-next-line))
@@ -363,7 +347,7 @@
     (previous-line point (slot-value win 'goal-column))))
 
 (define-named-command com-next-line ()
-  (let* ((win (win *application-frame*))
+  (let* ((win (current-window))
 	 (point (point win)))
     (unless (or (eq (previous-command win) 'com-previous-line)
 		(eq (previous-command win) 'com-next-line))
@@ -371,10 +355,10 @@
     (next-line point (slot-value win 'goal-column))))
 
 (define-named-command com-open-line ()
-  (open-line (point (win *application-frame*))))
+  (open-line (point (current-window))))
 
 (define-named-command com-kill-line ()
-  (let* ((pane (win *application-frame*))
+  (let* ((pane (current-window))
 	 (point (point pane))
          (mark (offset point)))
     (cond ((end-of-buffer-p point) nil)
@@ -391,45 +375,45 @@
     (delete-region mark point)))
 
 (define-named-command com-forward-word ()
-  (forward-word (point (win *application-frame*))))
+  (forward-word (point (current-window))))
 
 (define-named-command com-backward-word ()
-  (backward-word (point (win *application-frame*))))
+  (backward-word (point (current-window))))
 
 (define-named-command com-delete-word ()
-  (delete-word (point (win *application-frame*))))
+  (delete-word (point (current-window))))
 
 (define-named-command com-backward-delete-word ()
-  (backward-delete-word (point (win *application-frame*))))
+  (backward-delete-word (point (current-window))))
 
 (define-named-command com-upcase-region ()
-  (multiple-value-bind (start end) (region-limits (win *application-frame*))
+  (multiple-value-bind (start end) (region-limits (current-window))
     (upcase-region start end)))
 
 (define-named-command com-downcase-region ()
-  (multiple-value-bind (start end) (region-limits (win *application-frame*))
+  (multiple-value-bind (start end) (region-limits (current-window))
     (downcase-region start end)))
 
 (define-named-command com-capitalize-region ()
-  (multiple-value-bind (start end) (region-limits (win *application-frame*))
+  (multiple-value-bind (start end) (region-limits (current-window))
     (capitalize-region start end)))
 
 (define-named-command com-upcase-word ()
-  (upcase-word (point (win *application-frame*))))
+  (upcase-word (point (current-window))))
 
 (define-named-command com-downcase-word ()
-  (downcase-word (point (win *application-frame*))))
+  (downcase-word (point (current-window))))
 
 (define-named-command com-capitalize-word ()
-  (capitalize-word (point (win *application-frame*))))
+  (capitalize-word (point (current-window))))
 
 (define-named-command com-tabify-region ()
-  (let ((pane (win *application-frame*)))
+  (let ((pane (current-window)))
     (multiple-value-bind (start end) (region-limits pane)
       (tabify-region start end (tab-space-count (stream-default-view pane))))))
 
 (define-named-command com-untabify-region ()
-  (let ((pane (win *application-frame*)))
+  (let ((pane (current-window)))
     (multiple-value-bind (start end) (region-limits pane)
       (untabify-region start end (tab-space-count (stream-default-view pane))))))
 
@@ -444,24 +428,18 @@
                                         tab-space-count))))
 
 (define-named-command com-indent-line ()
-  (let* ((pane (win *application-frame*))
+  (let* ((pane (current-window))
          (point (point pane)))
     (indent-current-line pane point)))
 
 (define-named-command com-newline-and-indent ()
-  (let* ((pane (win *application-frame*))
+  (let* ((pane (current-window))
 	 (point (point pane)))
     (insert-object point #\Newline)
     (indent-current-line pane point)))
 
 (define-named-command com-delete-indentation ()
-  (delete-indentation (point (win *application-frame*))))
-
-(define-named-command com-toggle-layout ()
-  (setf (frame-current-layout *application-frame*)
-	(if (eq (frame-current-layout *application-frame*) 'default)
-	    'without-interactor
-	    'default)))
+  (delete-indentation (point (current-window))))
 
 (define-command com-extended-command ()
   (let ((item (accept 'command :prompt "Extended Command")))
@@ -553,9 +531,9 @@
   (let ((filename (accept 'completable-pathname
 			  :prompt "Find File"))
 	(buffer (make-instance 'climacs-buffer))
-	(pane (win *application-frame*)))
+	(pane (current-window)))
     (push buffer (buffers *application-frame*))
-    (setf (buffer (win *application-frame*)) buffer)
+    (setf (buffer (current-window)) buffer)
     (setf (syntax buffer) (make-instance 'basic-syntax))
     (with-open-file (stream filename :direction :input :if-does-not-exist :create)
       (input-from-stream stream buffer 0))
@@ -568,7 +546,7 @@
     (redisplay-frame-panes *application-frame*)))
 
 (define-named-command com-save-buffer ()
-  (let* ((buffer (buffer (win *application-frame*)))
+  (let* ((buffer (buffer (current-window)))
 	 (filename (or (filename buffer)
 		       (accept 'completable-pathname
 			       :prompt "Save Buffer to File"))))
@@ -585,7 +563,7 @@
 (define-named-command com-write-buffer ()
   (let ((filename (accept 'completable-pathname
 			  :prompt "Write Buffer to File"))
-	(buffer (buffer (win *application-frame*))))
+	(buffer (buffer (current-window))))
     (with-open-file (stream filename :direction :output :if-exists :supersede)
       (output-to-stream stream buffer 0 (size buffer)))
     (setf (filename buffer) filename
@@ -612,13 +590,13 @@
 (define-named-command com-switch-to-buffer ()
   (let ((buffer (accept 'buffer
 			:prompt "Switch to buffer")))
-    (setf (buffer (win *application-frame*)) buffer)
+    (setf (buffer (current-window)) buffer)
     (setf (syntax buffer) (make-instance 'basic-syntax))
-    (beginning-of-buffer (point (win *application-frame*)))
-    (full-redisplay (win *application-frame*))))
+    (beginning-of-buffer (point (current-window)))
+    (full-redisplay (current-window))))
 
 (define-named-command com-full-redisplay ()
-  (full-redisplay (win *application-frame*)))
+  (full-redisplay (current-window)))
 
 (define-named-command com-load-file ()
   (let ((filename (accept 'completable-pathname
@@ -626,56 +604,56 @@
     (load filename)))
 
 (define-named-command com-beginning-of-buffer ()
-  (beginning-of-buffer (point (win *application-frame*))))
+  (beginning-of-buffer (point (current-window))))
 
 (define-named-command com-page-down ()
-  (let ((pane (win *application-frame*)))
+  (let ((pane (current-window)))
     (page-down pane)))
 
 (define-named-command com-page-up ()
-  (let ((pane (win *application-frame*)))
+  (let ((pane (current-window)))
     (page-up pane)))
 
 (define-named-command com-end-of-buffer ()
-  (end-of-buffer (point (win *application-frame*))))
+  (end-of-buffer (point (current-window))))
 
 (define-named-command com-back-to-indentation ()
-  (let ((point (point (win *application-frame*))))
+  (let ((point (point (current-window))))
     (beginning-of-line point)
     (loop until (end-of-line-p point)
 	  while (whitespacep (object-after point))
 	  do (incf (offset point)))))
 
 (define-named-command com-goto-position ()
-  (setf (offset (point (win *application-frame*)))
+  (setf (offset (point (current-window)))
 	(accept 'integer :prompt "Goto Position")))
 
 (define-named-command com-goto-line ()
   (loop with mark = (make-instance 'standard-right-sticky-mark
-		       :buffer (buffer (win *application-frame*)))
+		       :buffer (buffer (current-window)))
 	do (end-of-line mark)
 	until (end-of-buffer-p mark)
 	repeat (accept 'integer :prompt "Goto Line")
 	do (incf (offset mark))
 	   (end-of-line mark)
 	finally (beginning-of-line mark)
-		(setf (offset (point (win *application-frame*)))
+		(setf (offset (point (current-window)))
 		      (offset mark))))
 
 (define-named-command com-browse-url ()
   (accept 'url :prompt "Browse URL"))
 
 (define-named-command com-set-mark ()
-  (let ((pane (win *application-frame*)))
+  (let ((pane (current-window)))
     (setf (mark pane) (clone-mark (point pane)))))
 
 (define-named-command com-exchange-point-and-mark ()
-  (let ((pane (win *application-frame*)))
+  (let ((pane (current-window)))
     (psetf (offset (mark pane)) (offset (point pane))
 	   (offset (point pane)) (offset (mark pane)))))
 
 (define-named-command com-set-syntax ()
-  (let* ((pane (win *application-frame*))
+  (let* ((pane (current-window))
 	 (buffer (buffer pane)))
     (setf (syntax buffer)
 	  (make-instance (accept 'syntax :prompt "Set Syntax")))
@@ -689,7 +667,7 @@
 (define-named-command com-split-window-vertically ()
   (with-look-and-feel-realization
       ((frame-manager *application-frame*) *application-frame*)
-    (let* ((pane (win *application-frame*))
+    (let* ((pane (current-window))
 	   (new-pane (make-pane 'extended-pane
 				:width 900 :height 400
 				:name 'win
@@ -717,21 +695,21 @@
 
 ;; Copies an element from a kill-ring to a buffer at the given offset
 (define-named-command com-yank ()
-  (insert-sequence (point (win *application-frame*)) (kill-ring-yank *kill-ring*)))
+  (insert-sequence (point (current-window)) (kill-ring-yank *kill-ring*)))
 
 ;; Destructively cut a given buffer region into the kill-ring
 (define-named-command com-cut-out ()
-  (multiple-value-bind (start end) (region-limits (win *application-frame*))
+  (multiple-value-bind (start end) (region-limits (current-window))
     (kill-ring-standard-push *kill-ring* (region-to-sequence start end))
     (delete-region (offset start) end)))
 
 ;; Non destructively copies in buffer region to the kill ring
 (define-named-command com-copy-out ()
-  (let ((pane (win *application-frame*)))
+  (let ((pane (current-window)))
     (kill-ring-standard-push *kill-ring* (region-to-sequence (point pane) (mark pane)))))
 
 (define-named-command com-rotate-yank ()
-  (let* ((pane (win *application-frame*))
+  (let* ((pane (current-window))
 	 (point (point pane))
 	 (last-yank (kill-ring-yank *kill-ring*)))
     (if (eq (previous-command pane)
@@ -746,19 +724,19 @@
     (setf (kill-ring-max-size *kill-ring*) size)))
 
 (define-named-command com-search-forward ()
-  (search-forward (point (win *application-frame*))
+  (search-forward (point (current-window))
 		  (accept 'string :prompt "Search Forward")
 		  :test (lambda (a b)
 			  (and (characterp b) (char-equal a b)))))
 
 (define-named-command com-search-backward ()
-  (search-backward (point (win *application-frame*))
+  (search-backward (point (current-window))
 		   (accept 'string :prompt "Search Backward")
 		   :test (lambda (a b)
 			   (and (characterp b) (char-equal a b)))))
 
 (define-named-command com-dabbrev-expand ()
-  (let* ((win (win *application-frame*))
+  (let* ((win (current-window))
 	 (point (point win)))
     (with-slots (original-prefix prefix-start-offset dabbrev-expansion-mark) win
        (flet ((move () (cond ((beginning-of-buffer-p dabbrev-expansion-mark)
@@ -795,26 +773,40 @@
 		      (move))))))))
 	   
 (define-named-command com-beginning-of-paragraph ()
-  (let* ((pane (win *application-frame*))
+  (let* ((pane (current-window))
 	 (point (point pane))
 	 (syntax (syntax (buffer pane))))
     (beginning-of-paragraph point syntax)))
 
 (define-named-command com-end-of-paragraph ()
-  (let* ((pane (win *application-frame*))
+  (let* ((pane (current-window))
 	 (point (point pane))
 	 (syntax (syntax (buffer pane))))
     (end-of-paragraph point syntax)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
-;;; Global command table
+;;; Global and dead-escape command tables
 
 (make-command-table 'global-climacs-table :errorp nil)
 
+(make-command-table 'dead-escape-climacs-table :errorp nil)
+
+(add-menu-item-to-command-table 'global-climacs-table "dead-escape"
+				:menu 'dead-escape-climacs-table
+				:keystroke '(:escape))
+
+(defun dead-escape-set-key (gesture command)
+  (add-command-to-command-table command 'dead-escape-climacs-table
+				:keystroke gesture :errorp nil))
+
 (defun global-set-key (gesture command)
   (add-command-to-command-table command 'global-climacs-table
-				:keystroke gesture :errorp nil))
+				:keystroke gesture :errorp nil)
+  (when (and 
+	 (listp gesture)
+	 (find :meta gesture))
+    (dead-escape-set-key (remove :meta gesture)  command)))
 
 (loop for code from (char-code #\space) to (char-code #\~)
       do (global-set-key (code-char code) 'com-self-insert))
@@ -903,7 +895,7 @@
 ;;; Some Unicode stuff
 
 (define-named-command com-insert-charcode ((code 'integer :prompt "Code point"))
-  (insert-object (point (win *application-frame*)) (code-char code)))
+  (insert-object (point (current-window)) (code-char code)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
