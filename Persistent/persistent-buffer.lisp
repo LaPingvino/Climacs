@@ -55,7 +55,7 @@
 (defclass persistent-buffer (buffer)
   ((low-mark :reader low-mark)
    (high-mark :reader high-mark)
-   (cursors :reader cursors :initform nil)
+   (cursors :accessor cursors :initform nil)
    (modified :initform nil :reader modified-p))
   (:documentation "The Climacs persistent buffer base class
 \(non-instantiable)."))
@@ -481,42 +481,53 @@ PERSISTENT-BUFFER."))
   (end-of-buffer (low-mark buffer))
   (setf (slot-value buffer 'modified) nil))
 
-;;; I hope the code below is not wrong, although it is slow for now. It should
-;;; look like flexichain::adjust-cursors, but I am planning to write that in
-;;; a more compact form. The two functions below should not return anything.
+(defmacro filter-and-update (l filter-fn update-fn)
+  (let ((prev (gensym))
+	(curr (gensym))
+	(kept (gensym)))
+    `(loop
+	with ,prev = nil
+	and ,curr = ,l
+	and ,kept = nil
+	do (cond
+	     ((null ,curr) (return))
+	     ((setf ,kept (funcall ,filter-fn (car ,curr)))
+	      (funcall ,update-fn ,kept)
+	      (setf ,prev ,curr
+		    ,curr (cdr ,curr)))
+	     (t (if ,prev
+		    (setf (cdr ,prev) (cdr ,curr))
+		    (setf ,l (cdr ,l)))
+		(setf ,curr (cdr ,curr)))))))
+
 (defun adjust-cursors-on-insert (buffer start &optional (increment 1))
-  (loop for c in (cursors buffer); TODO: use side-effects to get rid of consing
-     as wpc = (flexichain::weak-pointer-value c buffer)
-     when wpc
-     collect (progn
-	       (when (<= start (slot-value wpc 'pos))
-		 (incf (slot-value wpc 'pos) increment))
-	       c)))
+  (filter-and-update
+   (cursors buffer)
+   #'(lambda (c) (flexichain::weak-pointer-value c buffer))
+   #'(lambda (wpc)
+       (when (<= start (slot-value wpc 'pos))
+	 (incf (slot-value wpc 'pos) increment)))))
 
 (defun adjust-cursors-on-delete (buffer start n)
-   (loop with end = (+ start n) ; TODO: use side-effects to get rid of consing
-      for c in (cursors buffer)
-      as wpc = (flexichain::weak-pointer-value c buffer)
-      when wpc
-      collect (progn
- 	       (cond
- 		 ((<= (cursor-pos wpc) start))
- 		 ((< start (cursor-pos wpc) end)
- 		  (setf (cursor-pos wpc) start))
- 		 (t (decf (cursor-pos wpc) n)))
- 	       c)))
+  (let ((end (+ start n)))
+    (filter-and-update
+     (cursors buffer)
+     #'(lambda (c) (flexichain::weak-pointer-value c buffer))
+     #'(lambda (wpc)
+	 (cond
+	   ((<= (cursor-pos wpc) start))
+	   ((< start (cursor-pos wpc) end)
+	    (setf (cursor-pos wpc) start))
+	   (t (decf (cursor-pos wpc) n)))))))
 
 (defmethod insert-buffer-object
     :after ((buffer persistent-buffer) offset object)
-  (with-slots (cursors) buffer
-    (setf cursors (adjust-cursors-on-insert buffer offset))))
+  (adjust-cursors-on-insert buffer offset))
 
 (defmethod insert-buffer-sequence
     :after ((buffer persistent-buffer) offset sequence)
-  (with-slots (cursors) buffer
-    (setf cursors (adjust-cursors-on-insert buffer offset (length sequence)))))
+  (adjust-cursors-on-insert buffer offset (length sequence)))
 
 (defmethod delete-buffer-range
     :after ((buffer persistent-buffer) offset n)
-  (with-slots (cursors) buffer
-    (setf cursors (adjust-cursors-on-delete buffer offset n))))
+  (adjust-cursors-on-delete buffer offset n))
