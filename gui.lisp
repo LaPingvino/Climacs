@@ -981,15 +981,11 @@ as two values"
 	   (second (second children)))
       (pop (windows *application-frame*))
       (sheet-disown-child box other)
-      (cond ((eq box first)
-	     (sheet-disown-child parent box)
-	     (sheet-adopt-child parent other)
-	     (reorder-sheets parent (list other second)))
-	    (t
-	     (sheet-disown-child parent box)
-	     (sheet-adopt-child parent other)
-	     (reorder-sheets parent (list first other)))))))
-
+      (sheet-disown-child parent box)
+      (sheet-adopt-child parent other)
+      (reorder-sheets parent (if (eq box first)
+				 (list other second)
+				 (list first other))))))
 
 (define-named-command com-single-window ()
   (loop until (null (cdr (windows *application-frame*)))
@@ -1012,13 +1008,11 @@ as two values"
 ;; 	   (third (third children)))
 ;;       (pop (windows *application-frame*))
 ;;       (sheet-disown-child box other)
+;;       (sheet-disown-child parent box)
+;; 	 (sheet-adopt-child parent other)
 ;;       (cond ((eq box first)
-;; 	     (sheet-disown-child parent box)
-;; 	     (sheet-adopt-child parent other)
 ;; 	     (reorder-sheets parent (list other second third)))
 ;; 	    (t
-;; 	     (sheet-disown-child parent box)
-;; 	     (sheet-adopt-child parent other)
 ;; 	     (reorder-sheets parent (list first second other)))))))
 
 ;;;;;;;;;;;;;;;;;;;;
