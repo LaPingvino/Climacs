@@ -97,12 +97,38 @@ the mark, according to the specified syntax."))
     (when mark
       (offset mark))))
 
+(defmethod (setf start-offset) ((offset number) (tree parse-tree))
+  (let ((mark (start-mark tree)))
+    (assert (not (null mark)))
+    (setf (offset mark) offset)))
+
+(defmethod (setf start-offset) ((offset mark) (tree parse-tree))
+  (with-slots (start-mark) tree
+     (if (null start-mark)
+	 (setf start-mark (clone-mark offset))
+	 (setf (offset start-mark) (offset offset)))))
+
 (defgeneric end-offset (parse-tree))
 
 (defmethod end-offset ((tree parse-tree))
   (with-slots (start-mark size) tree
      (when start-mark
        (+ (offset start-mark) size))))
+
+(defmethod (setf end-offset) ((offset number) (tree parse-tree))
+  (with-slots (start-mark size) tree
+     (assert (not (null start-mark)))
+     (setf size (- offset (offset start-mark)))))
+
+(defmethod (setf end-offset) ((offset mark) (tree parse-tree))
+  (with-slots (start-mark size) tree
+     (assert (not (null start-mark)))
+     (setf size (- (offset offset) (offset start-mark)))))
+
+(defmethod buffer ((tree parse-tree))
+  (let ((start-mark (start-mark tree)))
+    (when start-mark
+      (buffer start-mark))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

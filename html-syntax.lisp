@@ -88,7 +88,7 @@
 	  :<head> <head> :title title :</head> </head>)))
 
 (defun word-is (word string)
-  (string-equal (coerce (region-to-sequence (start-mark word) (end-offset word)) 'string)
+  (string-equal (coerce (buffer-sequence (buffer word) (start-offset word) (end-offset word)) 'string)
 		string))
 
 (defmacro define-start-tag (name string)
@@ -309,12 +309,12 @@
 		     :grammar *html-grammar*
 		     :target 'html))
      (setf lexer (make-instance 'html-lexer :buffer (buffer syntax)))
-     (let ((m (clone-mark (low-mark buffer) :left)))
+     (let ((m (clone-mark (low-mark buffer) :left))
+	   (lexeme (make-instance 'start-lexeme :state (initial-state parser))))
        (setf (offset m) 0)
-       (insert-lexeme lexer 0 (make-instance 'start-lexeme
-				 :start-mark m
-				 :size 0
-				 :state (initial-state parser))))))
+       (setf (start-offset lexeme) m
+	     (end-offset lexeme) 0)
+       (insert-lexeme lexer 0 lexeme))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -388,8 +388,9 @@
       (with-slots (ink face) entity
 	 (setf ink (medium-ink (sheet-medium pane))
 	       face (text-style-face (medium-text-style (sheet-medium pane))))
-	 (present (coerce (region-to-sequence (start-mark entity)
-					      (end-offset entity))
+	 (present (coerce (buffer-sequence (buffer syntax)
+					   (start-offset entity)
+					   (end-offset entity))
 			  'string)
 		  'string
 		  :stream pane)))))

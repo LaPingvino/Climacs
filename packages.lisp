@@ -96,7 +96,6 @@
 	   #:parser #:initial-state
 	   #:advance-parse
 	   #:parse-tree #:start-offset #:end-offset
-	   #:start-mark ; FIXME remove this
 	   #:lexer #:nb-lexemes #:lexeme #:insert-lexeme
 	   #:incremental-lexer #:next-lexeme
 	   #:delete-invalid-lexemes #:inter-lexeme-object-p
