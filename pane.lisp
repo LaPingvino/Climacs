@@ -135,6 +135,23 @@
      (mapc #'flip-undo-record records)
      (setf records (nreverse records))))
 
+;;; undo-mixin delegation (here because of the package)
+
+(defmethod undo-tree ((buffer delegating-buffer))
+  (undo-tree (implementation buffer)))
+
+(defmethod undo-accumulate ((buffer delegating-buffer))
+  (undo-accumulate (implementation buffer)))
+
+(defmethod (setf undo-accumulate) (object (buffer delegating-buffer))
+  (setf (undo-accumulate (implementation buffer)) object))
+
+(defmethod performing-undo ((buffer delegating-buffer))
+  (performing-undo (implementation buffer)))
+
+(defmethod (setf performing-undo) (object (buffer delegating-buffer))
+  (setf (performing-undo (implementation buffer)) object))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Isearch
@@ -165,17 +182,36 @@
 
 ;(defgeneric indent-tabs-mode (climacs-buffer))
 
-(defclass climacs-buffer (standard-buffer abbrev-mixin filename-mixin name-mixin undo-mixin) ;PB
+;;; syntax delegation
+
+(defmethod update-syntax ((buffer delegating-buffer) syntax)
+  (update-syntax (implementation buffer) syntax))
+
+(defmethod update-syntax-for-redisplay ((buffer delegating-buffer) syntax from to)
+  (update-syntax-for-redisplay (implementation buffer) syntax from to))
+
+;;; buffers
+
+(defclass extended-standard-buffer (standard-buffer undo-mixin abbrev-mixin) ()
+  (:documentation "Extensions accessible via marks."))
+
+(defclass extended-obinseq-buffer (obinseq-buffer undo-mixin abbrev-mixin) ()
+  (:documentation "Extensions accessible via marks."))
+
+(defclass climacs-buffer (delegating-buffer filename-mixin name-mixin)
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :accessor syntax)
    (indent-tabs-mode :initarg indent-tabs-mode :initform t
                      :accessor indent-tabs-mode))
-  (:default-initargs :name "*scratch*"))
+  (:default-initargs
+   :name "*scratch*"
+   :implementation (make-instance 'extended-standard-buffer)))
 
 (defmethod initialize-instance :after ((buffer climacs-buffer) &rest args)
   (declare (ignore args))
   (with-slots (syntax) buffer
-     (setf syntax (make-instance 'basic-syntax :buffer buffer))))
+     (setf syntax (make-instance
+		   'basic-syntax :buffer (implementation buffer)))))
 
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
@@ -210,14 +246,12 @@
   (declare (ignore args))
   (with-slots (buffer point mark) pane
      (when (null point)
-       (setf point (make-instance 'standard-right-sticky-mark ;PB
-		      :buffer buffer)))
+       (setf point (clone-mark (low-mark buffer) :right)))
      (when (null mark)
-       (setf mark (make-instance 'standard-right-sticky-mark ;PB
-		      :buffer buffer))))
+       (setf mark (clone-mark (low-mark buffer) :right))))
   (with-slots (buffer top bot scan) pane
-     (setf top (make-instance 'standard-left-sticky-mark :buffer buffer) ;PB
-	   bot (make-instance 'standard-right-sticky-mark :buffer buffer))) ;PB
+     (setf top (clone-mark (low-mark buffer) :left)
+	   bot (clone-mark (high-mark buffer) :right)))
   (setf (stream-default-view pane) (make-instance 'climacs-textual-view))
   (with-slots (space-width tab-width) (stream-default-view pane)
      (let* ((medium (sheet-medium pane))
@@ -227,12 +261,10 @@
 
 (defmethod (setf buffer) :after (buffer (pane climacs-pane))
   (with-slots (point mark top bot) pane
-       (setf point (make-instance 'standard-right-sticky-mark ;PB
-		      :buffer buffer)
-	     mark (make-instance 'standard-right-sticky-mark ;PB
-		     :buffer buffer)
-	     top (make-instance 'standard-left-sticky-mark :buffer buffer) ;PB
-	     bot (make-instance 'standard-right-sticky-mark :buffer buffer)))) ;PB
+       (setf point (clone-mark (low-mark (implementation buffer)) :right)
+	     mark (clone-mark (low-mark (implementation buffer)) :right)
+	     top (clone-mark (low-mark (implementation buffer)) :left)
+	     bot (clone-mark (high-mark (implementation buffer)) :right))))
 
 (define-presentation-type url ()
   :inherit-from 'string)

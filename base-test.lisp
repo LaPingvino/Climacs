@@ -10,8 +10,8 @@
     (insert-buffer-sequence buffer 0 "climacs
 climacs
 climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 16)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 16)
       (previous-line mark nil 2)
       (offset mark)))
   0)
@@ -21,8 +21,8 @@ climacs")
     (insert-buffer-sequence buffer 0 "climacs
 climacs
 climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 19)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 19)
       (previous-line mark 2 2)
       (offset mark)))
   2)
@@ -31,8 +31,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 7)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 7)
       (previous-line mark)
       (offset mark)))
   7)
@@ -41,8 +41,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 7)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 7)
       (previous-line mark 2)
       (offset mark)))
   2)
@@ -51,8 +51,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 0)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 0)
       (previous-line mark)
       (offset mark)))
   0)
@@ -61,8 +61,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 0)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 0)
       (previous-line mark 2)
       (offset mark)))
   2)
@@ -71,8 +71,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs2")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 15)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 15)
       (previous-line mark)
       (offset mark)))
   7)
@@ -82,8 +82,8 @@ climacs2")
     (insert-buffer-sequence buffer 0 "climacs
 climacs
 climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 6)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 6)
       (next-line mark nil 2)
       (offset mark)))
   22)
@@ -93,8 +93,8 @@ climacs")
     (insert-buffer-sequence buffer 0 "climacs
 climacs
 climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 3)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 3)
       (next-line mark 2 2)
       (offset mark)))
   18)
@@ -103,8 +103,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 8)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 8)
       (next-line mark)
       (offset mark)))
   8)
@@ -113,8 +113,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 8)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 8)
       (next-line mark 2)
       (offset mark)))
   10)
@@ -123,8 +123,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 15)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 15)
       (next-line mark)
       (offset mark)))
   15)
@@ -133,8 +133,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 15)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 15)
       (next-line mark 2)
       (offset mark)))
   10)
@@ -143,8 +143,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 0)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 0)
       (next-line mark)
       (offset mark)))
   8)
@@ -152,8 +152,8 @@ climacs")
 (defmultitest open-line.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 0)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 0)
       (open-line mark 2)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "
@@ -163,8 +163,8 @@ climacs" 0)
 (defmultitest open-line.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 0)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 0)
       (open-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "
@@ -173,8 +173,8 @@ climacs" 0)
 (defmultitest open-line.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 7)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 7)
       (open-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacs
@@ -183,8 +183,8 @@ climacs" 0)
 (defmultitest open-line.test-4
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 7)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 7)
       (open-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacs
@@ -193,8 +193,8 @@ climacs" 0)
 (defmultitest kill-line.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 0)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 0)
       (kill-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   #() 0)
@@ -202,8 +202,8 @@ climacs" 0)
 (defmultitest kill-line.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 0)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 0)
       (kill-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   #() 0)
@@ -211,8 +211,8 @@ climacs" 0)
 (defmultitest kill-line.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 7)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 7)
       (kill-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacs" 7)
@@ -220,8 +220,8 @@ climacs" 0)
 (defmultitest kill-line.test-4
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 7)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 7)
       (kill-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacs" 7)
@@ -230,8 +230,8 @@ climacs" 0)
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 7)))
+    (let ((mark (clone-mark (low-mark buffer) :left)))
+      (setf (offset mark) 7)
       (kill-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacsclimacs" 7)
@@ -240,34 +240,32 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 7)))
+    (let ((mark (clone-mark (low-mark buffer) :right)))
+      (setf (offset mark) 7)
       (kill-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacsclimacs" 7)
 
 (defmultitest empty-line-p.test-1
   (let* ((buffer (make-instance %%buffer))
-	 (m1 (make-instance %%left-sticky-mark :buffer buffer))
-	 (m2 (make-instance %%right-sticky-mark :buffer buffer)))
+	 (m1 (clone-mark (low-mark buffer) :left))
+	 (m2 (clone-mark (low-mark buffer) :right)))
     (values (empty-line-p m1) (empty-line-p m2)))
   t t)
 
 (defmultitest empty-line-p.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-object buffer 0 #\a)
-    (let ((m1 (make-instance %%left-sticky-mark :buffer buffer))
-	  (m2 (make-instance %%right-sticky-mark :buffer buffer)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
       (values (empty-line-p m1) (empty-line-p m2))))
   nil nil)
 
 (defmultitest empty-line-p.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-object buffer 0 #\a)
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 1))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 1)))
+    (let ((m1 (clone-mark (high-mark buffer) :left))
+	  (m2 (clone-mark (high-mark buffer) :right)))
       (values (empty-line-p m1) (empty-line-p m2))))
   nil nil)
 
@@ -275,24 +273,24 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "a
 b")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 1))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 1)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 1
+	    (offset m2) 1)
       (values (empty-line-p m1) (empty-line-p m2))))
   nil nil)
 
 (defmultitest line-indentation.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  	climacs")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 0))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 0))
-	  (m3 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 10))
-	  (m4 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 10)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right))
+	  (m3 (clone-mark (low-mark buffer) :left))
+	  (m4 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 0
+	    (offset m2) 0
+	    (offset m3) 10
+	    (offset m4) 10)
       (values
        (line-indentation m1 8)
        (line-indentation m2 8)
@@ -307,14 +305,14 @@ b")
 (defmultitest line-indentation.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  		climacs")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 0))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 0))
-	  (m3 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 11))
-	  (m4 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 11)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right))
+	  (m3 (clone-mark (low-mark buffer) :left))
+	  (m4 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 0
+	    (offset m2) 0
+	    (offset m3) 11
+	    (offset m4) 11)
       (values
        (line-indentation m1 8)
        (line-indentation m2 8)
@@ -329,14 +327,14 @@ b")
 (defmultitest line-indentation.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  	climacs	")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 0))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 0))
-	  (m3 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 11))
-	  (m4 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 11)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right))
+	  (m3 (clone-mark (low-mark buffer) :left))
+	  (m4 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 0
+	    (offset m2) 0
+	    (offset m3) 11
+	    (offset m4) 11)
       (values
        (line-indentation m1 8)
        (line-indentation m2 8)
@@ -380,30 +378,30 @@ climacs")
 climacs
 climacs
 ")
-    (let ((m1l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 0))
-	  (m1r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 0))
-	  (m2l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 1))
-	  (m2r (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 1))
-	  (m3l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 3))
-	  (m3r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 3))
-	  (m4l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 8))
-	  (m4r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 8))
-	  (m5l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 15))
-	  (m5r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 15))
-	  (m6l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 16))
-	  (m6r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 16)))
+    (let ((m1l (clone-mark (low-mark buffer) :left))
+	  (m1r (clone-mark (low-mark buffer) :right))
+	  (m2l (clone-mark (low-mark buffer) :left))
+	  (m2r (clone-mark (low-mark buffer) :right))
+	  (m3l (clone-mark (low-mark buffer) :left))
+	  (m3r (clone-mark (low-mark buffer) :right))
+	  (m4l (clone-mark (low-mark buffer) :left))
+	  (m4r (clone-mark (low-mark buffer) :right))
+	  (m5l (clone-mark (low-mark buffer) :left))
+	  (m5r (clone-mark (low-mark buffer) :right))
+	  (m6l (clone-mark (low-mark buffer) :left))
+	  (m6r (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1l) 0
+	    (offset m1r) 0
+	    (offset m2l) 1
+	    (offset m2r) 1
+	    (offset m3l) 3
+	    (offset m3r) 3
+	    (offset m4l) 8
+	    (offset m4r) 8
+	    (offset m5l) 15
+	    (offset m5r) 15
+	    (offset m6l) 16
+	    (offset m6r) 16)
       (values
        (number-of-lines-in-region m1l m1r)
        (number-of-lines-in-region m1r m1l)
@@ -429,14 +427,14 @@ climacs
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
-    (let ((m1l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 6))
-	  (m1r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 6))
-	  (m2l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 7))
-	  (m2r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 7)))
+    (let ((m1l (clone-mark (low-mark buffer) :left))
+	  (m1r (clone-mark (low-mark buffer) :right))
+	  (m2l (clone-mark (low-mark buffer) :left))
+	  (m2r (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1l) 6
+	    (offset m1r) 6
+	    (offset m2l) 7
+	    (offset m2r) 7)
       (values
        (number-of-lines-in-region m1l 10)
        (number-of-lines-in-region 10 m1l)
@@ -473,18 +471,18 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  climacs
 climacs")
-    (let ((m0l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 0))
-	  (m0r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 0))
-	  (m1l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 5))
-	  (m1r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 5))
-	  (m2l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 17))
-	  (m2r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 17)))
+    (let ((m0l (clone-mark (low-mark buffer) :left))
+	  (m0r (clone-mark (low-mark buffer) :right))
+	  (m1l (clone-mark (low-mark buffer) :left))
+	  (m1r (clone-mark (low-mark buffer) :right))
+	  (m2l (clone-mark (low-mark buffer) :left))
+	  (m2r (clone-mark (low-mark buffer) :right)))
+      (setf (offset m0l) 0
+	    (offset m0r) 0
+	    (offset m1l) 5
+	    (offset m1r) 5
+	    (offset m2l) 17
+	    (offset m2r) 17)
       (values
        (progn (climacs-base::forward-to-word-boundary m0l) (offset m0l))
        (progn (climacs-base::forward-to-word-boundary m0r) (offset m0r))
@@ -498,18 +496,18 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs  ")
-    (let ((m0l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 17))
-	  (m0r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 17))
-	  (m1l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 10))
-	  (m1r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 10))
-	  (m2l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 0))
-	  (m2r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 0)))
+    (let ((m0l (clone-mark (low-mark buffer) :left))
+	  (m0r (clone-mark (low-mark buffer) :right))
+	  (m1l (clone-mark (low-mark buffer) :left))
+	  (m1r (clone-mark (low-mark buffer) :right))
+	  (m2l (clone-mark (low-mark buffer) :left))
+	  (m2r (clone-mark (low-mark buffer) :right)))
+      (setf (offset m0l) 17
+	    (offset m0r) 17
+	    (offset m1l) 10
+	    (offset m1r) 10
+	    (offset m2l) 0
+	    (offset m2r) 0)
       (values
        (progn (climacs-base::backward-to-word-boundary m0l) (offset m0l))
        (progn (climacs-base::backward-to-word-boundary m0r) (offset m0r))
@@ -523,18 +521,18 @@ climacs  ")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  climacs
 climacs")
-    (let ((m0l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 0))
-	  (m0r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 0))
-	  (m1l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 5))
-	  (m1r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 15))
-	  (m2l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 17))
-	  (m2r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 17)))
+    (let ((m0l (clone-mark (low-mark buffer) :left))
+	  (m0r (clone-mark (low-mark buffer) :right))
+	  (m1l (clone-mark (low-mark buffer) :left))
+	  (m1r (clone-mark (low-mark buffer) :right))
+	  (m2l (clone-mark (low-mark buffer) :left))
+	  (m2r (clone-mark (low-mark buffer) :right)))
+      (setf (offset m0l) 0
+	    (offset m0r) 0
+	    (offset m1l) 5
+	    (offset m1r) 15
+	    (offset m2l) 17
+	    (offset m2r) 17)
       (values
        (progn (forward-word m0l) (offset m0l))
        (progn (forward-word m0r) (offset m0r))
@@ -548,18 +546,18 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs  ")
-    (let ((m0l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 17))
-	  (m0r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 17))
-	  (m1l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 10))
-	  (m1r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 5))
-	  (m2l (make-instance %%left-sticky-mark
-			      :buffer buffer :offset 0))
-	  (m2r (make-instance %%right-sticky-mark
-			      :buffer buffer :offset 0)))
+    (let ((m0l (clone-mark (low-mark buffer) :left))
+	  (m0r (clone-mark (low-mark buffer) :right))
+	  (m1l (clone-mark (low-mark buffer) :left))
+	  (m1r (clone-mark (low-mark buffer) :right))
+	  (m2l (clone-mark (low-mark buffer) :left))
+	  (m2r (clone-mark (low-mark buffer) :right)))
+      (setf (offset m0l) 17
+	    (offset m0r) 17
+	    (offset m1l) 10
+	    (offset m1r) 5
+	    (offset m2l) 0
+	    (offset m2r) 0)
       (values
        (progn (backward-word m0l) (offset m0l))
        (progn (backward-word m0r) (offset m0r))
@@ -572,8 +570,8 @@ climacs  ")
 (defmultitest delete-word.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 3)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 3)
       (delete-word m)
       (values
        (buffer-sequence buffer 0 (size buffer))
@@ -583,8 +581,8 @@ climacs  ")
 (defmultitest delete-word.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  climacs climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 0)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 0)
       (delete-word m 2)
       (values
        (buffer-sequence buffer 0 (size buffer))
@@ -594,8 +592,8 @@ climacs  ")
 (defmultitest backward-delete-word.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 3)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 3)
       (backward-delete-word m)
       (values
        (buffer-sequence buffer 0 (size buffer))
@@ -605,8 +603,8 @@ climacs  ")
 (defmultitest backward-delete-word.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs climacs  ")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 17)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 17)
       (backward-delete-word m 2)
       (values
        (buffer-sequence buffer 0 (size buffer))
@@ -616,12 +614,12 @@ climacs  ")
 (defmultitest previous-word.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs climacs")
-    (let ((m0 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 7))
-	  (m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 8))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 10)))
+    (let ((m0 (clone-mark (low-mark buffer) :right))
+	  (m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m0) 7
+	    (offset m1) 8
+	    (offset m2) 10)
       (values
        (climacs-base::previous-word m0)
        (climacs-base::previous-word m1)
@@ -638,10 +636,10 @@ climacs  ")
 (defmultitest downcase-region.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 1))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 8)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 1
+	    (offset m2) 8)
       (downcase-region m2 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_cli	mac5_")
@@ -649,8 +647,8 @@ climacs  ")
 (defmultitest downcase-region.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 1)))
+    (let ((m1 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 1)
       (downcase-region 8 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_cli	mac5_")
@@ -658,8 +656,8 @@ climacs  ")
 (defmultitest downcase-region.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 8)))
+    (let ((m1 (clone-mark (low-mark buffer) :left)))
+      (setf (offset m1) 8)
       (downcase-region 1 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_cli	mac5_")
@@ -667,8 +665,8 @@ climacs  ")
 (defmultitest downcase-word.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "CLI MA CS CLIMACS")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 0)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 0)
       (downcase-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
@@ -685,10 +683,10 @@ climacs  ")
 (defmultitest upcase-region.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 1))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 8)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 1
+	    (offset m2) 8)
       (upcase-region m2 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_CLI	MAC5_")
@@ -696,8 +694,8 @@ climacs  ")
 (defmultitest upcase-region.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 1)))
+    (let ((m1 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 1)
       (upcase-region 8 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_CLI	MAC5_")
@@ -705,8 +703,8 @@ climacs  ")
 (defmultitest upcase-region.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 8)))
+    (let ((m1 (clone-mark (low-mark buffer) :left)))
+      (setf (offset m1) 8)
       (upcase-region 1 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_CLI	MAC5_")
@@ -714,8 +712,8 @@ climacs  ")
 (defmultitest upcase-word.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "cli ma cs climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 0)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 0)
       (upcase-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
@@ -739,10 +737,10 @@ climacs  ")
 (defmultitest capitalize-region.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 1))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 8)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 1
+	    (offset m2) 8)
       (capitalize-region m2 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_Cli	Mac5_")
@@ -750,8 +748,8 @@ climacs  ")
 (defmultitest capitalize-region.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 1)))
+    (let ((m1 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 1)
       (capitalize-region 8 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_Cli	Mac5_")
@@ -759,8 +757,8 @@ climacs  ")
 (defmultitest capitalize-region.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "_Cli	mac5_")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 8)))
+    (let ((m1 (clone-mark (low-mark buffer) :left)))
+      (setf (offset m1) 8)
       (capitalize-region 1 m1)
       (buffer-sequence buffer 0 (size buffer))))
   "_Cli	Mac5_")
@@ -768,8 +766,8 @@ climacs  ")
 (defmultitest capitalize-word.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "cli ma cs climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 0)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 0)
       (capitalize-word m 3)
       (values
        (buffer-sequence buffer 0 (size buffer))
@@ -793,10 +791,10 @@ climacs  ")
 (defmultitest tabify-region.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "clim    acs")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 3))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 7)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 3
+	    (offset m2) 7)
       (tabify-region m2 m1 4)
       (buffer-sequence buffer 0 (size buffer))))
   "clim	acs")
@@ -804,8 +802,8 @@ climacs  ")
 (defmultitest tabify-region.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "clim    acs")
-    (let ((m1 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 3)))
+    (let ((m1 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 3)
       (tabify-region 7 m1 4)
       (buffer-sequence buffer 0 (size buffer))))
   "clim	acs")
@@ -813,8 +811,8 @@ climacs  ")
 (defmultitest tabify-region.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "clim    acs")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 7)))
+    (let ((m1 (clone-mark (low-mark buffer) :left)))
+      (setf (offset m1) 7)
       (tabify-region 3 m1 4)
       (buffer-sequence buffer 0 (size buffer))))
   "clim	acs")
@@ -836,10 +834,10 @@ climacs  ")
 (defmultitest untabify-region.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "clim	acs")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 3))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 5)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 3
+	    (offset m2) 5)
       (untabify-region m2 m1 4)
       (buffer-sequence buffer 0 (size buffer))))
   "clim    acs")
@@ -847,8 +845,8 @@ climacs  ")
 (defmultitest untabify-region.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "clim	acs")
-    (let ((m1 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 3)))
+    (let ((m1 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 3)
       (untabify-region 5 m1 4)
       (buffer-sequence buffer 0 (size buffer))))
   "clim    acs")
@@ -856,8 +854,8 @@ climacs  ")
 (defmultitest untabify-region.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "clim	acs")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 5)))
+    (let ((m1 (clone-mark (low-mark buffer) :left)))
+      (setf (offset m1) 5)
       (untabify-region 3 m1 4)
       (buffer-sequence buffer 0 (size buffer))))
   "clim    acs")
@@ -865,8 +863,8 @@ climacs  ")
 (defmultitest indent-line.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  	climacs   ")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 3)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 3)
       (indent-line m 4 nil)
       (values
        (offset m)
@@ -876,8 +874,8 @@ climacs  ")
 (defmultitest indent-line.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  	climacs   ")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 4)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 4)
       (indent-line m 5 4)
       (values
        (offset m)
@@ -887,8 +885,8 @@ climacs  ")
 (defmultitest indent-line.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  	climacs   ")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 3)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 3)
       (indent-line m 5 4)
       (values
        (offset m)
@@ -899,8 +897,8 @@ climacs  ")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "
   	climacs   ")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 3)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 3)
       (delete-indentation m)
       (values
        (offset m)
@@ -911,8 +909,8 @@ climacs  ")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "
   	climacs   ")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 7)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 7)
       (delete-indentation m)
       (values
        (offset m)
@@ -922,8 +920,8 @@ climacs  ")
 (defmultitest delete-indentation.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "   climacs   ")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 7)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 7)
       (delete-indentation m)
       (values
        (offset m)
@@ -934,8 +932,8 @@ climacs  ")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
    climacs   ")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 12)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 12)
       (delete-indentation m)
       (values
        (offset m)
@@ -947,8 +945,8 @@ climacs  ")
     (insert-buffer-sequence buffer 0 "
 
    climacs   ")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 12)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 12)
       (delete-indentation m)
       (values
        (offset m)
@@ -959,8 +957,8 @@ climacs   ")
 (defmultitest fill-line.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs  climacs  climacs  climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 25)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 25)
       (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8)
       (values
        (offset m)
@@ -972,8 +970,8 @@ climacs   ")
 (defmultitest fill-line.test-1a
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs  climacs  climacs  climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 25)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 25)
       (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8 nil)
       (values
        (offset m)
@@ -985,8 +983,8 @@ climacs   ")
 (defmultitest fill-line.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs	climacs	climacs	climacs")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 25)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 25)
       (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8)
       (values
        (offset m)
@@ -998,8 +996,8 @@ climacs   ")
 (defmultitest fill-line.test-2a
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs	climacs	climacs	climacs")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 25)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 25)
       (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8 nil)
       (values
        (offset m)
@@ -1011,8 +1009,8 @@ climacs   ")
 (defmultitest fill-line.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "c l i m a c s")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 1)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 1)
       (fill-line m #'(lambda (m) (declare (ignore m)) 8) 0 8)
       (values
        (offset m)
@@ -1022,8 +1020,8 @@ climacs   ")
 (defmultitest fill-line.test-3a
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "c l i m a c s")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 1)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 1)
       (fill-line m #'(lambda (m) (declare (ignore m)) 8) 0 8 nil)
       (values
        (offset m)
@@ -1057,10 +1055,10 @@ climacs   ")
 (defmultitest looking-at.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((m1 (make-instance %%left-sticky-mark
-			     :buffer buffer :offset 1))
-	  (m2 (make-instance %%right-sticky-mark
-			     :buffer buffer :offset 3)))
+    (let ((m1 (clone-mark (low-mark buffer) :left))
+	  (m2 (clone-mark (low-mark buffer) :right)))
+      (setf (offset m1) 1
+	    (offset m2) 3)
       (values
        (looking-at m1 "lima")
        (looking-at m2 "mac")
@@ -1108,8 +1106,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "
 climacs")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 0)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 0)
       (search-forward m "Mac" :test #'char-equal)
       (offset m)))
   7)
@@ -1117,8 +1115,8 @@ climacs")
 (defmultitest search-forward.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 3)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 3)
       (search-forward m "Mac" :test #'char-equal)
       (offset m)))
   6)
@@ -1126,8 +1124,8 @@ climacs")
 (defmultitest search-forward.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 3)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 3)
       (search-forward m "klimaks")
       (offset m)))
   3)
@@ -1136,8 +1134,8 @@ climacs")
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 ")
-    (let ((m (make-instance %%left-sticky-mark
-			    :buffer buffer :offset 8)))
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 8)
       (search-backward m "Mac" :test #'char-equal)
       (offset m)))
   3)
@@ -1145,8 +1143,8 @@ climacs")
 (defmultitest search-backward.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 6)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 6)
       (search-backward m "Mac" :test #'char-equal)
       (offset m)))
   3)
@@ -1154,8 +1152,8 @@ climacs")
 (defmultitest search-backward.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
-    (let ((m (make-instance %%right-sticky-mark
-			    :buffer buffer :offset 3)))
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 3)
       (search-backward m "klimaks")
       (offset m)))
   3)

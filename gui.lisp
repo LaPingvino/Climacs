@@ -346,11 +346,6 @@
                        ,@end-clauses))
              (redisplay-frame-panes *application-frame*)))))
 
-(defun region-limits (pane)
-  (if (mark< (mark pane) (point pane))
-      (values (mark pane) (point pane))
-      (values (point pane) (mark pane))))
-
 (defmacro define-named-command (command-name args &body body)
   `(define-climacs-command ,(if (listp command-name)
 				`(,@command-name :name t)
@@ -546,13 +541,13 @@
 
 (define-named-command com-tabify-region ()
   (let ((pane (current-window)))
-    (multiple-value-bind (start end) (region-limits pane)
-      (tabify-region start end (tab-space-count (stream-default-view pane))))))
+    (tabify-region
+     (mark pane) (point pane) (tab-space-count (stream-default-view pane)))))
 
 (define-named-command com-untabify-region ()
   (let ((pane (current-window)))
-    (multiple-value-bind (start end) (region-limits pane)
-      (untabify-region start end (tab-space-count (stream-default-view pane))))))
+    (untabify-region
+     (mark pane) (point pane) (tab-space-count (stream-default-view pane)))))
 
 (defun indent-current-line (pane point)
   (let* ((buffer (buffer pane))
@@ -698,7 +693,8 @@
 	(pane (current-window)))
     (push buffer (buffers *application-frame*))
     (setf (buffer (current-window)) buffer)
-    (setf (syntax buffer) (make-instance 'basic-syntax :buffer buffer))
+    (setf (syntax buffer) (make-instance
+			   'basic-syntax :buffer (buffer (point pane))))
     ;; Don't want to create the file if it doesn't exist.
     (when (probe-file filename) 
       (with-open-file (stream filename :direction :input)
@@ -775,11 +771,13 @@
 
 (define-named-command com-switch-to-buffer ()
   (let ((buffer (accept 'buffer
-			:prompt "Switch to buffer")))
-    (setf (buffer (current-window)) buffer)
-    (setf (syntax buffer) (make-instance 'basic-syntax :buffer buffer))
-    (beginning-of-buffer (point (current-window)))
-    (full-redisplay (current-window))))
+			:prompt "Switch to buffer"))
+	(pane (current-window)))
+    (setf (buffer pane) buffer)
+    (setf (syntax buffer) (make-instance
+			   'basic-syntax :buffer (buffer (point pane))))
+    (beginning-of-buffer (point pane))
+    (full-redisplay pane)))
 
 (define-named-command com-kill-buffer ()
   (with-slots (buffers) *application-frame*
@@ -834,8 +832,11 @@
 			   (return-from com-goto-position nil))))))  
 
 (define-named-command com-goto-line ()
-  (loop with mark = (make-instance 'standard-right-sticky-mark ;PB
-		       :buffer (buffer (current-window)))
+  (loop with mark = (let ((m (clone-mark
+			      (low-mark (buffer (current-window)))
+			      :right)))
+		      (beginning-of-buffer m)
+		      m)
 	do (end-of-line mark)
 	until (end-of-buffer-p mark)
 	repeat (handler-case (accept 'integer :prompt "Goto Line")
@@ -868,7 +869,7 @@
 			     (progn (beep)
 				    (display-message "No such syntax")
 				    (return-from com-set-syntax nil)))
-	     :buffer buffer))
+	     :buffer (buffer (point pane))))
     (setf (offset (low-mark buffer)) 0
 	  (offset (high-mark buffer)) (size buffer))))
 
@@ -1021,9 +1022,10 @@ as two values"
 
 ;; Destructively cut a given buffer region into the kill-ring
 (define-named-command com-cut-out ()
-  (multiple-value-bind (start end) (region-limits (current-window))
-    (kill-ring-standard-push *kill-ring* (region-to-sequence start end))
-    (delete-region (offset start) end)))
+  (let ((pane (current-window)))
+    (kill-ring-standard-push
+     *kill-ring* (region-to-sequence (mark pane) (point pane)))
+    (delete-region (mark pane) (point pane))))
 
 ;; Non destructively copies in buffer region to the kill ring
 (define-named-command com-copy-out ()

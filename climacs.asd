@@ -65,6 +65,7 @@
    "cl-syntax"
    "kill-ring"
    "undo"
+   "delegating-buffer"
    "pane"
    "gui"
    ;;---- optional ----

@@ -48,7 +48,9 @@
 	   #:low-mark #:high-mark #:modified-p #:clear-modify
 
 	   #:binseq-buffer #:obinseq-buffer
-	   #:persistent-left-sticky-mark #:persistent-right-sticky-mark))
+	   #:persistent-left-sticky-mark #:persistent-right-sticky-mark
+
+	   #:delegating-buffer #:implementation))
 
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer)

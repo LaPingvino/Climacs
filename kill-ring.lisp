@@ -87,7 +87,7 @@ is reached."))
   (with-slots (max-size) kr
      max-size))
 
-(defmethod (setf kill-ring-max-size) ((kr kill-ring) size)
+(defmethod (setf kill-ring-max-size) (size (kr kill-ring))
   (unless (typep size 'integer)
     (error "Error, ~S, is not an integer value" size))
   (if (< size 5)
