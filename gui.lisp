@@ -50,7 +50,11 @@
 
 (define-application-frame climacs ()
   ((windows :accessor windows)
-   (buffers :initform '() :accessor buffers))
+   (buffers :initform '() :accessor buffers)
+   (recordingp :initform nil :accessor recordingp)
+   (executingp :initform nil :accessor executingp)
+   (recorded-keys :initform '() :accessor recorded-keys)
+   (remaining-keys :initform '() :accessor remaining-keys))
   (:panes
    (win (let* ((extended-pane 
 		(make-pane 'extended-pane
@@ -105,12 +109,15 @@
   (declare (ignore frame))
   (with-slots (climacs-pane) pane
      (let* ((buf (buffer climacs-pane))
-	    (name-info (format nil "   ~a   ~a   Syntax: ~a ~a"
+	    (name-info (format nil "   ~a   ~a   Syntax: ~a ~a    ~a"
 			       (if (needs-saving buf) "**" "--")
 			       (name buf)
 			       (name (syntax buf))
 			       (if (slot-value climacs-pane 'overwrite-mode)
 				   "Ovwrt"
+				   "")
+			       (if (recordingp *application-frame*)
+				   "Def"
 				   ""))))
        (princ name-info pane))))
 
@@ -139,8 +146,11 @@
 	    :test #'event-matches-gesture-name-p))
 
 (defun climacs-read-gesture ()
+  (unless (null (remaining-keys *application-frame*))
+    (return-from climacs-read-gesture
+      (pop (remaining-keys *application-frame*))))
   (loop for gesture = (read-gesture :stream *standard-input*)
-	when (event-matches-gesture-name-p gesture '(#\g :control))
+	when (event-matches-gesture-name-p gesture '(:keyboard #\g 512)) ; FIXME
 	  do (throw 'outer-loop nil)
 	until (or (characterp gesture)
 		  (and (typep gesture 'keyboard-event)
@@ -154,7 +164,16 @@
 					  :hyper-left :hyper-right
 					  :shift-lock :caps-lock
 					  :alt-left :alt-right))))))
-	finally (return gesture)))	  
+	finally (progn (when (recordingp *application-frame*)
+			 (push gesture (recorded-keys *application-frame*)))
+		       (return gesture))))
+
+(defun climacs-unread-gesture (gesture stream)
+  (cond ((recordingp *application-frame*)
+	 (pop (recorded-keys *application-frame*)))
+	((executingp *application-frame*)
+	 (push gesture (remaining-keys *application-frame*))))
+  (unread-gesture gesture :stream stream))
 
 (defun read-numeric-argument (&key (stream *standard-input*))
   (let ((gesture (climacs-read-gesture)))
@@ -163,7 +182,7 @@
 	     (loop for gesture = (climacs-read-gesture)
 		   while (event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
 		   do (setf numarg (* 4 numarg))
-		   finally (unread-gesture gesture :stream stream))
+		   finally (climacs-unread-gesture gesture stream))
 	     (let ((gesture (climacs-read-gesture)))
 	       (cond ((and (characterp gesture)
 			   (digit-char-p gesture 10))
@@ -173,19 +192,19 @@
 				       (digit-char-p gesture 10))
 			    do (setf numarg (+ (* 10 numarg)
 					       (- (char-code gesture) (char-code #\0))))
-			    finally (unread-gesture gesture :stream stream)
+			    finally (climacs-unread-gesture gesture stream)
 				    (return (values numarg t))))
 		     (t
-		      (unread-gesture gesture :stream stream)
+		      (climacs-unread-gesture gesture stream)
 		      (values numarg t))))))
 	  ((meta-digit gesture)
 	   (let ((numarg (meta-digit gesture)))
 	     (loop for gesture = (climacs-read-gesture)
 		   while (meta-digit gesture)
 		   do (setf numarg (+ (* 10 numarg) (meta-digit gesture)))
-		   finally (unread-gesture gesture :stream stream)
+		   finally (climacs-unread-gesture gesture stream)
 			   (return (values numarg t)))))
-	  (t (unread-gesture gesture :stream stream)
+	  (t (climacs-unread-gesture gesture stream)
 	     (values 1 nil)))))
 
 ;;; we know the vbox pane has a scroller pane and an info
@@ -237,12 +256,16 @@
 			(let ((buffer (buffer (current-window))))
 			  (when (modified-p buffer)
 			    (setf (needs-saving buffer) t)))
-			(redisplay-frame-panes frame)))
+			(when (null (remaining-keys *application-frame*))
+			  (setf (executingp *application-frame*) nil)
+			  (redisplay-frame-panes frame))))
 	     (beep)
 	     (let ((buffer (buffer (current-window))))
 	       (when (modified-p buffer)
 		 (setf (needs-saving buffer) t)))
-	     (redisplay-frame-panes frame)))))
+	     (when (null (remaining-keys *application-frame*))
+	       (setf (executingp *application-frame*) nil)
+	       (redisplay-frame-panes frame))))))
 
 (defun region-limits (pane)
   (if (mark< (mark pane) (point pane))
@@ -675,6 +698,25 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
+;;; Keyboard macros
+
+(define-named-command com-start-kbd-macro ()
+  (setf (recordingp *application-frame*) t)
+  (setf (recorded-keys *application-frame*) '()))
+
+(define-named-command com-end-kbd-macro ()
+  (setf (recordingp *application-frame*) nil)
+  (setf (recorded-keys *application-frame*)
+	;; this won't work if the command was invoked in any old way
+	(reverse (cddr (recorded-keys *application-frame*)))))
+
+(define-named-command com-call-last-kbd-macro ()
+  (setf (remaining-keys *application-frame*)
+	(recorded-keys *application-frame*))
+  (setf (executingp *application-frame*) t))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
 ;;; Commands for splitting windows
 
 (defun replace-constellation (constellation additional-constellation vertical-p)
@@ -971,7 +1013,10 @@ as two values"
 (c-x-set-key '(#\0) 'com-delete-window)
 (c-x-set-key '(#\2) 'com-split-window-vertically)
 (c-x-set-key '(#\3) 'com-split-window-horizontally)
+(c-x-set-key '(#\() 'com-start-kbd-macro)
+(c-x-set-key '(#\)) 'com-end-kbd-macro)
 (c-x-set-key '(#\b) 'com-switch-to-buffer)
+(c-x-set-key '(#\e) 'com-call-last-kbd-macro)
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\l :control) 'com-load-file)
