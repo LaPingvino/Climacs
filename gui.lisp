@@ -6,6 +6,8 @@
 ;;;           Elliott Johnson (ejohnson@fasl.info)
 ;;;  (c) copyright 2005 by
 ;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
+;;;  (c) copyright 2005 by
+;;;           Aleksandar Bakic (a_bakic@yahoo.com)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -46,7 +48,8 @@
    ;; for dynamic abbrev expansion
    (original-prefix :initform nil)
    (prefix-start-offset :initform nil)
-   (dabbrev-expansion-mark :initform nil)))
+   (dabbrev-expansion-mark :initform nil)
+   (overwrite-mode :initform nil)))
 
 (defmethod initialize-instance :after ((pane climacs-pane) &rest args)
   (declare (ignore args))
@@ -108,8 +111,6 @@
 (defun display-message (format-string &rest format-args)
   (apply #'format *standard-input* format-string format-args))
 
-(defvar *overwrite-mode* nil)
-
 (defun display-info (frame pane)
   (let* ((win (win frame))
 	 (buf (buffer win))
@@ -117,7 +118,7 @@
 			    (if (needs-saving buf) "**" "--")
 			    (name buf)
 			    (name (syntax win))
-			    (if *overwrite-mode*
+			    (if (slot-value win 'overwrite-mode)
 				"Ovwrt"
 				""))))
     (princ name-info pane)))
@@ -255,13 +256,16 @@
   (frame-exit *application-frame*))
 
 (define-named-command com-toggle-overwrite-mode ()
-  (setf *overwrite-mode* (not *overwrite-mode*)))
+  (let ((win (win *application-frame*)))
+    (setf (slot-value win 'overwrite-mode)
+	  (not (slot-value win 'overwrite-mode)))))
 
 (define-command com-self-insert ()
-  (let ((point (point (win *application-frame*))))
+  (let* ((win (win *application-frame*))
+	 (point (point win)))
     (unless (constituentp *current-gesture*)
       (possibly-expand-abbrev point))
-    (if (and *overwrite-mode* (not (end-of-line-p point)))
+    (if (and (slot-value win 'overwrite-mode) (not (end-of-line-p point)))
 	(progn
 	  (delete-range point)
 	  (insert-object point *current-gesture*))
