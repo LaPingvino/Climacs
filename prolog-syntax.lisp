@@ -571,7 +571,7 @@
   (make-instance 'atom :value curly-brackets))
 (define-prolog-rule (empty-list -> (open-list close-list))
   (make-instance 'empty-list :[ open-list :] close-list))
-(define-prolog-rule (curly-brakets -> (open-curly close-curly))
+(define-prolog-rule (curly-brackets -> (open-curly close-curly))
   (make-instance 'curly-brackets :{ open-curly :} close-curly))
 
 ;;; 6.3.2
