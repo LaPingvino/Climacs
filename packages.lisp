@@ -35,7 +35,7 @@
 	   #:insert-buffer-text #:insert-text
 	   #:delete-buffer-text #:delete-text
 	   #:delete-region
-	   #:buffer-char
+	   #:buffer-char #:buffer-string
 	   #:char-before #:char-after #:region-to-string
 	   #:find-text-after #:find-text-before))
 
@@ -43,8 +43,14 @@
   (:use :clim-lisp :climacs-buffer)
   (:export #:previous-line #:next-line
 	   #:open-line #:kill-line
+	   #:constituentp
 	   #:forward-word #:backward-word))
 
+(defpackage :climacs-abbrev
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base)
+  (:export #:abbrev-expander #:dictionary-abbrev-expander #:dictionary
+	   #:expand-abbrev #:abbrev-buffer #:possibly-expand-abbrev))
+
 (defpackage :climacs-gui
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base))
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev))
 

@@ -215,8 +215,8 @@
       
 (defmethod insert-buffer-text ((buffer standard-buffer) offset (string string))
   (loop for elem across string
-	do (insert-buffer-text buffer offset elem)))
-
+	do (insert-buffer-text buffer offset elem)
+	   (incf offset)))
 
 (defgeneric insert-text (mark string))
 
@@ -272,9 +272,9 @@
 (defgeneric buffer-string (buffer offset1 offset2))
 
 (defmethod buffer-string ((buffer standard-buffer) offset1 offset2)
-  (assert (<= 0 offset1 (1- (size buffer))) ()
+  (assert (<= 0 offset1 (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset1))
-  (assert (<= 0 offset2 (1- (size buffer))) ()
+  (assert (<= 0 offset2 (size buffer)) ()
 	  (make-condition 'no-such-offset :offset offset2))
   (coerce (subseq (slot-value buffer 'text) (1+ offset1) (1+ offset2)) 'string))
 

@@ -60,20 +60,23 @@
 	(end-of-line mark)
 	(delete-region offset mark))))
 
+(defun constituentp (char)
+  #+sbcl (sb-impl::constituentp char)
+  #-sbcl (alphanumericp char))
+
 (defun forward-word (mark)
   (loop until (end-of-buffer-p mark)
-	until (sb-impl::constituentp (char-after mark))
+	until (constituentp (char-after mark))
 	do (incf (offset mark)))
   (loop until (end-of-buffer-p mark)
-	while (sb-impl::constituentp (char-after mark))
+	while (constituentp (char-after mark))
 	do (incf (offset mark))))
 
 (defun backward-word (mark)
   (loop until (beginning-of-buffer-p mark)
-	until (sb-impl::constituentp (char-before mark))
+	until (constituentp (char-before mark))
 	do (decf (offset mark)))
   (loop until (beginning-of-buffer-p mark)
-	while (sb-impl::constituentp (char-before mark))
+	while (constituentp (char-before mark))
 	do (decf (offset mark))))
-
 

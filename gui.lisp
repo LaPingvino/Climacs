@@ -23,7 +23,7 @@
 (in-package :climacs-gui)
 
 (define-application-frame climacs ()
-  ((buffer :initform (make-instance 'standard-buffer)
+  ((buffer :initform (make-instance 'abbrev-buffer)
 	   :accessor buffer)
    (point :initform nil :reader point))
   (:panes
@@ -40,7 +40,8 @@
 	   :buffer (buffer frame))))
 
 (defun climacs ()
-  (run-frame-top-level (make-application-frame 'climacs)))
+  (let ((frame (make-application-frame 'climacs)))
+    (run-frame-top-level frame)))
 
 (defun display-win (frame pane)
   (let* ((medium (sheet-medium pane))
@@ -99,6 +100,8 @@
   (frame-exit *application-frame*))
 
 (define-command com-self-insert ()
+  (unless (constituentp *current-gesture*)
+    (possibly-expand-abbrev (point *application-frame*)))
   (insert-text (point *application-frame*) *current-gesture*))
 
 (define-command com-backward-char ()

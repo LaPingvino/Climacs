@@ -46,4 +46,5 @@
    "packages"
    "buffer"
    "base"
+   "abbrev"
    "gui")
