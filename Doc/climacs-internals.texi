@@ -1649,6 +1649,85 @@ of other records.
 @deftp {initarg} :records
 @end deftp
 
+@chapter Kill Ring Protocol
+
+@section Overview
+
+During the process of text editing it may become necessary for regions of text
+to be manipulated non-sequentially.  The kill ring and its surrounding protocol
+offers both a temporary location for data to be stored, as well as methods for 
+stored data to be accessed.
+
+Conceptually, the kill ring is a stack of bounded depth, so that when elements 
+are pushed beyond that depth, the oldest element is removed.  All newly added 
+data is attached to a single point at the ``start of ring position'' or SORP.
+
+This protocol provides two methods which govern how data is to be attached to the 
+SORP.  The first method moves the current SORP to a new position, on to which a new 
+object is attached.  The second conserves the current position and replaces its 
+contents with a sequence constructed of new and pre-existing SORP objects.  This 
+latter method is refered to as a ``concatenating push''.
+
+For data retrievial the kill ring class provides a ``yank point'' which
+allows focus to be shifted from the SORP to other positions within the kill ring. 
+The yank point is limited to two types of motition, one being a rotation away from the SORP 
+and the other being an immediate return or ``reset'' to the start position.
+
+@section General
+
+@deftp {class} kill-ring
+A class for all kill rings. 
+@end deftp
+
+@deftp {init-arg} :max-size
+A limitation placed upon the number of elements held by a kill ring.  Once the maximum size 
+has been reached, older entries must first be removed before new ones can be added.
+@end deftp
+
+@deffn {generic function} kill-ring-max-size kill-ring
+Returns the value of a kill ring's maximum size.
+@end deffn
+
+@deffn {generic function} {(setf kill-ring-max-size)} kill-ring size
+Alters the maximum size of a kill ring even if it means dropping
+elements to do so.
+@end deffn
+
+@deffn {generic function} kill-ring-length kill-ring
+Returns the current length of a kill-ring.  Note this is different than
+kill-ring-max-size.
+@end deffn
+
+@deffn {generic function} kill-ring-standard-push kill-ring vector
+Pushes a vector of objects onto a given kill ring creating a new start of ring 
+position.  This function is much like an everyday lisp push with size considerations.  
+If the length of the kill ring is greater than its maximum size, ``older'' elements 
+will be removed from the ring until the maximum size is reached.
+@end deffn
+
+@deffn {generic function} kill-ring-concatenating-push kill-ring vector
+Concatenates the contents of vector onto the end of the contents of
+the current top of the kill-ring.  If the kill-ring is empty, a new
+entry is pushed..
+@end deffn
+
+@deffn {generic function} rotate-yank-position kill-ring &optional times
+Moves the yank point associated with a kill-ring one or times many positions
+away from the start of ring position.  If times is greater than the current length 
+then the cursor will wrap to the start of ring position and continue rotating.
+@end deffn
+
+@deffn {generic function} reset-yank-position kill-ring
+Moves the current position of the yank point associated with a kill ring back to
+the start of ring position.
+@end deffn
+
+@deffn {generic function} kill-ring-yank kill-ring &optional reset
+Returns the vector of objects currently pointed to by the cursor.  If reset is T, then a 
+call to reset-yank-position is called before the object is yanked.  The default for reset 
+is NIL.
+@end deffn
+
 @node Index
 @unnumbered Index
 
