@@ -264,7 +264,7 @@
   (let ((item (accept 'command :prompt "Extended Command")))
     (execute-frame-command *application-frame* item)))
 
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :load-toplevel)
   (define-presentation-type completable-pathname ()
   :inherit-from 'pathname))
 
