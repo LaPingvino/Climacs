@@ -135,10 +135,9 @@ the mark, according to the specified syntax."))
 ;;; parser
 
 (defclass parser ()
-  ((grammar :initarg :grammar)
+  ((grammar :initarg :grammar :reader parser-grammar)
    (target :initarg :target :reader target)
-   (initial-state :reader initial-state)
-   (lexer :initarg :lexer)))
+   (initial-state :reader initial-state)))
 
 (defclass rule-item () ())
 
@@ -202,7 +201,7 @@ the mark, according to the specified syntax."))
   nil)
 
 (defclass parser-state ()
-  ((grammar :initarg :grammar :reader state-grammar)
+  ((parser :initarg :parser :reader parser)
    (incomplete-items :initform (make-hash-table :test #'eq)
 		     :reader incomplete-items)
    (parse-trees :initform (make-hash-table :test #'eq)
@@ -245,7 +244,7 @@ the mark, according to the specified syntax."))
 	  nil)
  	(t
  	 (push item (gethash orig-state (incomplete-items to-state)))
- 	 (loop for rule in (rules (state-grammar to-state))
+ 	 (loop for rule in (rules (parser-grammar (parser to-state)))
  	       do (when (let ((sym1 (aref (symbols (rule item)) (dot-position item)))
 			      (sym2 (left-hand-side rule)))
 			  (or (subtypep sym1 sym2) (subtypep sym2 sym1)))
@@ -269,7 +268,7 @@ the mark, according to the specified syntax."))
 (defmethod initialize-instance :after ((parser parser) &rest args)
   (declare (ignore args))
   (with-slots (grammar initial-state) parser
-     (setf initial-state (make-instance 'parser-state :grammar grammar))
+     (setf initial-state (make-instance 'parser-state :parser parser))
      (loop for rule in (rules grammar)
 	   do (when (let ((sym (left-hand-side rule)))
 		      (or (subtypep (target parser) sym)
@@ -286,12 +285,44 @@ the mark, according to the specified syntax."))
 			     initial-state initial-state)))))
 
 (defun advance-parse (parser tokens state)
-  (with-slots (grammar) parser
-     (let ((new-state (make-instance 'parser-state :grammar grammar)))
-       (loop for token in tokens 
-	     do (potentially-handle-parse-tree token state new-state))
-       new-state)))
+  (let ((new-state (make-instance 'parser-state :parser parser)))
+    (loop for token in tokens 
+	  do (potentially-handle-parse-tree token state new-state))
+    new-state))
 
-(defclass lexer () ())
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Code for analysing parse stack
 
-(defgeneric lex (lexer))
+(defun parse-stack-top (state)
+  "given a parse state, return a list of all incomplete items that did
+not originate in that state, or if no such items exist, a list of all
+parse trees of state that originated in the initial state."
+  (let ((items '()))
+    (map-over-incomplete-items
+     state
+     (lambda (key item)
+       (unless (eq key state)
+	 (push item items))))
+    (unless items
+      (loop with target = (target (parser state))
+	    for parse-tree in (gethash (initial-state (parser state))
+				       (parse-trees state))
+	    when (subtypep parse-tree target)
+	      do (push parse-tree items)))
+    items))	    
+
+(defun parse-stack-next (incomplete-item)
+  "given an incomplete item, return a list of all incomplete items it
+could have been predicted from."
+  (let ((items '())
+	(orig-state (orig-state incomplete-item))
+	(sym1 (left-hand-side (rule incomplete-item))))
+    (map-over-incomplete-items
+     orig-state
+     (lambda (key item)
+       (unless (eq key orig-state)
+	 (when (let ((sym2 (aref (symbols (rule item)) (dot-position item))))
+		 (or (subtypep sym1 sym2) (subtypep sym2 sym1)))
+	   (push item items)))))
+    items))
