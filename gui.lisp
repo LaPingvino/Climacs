@@ -230,6 +230,17 @@
 (define-named-command com-backward-delete-object ()
   (delete-range (point (win *application-frame*)) -1))
 
+(define-named-command com-transpose-objects ()
+  (let* ((point (point (win *application-frame*))))
+    (unless (beginning-of-buffer-p point)
+      (when (end-of-line-p point)
+	(decf (offset point)))
+      (let ((object (object-after point)))
+	(delete-range point)
+	(decf (offset point))
+	(insert-object point object)
+	(incf (offset point))))))
+
 (define-named-command com-previous-line ()
   (previous-line (point (win *application-frame*))))
 
@@ -503,6 +514,7 @@
 (global-set-key '(#\n :control) 'com-next-line)
 (global-set-key '(#\o :control) 'com-open-line)
 (global-set-key '(#\k :control) 'com-kill-line)
+(global-set-key '(#\t :control) 'com-transpose-objects)
 (global-set-key '(#\Space :control) 'com-set-mark)
 (global-set-key '(#\y :control) 'com-copy-in)
 (global-set-key '(#\w :control) 'com-cut-out)
