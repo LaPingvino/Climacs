@@ -93,6 +93,12 @@ acceptable to pass an offset in place of one of the marks"))
        #+sbcl (sb-impl::constituentp obj)
        #-sbcl (alphanumericp obj)))
 
+(defun whitespacep (obj)
+  "A predicate to ensure that an object is a whitespace character."
+  (and (characterp obj)
+       #+sbcl (sb-impl::whitespacep obj)
+       #-sbcl (member obj '(#\Space #\Tab))))
+
 (defun forward-word (mark)
   "Forward the mark to the next word."
   (loop until (end-of-buffer-p mark)
@@ -110,4 +116,22 @@ acceptable to pass an offset in place of one of the marks"))
   (loop until (beginning-of-buffer-p mark)
 	while (constituentp (object-before mark))
 	do (decf (offset mark))))
+
+(defun delete-word (mark)
+  "Delete until the end of the word"
+  (loop until (end-of-buffer-p mark)
+	until (constituentp (object-after mark))
+	do (incf (offset mark)))
+  (loop until (end-of-buffer-p mark)
+	while (constituentp (object-after mark))
+	do (delete-range mark)))
+
+(defun backward-delete-word (mark)
+  "Delete until the beginning of the word"
+  (loop until (beginning-of-buffer-p mark)
+	until (constituentp (object-before mark))
+	do (decf (offset mark)))
+  (loop until (beginning-of-buffer-p mark)
+	while (constituentp (object-before mark))
+	do (delete-range mark -1)))
 

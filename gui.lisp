@@ -157,7 +157,7 @@
 		 (setf (needs-saving buffer) t)))
 	     (redisplay-frame-panes frame))))
 
-(define-command (com-quit :name "Quit" :command-table climacs) ()
+(define-command (com-quit :name t :command-table climacs) ()
   (frame-exit *application-frame*))
 
 (define-command com-self-insert ()
@@ -200,6 +200,12 @@
 
 (define-command com-backward-word ()
   (backward-word (point (win *application-frame*))))
+
+(define-command com-delete-word ()
+  (delete-word (point (win *application-frame*))))
+
+(define-command com-backward-delete-word ()
+  (backward-delete-word (point (win *application-frame*))))
 
 (define-command com-toggle-layout ()
   (setf (frame-current-layout *application-frame*)
@@ -290,7 +296,7 @@
       (concatenate 'string (pathname-name pathname)
 		   "." (pathname-type pathname))))
 
-(define-command (com-find-file :name "Find File" :command-table climacs) ()
+(define-command (com-find-file :name t :command-table climacs) ()
   (let ((filename (accept 'completable-pathname
 			  :prompt "Find File")))
     (with-slots (buffer point syntax) (win *application-frame*)
@@ -338,6 +344,29 @@
 
 (define-command com-end-of-buffer ()
   (end-of-buffer (point (win *application-frame*))))
+
+(define-command com-back-to-indentation ()
+  (let ((point (point (win *application-frame*))))
+    (beginning-of-line point)
+    (loop until (end-of-line-p point)
+	  while (whitespacep (object-after point))
+	  do (incf (offset point)))))
+
+(define-command (com-goto-position :name t :command-table climacs) ()
+  (setf (offset (point (win *application-frame*)))
+	(accept 'integer :prompt "Goto Position")))
+
+(define-command (com-goto-line :name t :command-table climacs) ()
+  (loop with mark = (make-instance 'standard-right-sticky-mark
+		       :buffer (buffer (win *application-frame*)))
+	do (end-of-line mark)
+	until (end-of-buffer-p mark)
+	repeat (accept 'integer :prompt "Goto Line")
+	do (incf (offset mark))
+	   (end-of-line mark)
+	finally (beginning-of-line mark)
+		(setf (offset (point (win *application-frame*)))
+		      (offset mark))))
 
 (define-command com-browse-url ()
   (accept 'url :prompt "Browse URL"))
@@ -424,6 +453,9 @@
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
 (global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
 (global-set-key '(#\u :meta) 'com-browse-url)
+(global-set-key '(#\m :meta) 'com-back-to-indentation)
+(global-set-key '(#\d :meta) 'com-delete-word)
+(global-set-key '(#\Backspace :meta) 'com-backward-delete-word)
 
 (global-set-key '(:up) 'com-previous-line)
 (global-set-key '(:down) 'com-next-line)

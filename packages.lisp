@@ -45,8 +45,9 @@
   (:export #:previous-line #:next-line
 	   #:open-line #:kill-line
 	   #:number-of-lines-in-region
-	   #:constituentp
+	   #:constituentp #:whitespacep
 	   #:forward-word #:backward-word
+	   #:delete-word #:backward-delete-word
 	   #:input-from-stream #:output-to-stream))
 
 (defpackage :climacs-abbrev
