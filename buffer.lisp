@@ -95,6 +95,8 @@ the size of the buffer."))
 (defmethod initialize-instance :after ((mark left-sticky-mark) &rest args &key (offset 0))
   "Associates a created mark with the buffer it was created for."
   (declare (ignore args))
+  (assert (<= 0 offset (size (buffer mark))) ()
+	  (make-condition 'no-such-offset :offset offset))
   (setf (slot-value mark 'cursor)
 	(make-instance 'left-sticky-flexicursor
 	   :chain (slot-value (buffer mark) 'contents)
@@ -103,6 +105,8 @@ the size of the buffer."))
 (defmethod initialize-instance :after ((mark right-sticky-mark) &rest args &key (offset 0))
   "Associates a created mark with the buffer it was created for."
   (declare (ignore args))
+  (assert (<= 0 offset (size (buffer mark))) ()
+	  (make-condition 'no-such-offset :offset offset))
   (setf (slot-value mark 'cursor)
 	(make-instance 'right-sticky-flexicursor
 	   :chain (slot-value (buffer mark) 'contents)
@@ -398,7 +402,7 @@ of one of the marks."))
 
 (defmethod delete-region ((mark1 mark-mixin) (mark2 mark-mixin))
   (assert (eq (buffer mark1) (buffer mark2)))
-  (when (> (offset mark1) (offset mark2))
+  (when (> (offset mark2) (offset mark1))
     (delete-buffer-range (buffer mark1)
 			 (offset mark1)
 			 (- (offset mark2) (offset mark1)))))
