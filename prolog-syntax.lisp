@@ -443,14 +443,21 @@
 
 (defclass atom (prolog-nonterminal)
   ((value :initarg :value :accessor value)))
-(defmethod syntactic-lexeme ((thing atom))
-  (syntactic-lexeme (value thing)))
+(defmethod canonical-name ((thing atom))
+  (canonical-name (value thing)))
+(defmethod canonical-name ((thing name))
+  ;; FIXME: should canonize
+  (lexeme-string (syntactic-lexeme thing)))
 (defclass empty-list (prolog-nonterminal)
   (([ :initarg :[ :accessor [)
    (] :initarg :] :accessor ])))
+(defmethod canonical-name ((thing empty-list))
+  "[]")
 (defclass curly-brackets (prolog-nonterminal)
   (({ :initarg :{ :accessor {)
    (} :initarg :} :accessor })))
+(defmethod canonical-name ((thing curly-brackets))
+  "{}")
 (defmethod display-parse-tree ((entity atom) (syntax prolog-syntax) pane)
   (display-parse-tree (value entity) syntax pane))
 (defmethod display-parse-tree ((entity empty-list) (syntax prolog-syntax) pane)
@@ -538,8 +545,8 @@
   ((name :initarg :name :accessor name)
    (priority :initarg :priority :accessor priority)
    (specifier :initarg :specifier :accessor specifier)))
-(defmethod syntactic-lexeme ((thing op))
-  (syntactic-lexeme (name thing)))
+(defmethod canonical-name ((thing op))
+  (canonical-name (name thing)))
 (defclass prefix-op (op) ())
 (defclass binary-op (op) ())
 (defclass postfix-op (op) ())
@@ -581,7 +588,7 @@
 ;;; 6.2.1.1
 (defun term-directive-p (term)
   (and (compound-term-p term)
-       (string= (lexeme-string (syntactic-lexeme (functor term))) ":-")
+       (string= (canonical-name (functor term)) ":-")
        (= (arity term) 1)))
 
 (define-prolog-rule (directive -> (directive-term end))
@@ -601,8 +608,7 @@
 
 ;;; 6.3.1.2
 (define-prolog-rule (term -> ((atom
-                               (string= (lexeme-string (syntactic-lexeme atom))
-                                        "-"))
+                               (string= (canonical-name atom) "-"))
                               integer))
   ;; FIXME: this doesn't really look right.
   (make-instance 'constant-term :priority 0 :value (list atom integer)))
@@ -715,14 +721,14 @@
     (make-instance 'postfix-operator-compound-lterm :priority (priority op)
 		   :left term :operator op)))
 (define-prolog-rule (term -> ((op (eql (specifier op) :fy)) term))
-  (when (and (or (not (string= (lexeme-string (syntactic-lexeme op)) "-"))
+  (when (and (or (not (string= (canonical-name op) "-"))
                  (not (numeric-constant-p term)))
              (not (typep (first-lexeme term) 'open-ct-lexeme))
              (<= (priority term) (priority op)))
     (make-instance 'prefix-operator-compound-term
                    :right term :operator op :priority (priority op))))
 (define-prolog-rule (lterm -> ((op (eql (specifier op) :fx)) term))
-  (when (and (or (not (string= (lexeme-string (syntactic-lexeme op)) "-"))
+  (when (and (or (not (string= (canonical-name op) "-"))
                  (not (numeric-constant-p term)))
              (not (typep (first-lexeme term) 'open-ct-lexeme))
              (< (priority term) (priority op)))
@@ -805,7 +811,7 @@
   (def 50 :xfx ":"))
 
 (defun find-predefined-operator (name specifiers)
-  (find (lexeme-string (syntactic-lexeme name))
+  (find (canonical-name name)
         (remove-if-not (lambda (x) (member (opspec-specifier x) specifiers))
                        *predefined-operators*)
         :key #'opspec-name :test #'string=))
