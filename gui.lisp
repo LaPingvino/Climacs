@@ -348,21 +348,18 @@
 
 (define-named-command com-kill-line ()
   (let* ((payne (win *application-frame*))
-	 (pnt (point payne)))
-    (if (and (beginning-of-buffer-p pnt)
-	     (end-of-line-p pnt))
-	NIL
-        (let ((mrk (offset pnt)))
-	  (end-of-line pnt)
-	  (if (end-of-buffer-p pnt)
-	      nil
-	     (forward-object pnt))
-	  (if (eq (previous-command payne) 'com-kill-line)
-	      (kill-ring-concatenating-push *kill-ring*
-					    (region-to-sequence mrk pnt))
-	      (kill-ring-standard-push *kill-ring*
-				       (region-to-sequence mrk pnt)))
-	  (delete-region mrk pnt)))))
+	 (pnt (point payne))
+         (mrk (offset pnt)))
+    (end-of-line pnt)
+    (cond ((or (beginning-of-buffer-p pnt)
+	       (end-of-buffer-p pnt)) nil)
+	  ((beginning-of-line-p pnt)(forward-object pnt)))
+    (if (eq (previous-command payne) 'com-kill-line)
+	(kill-ring-concatenating-push *kill-ring*
+				      (region-to-sequence mrk pnt))
+        (kill-ring-standard-push *kill-ring*
+			       (region-to-sequence mrk pnt)))
+    (delete-region mrk pnt)))
 
 (define-named-command com-forward-word ()
   (forward-word (point (win *application-frame*))))
