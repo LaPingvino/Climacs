@@ -1212,7 +1212,7 @@ equal to the size of the buffer)
 @deffn {generic function} parse-stack buffer-stream
 
 Return the current parse stack of the buffer stream.  The parse stack
-contains either all nonterminal, or all but the top element
+contains either all nonterminals, or all but the top element
 nonterminal.  The list of entries is initially a list of a single
 entry corresponding to the syntactic category `program-entry' with a
 start offset of 0 and an expression count of 0.
@@ -1908,7 +1908,7 @@ has been reached, older entries must first be removed before new ones can be add
 Returns the value of a kill ring's maximum size.
 @end deffn
 
-@deffn {generic function} {(setf kill-ring-max-size)} kill-ring size
+@deffn {generic function} {(setf kill-ring-max-size)} size kill-ring
 Alters the maximum size of a kill ring even if it means dropping
 elements to do so.
 @end deffn
