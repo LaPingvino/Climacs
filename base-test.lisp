@@ -8,20 +8,22 @@
 (defmultitest previous-line.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
+climacs
 climacs")
     (let ((mark (make-instance %%left-sticky-mark
-			       :buffer buffer :offset 8)))
-      (previous-line mark)
+			       :buffer buffer :offset 16)))
+      (previous-line mark nil 2)
       (offset mark)))
   0)
 
 (defmultitest previous-line.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
+climacs
 climacs")
     (let ((mark (make-instance %%right-sticky-mark
-			       :buffer buffer :offset 11)))
-      (previous-line mark 2)
+			       :buffer buffer :offset 19)))
+      (previous-line mark 2 2)
       (offset mark)))
   2)
 
@@ -78,22 +80,24 @@ climacs2")
 (defmultitest next-line.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
+climacs
 climacs")
     (let ((mark (make-instance %%left-sticky-mark
 			       :buffer buffer :offset 6)))
-      (next-line mark)
+      (next-line mark nil 2)
       (offset mark)))
-  14)
+  22)
 
 (defmultitest next-line.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
+climacs
 climacs")
     (let ((mark (make-instance %%right-sticky-mark
 			       :buffer buffer :offset 3)))
-      (next-line mark 2)
+      (next-line mark 2 2)
       (offset mark)))
-  10)
+  18)
 
 (defmultitest next-line.test-3
   (let ((buffer (make-instance %%buffer)))
@@ -150,9 +154,10 @@ climacs")
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((mark (make-instance %%left-sticky-mark
 			       :buffer buffer :offset 0)))
-      (open-line mark)
+      (open-line mark 2)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "
+
 climacs" 0)
 
 (defmultitest open-line.test-2

@@ -55,7 +55,7 @@
   (handler-case
       (let ((buffer (make-instance %%buffer)))
 	(make-instance %%left-sticky-mark :buffer buffer :offset 1))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-after-end (c)
       (= (climacs-buffer::condition-offset c) 1)))
   t)
 
@@ -63,7 +63,7 @@
   (handler-case
       (let ((buffer (make-instance %%buffer)))
 	(make-instance %%right-sticky-mark :buffer buffer :offset 1))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-after-end (c)
       (= (climacs-buffer::condition-offset c) 1)))
   t)
 
@@ -137,7 +137,7 @@
   (handler-case
       (let ((buffer (make-instance %%buffer)))
 	(insert-buffer-object buffer -1 #\a))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-before-beginning (c)
       (= (climacs-buffer::condition-offset c) -1)))
   t)
 
@@ -171,7 +171,7 @@
   (handler-case
       (let ((buffer (make-instance %%buffer)))
 	(insert-buffer-sequence buffer 1 "climacs"))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-after-end (c)
       (= (climacs-buffer::condition-offset c) 1)))
   t)
 
@@ -179,7 +179,7 @@
   (handler-case
       (let ((buffer (make-instance %%buffer)))
 	(insert-buffer-sequence buffer -1 "climacs"))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-before-beginning (c)
       (= (climacs-buffer::condition-offset c) -1)))
   t)
 
@@ -225,7 +225,7 @@
       (let ((buffer (make-instance %%buffer)))
 	(insert-buffer-sequence buffer 0 "climacs")
 	(delete-buffer-range buffer -1 0))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-before-beginning (c)
       (= (climacs-buffer::condition-offset c) -1)))
   t)
 
@@ -234,7 +234,7 @@
       (let ((buffer (make-instance %%buffer)))
 	(insert-buffer-sequence buffer 0 "climacs")
 	(delete-buffer-range buffer 6 2))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-after-end (c)
       (= (climacs-buffer::condition-offset c) 8)))
   t)
 
@@ -482,7 +482,7 @@ climacs
 	(let ((m (make-instance %%left-sticky-mark
 				:buffer buffer :offset 4)))
 	  (setf (offset m) -1)))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-before-beginning (c)
       (= (climacs-buffer::condition-offset c) -1)))
   t)
 
@@ -493,7 +493,7 @@ climacs
 	(let ((m (make-instance %%left-sticky-mark
 				:buffer buffer :offset 4)))
 	  (setf (offset m) 8)))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-after-end (c)
       (= (climacs-buffer::condition-offset c) 8)))
   t)
 
@@ -516,7 +516,7 @@ climacs
 	       (m2 (clone-mark m1)))
 	  (backward-object m1 3)
 	  (region-to-sequence m1 m2)))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-before-beginning (c)
       (= (climacs-buffer::condition-offset c) -1)))
   t)
 
@@ -539,7 +539,7 @@ climacs
 	       (m2 (clone-mark m1)))
 	  (forward-object m1 3)
 	  (region-to-sequence m1 m2)))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-after-end (c)
       (= (climacs-buffer::condition-offset c) 9)))
   t)
 
@@ -554,7 +554,7 @@ climacs
   (handler-case
       (let ((buffer (make-instance %%buffer)))
 	(setf (buffer-object buffer 0) #\a))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::offset-after-end (c)
       (= (climacs-buffer::condition-offset c) 0)))
   t)
 
@@ -562,7 +562,7 @@ climacs
   (handler-case
       (let ((buffer (make-instance %%buffer)))
 	(setf (buffer-object buffer -1) #\a))
-    (climacs-buffer::no-such-offset (c)
+    (climacs-buffer::motion-before-beginning (c)
       (= (climacs-buffer::condition-offset c) -1)))
   t)
 
