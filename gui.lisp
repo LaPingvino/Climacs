@@ -280,6 +280,12 @@
     (declare (ignore success))
     (or pathname string)))
 
+(defun pathname-filename (pathname)
+  (if (null (pathname-type pathname))
+      (pathname-name pathname)
+      (concatenate 'string (pathname-name pathname)
+		   "." (pathname-type pathname))))
+
 (define-command com-find-file ()
   (let ((filename (accept 'completable-pathname
 			  :prompt "Find File")))
@@ -290,7 +296,7 @@
        (with-open-file (stream filename :direction :input :if-does-not-exist :create)
 	 (input-from-stream stream buffer 0))
        (setf (filename buffer) filename
-	     (name buffer) (pathname-name filename))
+	     (name buffer) (pathname-filename filename))
        (beginning-of-buffer point))))
 
 (define-command com-save-buffer ()
@@ -300,6 +306,8 @@
 	(buffer (buffer (win *application-frame*))))
     (with-open-file (stream filename :direction :output :if-exists :supersede)
       (output-to-stream stream buffer 0 (size buffer)))
+    (setf (filename buffer) filename
+	  (name buffer) (pathname-filename filename))
     (setf (modified-p (buffer (win *application-frame*))) nil)))
 
 (define-command com-write-buffer ()
@@ -309,7 +317,7 @@
     (with-open-file (stream filename :direction :output :if-exists :supersede)
       (output-to-stream stream buffer 0 (size buffer)))
     (setf (filename buffer) filename
-	  (name buffer) (pathname-name filename))
+	  (name buffer) (pathname-filename filename))
     (setf (modified-p (buffer (win *application-frame*))) nil)))
 
 (define-command com-beginning-of-buffer ()
