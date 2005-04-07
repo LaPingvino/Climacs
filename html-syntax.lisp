@@ -185,9 +185,13 @@
      (display-parse-tree name syntax pane)
      (display-parse-tree equals syntax pane)))
 
+(defclass core-attribute (html-attribute) ())
+(defclass i18n-attribute (html-attribute) ())
+(defclass scripting-event (html-attribute) ())
+
 ;;;;;;;;;;;;;;; lang attribute
 
-(defclass lang-attr (html-attribute)
+(defclass lang-attr (i18n-attribute)
   ((lang :initarg :lang)))
 
 (add-html-rule (lang-attr -> ((name word (word-is name "lang"))
@@ -204,7 +208,7 @@
 
 ;;;;;;;;;;;;;;; dir attribute
 
-(defclass dir-attr (html-attribute)
+(defclass dir-attr (i18n-attribute)
   ((dir :initarg :dir)))
 
 (add-html-rule (dir-attr -> ((name word (word-is name "dir"))
@@ -334,6 +338,24 @@
      (display-parse-tree items syntax pane)     
      (display-parse-tree </body> syntax pane)))
 
+;;;;;;;;;;;;;;; inline-element, block-level-element
+
+(defclass inline-element (html-nonterminal) ())
+(defclass block-level-element (html-nonterminal) ())
+
+;;;;;;;;;;;;;;; inline-element-or-text
+
+(defclass inline-element-or-text (html-nonterminal)
+  ((contents :initarg contents)))
+     
+(add-html-rule (inline-element-or-text -> (inline-element) :contents inline-element))
+(add-html-rule (inline-element-or-text -> (word) :contents word))
+(add-html-rule (inline-element-or-text -> (delimiter) :contents delimiter))
+
+(defmethod display-parse-tree ((entity inline-element-or-text) (syntax html-syntax) pane)
+  (with-slots (contents) entity
+     (display-parse-tree contents syntax pane)))
+
 ;;;;;;;;;;;;;;; <a>-tag
 
 (defclass <a>-attribute (html-nonterminal)
@@ -369,7 +391,7 @@
 
 (define-end-tag </a> "a")
 
-(defclass a (html-nonterminal)
+(defclass a (inline-element)
   ((<a> :initarg :<a>)
    (items :initarg :items)
    (</a> :initarg :</a>)))
