@@ -117,8 +117,6 @@
 (define-tag-pair <head> </head> "head")
 (define-tag-pair <title> </title> "title")
 (define-tag-pair <body> </body> "body")
-(define-tag-pair <ul> </ul> "ul")
-(define-tag-pair <li> </li> "li")
 
 (defmacro define-list (name item-name)
   (let ((empty-name (gensym))
@@ -301,7 +299,8 @@
 (defmethod display-parse-tree ((entity heading) (syntax html-syntax) pane)
   (with-slots (start contents end) entity
      (display-parse-tree start syntax pane)
-     (display-parse-tree contents syntax pane)
+     (with-text-face (pane :bold)
+       (display-parse-tree contents syntax pane))
      (display-parse-tree end syntax pane)))
 	      
 (defmacro define-heading (class-name tag-string start-tag-name end-tag-name)
@@ -409,6 +408,103 @@
     (display-parse-tree <p> syntax pane)
     (display-parse-tree contents syntax pane)
     (display-parse-tree </p> syntax pane)))
+
+;;;;;;;;;;;;;;; li element
+
+(defclass <li> (html-tag)
+  ((start :initarg :start)
+   (name :initarg :name)
+   (attributes :initarg :attributes)
+   (end :initarg :end)))
+
+(add-html-rule (<li> -> (tag-start
+			 (word (and (= (end-offset tag-start) (start-offset word))
+				    (word-is word "li")))
+			 common-attributes
+			 tag-end)
+		     :start tag-start
+		     :name word
+		     :attributes common-attributes
+		     :end tag-end))
+
+(defmethod display-parse-tree ((entity <li>) (syntax html-syntax) pane)
+  (with-slots (start name attributes end) entity
+    (display-parse-tree start syntax pane)
+    (display-parse-tree name syntax pane)
+    (display-parse-tree attributes syntax pane)
+    (display-parse-tree end syntax pane)))
+
+(define-end-tag </li> "li")
+
+(defclass li-item (html-nonterminal)
+  ((item :initarg :item)))
+
+(add-html-rule (li-item -> (block-level-element) :item block-level-element))
+(add-html-rule (li-item -> (inline-element) :item inline-element))
+
+(defmethod display-parse-tree ((entity li-item) (syntax html-syntax) pane)
+  (with-slots (item) entity
+     (display-parse-tree item syntax pane)))
+
+(define-list li-items li-item)
+
+(defclass li-element (html-nonterminal)
+  ((<li> :initarg :<li>)
+   (items :initarg :items)
+   (</li> :initarg :</li>)))
+
+(add-html-rule (li-element -> (<li> li-items </li>)
+			   :<li> <li> :items li-items :</li> </li>))
+
+(defmethod display-parse-tree ((entity li-element) (syntax html-syntax) pane)
+  (with-slots (<li> items </li>) entity
+     (display-parse-tree <li> syntax pane)
+     (display-parse-tree items syntax pane)     
+     (display-parse-tree </li> syntax pane)))
+
+
+;;;;;;;;;;;;;;; ul element
+
+(defclass <ul> (html-tag)
+  ((start :initarg :start)
+   (name :initarg :name)
+   (attributes :initarg :attributes)
+   (end :initarg :end)))
+
+(add-html-rule (<ul> -> (tag-start
+			 (word (and (= (end-offset tag-start) (start-offset word))
+				    (word-is word "ul")))
+			 common-attributes
+			 tag-end)
+		     :start tag-start
+		     :name word
+		     :attributes common-attributes
+		     :end tag-end))
+
+(defmethod display-parse-tree ((entity <ul>) (syntax html-syntax) pane)
+  (with-slots (start name attributes end) entity
+    (display-parse-tree start syntax pane)
+    (display-parse-tree name syntax pane)
+    (display-parse-tree attributes syntax pane)
+    (display-parse-tree end syntax pane)))
+
+(define-end-tag </ul> "ul")
+
+(define-list li-elements li-element)
+
+(defclass ul-element (block-level-element)
+  ((<ul> :initarg :<ul>)
+   (items :initarg :items)
+   (</ul> :initarg :</ul>)))
+
+(add-html-rule (ul-element -> (<ul> li-elements </ul>)
+			   :<ul> <ul> :items li-elements :</ul> </ul>))
+
+(defmethod display-parse-tree ((entity ul-element) (syntax html-syntax) pane)
+  (with-slots (<ul> items </ul>) entity
+     (display-parse-tree <ul> syntax pane)
+     (display-parse-tree items syntax pane)     
+     (display-parse-tree </ul> syntax pane)))
 
 ;;;;;;;;;;;;;;; body element
 
@@ -603,7 +699,7 @@
 		  :stream pane)))))
 
 (defmethod display-parse-tree :around ((entity html-tag) (syntax html-syntax) pane)
-  (with-drawing-options (pane :ink +green+)
+  (with-drawing-options (pane :ink +green4+)
     (call-next-method)))
 
 (defmethod display-parse-tree :before ((entity html-token) (syntax html-syntax) pane)
