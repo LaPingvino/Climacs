@@ -117,9 +117,6 @@
 (define-tag-pair <head> </head> "head")
 (define-tag-pair <title> </title> "title")
 (define-tag-pair <body> </body> "body")
-(define-tag-pair <h1> </h1> "h1")
-(define-tag-pair <h2> </h2> "h2")
-(define-tag-pair <h3> </h3> "h3")
 (define-tag-pair <p> </p> "p")
 (define-tag-pair <ul> </ul> "ul")
 (define-tag-pair <li> </li> "li")
@@ -307,37 +304,6 @@
        (display-parse-tree items syntax pane))
      (display-parse-tree </title> syntax pane)))
 
-;;;;;;;;;;;;;;; body-item body-items
-
-(defclass body-item (html-nonterminal)
-  ((item :initarg :item)))
-
-(add-html-rule (body-item -> (word) :item word))
-(add-html-rule (body-item -> (delimiter) :item delimiter))
-(add-html-rule (body-item -> (a) :item a))
-
-(defmethod display-parse-tree ((entity body-item) (syntax html-syntax) pane)
-  (with-slots (item) entity
-     (display-parse-tree item syntax pane)))
-
-(define-list body-items empty-body-items nonempty-body-items body-item)
-
-;;;;;;;;;;;;;;; body
-
-(defclass body (html-nonterminal)
-  ((<body> :initarg :<body>)
-   (items :initarg :items)
-   (</body> :initarg :</body>)))
-
-(add-html-rule (body -> (<body> body-items </body>)
-		     :<body> <body> :items body-items :</body> </body>))
-
-(defmethod display-parse-tree ((entity body) (syntax html-syntax) pane)
-  (with-slots (<body> items </body>) entity
-     (display-parse-tree <body> syntax pane)
-     (display-parse-tree items syntax pane)     
-     (display-parse-tree </body> syntax pane)))
-
 ;;;;;;;;;;;;;;; inline-element, block-level-element
 
 (defclass inline-element (html-nonterminal) ())
@@ -346,7 +312,7 @@
 ;;;;;;;;;;;;;;; inline-element-or-text
 
 (defclass inline-element-or-text (html-nonterminal)
-  ((contents :initarg contents)))
+  ((contents :initarg :contents)))
      
 (add-html-rule (inline-element-or-text -> (inline-element) :contents inline-element))
 (add-html-rule (inline-element-or-text -> (word) :contents word))
@@ -355,6 +321,39 @@
 (defmethod display-parse-tree ((entity inline-element-or-text) (syntax html-syntax) pane)
   (with-slots (contents) entity
      (display-parse-tree contents syntax pane)))
+
+(define-list inline-things empty-inline-things nonempty-inline-things inline-element-or-text)
+
+;;;;;;;;;;;;;;; headings
+
+(defclass heading (block-level-element)
+  ((start :initarg :start)
+   (contents :initarg :contents)
+   (end :initarg :end)))
+
+(defmethod display-parse-tree ((entity heading) (syntax html-syntax) pane)
+  (with-slots (start contents end) entity
+     (display-parse-tree start syntax pane)
+     (display-parse-tree contents syntax pane)
+     (display-parse-tree end syntax pane)))
+	      
+(defmacro define-heading (class-name tag-string start-tag-name end-tag-name)
+  `(progn
+     (define-tag-pair ,start-tag-name ,end-tag-name ,tag-string)
+
+     (defclass ,class-name (heading) ())
+
+     (add-html-rule
+      (,class-name -> (,start-tag-name inline-things ,end-tag-name)
+		   :start ,start-tag-name :contents inline-things :end ,end-tag-name))))
+
+
+(define-heading h1 "h1" <h1> </h1>)
+(define-heading h2 "h2" <h2> </h2>)
+(define-heading h3 "h3" <h3> </h3>)
+(define-heading h4 "h4" <h4> </h4>)
+(define-heading h5 "h5" <h5> </h5>)
+(define-heading h6 "h6" <h6> </h6>)
 
 ;;;;;;;;;;;;;;; <a>-tag
 
@@ -405,6 +404,37 @@
      (with-text-face (pane :bold)
        (display-parse-tree items syntax pane))
      (display-parse-tree </a> syntax pane)))
+
+;;;;;;;;;;;;;;; body-item body-items
+
+(defclass body-item (html-nonterminal)
+  ((item :initarg :item)))
+
+(add-html-rule (body-item -> (word) :item word))
+(add-html-rule (body-item -> (delimiter) :item delimiter))
+(add-html-rule (body-item -> ((element block-level-element)) :item element))
+
+(defmethod display-parse-tree ((entity body-item) (syntax html-syntax) pane)
+  (with-slots (item) entity
+     (display-parse-tree item syntax pane)))
+
+(define-list body-items empty-body-items nonempty-body-items body-item)
+
+;;;;;;;;;;;;;;; body
+
+(defclass body (html-nonterminal)
+  ((<body> :initarg :<body>)
+   (items :initarg :items)
+   (</body> :initarg :</body>)))
+
+(add-html-rule (body -> (<body> body-items </body>)
+		     :<body> <body> :items body-items :</body> </body>))
+
+(defmethod display-parse-tree ((entity body) (syntax html-syntax) pane)
+  (with-slots (<body> items </body>) entity
+     (display-parse-tree <body> syntax pane)
+     (display-parse-tree items syntax pane)     
+     (display-parse-tree </body> syntax pane)))
 
 ;;;;;;;;;;;;;;; head
 
