@@ -1,4 +1,5 @@
-<HTML><HEAD><TITLE>Climacs, a modern version of the Emacs editor</TITLE></HEAD>
+<HTML lang=en>
+<HEAD><TITLE>Climacs, a modern version of the Emacs editor</TITLE></HEAD>
 <BODY>
 
 <p><a href="climacs.html">Version française.</a></p>
@@ -11,33 +12,33 @@
 problems today. :</p>
 
 <ul>
-<li><p>Emacs Lisp is a language that was specially designed in order to
+<li>Emacs Lisp is a language that was specially designed in order to
     implement Emacs.  Since the design of GNU Emacs and of Emacs Lisp,
     Common Lisp has been standardized, and gives both better
     performance than that of Emacs Lisp (because Emacs Lisp is
     implemented as an interpreter written in C) and more sophisticated
     functionalities (macros, CLOS, etc).  The natural choice for
-    implementing Emacs today is thus Common Lisp.</p></li>
+    implementing Emacs today is thus Common Lisp.</li>
 
-<li><p>GNU Emacs was designed before the existence of the Unicode
+<li>GNU Emacs was designed before the existence of the Unicode
     standard.  Unfortunately, the internal representation of a buffer
     does not allow the representation of all Unicode characters in a
     compact way.  An internal representation allowing both all of
     Unicode and a compact representation for the ISO-latin-1 subset is
-    desirable.</p></li>
+    desirable.</li>
 
-<li><p>Twenty years ago, graphic user interfaces practically did not
+<li>Twenty years ago, graphic user interfaces practically did not
     exist.  GNU Emacs was designed for a text-only terminal.  Today
     better modes of interaction exist. In particular, with CLIM
     (Common LIsp Interface Manager) it is both possible and desirable
-    to have an interface based on the concept of "presentation types".</p></li>
+    to have an interface based on the concept of "presentation types".</li>
 
-<li><p>Because of the limited power of computers at the time, GNU Emacs
+<li>Because of the limited power of computers at the time, GNU Emacs
     uses a certain number of approximations in order to analyze the
     contents of a buffer, in particular when that contents is the text
     of a program.  These approximations are no longer necessary, and
     with current technology, it is possible to maintain a complete
-    syntactic analysis of the buffer text. </p></li>
+    syntactic analysis of the buffer text. </li>
 
 </ul>
 

@@ -414,6 +414,19 @@
        (display-parse-tree items syntax pane))
      (display-parse-tree </a> syntax pane)))
 
+;;;;;;;;;;;;;;; br element
+
+(defclass br-element (inline-element)
+  ((<br> :initarg :<br>)))
+     
+(define-start-tag <br> "br")
+
+(add-html-rule (br-element -> (<br>) :<br> <br>))
+
+(defmethod display-parse-tree ((entity br-element) (syntax html-syntax) pane)
+  (with-slots (<br>) entity
+     (display-parse-tree <br> syntax pane)))
+
 ;;;;;;;;;;;;;;; p element
 
 (defclass <p> (html-tag)
@@ -538,6 +551,19 @@
      (display-parse-tree <ul> syntax pane)
      (display-parse-tree items syntax pane)     
      (display-parse-tree </ul> syntax pane)))
+
+;;;;;;;;;;;;;;; hr element
+
+(defclass hr-element (block-level-element)
+  ((<hr> :initarg :<hr>)))
+
+(define-start-tag <hr> "hr")
+
+(add-html-rule (hr-element -> (<hr>) :<hr> <hr>))
+
+(defmethod display-parse-tree ((entity hr-element) (syntax html-syntax) pane)
+  (with-slots (<hr>) entity
+     (display-parse-tree <hr> syntax pane)))
 
 ;;;;;;;;;;;;;;; body element
 
