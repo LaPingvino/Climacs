@@ -48,9 +48,9 @@
   ((state :initarg :state)))
 
 (defclass start-lexeme (html-lexeme) ())
-(defclass tag-start (html-lexeme) ())
+(defclass start-tag-start (html-lexeme) ())
+(defclass end-tag-start (html-lexeme) ())
 (defclass tag-end (html-lexeme) ())
-(defclass slash (html-lexeme) ())
 (defclass word (html-lexeme) ())
 (defclass delimiter (html-lexeme) ())
 
@@ -60,9 +60,12 @@
   (flet ((fo () (forward-object scan)))
     (let ((object (object-after scan)))
       (case object
-	(#\< (fo) (make-instance 'tag-start))
+	(#\< (fo) (cond ((or (end-of-buffer-p scan)
+			     (not (eql (object-after scan) #\/)))
+			 (make-instance 'start-tag-start))
+			(t (fo)
+			   (make-instance 'end-tag-start))))
 	(#\> (fo) (make-instance 'tag-end))
-	(#\/ (fo) (make-instance 'slash))
 	(t (cond ((alphanumericp object)
 		  (loop until (end-of-buffer-p scan)
 			while (alphanumericp (object-after scan))
@@ -94,8 +97,8 @@
      (defclass ,name (html-tag) ())
 
      (add-html-rule
-      (,name -> (tag-start
-		 (word (and (= (end-offset tag-start) (start-offset word))
+      (,name -> (start-tag-start
+		 (word (and (= (end-offset start-tag-start) (start-offset word))
 			    (word-is word ,string)))
 		 (tag-end (= (end-offset word) (start-offset tag-end))))))))
 
@@ -104,9 +107,8 @@
      (defclass ,name (html-tag) ())
 
      (add-html-rule
-      (,name -> (tag-start
-		 (slash (= (end-offset tag-start) (start-offset slash)))
-		 (word (and (= (end-offset slash) (start-offset word))
+      (,name -> (end-tag-start
+		 (word (and (= (end-offset end-tag-start) (start-offset word))
 			    (word-is word ,string)))
 		 (tag-end (= (end-offset word) (start-offset tag-end))))))))
 
@@ -383,12 +385,12 @@
    (attributes :initarg :attributes)
    (end :initarg :end)))
 
-(add-html-rule (<a> -> (tag-start
-			(word (and (= (end-offset tag-start) (start-offset word))
+(add-html-rule (<a> -> (start-tag-start
+			(word (and (= (end-offset start-tag-start) (start-offset word))
 				   (word-is word "a")))
 			<a>-attributes
 			tag-end)
-		    :start tag-start :name word :attributes <a>-attributes :end tag-end))
+		    :start start-tag-start :name word :attributes <a>-attributes :end tag-end))
 
 (defmethod display-parse-tree ((entity <a>) (syntax html-syntax) pane)
   (with-slots (start name attributes end) entity
@@ -435,12 +437,12 @@
    (attributes :initarg :attributes)
    (end :initarg :end)))
 
-(add-html-rule (<p> -> (tag-start
-			(word (and (= (end-offset tag-start) (start-offset word))
+(add-html-rule (<p> -> (start-tag-start
+			(word (and (= (end-offset start-tag-start) (start-offset word))
 				   (word-is word "p")))
 			common-attributes
 			tag-end)
-		    :start tag-start :name word :attributes common-attributes :end tag-end))
+		    :start start-tag-start :name word :attributes common-attributes :end tag-end))
 
 (defmethod display-parse-tree ((entity <p>) (syntax html-syntax) pane)
   (with-slots (start name attributes end) entity
@@ -473,12 +475,12 @@
    (attributes :initarg :attributes)
    (end :initarg :end)))
 
-(add-html-rule (<li> -> (tag-start
-			 (word (and (= (end-offset tag-start) (start-offset word))
+(add-html-rule (<li> -> (start-tag-start
+			 (word (and (= (end-offset start-tag-start) (start-offset word))
 				    (word-is word "li")))
 			 common-attributes
 			 tag-end)
-		     :start tag-start
+		     :start start-tag-start
 		     :name word
 		     :attributes common-attributes
 		     :end tag-end))
@@ -517,12 +519,12 @@
    (attributes :initarg :attributes)
    (end :initarg :end)))
 
-(add-html-rule (<ul> -> (tag-start
-			 (word (and (= (end-offset tag-start) (start-offset word))
+(add-html-rule (<ul> -> (start-tag-start
+			 (word (and (= (end-offset start-tag-start) (start-offset word))
 				    (word-is word "ul")))
 			 common-attributes
 			 tag-end)
-		     :start tag-start
+		     :start start-tag-start
 		     :name word
 		     :attributes common-attributes
 		     :end tag-end))
@@ -628,12 +630,12 @@
    (attributes :initarg :attributes)
    (end :initarg :end)))
 
-(add-html-rule (<html> -> (tag-start
-			   (word (and (= (end-offset tag-start) (start-offset word))
+(add-html-rule (<html> -> (start-tag-start
+			   (word (and (= (end-offset start-tag-start) (start-offset word))
 				      (word-is word "html")))
 			   <html>-attributes
 			   tag-end)
-		       :start tag-start :name word :attributes <html>-attributes :end tag-end))
+		       :start start-tag-start :name word :attributes <html>-attributes :end tag-end))
 
 (defmethod display-parse-tree ((entity <html>) (syntax html-syntax) pane)
   (with-slots (start name attributes end) entity
