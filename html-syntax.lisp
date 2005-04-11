@@ -134,7 +134,36 @@
        
        (add-html-rule (,name -> (,name ,item-name)
 			     (make-instance ',nonempty-name
-					    :items ,name :item ,item-name)))
+				:items ,name :item ,item-name)))
+       
+       (defmethod display-parse-tree ((entity ,empty-name) (syntax html-syntax) pane)
+	 (declare (ignore pane))
+	 nil)
+       
+       (defmethod display-parse-tree ((entity ,nonempty-name) (syntax html-syntax) pane)
+	 (with-slots (items item) entity
+	   (display-parse-tree items syntax pane)
+	   (display-parse-tree item syntax pane))))))
+
+(defmacro define-nonempty-list (name item-name)
+  (let ((empty-name (gensym))
+	(nonempty-name (gensym)))
+    `(progn
+       (defclass ,name (html-nonterminal) ())
+       (defclass ,empty-name (,name) ())
+       
+       (defclass ,nonempty-name (,name)
+	 ((items :initarg :items)
+	  (item :initarg :item)))
+       
+       (add-html-rule (,name -> (,item-name)
+			     (make-instance ',nonempty-name
+				:items (make-instance ',empty-name)
+				:item ,item-name)))
+       
+       (add-html-rule (,name -> (,name ,item-name)
+			     (make-instance ',nonempty-name
+				:items ,name :item ,item-name)))
        
        (defmethod display-parse-tree ((entity ,empty-name) (syntax html-syntax) pane)
 	 (declare (ignore pane))
@@ -274,20 +303,34 @@
 (defclass inline-element (html-nonterminal) ())
 (defclass block-level-element (html-nonterminal) ())
 
-;;;;;;;;;;;;;;; inline-element-or-text
+;;;;;;;;;;;;;;; %inline
 
-(defclass inline-element-or-text (html-nonterminal)
+(defclass $inline (html-nonterminal)
   ((contents :initarg :contents)))
      
-(add-html-rule (inline-element-or-text -> (inline-element) :contents inline-element))
-(add-html-rule (inline-element-or-text -> (word) :contents word))
-(add-html-rule (inline-element-or-text -> (delimiter) :contents delimiter))
+(add-html-rule ($inline -> (inline-element) :contents inline-element))
+(add-html-rule ($inline -> (word) :contents word))
+(add-html-rule ($inline -> (delimiter) :contents delimiter))
 
-(defmethod display-parse-tree ((entity inline-element-or-text) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity $inline) (syntax html-syntax) pane)
   (with-slots (contents) entity
      (display-parse-tree contents syntax pane)))
 
-(define-list inline-things inline-element-or-text)
+(define-list $inlines $inline)
+
+;;;;;;;;;;;;;;; %flow
+
+(defclass $flow (html-nonterminal)
+  ((contents :initarg :contents)))
+     
+(add-html-rule ($flow -> ($inline) :contents $inline))
+(add-html-rule ($flow -> (block-level-element) :contents block-level-element))
+
+(defmethod display-parse-tree ((entity $flow) (syntax html-syntax) pane)
+  (with-slots (contents) entity
+     (display-parse-tree contents syntax pane)))
+
+(define-list $flows $flow)
 
 ;;;;;;;;;;;;;;; headings
 
@@ -310,8 +353,8 @@
      (defclass ,class-name (heading) ())
 
      (add-html-rule
-      (,class-name -> (,start-tag-name inline-things ,end-tag-name)
-		   :start ,start-tag-name :contents inline-things :end ,end-tag-name))))
+      (,class-name -> (,start-tag-name $inlines ,end-tag-name)
+		   :start ,start-tag-name :contents $inlines :end ,end-tag-name))))
 
 
 (define-heading h1 "h1" <h1> </h1>)
@@ -361,8 +404,8 @@
    (items :initarg :items)
    (</a> :initarg :</a>)))
 
-(add-html-rule (a-element -> (<a> inline-things </a>)
-			  :<a> <a> :items inline-things :</a> </a>))
+(add-html-rule (a-element -> (<a> $inlines </a>)
+			  :<a> <a> :items $inlines :</a> </a>))
 
 (defmethod display-parse-tree ((entity a-element) (syntax html-syntax) pane)
   (with-slots (<a> items </a>) entity
@@ -400,8 +443,8 @@
    (contents :initarg :contents)
    (</p> :initarg :</p>)))
 
-(add-html-rule (p-element -> (<p> inline-things </p>)
-			  :<p> <p> :contents inline-things :</p> </p>))
+(add-html-rule (p-element -> (<p> $inlines </p>)
+			  :<p> <p> :contents $inlines :</p> </p>))
 
 (defmethod display-parse-tree ((entity p-element) (syntax html-syntax) pane)
   (with-slots (<p> contents </p>) entity
@@ -436,32 +479,22 @@
 
 (define-end-tag </li> "li")
 
-(defclass li-item (html-nonterminal)
-  ((item :initarg :item)))
-
-(add-html-rule (li-item -> (block-level-element) :item block-level-element))
-(add-html-rule (li-item -> (inline-element) :item inline-element))
-
-(defmethod display-parse-tree ((entity li-item) (syntax html-syntax) pane)
-  (with-slots (item) entity
-     (display-parse-tree item syntax pane)))
-
-(define-list li-items li-item)
-
 (defclass li-element (html-nonterminal)
   ((<li> :initarg :<li>)
    (items :initarg :items)
    (</li> :initarg :</li>)))
 
-(add-html-rule (li-element -> (<li> li-items </li>)
-			   :<li> <li> :items li-items :</li> </li>))
+(add-html-rule (li-element -> (<li> $flows </li>)
+			   :<li> <li> :items $flows :</li> </li>))
+(add-html-rule (li-element -> (<li> $flows)
+			   :<li> <li> :items $flows :</li> nil))
 
 (defmethod display-parse-tree ((entity li-element) (syntax html-syntax) pane)
   (with-slots (<li> items </li>) entity
      (display-parse-tree <li> syntax pane)
      (display-parse-tree items syntax pane)     
-     (display-parse-tree </li> syntax pane)))
-
+     (when </li>
+       (display-parse-tree </li> syntax pane))))
 
 ;;;;;;;;;;;;;;; ul element
 
@@ -490,7 +523,7 @@
 
 (define-end-tag </ul> "ul")
 
-(define-list li-elements li-element)
+(define-nonempty-list li-elements li-element)
 
 (defclass ul-element (block-level-element)
   ((<ul> :initarg :<ul>)
@@ -511,8 +544,6 @@
 (defclass body-item (html-nonterminal)
   ((item :initarg :item)))
 
-(add-html-rule (body-item -> (word) :item word))
-(add-html-rule (body-item -> (delimiter) :item delimiter))
 (add-html-rule (body-item -> ((element block-level-element)) :item element))
 
 (defmethod display-parse-tree ((entity body-item) (syntax html-syntax) pane)

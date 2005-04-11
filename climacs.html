@@ -1,4 +1,5 @@
-<HTML><HEAD><TITLE>Climacs, une version moderne de l'éditeur Emacs</TITLE></HEAD>
+<HTML lang=fr>
+<HEAD><TITLE>Climacs, une version moderne de l'éditeur Emacs</TITLE></HEAD>
 
 <BODY>
 
@@ -12,36 +13,36 @@ construit il y a plus de 20 ans maintenant, et les choix techniques de
 l'époque posent quelques problèmes aujourd'hui :</p>
 
 <ul>
-<li><p>Emacs Lisp est un langage spécialement conçu pour implémenter
+<li>Emacs Lisp est un langage spécialement conçu pour implémenter
     Emacs.  Depuis la conception de GNU Emacs et du langage Emacs
     LIsp, Common Lisp a été normalisé et propose à la fois une
     efficacité bien supérieure à celle de Emacs Lisp (car Emacs Lisp
     est implémenté sous la forme d'un interpréteur écrit en C) et des
     fonctionnalités plus sophistiqués (macros, CLOS, etc).  Le choix
     naturelle pour implémenter Emacs aujourd'hui est donc Common
-    Lisp.</p></li>
+    Lisp.</li>
 
-<li><p>GNU Emacs a été conçu avant l'existence de la norme
+<li>GNU Emacs a été conçu avant l'existence de la norme
     Unicode.  Malheureusement, la représentation interne d'un
     tampon (buffer) permet difficilement de représenter des
     caractères Unicode de manière compacte et efficace.  Une
     représentation interne permettant à la fois l'ensemble des
     caractères Unicode et une représentation compacte du sous ensemble
-    ISO-latin-1 est souhaitable.</p></li>
+    ISO-latin-1 est souhaitable.</li>
 
-<li><p>Il y a 20 ans, les interfaces graphiques n'existait pratiquement
+<li>Il y a 20 ans, les interfaces graphiques n'existait pratiquement
     pas.  GNU Emacs a été conçu pour un terminal texte.
     D'autres modes d'interaction sont possibles aujourd'hui.  En
     particulier, avec CLIM (Common Lisp Interface Manager) une
     interface basée sur la notion de "types de présentation" est à la
-    fois possible et souhaitable. </p></li>
+    fois possible et souhaitable. </li>
 
-<li><p>Pour des raisons de la performance limitée des ordinateurs de
+<li>Pour des raisons de la performance limitée des ordinateurs de
     l'époque, GNU Emacs se sert d'un certain nombre d'approximations
     pour analyser le contenu d'un tampon, en particulier lorsque ce
     contenu est un programme.  Ces approximations n'ont plus raison
     d'être, et avec la technologie d'aujourd'hui, il est possible de
-    maintenir un analyseur syntaxique incrémental et complet.</p></li>
+    maintenir un analyseur syntaxique incrémental et complet.</li>
 
 </ul>
 
