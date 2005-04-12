@@ -400,7 +400,8 @@
   (display-parse-tree (value entity) syntax pane))
 (defmethod display-parse-tree 
     ((entity variable-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (name entity) syntax pane))
+  (with-drawing-options (pane :ink (make-rgb-color 0.7 0.7 0.0))
+    (display-parse-tree (name entity) syntax pane)))
 (defmethod display-parse-tree 
     ((entity functional-compound-term) (syntax prolog-syntax) pane)
   (with-drawing-options (pane :ink (make-rgb-color 0.9 0 0.9))
@@ -440,6 +441,10 @@
 
 (defclass atom (prolog-nonterminal)
   ((value :initarg :value :accessor value)))
+(defgeneric canonical-name (thing)
+  ;; FIXME: is this actually necessary?  There is confusion over the
+  ;; FUNCTOR of lists, curly lists and char-code lists.
+  (:method ((thing string)) thing))
 (defmethod canonical-name ((thing atom))
   (canonical-name (value thing)))
 (defmethod canonical-name ((thing name))
