@@ -207,7 +207,8 @@ position in the lexemes of LEXER"
    (symbols :initarg :symbols :reader symbols)))
 
 (defclass grammar ()
-  ((rules :initarg :rules :accessor rules)))
+  ((rules :initform nil :accessor rules)
+   (hash :initform (make-hash-table) :accessor hash)))
 
 (defmacro grammar-rule ((left-hand-side arrow arglist &body body))
   (declare (ignore arrow))
@@ -245,14 +246,29 @@ position in the lexemes of LEXER"
 
 
 (defmacro grammar (&body body)
-  `(make-instance 'grammar
-      :rules (list ,@(loop for rule in body
-			   collect `(grammar-rule ,rule)))))
+  (let ((rule (gensym "RULE"))
+	(rules (gensym "RULES"))
+	(result (gensym "RESULT")))
+    `(let* ((,rules (list ,@(loop for rule in body 
+				  collect `(grammar-rule ,rule))))
+	    (,result (make-instance 'grammar)))
+       (dolist (,rule ,rules ,result)
+	 (add-rule ,rule ,result)))))
 
 (defgeneric add-rule (rule grammar))
 
 (defmethod add-rule (rule (grammar grammar))
-  (push rule (rules grammar)))
+  (push rule (rules grammar))
+  (clrhash (hash grammar))
+  (let (rhs-symbols)
+    (dolist (rule (rules grammar))
+      (setf rhs-symbols (union rhs-symbols (coerce (symbols rule) 'list))))
+    (dolist (rule (rules grammar))
+      (let ((lhs-symbol (left-hand-side rule)))
+	(dolist (rhs-symbol rhs-symbols)
+	  (when (or (subtypep lhs-symbol rhs-symbol)
+		    (subtypep rhs-symbol lhs-symbol))
+	    (pushnew rule (gethash rhs-symbol (hash grammar)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -316,19 +332,18 @@ position in the lexemes of LEXER"
 		   :parse-tree remaining
 		   :parse-trees parse-trees)))))))
 
-(defgeneric item-equal (item1 item2))
-
-(defgeneric parse-tree-equal (tree1 tree2))
-
-(defmethod item-equal ((item1 rule-item) (item2 rule-item))
-  nil)
-
-(defmethod item-equal ((item1 incomplete-item) (item2 incomplete-item))
+(defun item-equal (item1 item2)
+  (declare (optimize speed))
   (and (eq (rule item1) (rule item2))
-       (eq (length (parse-trees item1)) (length (parse-trees item2)))
-       (every #'parse-tree-equal (parse-trees item1) (parse-trees item2))))
+       (do ((trees1 (parse-trees item1) (cdr trees1))
+	    (trees2 (parse-trees item2) (cdr trees2)))
+	   ((and (null trees1) (null trees2)) t)
+	 (when (or (null trees1) (null trees2))
+	   (return nil))
+	 (when (not (parse-tree-equal (car trees1) (car trees2)))
+	   (return nil)))))
 
-(defmethod parse-tree-equal (tree1 tree2)
+(defun parse-tree-equal (tree1 tree2)
   (eq (class-of tree1) (class-of tree2)))
 
 (defgeneric parse-tree-better (tree1 tree2))
@@ -376,25 +391,24 @@ position in the lexemes of LEXER"
   nil)
 
 (defmethod handle-item ((item incomplete-item) orig-state to-state)
-   (cond ((find item (gethash orig-state (incomplete-items to-state))
+  (declare (optimize speed))
+  (cond ((find item (the list (gethash orig-state (incomplete-items to-state)))
  	       :test #'item-equal)
 	  nil)
  	(t
  	 (push item (gethash orig-state (incomplete-items to-state)))
- 	 (loop for rule in (rules (parser-grammar (parser to-state)))
- 	       do (when (let ((sym1 (aref (symbols (rule item)) (dot-position item)))
-			      (sym2 (left-hand-side rule)))
-			  (or (subtypep sym1 sym2) (subtypep sym2 sym1)))
-		    (handle-item (if (functionp (right-hand-side rule))
-				     (make-instance 'incomplete-item
-					:orig-state to-state
-					:predicted-from item
-					:rule rule
-					:dot-position 0
-					:suffix (right-hand-side rule))
-				     (make-instance 'complete-item
-					:parse-tree (right-hand-side rule)))
-				 to-state to-state)))
+	 (dolist (rule (gethash (aref (symbols (rule item)) (dot-position item))
+				(hash (parser-grammar (parser to-state)))))
+	   (handle-item (if (functionp (right-hand-side rule))
+			    (make-instance 'incomplete-item
+					   :orig-state to-state
+					   :predicted-from item
+					   :rule rule
+					   :dot-position 0
+					   :suffix (right-hand-side rule))
+			    (make-instance 'complete-item
+					   :parse-tree (right-hand-side rule)))
+			to-state to-state))
 	 (loop for parse-tree in (gethash to-state (parse-trees to-state))
  	       do (handle-item (derive-item item parse-tree)
 			       to-state to-state)))))
