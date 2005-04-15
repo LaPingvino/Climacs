@@ -299,12 +299,6 @@ position in the lexemes of LEXER"
 	do (format stream " ~a" (aref (symbols (rule item)) i)))
   (format stream "]"))	  
 
-(defclass complete-item (rule-item)
-  ((parse-tree :initarg :parse-tree :reader parse-tree)))
-
-(defmethod print-object ((item complete-item) stream)
-  (format stream "[~a]" (parse-tree item)))
-
 (defun derive-and-handle-item (prev-item parse-tree orig-state to-state)
   (let ((remaining (funcall (suffix prev-item) parse-tree)))
     (cond ((null remaining)
