@@ -372,8 +372,9 @@ position in the lexemes of LEXER"
     (flet ((handle-parse-tree ()
 	     (map-over-incomplete-items from-state
 	       (lambda (orig-state incomplete-item)
-		 (handle-item (derive-item incomplete-item parse-tree)
-			      orig-state to-state)))))
+		 (let ((new-item (derive-item incomplete-item parse-tree)))
+		   (when new-item 
+		     (handle-item new-item orig-state to-state)))))))
       (cond ((find parse-tree (gethash from-state parse-trees)
 		   :test #'parse-tree-better)
 	     (setf (gethash from-state parse-trees)
@@ -386,9 +387,6 @@ position in the lexemes of LEXER"
 	     nil)
 	    (t (push parse-tree (gethash from-state parse-trees))
 	       (handle-parse-tree))))))
-
-(defmethod handle-item ((item (eql nil)) orig-state to-state)
-  nil)
 
 (defmethod handle-item ((item incomplete-item) orig-state to-state)
   (declare (optimize speed))
@@ -410,8 +408,8 @@ position in the lexemes of LEXER"
 					   :parse-tree (right-hand-side rule)))
 			to-state to-state))
 	 (loop for parse-tree in (gethash to-state (parse-trees to-state))
- 	       do (handle-item (derive-item item parse-tree)
-			       to-state to-state)))))
+ 	       do (let ((new-item (derive-item item parse-tree)))
+		    (when new-item (handle-item new-item to-state to-state)))))))
 
 (defmethod handle-item ((item complete-item) orig-state to-state)
   (potentially-handle-parse-tree (parse-tree item) orig-state to-state))
