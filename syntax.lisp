@@ -305,9 +305,7 @@ position in the lexemes of LEXER"
 (defmethod print-object ((item complete-item) stream)
   (format stream "[~a]" (parse-tree item)))
 
-(defgeneric derive-item (prev-item parse-tree))
-
-(defmethod derive-item ((prev-item incomplete-item) parse-tree)
+(defun derive-item (prev-item parse-tree)
   (let ((remaining (funcall (suffix prev-item) parse-tree)))
     (cond ((null remaining)
 	   nil)
@@ -397,16 +395,15 @@ position in the lexemes of LEXER"
  	 (push item (gethash orig-state (incomplete-items to-state)))
 	 (dolist (rule (gethash (aref (symbols (rule item)) (dot-position item))
 				(hash (parser-grammar (parser to-state)))))
-	   (handle-item (if (functionp (right-hand-side rule))
-			    (make-instance 'incomplete-item
-					   :orig-state to-state
-					   :predicted-from item
-					   :rule rule
-					   :dot-position 0
-					   :suffix (right-hand-side rule))
-			    (make-instance 'complete-item
-					   :parse-tree (right-hand-side rule)))
-			to-state to-state))
+	   (if (functionp (right-hand-side rule))
+	       (handle-item (make-instance 'incomplete-item
+			       :orig-state to-state
+			       :predicted-from item
+			       :rule rule
+			       :dot-position 0
+			       :suffix (right-hand-side rule))
+			    to-state to-state)
+	       (potentially-handle-parse-tree (right-hand-side rule) to-state to-state)))
 	 (loop for parse-tree in (gethash to-state (parse-trees to-state))
  	       do (let ((new-item (derive-item item parse-tree)))
 		    (when new-item (handle-item new-item to-state to-state)))))))
@@ -423,16 +420,16 @@ position in the lexemes of LEXER"
 	   do (when (let ((sym (left-hand-side rule)))
 		      (or (subtypep (target parser) sym)
 			  (subtypep sym (target parser))))
-		(handle-item (if (functionp (right-hand-side rule))
-				 (make-instance 'incomplete-item
+		(if (functionp (right-hand-side rule))
+		    (handle-item (make-instance 'incomplete-item
 				    :orig-state initial-state
 				    :predicted-from nil
 				    :rule rule
 				    :dot-position 0
 				    :suffix (right-hand-side rule))
-				 (make-instance 'complete-item
-				    :parse-tree (right-hand-side rule)))
-			     initial-state initial-state)))))
+				 initial-state initial-state)
+		    (potentially-handle-parse-tree
+		     (right-hand-side rule) initial-state initial-state))))))
 
 (defun state-contains-target-p (state)
   (loop with target = (target (parser state))
