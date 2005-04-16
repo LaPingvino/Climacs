@@ -204,11 +204,13 @@ position in the lexemes of LEXER"
 (defclass rule ()
   ((left-hand-side :initarg :left-hand-side :reader left-hand-side)
    (right-hand-side :initarg :right-hand-side :reader right-hand-side)
-   (symbols :initarg :symbols :reader symbols)))
+   (symbols :initarg :symbols :reader symbols)
+   (number)))
 
 (defclass grammar ()
   ((rules :initform nil :accessor rules)
-   (hash :initform (make-hash-table) :accessor hash)))
+   (hash :initform (make-hash-table) :accessor hash)
+   (number-of-rules :initform 0)))
 
 (defmacro grammar-rule ((left-hand-side arrow arglist &body body))
   (declare (ignore arrow))
@@ -259,6 +261,8 @@ position in the lexemes of LEXER"
 
 (defmethod add-rule (rule (grammar grammar))
   (push rule (rules grammar))
+  (setf (slot-value rule 'number) (slot-value grammar 'number-of-rules))
+  (incf (slot-value grammar 'number-of-rules))
   (clrhash (hash grammar))
   (let (rhs-symbols)
     (dolist (rule (rules grammar))
@@ -348,7 +352,17 @@ position in the lexemes of LEXER"
 		     :reader incomplete-items)
    (parse-trees :initform (make-hash-table :test #'eq)
 		:reader parse-trees)
-   (last-nonempty-state :initarg :last-nonempty-state :accessor last-nonempty-state)))
+   (last-nonempty-state :initarg :last-nonempty-state :accessor last-nonempty-state)
+   (predicted-rules)))
+
+(defmethod initialize-instance :after ((state parser-state) &rest args)
+  (declare (ignore args))
+  (with-slots (predicted-rules) state
+     (setf predicted-rules
+	   (make-array (slot-value (parser-grammar (parser state))
+				   'number-of-rules)
+		       :element-type 'bit
+		       :initial-element 0))))
 
 (defun map-over-incomplete-items (state fun)
   (maphash (lambda (key incomplete-items)
@@ -385,13 +399,17 @@ position in the lexemes of LEXER"
 	 (dolist (rule (gethash (aref (symbols (rule item)) (dot-position item))
 				(hash (parser-grammar (parser to-state)))))
 	   (if (functionp (right-hand-side rule))
-	       (handle-incomplete-item (make-instance 'incomplete-item
-					  :orig-state to-state
-					  :predicted-from item
-					  :rule rule
-					  :dot-position 0
-					  :suffix (right-hand-side rule))
-				       to-state to-state)
+	       (let ((predicted-rules (slot-value to-state 'predicted-rules))
+		     (rule-number (slot-value rule 'number)))
+		 (when (zerop (aref predicted-rules rule-number))
+		   (setf (aref predicted-rules rule-number) 1)
+		   (handle-incomplete-item (make-instance 'incomplete-item
+					      :orig-state to-state
+					      :predicted-from item
+					      :rule rule
+					      :dot-position 0
+					      :suffix (right-hand-side rule))
+					   to-state to-state)))
 	       (potentially-handle-parse-tree (right-hand-side rule) to-state to-state)))
 	 (loop for parse-tree in (gethash to-state (parse-trees to-state))
  	       do (derive-and-handle-item item parse-tree to-state to-state)))))
