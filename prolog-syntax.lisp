@@ -177,7 +177,7 @@
 	       ((eql object #\") (fo) (go CHAR-CODE-LIST))
 	       ((eql object #\()
 		(if (or (beginning-of-buffer-p scan)
-			(not (member (object-before scan) '(#\Space #\Newline))))
+			(not (member (object-before scan) '(#\Space #\Tab #\Newline))))
 		    (progn (fo) (return (make-instance 'open-ct-lexeme)))
 		    (progn (fo) (return (make-instance 'open-lexeme)))))
 	       ((eql object #\)) (fo) (return (make-instance 'close-lexeme)))
@@ -277,7 +277,8 @@
 		do (fo))
 	     (if (end-of-buffer-p scan)
 		 (return (make-instance 'error-lexeme))
-		 (return (make-instance 'char-code-list-lexeme)))))))))
+		 (progn (fo)
+			(return (make-instance 'char-code-list-lexeme))))))))))
 
 ;;; parser
 
@@ -438,6 +439,10 @@
   (display-parse-tree ({ entity) syntax pane)
   (display-parse-tree (term entity) syntax pane)
   (display-parse-tree (} entity) syntax pane))
+(defmethod display-parse-tree
+    ((entity char-code-list-compound-term) (syntax prolog-syntax) pane)
+  (with-drawing-options (pane :ink (make-rgb-color 0.0 0.6 0.0))
+    (display-parse-tree (ccl entity) syntax pane)))
 
 (defclass atom (prolog-nonterminal)
   ((value :initarg :value :accessor value)))
@@ -902,7 +907,7 @@
 		 (incf valid-parse))))))
 
 (defmethod inter-lexeme-object-p ((lexer prolog-lexer) object)
-  (member object '(#\Space #\Newline)))
+  (member object '(#\Space #\Newline #\Tab)))
 
 (defmethod update-syntax (buffer (syntax prolog-syntax))
   (with-slots (lexer valid-parse) syntax
@@ -983,8 +988,9 @@
 	      (loop
 	       (when (>= start end)
 		 (return))
-	       (let ((nl (position #\Newline string
-				   :start start :end end)))
+	       (let ((nl (position-if
+			  (lambda (x) (member x '(#\Tab #\Newline)))
+			  string :start start :end end)))
 		 (unless nl
 		   (present (subseq string start end) 'string :stream pane)
 		   (return))
@@ -1055,7 +1061,11 @@
      (let* ((cursor-line (number-of-lines-in-region top (point pane)))
 	    (height (text-style-height (medium-text-style pane) pane))
 	    (cursor-y (+ (* cursor-line (+ height (stream-vertical-spacing pane)))))
-	    (cursor-column (column-number (point pane)))
+	    (cursor-column
+	     ;; FIXME: surely this should be more abstracted?
+	     (buffer-display-column
+	      (buffer (point pane)) (offset (point pane))
+	      (round (tab-width pane) (space-width pane))))
 	    (cursor-x (* cursor-column (text-style-width (medium-text-style pane) pane))))
        (updating-output (pane :unique-id -1)
 	 (draw-rectangle* pane
