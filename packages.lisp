@@ -107,10 +107,6 @@
 	   #:redisplay-pane-with-syntax
 	   #:beginning-of-paragraph #:end-of-paragraph))
 
-(defpackage :climacs-cl-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain :climacs-syntax)
-  (:export))
-
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
   (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size 
@@ -151,6 +147,11 @@
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
 	:climacs-syntax :flexichain :climacs-pane)
   (:shadow "ATOM" "CLOSE" "EXP" "INTEGER" "OPEN" "VARIABLE"))
+
+(defpackage :climacs-cl-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
+	:climacs-syntax :flexichain :climacs-pane)
+  (:export))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
