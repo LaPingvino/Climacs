@@ -30,10 +30,11 @@
 ;;;
 ;;; grammar classes
 
-(defclass cl-parse-tree (parse-tree) ())
-
+(defclass cl-parse-tree (parse-tree) ()) 
+ 
 (defclass cl-entry (cl-parse-tree)
-  ((ink) (face)))  
+  ((ink) (face)
+  (state :initarg :state)))
 
 (defclass cl-nonterminal (cl-entry) ())
 
@@ -45,8 +46,8 @@
 ;;;
 ;;; lexer
 
-(defclass cl-lexeme (cl-entry)
-  ((state :initarg :state)))
+(defclass cl-lexeme (cl-entry) ())
+
 (defclass start-lexeme (cl-lexeme) ())
 (defclass paren-open (cl-lexeme) ())
 (defclass paren-close (cl-lexeme) ())
@@ -58,6 +59,11 @@
 (defclass semicolon (cl-lexeme) ())
 (defclass backquote (cl-lexeme) ())
 (defclass at (cl-lexeme) ())
+(defclass backslash (cl-lexeme) ())
+(defclass slash (cl-lexeme) ())
+(defclass dot (cl-lexeme) ())
+(defclass plus-symbol (cl-lexeme) ())
+(defclass minus-symbol (cl-lexeme) ())
 (defclass default-item (cl-lexeme) ())
 
 
@@ -70,16 +76,24 @@
 	(#\( (fo) (make-instance 'paren-open))
 	(#\) (fo) (make-instance 'paren-close))
 	(#\, (fo) (make-instance 'comma))
-	(#\" (fo) (make-instance 'double-quote))
+	(#\" (fo) (make-instance 'double-quote)) 
 	(#\' (fo) (make-instance 'quote-symbol))
 	(#\# (fo) (make-instance 'hex))
 	(#\| (fo) (make-instance 'pipe))
 	(#\` (fo) (make-instance 'backquote))
 	(#\@ (fo) (make-instance 'at))
-	(#\; (fo) (make-instance 'semicolon))
-	(t (cond ((numberp object) 
+	(#\\ (fo) (make-instance 'backslash))
+	(#\/ (fo) (make-instance 'slash))
+	(#\. (fo) (make-instance 'dot))
+	(#\+ (fo) (make-instance 'plus-symbol))
+	(#\- (fo) (make-instance 'minus-symbol))
+	(#\; (fo) (loop until (end-of-buffer-p scan)
+		     while (eql (object-after scan) #\;)
+		     do (fo))
+	     (make-instance 'semicolon))
+	(t (cond ((digit-char-p object) 
 		  (loop until (end-of-buffer-p scan)
-		     while (numberp (object-after scan))
+		     while (digit-char-p (object-after scan))
 		     do (fo))
 		  (make-instance 'default-item))
 		 ((neutralcharp object)
@@ -95,14 +109,11 @@
    (valid-parse :initform 1)
    (parser)))
 
-
-
 (defun neutralcharp (var)
   (and (characterp var)
        (not (member var '(#\( #\) #\, #\" #\' #\# #\| #\` #\@ #\; #\\
-			  #\. #\+ #\-)
+			  #\/ #\. #\+ #\- #\Newline #\Space #\Tab)
 		    :test #'char=))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -130,7 +141,8 @@
      
      (add-cl-rule (,name -> (,name ,item-name)
 			 (make-instance ',nonempty-name
-					:items ,name :item ,item-name)))     
+					:items ,name :item ,item-name)))
+
      (defmethod display-parse-tree ((entity ,empty-name) (syntax cl-syntax) pane)
        (declare (ignore pane))
        nil)
@@ -140,8 +152,13 @@
 	  (display-parse-tree items syntax pane)
 	  (display-parse-tree item syntax pane)))))
 
-
 ;;;;;; string-items
+
+(defclass empty-item (cl-entry) ())
+
+(defmethod display-parse-tree ((entity empty-item) (syntax cl-syntax) pane)
+  (declare (ignore pane))
+  nil)
 
 (defclass string-char (cl-entry)
   ((item :initarg :item)))
@@ -153,35 +170,33 @@
 (add-cl-rule (string-char -> (semicolon) :item semicolon))
 (add-cl-rule (string-char -> (backquote) :item backquote))
 (add-cl-rule (string-char -> (at) :item at))
+(add-cl-rule (string-char -> (backslash) :item backslash))
+(add-cl-rule (string-char -> (slash) :item slash))
+(add-cl-rule (string-char -> (dot) :item dot))
+(add-cl-rule (string-char -> (plus-symbol) :item plus-symbol))
+(add-cl-rule (string-char -> (minus-symbol) :item minus-symbol))
 
 (defmethod display-parse-tree ((entity string-char) (syntax cl-syntax) pane)
   (with-slots (item) entity
     (display-parse-tree item syntax pane)))
 
-(defclass string-part (cl-entry)
+(defclass string-item (cl-entry)
   ((item :initarg :item)
    (ch :initarg :ch)))
 
-(add-cl-rule (string-part -> ((item string-part) (ch string-char (= (end-offset
+(add-cl-rule (string-item -> ((ch string-char))
+			  :item (make-instance 'empty-item) :ch ch))
+
+(add-cl-rule (string-item -> ((item string-item) (ch string-char (= (end-offset
 								     item)
 								    (start-offset
 								     ch))))
 			  :item item :ch ch))
 
-(defmethod display-parse-tree ((entity string-part) (syntax cl-syntax) pane)
+(defmethod display-parse-tree ((entity string-item) (syntax cl-syntax) pane)
   (with-slots (item ch) entity
     (display-parse-tree item syntax pane)
     (display-parse-tree ch syntax pane)))
-
-(defclass string-item (cl-entry)
-  ((item :initarg :item)))
-
-(add-cl-rule (string-item -> (string-char) :item string-char))
-(add-cl-rule (string-item -> (string-part) :item string-part))
-
-(defmethod display-parse-tree ((entity string-item) (syntax cl-syntax) pane)
-  (with-slots (item) entity
-     (display-parse-tree item syntax pane)))
 
 (define-list string-items empty-string-items nonempty-string-items string-item)
 
@@ -190,7 +205,7 @@
   ((item :initarg :item)))
 
 (add-cl-rule (identifier-item -> (string-item) :item string-item))
-(add-cl-rule (identifier-item -> (hex) :item hex)) 
+(add-cl-rule (identifier-item -> (hex) :item hex))
 (add-cl-rule (identifier-item -> (double-quote) :item double-quote))
 
 (define-list identifier-items empty-identifier-items
@@ -209,6 +224,7 @@
 				      (end pipe))
 				  :start start :items identifier-items
 				  :end end))
+
 (defmethod display-parse-tree ((entity identifier-compound) (syntax cl-syntax) pane)
   (with-slots (start items end) entity
     (display-parse-tree start syntax pane)
@@ -219,7 +235,14 @@
 (defclass identifier (cl-entry)
   ((item :initarg :item)))
 
-(add-cl-rule (identifier -> (string-item) :item string-item)) 
+(add-cl-rule (identifier -> ((item string-item
+				  (or (alpha-char-p (coerce
+						     (item-head item) 'character))
+				      (string-equal #\= (item-head item))
+				      (member item '(#\/ #\+ #\- #\*)
+					      :test #'default-item-is))))
+			 :item item))
+
 (add-cl-rule (identifier -> (identifier-compound) :item identifier-compound))
 
 (defmethod display-parse-tree ((entity identifier) (syntax cl-syntax) pane)
@@ -227,11 +250,9 @@
     (display-parse-tree item syntax pane))) 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;line-comment
-
 ;;missing (cannot parse end of line)
 
-
-
+(defclass line-comment (cl-entry) ())
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;balanced-comment
 
@@ -275,113 +296,121 @@
 
 ;;;;;;;;;;;;;;;;;;;;; #-type constants 
 
-(defun radix-is (num-string radix)
-  (values (parse-integer (coerce (buffer-sequence (buffer num-string)
-						  (start-offset
-						   num-string)
-						  (end-offset
-						   num-string)) 'string)
-			 :radix radix :junk-allowed t)))
+(defun item-head (default-item)
+  (coerce (buffer-sequence (buffer default-item) 
+			   (start-offset default-item) 
+			   (1+ (start-offset default-item))) 'string))
 
-(defclass hexadecimal-expr (cl-entry)
+(defun item-tail (default-item)
+  (coerce (buffer-sequence (buffer default-item) 
+			   (1+ (start-offset default-item))
+			   (end-offset default-item)) 'string))
+
+(defun radix-is (num-string radix)
+  (values (ignore-errors
+	    (parse-integer num-string :radix radix :junk-allowed 'nil))))
+
+(defclass radix-expr (cl-entry)
   ((start :initarg :start)
-   (header :initarg :header)
-   (item :initarg :item)))
+   (item :initarg :item))) 
+
+(defmethod display-parse-tree ((entity radix-expr) (syntax cl-syntax) pane)
+  (with-slots (start item) entity
+    (display-parse-tree start syntax pane)
+    (display-parse-tree item syntax pane)))
+
+(defclass hexadecimal-expr (radix-expr) ())
 
 (add-cl-rule (hexadecimal-expr -> ((start hex)
-				   (header default-item (default-item-is
-							    header
-							    #\x))
-				   (item string-item (radix-is
-						      item 16)))
-			       :start start :header header :item
-			       item))
+				   (item string-item
+					 (and (string-equal (item-head item) #\x)
+					      (radix-is (item-tail item) 16))))
+			       :start start :item item))
 
-(defmethod display-parse-tree ((entity hexadecimal-expr) (syntax cl-syntax) pane)
-  (with-slots (start header item) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree header syntax pane)
-    (display-parse-tree item syntax pane)))
-
-(defclass octal-expr (cl-entry)
-  ((start :initarg :start)
-   (header :initarg :header)
-   (item :initarg :item)))
+(defclass octal-expr (radix-expr) ())
 
 (add-cl-rule (octal-expr -> ((start hex)
-			     (header default-item (default-item-is
-						      header
-						      #\o))
-			     (item string-item (radix-is
-						item 8)))
-			 :start start :header header :item
-			 item))
+			     (item default-item
+					 (and (string-equal (item-head item) #\o)
+					      (radix-is (item-tail item) 8))))
+			 :start start :item item))
 
-(defmethod display-parse-tree ((entity octal-expr) (syntax cl-syntax) pane)
-  (with-slots (start header item) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree header syntax pane)
-    (display-parse-tree item syntax pane)))
-
-(defclass start-number-expr (cl-entry)
-  ((start :initarg :start)
-   (item :initarg :item)))
-
-(defclass binary-expr (cl-entry)
-  ((start :initarg :start)
-   (header :initarg :header)
-   (item :initarg :item)))
+(defclass binary-expr (radix-expr) ())
 
 (add-cl-rule (binary-expr -> ((start hex)
-			      (header default-item (default-item-is
-						       header
-						       #\b))
-			      (item string-item (radix-is
-						 item 2)))
-			  :start start :header header :item
-			  item))
-
-(defmethod display-parse-tree ((entity binary-expr) (syntax cl-syntax) pane)
-  (with-slots (start header item) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree header syntax pane)
-    (display-parse-tree item syntax pane)))
+			      (item default-item
+				    (and (string-equal (item-head item) #\b)
+					 (radix-is (item-tail
+							item) 2))))
+			  :start start :item item))
 
 (defclass radix-n-expr (cl-entry)
   ((start :initarg :start)
    (radix :initarg :radix)
-   (header :initarg :header)
    (item :initarg :item)))
 
 (add-cl-rule (radix-n-expr -> ((start hex)
-			       (radix string-item (radix-is radix 10))
-			       (header default-item (default-item-is header #\r))
-			       (item string-item (radix-is item (second
-								 (multiple-value-list
-								  (parse-integer (coerce
-										  (buffer-sequence (buffer radix)
-												   (start-offset radix)
-												   (end-offset radix))
-										  'string)))))))
-			   :start start :header header :item item))
+			       (radix simple-number)
+			       (item string-item (and (string-equal
+						       (item-head item) #\r)
+						      (radix-is
+						       (item-tail item)
+						       (values (parse-integer (coerce
+									       (buffer-sequence (buffer radix)
+												(start-offset radix)
+												(end-offset radix))
+									       'string)))))))
+			   :start start :radix radix :item item))
 
 (defmethod display-parse-tree ((entity radix-n-expr) (syntax cl-syntax) pane)
-  (with-slots (start radix header item) entity
+  (with-slots (start radix item) entity
     (display-parse-tree start syntax pane)
     (display-parse-tree radix syntax pane)
-    (display-parse-tree header syntax pane)
     (display-parse-tree item syntax pane)))
 
 (defclass simple-number (cl-entry)
   ((content :initarg :content)))
 
-(add-cl-rule (simple-number -> ((content string-item (radix-is
-						      content 10)))
+(add-cl-rule (simple-number -> ((content default-item (radix-is
+						      (coerce
+						       (buffer-sequence (buffer content) (start-offset content)
+									(end-offset content)) 'string) 10)))
 			    :content content))
 
 (defmethod display-parse-tree ((entity simple-number) (syntax cl-syntax) pane)
   (with-slots (content) entity
     (display-parse-tree content syntax pane)))
+
+
+(defclass real-number (cl-entry)
+  ((primary :initarg :primary)
+   (separator :initarg :separator)
+   (secondary :initarg :secondary)))
+
+(add-cl-rule (real-number -> ((primary simple-number)
+			      (separator slash (= (end-offset primary)
+						  (start-offset separator)))
+			      (secondary simple-number (= (end-offset
+							   separator)
+							  (start-offset secondary))))
+			  :primary primary :separator separator
+			  :secondary secondary))
+
+(add-cl-rule (real-number -> ((primary simple-number)
+			      (separator dot (= (end-offset primary)
+						(start-offset separator)))
+			      (secondary simple-number (= (end-offset
+							   separator)
+							  (start-offset secondary))))
+			  :primary primary :separator separator
+			  :secondary secondary))
+
+(defmethod display-parse-tree ((entity real-number) (syntax cl-syntax) pane)
+  (with-slots (primary secondary separator) entity
+    (display-parse-tree primary syntax pane)
+    (display-parse-tree separator syntax pane)
+    (display-parse-tree secondary syntax pane)))
+
 
 (defclass complex-number (cl-entry)
   ((start :initarg :start)
@@ -390,8 +419,18 @@
    (end :initarg :end)))
 
 (add-cl-rule (complex-number -> ((start paren-open)
+				 (realpart real-number)
+				 (imagpart real-number (/=
+							  (end-offset
+							   realpart)
+							  (start-offset imagpart)))
+				 (end paren-close))
+			     :start start :realpart realpart :imagpart
+			     imagpart :end end))
+
+(add-cl-rule (complex-number -> ((start paren-open)
 				 (realpart simple-number)
-				 (imagpart simple-number (>
+				 (imagpart simple-number (/=
 							  (end-offset
 							   realpart)
 							  (start-offset imagpart)))
@@ -429,6 +468,7 @@
   ((content :initarg :content)))
 
 (add-cl-rule (number-expr -> ((item simple-number)) :content item))
+(add-cl-rule (number-expr -> ((item real-number)) :content item))
 (add-cl-rule (number-expr -> ((item binary-expr)) :content item))
 (add-cl-rule (number-expr -> ((item octal-expr)) :content item))
 (add-cl-rule (number-expr -> ((item hexadecimal-expr)) :content item))
@@ -442,18 +482,16 @@
 
 (defclass pathname-expr (cl-entry)
   ((start :initarg :start)
-   (header :initarg :header)
    (item :initarg :item)))
 
 (add-cl-rule (pathname-expr -> ((start hex)
-				(header default-item (default-item-is header #\p))
-				(item string-item))
-			    :start start :header header :item item))
+				(item default-item (string-equal
+						    (item-head item) #\p)))
+			    :start start :item item))
 
 (defmethod display-parse-tree ((entity pathname-expr) (syntax cl-syntax) pane)
-  (with-slots (start header item) entity
+  (with-slots (start item) entity
     (display-parse-tree start syntax pane)
-    (display-parse-tree header syntax pane)
     (display-parse-tree item syntax pane)))
 
 
@@ -461,21 +499,31 @@
 
 (defclass char-item (cl-entry)
   ((start :initarg :start)
-   (backslash :initarg :backslash)
+   (separator :initarg :separator)
    (item :initarg :item)))
 
 (add-cl-rule (char-item -> ((start hex)
-			    (backslash default-item (and (= (end-offset start)    
-							    (start-offset backslash)) 
-							 (default-item-is backslash #\\))) 
-			    (item cl-lexeme (= (end-offset backslash)
-					       (start-offset item)))) 
-			:start start :backslash backslash :item item))
+			    (separator backslash (= (end-offset start)    
+						    (start-offset separator))) 
+			    (item cl-lexeme (and (= (end-offset separator)
+						    (start-offset item))
+						 (= (end-offset item)
+						    (1+ (start-offset item)))))) 
+			:start start :separator separator :item item))
+
+(add-cl-rule (char-item -> ((start hex)
+			    (separator backslash (= (end-offset start)    
+						    (start-offset separator))) 
+			    (item default-item (and (= (end-offset separator)
+						       (start-offset item))
+						    (member item
+							    '("Newline" "Tab" "Space") :test #'default-item-is))))
+			:start start :separator separator :item item))
 
 (defmethod display-parse-tree ((entity char-item) (syntax cl-syntax) pane)
-  (with-slots (start backslash item) entity
+  (with-slots (start separator item) entity
     (display-parse-tree start syntax pane)
-    (display-parse-tree backslash syntax pane)
+    (display-parse-tree separator syntax pane)
     (display-parse-tree item syntax pane))) 
 
 
@@ -496,21 +544,26 @@
     (display-parse-tree end syntax pane)))
 
 
-;;;;;;;;;;;;; read-time-point-attr
+;;;;;;;;;;;;;;;;;;;;;;; read-time-attr
 
-(defclass read-time-point-attr (cl-entry) 
+(defclass read-time-attr (cl-entry)
   ((read-car :initarg :read-car)
    (read-expr :initarg :read-expr)))
 
-(add-cl-rule (read-time-point-attr -> ((read-car default-item (default-item-is read-car #\.))
-				       (read-expr identifier (= (end-offset read-car) (start-offset read-expr))))
-				   :read-car read-car :read-expr read-expr))
-
-
-(defmethod display-parse-tree ((entity read-time-point-attr) (syntax cl-syntax) pane)
+(defmethod display-parse-tree ((entity read-time-attr) (syntax cl-syntax) pane)
   (with-slots (read-car read-expr) entity
     (display-parse-tree read-car syntax pane)
     (display-parse-tree read-expr syntax pane)))
+
+
+;;;;;;;;;;;;; read-time-point-attr
+
+(defclass read-time-point-attr (read-time-attr) ()) 
+ 
+(add-cl-rule (read-time-point-attr -> ((read-car dot)
+				       (read-expr identifier (= (end-offset read-car) (start-offset read-expr))))
+				   :read-car read-car :read-expr read-expr))
+
 
 ;;;;;;;;;;;;; read-time-evaluation
 
@@ -529,35 +582,21 @@
     (display-parse-tree item syntax pane)))
 
 
-;;;;;;;;;;;;;;;;;;;;;;; read-time-attr
-
-(defclass read-time-attr (cl-entry)
-  ((read-car :initarg :read-car)
-   (read-expr :initarg :read-expr)))
-
-(defmethod display-parse-tree ((entity read-time-attr) (syntax cl-syntax) pane)
-  (with-slots (read-car read-expr) entity
-    (display-parse-tree read-car syntax pane)
-    (display-parse-tree read-expr syntax pane)))
-
-
 ;;;;;;;;;;;;;; read-time-plus-attr
 
 (defclass read-time-plus-attr (read-time-attr) ()) 
 
-(add-cl-rule (read-time-plus-attr -> ((read-car default-item (default-item-is read-car #\+))
+(add-cl-rule (read-time-plus-attr -> ((read-car plus-symbol)
 				      (read-expr read-time-expr (= (end-offset read-car) (start-offset read-expr))))
-				  :read-car read-car :read-expr
-				  read-expr))
+				  :read-car read-car :read-expr read-expr))
 
 ;;;;;;;;;;;;;; read-time-minus-attr
 
 (defclass read-time-minus-attr (read-time-attr) ()) 
 
-(add-cl-rule (read-time-minus-attr -> ((read-car default-item (default-item-is read-car #\-))
+(add-cl-rule (read-time-minus-attr -> ((read-car minus-symbol)
 				       (read-expr read-time-expr (= (end-offset read-car) (start-offset read-expr))))
-				   :read-car read-car :read-expr
-				   read-expr))
+				   :read-car read-car :read-expr read-expr))
 
 ;;;;;;;;;;;;; read-time-expr
 
@@ -751,6 +790,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;cl-terminal
 
+(add-cl-rule (cl-terminal -> (number-expr) :item number-expr))
 (add-cl-rule (cl-terminal -> (identifier) :item identifier))
 (add-cl-rule (cl-terminal -> (balanced-comment) :item balanced-comment))
 (add-cl-rule (cl-terminal -> (cl-string) :item cl-string))
@@ -762,7 +802,6 @@
 (add-cl-rule (cl-terminal -> (fun-expr) :item fun-expr))
 (add-cl-rule (cl-terminal -> (vect-expr) :item vect-expr))
 (add-cl-rule (cl-terminal -> (bitvect-expr) :item bitvect-expr))
-(add-cl-rule (cl-terminal -> (number-expr) :item number-expr))
 (add-cl-rule (cl-terminal -> (pathname-expr) :item pathname-expr))
 (add-cl-rule (cl-terminal -> (read-time-conditional-plus) :item read-time-conditional-plus))
 (add-cl-rule (cl-terminal -> (read-time-conditional-minus) :item read-time-conditional-minus))
