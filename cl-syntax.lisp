@@ -157,7 +157,7 @@
 	  (display-parse-tree item syntax pane)))))
 
 
-;;;;;;;;;;;;;;;;;;;; token-items
+;;;;;;;;;;;;; token-items
 
 (defclass empty-item (cl-entry) ())
 
@@ -207,7 +207,7 @@
 (define-list token-items empty-token-items nonempty-token-items token-item)
 
 
-;;;;;;;;;;;;;;;;;;string-items
+;;;;;;;;;;;;; string-items
 
 (defclass string-item (cl-item) ())
 
@@ -275,7 +275,7 @@
     (display-parse-tree item syntax pane)))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;balanced-comment
+;;;;;;;;;;;;; balanced-comment
 
 (defclass balanced-comment (cl-entry)
   ((start-hex :initarg :start-hex)
@@ -298,8 +298,7 @@
       (display-parse-tree item syntax pane)
       (display-parse-tree end-hex syntax pane)))) 
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;string
+;;;;;;;;;;;;; string
 
 (defclass cl-string (cl-entry)
   ((string-start :initarg :string-start)
@@ -519,7 +518,7 @@
 				(item default-item (and (string-equal
 							 (item-head item) #\p)
 							(= (end-offset start)
-							   (start-offset header)))))
+							   (start-offset item)))))
 			    :start start :item item))
 
 (defmethod display-parse-tree ((entity pathname-expr) (syntax cl-syntax) pane)
@@ -528,7 +527,7 @@
     (display-parse-tree item syntax pane)))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;characters
+;;;;;;;;;;;;; characters
 
 (defclass char-item (cl-entry)
   ((start :initarg :start)
@@ -561,7 +560,7 @@
       (display-parse-tree item syntax pane))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;list-expression
+;;;;;;;;;;;;; list-expression
 
 (defclass list-expr (cl-entry)
   ((start :initarg :start)
@@ -582,7 +581,7 @@
       (display-parse-tree end syntax pane))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;; read-time-attr
+;;;;;;;;;;;;; read-time-attr
 
 (defclass read-time-attr (cl-entry)
   ((read-car :initarg :read-car)
@@ -654,7 +653,7 @@
 				   :read-car read-car :read-expr read-expr))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;; read-time-conditional
+;;;;;;;;;;;;; read-time-conditional
 
 (defclass read-time-conditional (cl-entry)
   ((start :initarg :start)
@@ -680,6 +679,7 @@
 					     (expr cl-terminal (/= (end-offset test) (start-offset expr))))
 					 :start start :test test :expr expr))
 
+
 ;;;;;;;;;;;;; read-time-conditional-minus
 
 (defclass read-time-conditional-minus (read-time-conditional) ())
@@ -689,7 +689,8 @@
 					      (expr cl-terminal (/= (end-offset test) (start-offset expr))))
 					  :start start :test test :expr expr))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;function-expression
+
+;;;;;;;;;;;;; function-expression
 
 (defclass fun-expr (cl-entry) 
   ((start :initarg :start)
@@ -743,9 +744,9 @@
       (display-parse-tree item syntax pane))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Quote expr
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Quoted expr
 
-(defclass quoted-expr  (cl-entry)
+(defclass quoted-expr (cl-entry)
   ((start :initarg :start)
    (item :initarg :item)))
 
@@ -844,6 +845,8 @@
 (defmethod display-parse-tree ((entity cl-terminal) (syntax cl-syntax) pane)
   (with-slots (item) entity
       (display-parse-tree item syntax pane)))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod initialize-instance :after ((syntax cl-syntax) &rest args)
@@ -863,7 +866,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; update syntax
-
 
 (defmethod update-syntax-for-display (buffer (syntax cl-syntax) top bot)
   (with-slots (parser lexer valid-parse) syntax
