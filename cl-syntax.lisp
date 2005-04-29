@@ -56,7 +56,7 @@
 (defclass double-quote (cl-lexeme) ())
 (defclass hex (cl-lexeme) ())
 (defclass pipe (cl-lexeme) ())
-(defclass semicolon (cl-lexeme) ())
+(defclass line-comment-entry (cl-lexeme) ())
 (defclass backquote (cl-lexeme) ())
 (defclass at (cl-lexeme) ())
 (defclass backslash (cl-lexeme) ())
@@ -88,9 +88,11 @@
 	(#\+ (fo) (make-instance 'plus-symbol))
 	(#\- (fo) (make-instance 'minus-symbol))
 	(#\; (fo) (loop until (end-of-buffer-p scan)
-		     while (eql (object-after scan) #\;)
+		        until (eql (object-after scan) #\Newline)
 		     do (fo))
-	     (make-instance 'semicolon))
+	     (if (end-of-buffer-p scan)
+		 (make-instance 'other-entry) 
+		 (make-instance 'line-comment-entry)))
 	(t (cond ((digit-char-p object) 
 		  (loop until (end-of-buffer-p scan)
 		     while (digit-char-p (object-after scan))
@@ -161,7 +163,6 @@
 
 (defclass empty-item (cl-entry) ())
 
-
 (defmethod display-parse-tree ((entity empty-item) (syntax cl-syntax) pane)
   (declare (ignore pane))
   nil)
@@ -173,11 +174,11 @@
 
 (add-cl-rule (token-char -> (default-item) :item default-item))
 (add-cl-rule (token-char -> (comma) :item comma))
-(add-cl-rule (token-char -> (semicolon) :item semicolon))
 (add-cl-rule (token-char -> (backquote) :item backquote))
 (add-cl-rule (token-char -> (at) :item at))
 (add-cl-rule (token-char -> (plus-symbol) :item plus-symbol))
 (add-cl-rule (token-char -> (minus-symbol) :item minus-symbol))
+(add-cl-rule (token-char -> (pipe) :item pipe))
 
 (defmethod display-parse-tree ((entity token-char) (syntax cl-syntax) pane)
   (with-slots (item) entity
@@ -219,6 +220,7 @@
 (add-cl-rule (string-item -> (backslash) :item backslash))
 (add-cl-rule (string-item -> (slash) :item slash))
 (add-cl-rule (string-item -> (dot) :item dot))
+(add-cl-rule (string-item -> (line-comment-entry) :item line-comment-entry))
 
 
 (define-list string-items empty-string-items
@@ -274,28 +276,47 @@
   (with-slots (item) entity
     (display-parse-tree item syntax pane)))
 
+;;;;;;;;;;;;; line-comment
+
+(defclass line-comment (cl-item) ())
+
+(add-cl-rule (line-comment -> ((item line-comment-entry)) :item item))
+
+(defmethod display-parse-tree ((entity line-comment) (syntax cl-syntax) pane)
+  (with-slots (item) entity
+    (with-drawing-options (pane :ink (make-rgb-color 0.6 0.16 0.3))
+      (display-parse-tree item syntax pane))))
 
 ;;;;;;;;;;;;; balanced-comment
 
 (defclass balanced-comment (cl-entry)
   ((start-hex :initarg :start-hex)
+   (start-pipe :initarg :start-pipe)
    (item :initarg :item)
+   (end-pipe :initarg :end-pipe)
    (end-hex :initarg :end-hex)))
 
 (add-cl-rule (balanced-comment -> ((start-hex hex)
-				   (item identifier-compound (= (end-offset start-hex)
-								(start-offset item)))
-				   (end-hex hex (= (end-offset item)
+				   (start-pipe pipe (= (end-offset
+							start-hex)
+						       (start-offset start-pipe)))
+				   (item identifier-items)
+				   (end-pipe pipe)
+				   (end-hex hex (= (end-offset end-pipe)
 						   (start-offset end-hex))))
 			       :start-hex start-hex
+			       :start-pipe start-pipe
 			       :item item
+			       :end-pipe end-pipe
 			       :end-hex end-hex))
 
 (defmethod display-parse-tree ((entity balanced-comment) (syntax cl-syntax) pane)
-  (with-slots (start-hex item end-hex) entity
+  (with-slots (start-hex start-pipe item end-pipe end-hex) entity
     (with-drawing-options (pane :ink (make-rgb-color 0.6 0.16 0.3))
       (display-parse-tree start-hex syntax pane)
+      (display-parse-tree start-pipe syntax pane)
       (display-parse-tree item syntax pane)
+      (display-parse-tree end-pipe syntax pane)
       (display-parse-tree end-hex syntax pane)))) 
 
 ;;;;;;;;;;;;; string
@@ -697,7 +718,8 @@
    (quoted-expr :initarg :quoted-expr)))
 
 (add-cl-rule (fun-expr -> ((start hex)
-			   (quoted-expr quoted-expr))
+			   (quoted-expr quoted-expr (= (end-offset start)
+						       (start-offset quoted-expr))))
 		       :start start :quoted-expr quoted-expr))
 
 (defmethod display-parse-tree ((entity fun-expr) (syntax cl-syntax) pane)
@@ -714,7 +736,8 @@
    (list-expr :initarg :list-expr)))
 
 (add-cl-rule (vect-expr -> ((start hex)
-			    (list-expr list-expr))
+			    (list-expr list-expr (= (end-offset start)
+						    (start-offset list-expr))))
 			:start start :list-expr list-expr))
 
 (defmethod display-parse-tree ((entity vect-expr) (syntax cl-syntax) pane)
@@ -838,6 +861,7 @@
 (add-cl-rule (cl-terminal -> (read-time-conditional-plus) :item read-time-conditional-plus))
 (add-cl-rule (cl-terminal -> (read-time-conditional-minus) :item read-time-conditional-minus))
 (add-cl-rule (cl-terminal -> (read-time-evaluation) :item read-time-evaluation))
+(add-cl-rule (cl-terminal -> (line-comment) :item line-comment))
 
 (define-list cl-terminals empty-cl-terminals
   nonempty-cl-terminals cl-terminal)
