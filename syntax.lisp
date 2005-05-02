@@ -401,8 +401,8 @@ position in the lexemes of LEXER"
 	   (if (functionp (right-hand-side rule))
 	       (let ((predicted-rules (slot-value to-state 'predicted-rules))
 		     (rule-number (slot-value rule 'number)))
-		 (when (zerop (aref predicted-rules rule-number))
-		   (setf (aref predicted-rules rule-number) 1)
+		 (when (zerop (sbit predicted-rules rule-number))
+		   (setf (sbit predicted-rules rule-number) 1)
 		   (handle-incomplete-item (make-instance 'incomplete-item
 					      :orig-state to-state
 					      :predicted-from item
