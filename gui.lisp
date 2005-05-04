@@ -1092,6 +1092,8 @@ as two values"
               (offset mark) (if forwardp
                                 (- (offset mark2) (length string))
                                 (+ (offset mark2) (length string)))))
+      (display-message "~:[Failing ~;~]Isearch~:[ backward~;~]: ~A"
+		       success forwardp string)
       (push (make-instance 'isearch-state
                            :search-string string
                            :search-mark mark
@@ -1102,9 +1104,11 @@ as two values"
         (beep)))))
 
 (define-named-command com-isearch-mode-forward ()
+  (display-message "Isearch: ")
   (isearch-command-loop (current-window) t))
 
 (define-named-command com-isearch-mode-backward ()
+  (display-message "Isearch backward: ")
   (isearch-command-loop (current-window) nil))
 
 (define-named-command com-isearch-append-char ()
@@ -1122,6 +1126,7 @@ as two values"
 (define-named-command com-isearch-delete-char ()
   (let* ((pane (current-window)))
     (cond ((null (second (isearch-states pane)))
+	   (display-message "Isearch: ")
            (beep))
           (t
            (pop (isearch-states pane))
@@ -1134,7 +1139,10 @@ as two values"
                        (+ (offset (search-mark state))
                           (length (search-string state)))
                        (- (offset (search-mark state))
-                          (length (search-string state))))))))))
+                          (length (search-string state)))))
+	     (display-message "Isearch~:[ backward~;~]: ~A"
+			      (search-forward-p state)
+			      (search-string state)))))))
 
 (define-named-command com-isearch-forward ()
   (let* ((pane (current-window))
