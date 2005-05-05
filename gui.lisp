@@ -780,9 +780,6 @@
 			:prompt "Switch to buffer"))
 	(pane (current-window)))
     (setf (buffer pane) buffer)
-    (setf (syntax buffer) (make-instance
-			   'basic-syntax :buffer (buffer (point pane))))
-    (beginning-of-buffer (point pane))
     (full-redisplay pane)))
 
 (define-named-command com-kill-buffer ()
