@@ -284,11 +284,12 @@
 		 (redisplay-frame-panes frame))))
 	(loop
 	   for maybe-error = t
-	   do (handler-case
-		  (with-input-context ('(command
-					 :command-table 'global-climacs-table))
-		    (object)
-		    (loop
+	   do (with-simple-restart (return-to-climacs "Return to Climacs")
+		(handler-case
+		    (with-input-context ('(command
+					   :command-table 'global-climacs-table))
+		      (object)
+		      (loop
 		       for gestures = '()
 		       do (multiple-value-bind (numarg numargp)
 			      (read-numeric-argument :stream *standard-input*)
@@ -306,15 +307,14 @@
 					     (do-command command)
 					     (return)))
 					  (t nil)))))
-			 (update-climacs))
-		    (t
-		     (do-command object)
-		     (setq maybe-error nil)))
-		(abort-gesture ()
-		  (display-message "Quit")))
-	     (when maybe-error
-	       (beep))
-	     (update-climacs))))))
+		       (update-climacs))
+		      (t
+		       (do-command object)
+		       (setq maybe-error nil)))
+		  (abort-gesture () (display-message "Quit"))))
+	   (when maybe-error
+	     (beep))
+	   (update-climacs))))))
 
 (defmacro simple-command-loop (command-table loop-condition end-clauses)
   (let ((gesture (gensym))
