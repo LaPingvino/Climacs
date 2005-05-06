@@ -123,7 +123,7 @@
 (defpackage :climacs-pane
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
 	:climacs-syntax :flexichain :undo)
-  (:export #:climacs-buffer #:needs-saving #:filename
+  (:export #:climacs-buffer #:needs-saving #:filepath
 	   #:climacs-pane #:point #:mark
 	   #:redisplay-pane #:full-redisplay
 	   #:page-down #:page-up

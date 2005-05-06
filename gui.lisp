@@ -693,14 +693,14 @@
     (declare (ignore success))
     (or pathname string)))
 
-(defun pathname-filename (pathname)
+(defun filepath-filename (pathname)
   (if (null (pathname-type pathname))
       (pathname-name pathname)
       (concatenate 'string (pathname-name pathname)
 		   "." (pathname-type pathname))))
 
 (define-named-command com-find-file ()
-  (let ((filename (accept 'completable-pathname
+  (let ((filepath (accept 'completable-pathname
 			  :prompt "Find File"))
 	(buffer (make-instance 'climacs-buffer))
 	(pane (current-window)))
@@ -709,11 +709,11 @@
     (setf (syntax buffer) (make-instance
 			   'basic-syntax :buffer (buffer (point pane))))
     ;; Don't want to create the file if it doesn't exist.
-    (when (probe-file filename) 
-      (with-open-file (stream filename :direction :input)
+    (when (probe-file filepath) 
+      (with-open-file (stream filepath :direction :input)
 	(input-from-stream stream buffer 0)))
-    (setf (filename buffer) filename
-	  (name buffer) (pathname-filename filename)
+    (setf (filepath buffer) filepath
+	  (name buffer) (filepath-filename filepath)
 	  (needs-saving buffer) nil)
     (beginning-of-buffer (point pane))
     ;; this one is needed so that the buffer modification protocol
@@ -721,19 +721,19 @@
     (redisplay-frame-panes *application-frame*)))
 
 (defun save-buffer (buffer)
-  (let ((filename (or (filename buffer)
+  (let ((filepath (or (filepath buffer)
 		      (accept 'completable-pathname
 			      :prompt "Save Buffer to File"))))
-    (with-open-file (stream filename :direction :output :if-exists :supersede)
+    (with-open-file (stream filepath :direction :output :if-exists :supersede)
       (output-to-stream stream buffer 0 (size buffer)))
-    (setf (filename buffer) filename
-	  (name buffer) (pathname-filename filename))
-    (display-message "Wrote: ~a" (filename buffer))
+    (setf (filepath buffer) filepath
+	  (name buffer) (filepath-filename filepath))
+    (display-message "Wrote: ~a" (filepath buffer))
     (setf (needs-saving buffer) nil)))
 
 (define-named-command com-save-buffer ()
   (let ((buffer (buffer (current-window))))
-    (if (or (null (filename buffer))
+    (if (or (null (filepath buffer))
 	    (needs-saving buffer))
 	(save-buffer buffer)
 	(display-message "No changes need to be saved from ~a" (name buffer)))))
@@ -756,15 +756,15 @@
     (frame-exit *application-frame*)))
 
 (define-named-command com-write-buffer ()
-  (let ((filename (accept 'completable-pathname
+  (let ((filepath (accept 'completable-pathname
 			  :prompt "Write Buffer to File"))
 	(buffer (buffer (current-window))))
-    (with-open-file (stream filename :direction :output :if-exists :supersede)
+    (with-open-file (stream filepath :direction :output :if-exists :supersede)
       (output-to-stream stream buffer 0 (size buffer)))
-    (setf (filename buffer) filename
-	  (name buffer) (pathname-filename filename)
+    (setf (filepath buffer) filepath
+	  (name buffer) (filepath-filename filepath)
 	  (needs-saving buffer) nil)
-    (display-message "Wrote: ~a" (filename buffer))))
+    (display-message "Wrote: ~a" (filepath buffer))))
 
 (define-presentation-method accept
     ((type buffer) stream (view textual-view) &key)
@@ -809,9 +809,9 @@
   (full-redisplay (current-window)))
 
 (define-named-command com-load-file ()
-  (let ((filename (accept 'completable-pathname
+  (let ((filepath (accept 'completable-pathname
 			  :prompt "Load File")))
-    (load filename)))
+    (load filepath)))
 
 (define-named-command com-beginning-of-buffer ()
   (beginning-of-buffer (point (current-window))))

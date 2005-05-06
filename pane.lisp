@@ -182,8 +182,8 @@
 (defclass climacs-textual-view (textual-view tabify-mixin)
   ())
 
-(defclass filename-mixin ()
-  ((filename :initform nil :accessor filename)))
+(defclass filepath-mixin ()
+  ((filepath :initform nil :accessor filepath)))
 
 ;(defgeneric indent-tabs-mode (climacs-buffer))
 
@@ -193,7 +193,7 @@
 (defclass extended-binseq2-buffer (binseq2-buffer p-undo-mixin abbrev-mixin) ()
   (:documentation "Extensions accessible via marks."))
 
-(defclass climacs-buffer (delegating-buffer filename-mixin name-mixin)
+(defclass climacs-buffer (delegating-buffer filepath-mixin name-mixin)
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :accessor syntax)
    (indent-tabs-mode :initarg indent-tabs-mode :initform t
