@@ -111,7 +111,8 @@
   
   (def (name t) identifier graphic quoted semicolon cut)
   (def (variable t) anonymous named)
-  (def (integer t))
+  (def (integer t) integer-constant character-code-constant binary-constant
+                   octal-constant hexadecimal-constant)
   (def (float-number t))
   (def (char-code-list t))
   (def (open-ct))
@@ -157,6 +158,58 @@
 	   (bo ()
 	     (vector-pop string)
 	     (backward-object scan)))
+      (macrolet ((read-quoted-char (char)
+		   `(block read-quoted-char
+		     (let ((o (object-after scan)))
+		       (tagbody
+			START
+			  (cond 
+			    ((eql o #\\) (fo) (go ESCAPE))
+			    ((eql o ,char) (fo) (go QUOTE))
+			    (t (fo) (return-from read-quoted-char t)))
+			QUOTE
+			  (if (end-of-buffer-p scan)
+			      (return-from read-quoted-char nil)
+			      (let ((o (object-after scan)))
+				(cond
+				  ((eql o ,char) (fo) (return-from read-quoted-char t))
+				  (t (return-from read-quoted-char nil)))))
+			ESCAPE
+			  (if (end-of-buffer-p scan)
+			      (return (make-instance 'error-lexeme))
+			      (let ((o (object-after scan)))
+				(cond
+				  ;; meta (6.5.5)
+				  ((position o "\\'\"`") (fo) (return-from read-quoted-char t))
+				  ;; symbolic (6.4.2.1)
+				  ((position o "abfnrtv") (fo) (return-from read-quoted-char t))
+				  ;; octal
+				  ((digit-char-p o 8) (fo)
+				   (tagbody
+				    LOOP
+				      (when (end-of-buffer-p scan)
+					(return (make-instance 'error-lexeme)))
+				      (let ((o (object-after scan)))
+					(cond
+					  ((eql o #\\) (fo) (return-from read-quoted-char t))
+					  ((digit-char-p o 8) (fo) (go LOOP))
+					  (t (return (make-instance 'error-lexeme)))))))
+				  ((eql o #\x) (fo)
+				   (if (or (end-of-buffer-p scan)
+					   (not (digit-char-p (object-after scan) 16)))
+				       (return (make-instance 'error-lexeme))
+				       (progn 
+					 (fo)
+					 (tagbody
+					  LOOP
+					    (when (end-of-buffer-p scan)
+					      (return (make-instance 'error-lexeme)))
+					    (let ((o (object-after scan)))
+					      (cond
+						((eql o #\\) (fo) (return-from read-quoted-char t))
+						((digit-char-p o 16) (fo) (go LOOP))
+						(t (return (make-instance 'error-lexeme)))))))))
+				  (t (return (make-instance 'error-lexeme)))))))))))
       (let ((object (object-after scan)))
 	(block nil
 	  (tagbody
@@ -173,6 +226,7 @@
 		(fo) (return (make-instance 'cut-lexeme)))
 	       ((eql object #\_) (fo) (go VARIABLE))
 	       ((upper-case-p object) (fo) (go NAMED-VARIABLE))
+	       ((eql object #\0) (fo) (go NUMBER-OR-INTEGER))
 	       ((digit-char-p object) (fo) (go NUMBER))
 	       ((eql object #\") (fo) (go CHAR-CODE-LIST))
 	       ((eql object #\()
@@ -243,14 +297,10 @@
 		   (return (make-instance 'end-lexeme)))
 		  (t (return (make-instance 'graphic-lexeme))))))
 	   QUOTED-TOKEN
-	     (loop until (end-of-buffer-p scan)
-		;; FIXME
-		until (eql (object-after scan) #\')
-		do (fo))
-	     (if (end-of-buffer-p scan)
-		 (return (make-instance 'error-lexeme))
-                 (progn (fo)
-                        (return (make-instance 'quoted-lexeme))))
+	     (loop named #:mu
+		   until (end-of-buffer-p scan)
+		   while (read-quoted-char #\'))
+	     (return (make-instance 'quoted-lexeme))
 	   VARIABLE
 	     (if (or (end-of-buffer-p scan)
                      (let ((object (object-after scan)))
@@ -265,20 +315,47 @@
                             (eql object #\_)))
 		do (fo))
 	     (return (make-instance 'named-lexeme))
+	   NUMBER-OR-INTEGER
+	     (if (end-of-buffer-p scan)
+		 (return (make-instance 'integer-lexeme))
+		 (let ((object (object-after scan)))
+		   (cond
+		     ((eql object #\') (fo) (go CHARACTER-CODE-CONSTANT))
+		     ((eql object #\b) (fo) (go BINARY-CONSTANT))
+		     ((eql object #\o) (fo) (go OCTAL-CONSTANT))
+		     ((eql object #\x) (fo) (go HEXADECIMAL-CONSTANT))
+		     ((digit-char-p object) (fo) (go NUMBER))
+		     ;; FIXME: floats
+		     (t (return (make-instance 'integer-lexeme))))))
+	   CHARACTER-CODE-CONSTANT
+	     (if (read-quoted-char #\')
+		 (return (make-instance 'character-code-constant-lexeme))
+		 (return (make-instance 'error-lexeme)))
+	   BINARY-CONSTANT
+	     (loop until (end-of-buffer-p scan)
+		   while (digit-char-p (object-after scan) 2)
+		   do (fo))
+	     (return (make-instance 'binary-constant-lexeme))
+	   OCTAL-CONSTANT
+	     (loop until (end-of-buffer-p scan)
+		   while (digit-char-p (object-after scan) 8)
+		   do (fo))
+	     (return (make-instance 'octal-constant-lexeme))
+	   HEXADECIMAL-CONSTANT
+	     (loop until (end-of-buffer-p scan)
+		   while (digit-char-p (object-after scan) 16)
+		   do (fo))
+	     (return (make-instance 'hexadecimal-constant-lexeme))
 	   NUMBER
 	     (loop until (end-of-buffer-p scan)
-		while (digit-char-p (object-after scan))
-		do (fo))
-	     (return (make-instance 'integer-lexeme))
+		   while (digit-char-p (object-after scan))
+		   do (fo))
+	     (return (make-instance 'integer-constant-lexeme))
 	   CHAR-CODE-LIST
-	     (loop until (end-of-buffer-p scan)
-		;; FIXME
-		until (eql (object-after scan) #\")
-		do (fo))
-	     (if (end-of-buffer-p scan)
-		 (return (make-instance 'error-lexeme))
-		 (progn (fo)
-			(return (make-instance 'char-code-list-lexeme))))))))))
+	     (loop named #:mu
+		   until (end-of-buffer-p scan)
+		   while (read-quoted-char #\"))
+	     (return (make-instance 'char-code-list-lexeme)))))))))
 
 ;;; parser
 
