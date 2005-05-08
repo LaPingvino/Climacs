@@ -1185,54 +1185,79 @@ as two values"
       (/= (offset mark) offset-before))))
 
 (define-named-command com-query-replace ()
-  (let* ((string1 (handler-case (accept 'string :prompt "Query replace")
+  (let* ((pane (current-window))
+	 (old-state (query-replace-state pane))
+	 (old-string1 (when old-state (string1 old-state)))
+	 (old-string2 (when old-state (string2 old-state)))
+	 (string1 (handler-case 
+		      (if old-string1
+			  (accept 'string 
+				  :prompt "Query Replace"
+				  :default old-string1
+				  :default-type 'string)
+			  (accept 'string :prompt "Query Replace"))
 		    (error () (progn (beep)
 				     (display-message "Empty string")
 				     (return-from com-query-replace nil)))))
-         (string2 (handler-case (accept 'string
-					:prompt (format nil "Query replace ~A with"
-							string1))
+         (string2 (handler-case 
+		      (if old-string2
+			  (accept 'string
+				  :prompt (format nil "Query Replace ~A with"
+						  string1)
+				  :default old-string2
+				  :default-type 'string)
+			  (accept 'string
+				  :prompt (format nil "Query Replace ~A with" string1)))
 		    (error () (progn (beep)
 				     (display-message "Empty string")
 				     (return-from com-query-replace nil)))))
-         (pane (current-window))
-         (point (point pane)))
+         (point (point pane))
+	 (occurrences 0))
+    (declare (special string1 string2 occurrences))
     (when (query-replace-find-next-match point string1)
       (setf (query-replace-state pane) (make-instance 'query-replace-state
                                                       :string1 string1
                                                       :string2 string2)
             (query-replace-mode pane) t)
+      (display-message "Query Replace ~A with ~A:"
+		       string1 string2)
       (simple-command-loop 'query-replace-climacs-table
-                           (query-replace-mode pane)
-                           ((setf (query-replace-mode pane) nil))))))
+			   (query-replace-mode pane)
+			   ((setf (query-replace-mode pane) nil))))
+    (display-message "Replaced ~A occurrence~:P" occurrences)))
 
 (define-named-command com-query-replace-replace ()
+  (declare (special string1 string2 occurrences))
   (let* ((pane (current-window))
          (point (point pane))
          (buffer (buffer pane))
-         (state (query-replace-state pane))
-         (string1-length (length (string1 state))))
+         (string1-length (length string1)))
     (backward-object point string1-length)
     (let* ((offset1 (offset point))
            (offset2 (+ offset1 string1-length))
            (region-case (buffer-region-case buffer offset1 offset2)))
       (delete-range point string1-length)
-      (insert-sequence point (string2 state))
-      (setf offset2 (+ offset1 (length (string2 state))))
+      (insert-sequence point string2)
+      (setf offset2 (+ offset1 (length string2)))
       (finish-output *error-output*)
       (case region-case
         (:upper-case (upcase-buffer-region buffer offset1 offset2))
         (:lower-case (downcase-buffer-region buffer offset1 offset2))
         (:capitalized (capitalize-buffer-region buffer offset1 offset2))))
-    (unless (query-replace-find-next-match point (string1 state))
-      (setf (query-replace-mode pane) nil))))
+    (incf occurrences)
+    (if (query-replace-find-next-match point string1)
+	(display-message "Query Replace ~A with ~A:"
+		       string1 string2)
+	(setf (query-replace-mode pane) nil))))
 
 (define-named-command com-query-replace-skip ()
+  (declare (special string1 string2))
   (let* ((pane (current-window))
-         (point (point pane))
-         (state (query-replace-state pane)))
-    (unless (query-replace-find-next-match point (string1 state))
-      (setf (query-replace-mode pane) nil))))
+         (point (point pane)))
+    (if (query-replace-find-next-match point string1)
+	(display-message "Query Replace ~A with ~A:"
+			 string1 string2)
+	(setf (query-replace-mode pane) nil))))
 
 (define-named-command com-query-replace-exit ()
   (setf (query-replace-mode (current-window)) nil))
