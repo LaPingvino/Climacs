@@ -22,6 +22,11 @@
 
 (in-package :climacs-html-syntax)
 
+(define-syntax html-syntax ("HTML" (basic-syntax))
+  ((lexer :reader lexer)
+   (valid-parse :initform 1)
+   (parser)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; grammar classes
@@ -39,6 +44,31 @@
   ((ink) (face)))
 
 (defclass html-tag (html-token) ())
+
+(defclass html-start-tag (html-tag)
+  ((start :initarg :start)
+   (name :initarg :name)
+   (attributes :initform nil :initarg :attributes)
+   (end :initarg :end)))
+
+(defmethod display-parse-tree ((entity html-start-tag) (syntax html-syntax) pane)
+  (with-slots (start name attributes end) entity
+    (display-parse-tree start syntax pane)
+    (display-parse-tree name syntax pane)
+    (unless (null attributes)
+      (display-parse-tree attributes syntax pane))
+    (display-parse-tree end syntax pane)))
+
+(defclass html-end-tag (html-tag)
+  ((start :initarg :start)
+   (name :initarg :name)
+   (end :initarg :end)))
+
+(defmethod display-parse-tree ((entity html-end-tag) (syntax html-syntax) pane)
+  (with-slots (start name attributes end) entity
+    (display-parse-tree start syntax pane)
+    (display-parse-tree name syntax pane)
+    (display-parse-tree end syntax pane)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -74,19 +104,15 @@
 		 (t
 		  (fo) (make-instance 'delimiter))))))))
 
-(define-syntax html-syntax ("HTML" (basic-syntax))
-  ((lexer :reader lexer)
-   (valid-parse :initform 1)
-   (parser)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; parser
 
 (defparameter *html-grammar* (grammar))
 
-(defmacro add-html-rule (rule)
-  `(add-rule (grammar-rule ,rule) *html-grammar*))
+(defmacro add-html-rule (rule &key predict-test)
+  `(add-rule (grammar-rule ,rule :predict-test ,predict-test)
+	     *html-grammar*))
 
 (defun word-is (word string)
   (string-equal (coerce (buffer-sequence (buffer word) (start-offset word) (end-offset word)) 'string)
@@ -94,23 +120,27 @@
 
 (defmacro define-start-tag (name string)
   `(progn
-     (defclass ,name (html-tag) ())
+     (defclass ,name (html-start-tag) ())
 
      (add-html-rule
       (,name -> (start-tag-start
 		 (word (and (= (end-offset start-tag-start) (start-offset word))
 			    (word-is word ,string)))
-		 (tag-end (= (end-offset word) (start-offset tag-end))))))))
+		 (tag-end (= (end-offset word) (start-offset tag-end))))
+	     :start start-tag-start :name word :end tag-end))))
 
 (defmacro define-end-tag (name string)
   `(progn
-     (defclass ,name (html-tag) ())
+     (defclass ,name (html-end-tag) ())
 
      (add-html-rule
       (,name -> (end-tag-start
 		 (word (and (= (end-offset end-tag-start) (start-offset word))
 			    (word-is word ,string)))
-		 (tag-end (= (end-offset word) (start-offset tag-end))))))))
+		 (tag-end (= (end-offset word) (start-offset tag-end))))
+	     :start end-tag-start :name word :end tag-end)
+      :predict-test (lambda (token)
+		      (typep token 'end-tag-start)))))
 
 (defmacro define-tag-pair (start-name end-name string)
   `(progn (define-start-tag ,start-name ,string)
@@ -310,7 +340,9 @@
 (defclass $inline (html-nonterminal)
   ((contents :initarg :contents)))
      
-(add-html-rule ($inline -> (inline-element) :contents inline-element))
+(add-html-rule ($inline -> (inline-element) :contents inline-element)
+	       :predict-test (lambda (token)
+			       (typep token 'start-tag-start)))
 (add-html-rule ($inline -> (word) :contents word))
 (add-html-rule ($inline -> (delimiter) :contents delimiter))
 
@@ -326,7 +358,9 @@
   ((contents :initarg :contents)))
      
 (add-html-rule ($flow -> ($inline) :contents $inline))
-(add-html-rule ($flow -> (block-level-element) :contents block-level-element))
+(add-html-rule ($flow -> (block-level-element) :contents block-level-element)
+	       :predict-test (lambda (token)
+			       (typep token 'start-tag-start)))
 
 (defmethod display-parse-tree ((entity $flow) (syntax html-syntax) pane)
   (with-slots (contents) entity
@@ -379,11 +413,7 @@
 
 (define-list <a>-attributes <a>-attribute)
 
-(defclass <a> (html-tag)
-  ((start :initarg :start)
-   (name :initarg :name)
-   (attributes :initarg :attributes)
-   (end :initarg :end)))
+(defclass <a> (html-start-tag) ())
 
 (add-html-rule (<a> -> (start-tag-start
 			(word (and (= (end-offset start-tag-start) (start-offset word))
@@ -391,13 +421,6 @@
 			<a>-attributes
 			tag-end)
 		    :start start-tag-start :name word :attributes <a>-attributes :end tag-end))
-
-(defmethod display-parse-tree ((entity <a>) (syntax html-syntax) pane)
-  (with-slots (start name attributes end) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree name syntax pane)
-    (display-parse-tree attributes syntax pane)
-    (display-parse-tree end syntax pane)))
 
 (define-end-tag </a> "a")
 
@@ -431,11 +454,7 @@
 
 ;;;;;;;;;;;;;;; p element
 
-(defclass <p> (html-tag)
-  ((start :initarg :start)
-   (name :initarg :name)
-   (attributes :initarg :attributes)
-   (end :initarg :end)))
+(defclass <p> (html-start-tag) ())
 
 (add-html-rule (<p> -> (start-tag-start
 			(word (and (= (end-offset start-tag-start) (start-offset word))
@@ -443,13 +462,6 @@
 			common-attributes
 			tag-end)
 		    :start start-tag-start :name word :attributes common-attributes :end tag-end))
-
-(defmethod display-parse-tree ((entity <p>) (syntax html-syntax) pane)
-  (with-slots (start name attributes end) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree name syntax pane)
-    (display-parse-tree attributes syntax pane)
-    (display-parse-tree end syntax pane)))
 
 (define-end-tag </p> "p")
 
@@ -469,11 +481,7 @@
 
 ;;;;;;;;;;;;;;; li element
 
-(defclass <li> (html-tag)
-  ((start :initarg :start)
-   (name :initarg :name)
-   (attributes :initarg :attributes)
-   (end :initarg :end)))
+(defclass <li> (html-start-tag) ())
 
 (add-html-rule (<li> -> (start-tag-start
 			 (word (and (= (end-offset start-tag-start) (start-offset word))
@@ -484,13 +492,6 @@
 		     :name word
 		     :attributes common-attributes
 		     :end tag-end))
-
-(defmethod display-parse-tree ((entity <li>) (syntax html-syntax) pane)
-  (with-slots (start name attributes end) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree name syntax pane)
-    (display-parse-tree attributes syntax pane)
-    (display-parse-tree end syntax pane)))
 
 (define-end-tag </li> "li")
 
@@ -513,11 +514,7 @@
 
 ;;;;;;;;;;;;;;; ul element
 
-(defclass <ul> (html-tag)
-  ((start :initarg :start)
-   (name :initarg :name)
-   (attributes :initarg :attributes)
-   (end :initarg :end)))
+(defclass <ul> (html-start-tag) ())
 
 (add-html-rule (<ul> -> (start-tag-start
 			 (word (and (= (end-offset start-tag-start) (start-offset word))
@@ -528,13 +525,6 @@
 		     :name word
 		     :attributes common-attributes
 		     :end tag-end))
-
-(defmethod display-parse-tree ((entity <ul>) (syntax html-syntax) pane)
-  (with-slots (start name attributes end) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree name syntax pane)
-    (display-parse-tree attributes syntax pane)
-    (display-parse-tree end syntax pane)))
 
 (define-end-tag </ul> "ul")
 
@@ -624,11 +614,7 @@
 
 (define-list <html>-attributes <html>-attribute)
 
-(defclass <html> (html-tag)
-  ((start :initarg :start)
-   (name :initarg :name)
-   (attributes :initarg :attributes)
-   (end :initarg :end)))
+(defclass <html> (html-start-tag) ())
 
 (add-html-rule (<html> -> (start-tag-start
 			   (word (and (= (end-offset start-tag-start) (start-offset word))
@@ -636,13 +622,6 @@
 			   <html>-attributes
 			   tag-end)
 		       :start start-tag-start :name word :attributes <html>-attributes :end tag-end))
-
-(defmethod display-parse-tree ((entity <html>) (syntax html-syntax) pane)
-  (with-slots (start name attributes end) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree name syntax pane)
-    (display-parse-tree attributes syntax pane)
-    (display-parse-tree end syntax pane)))
 
 (define-end-tag </html> "html")
 
@@ -736,13 +715,14 @@
      (when (and (end-offset entity) (mark> (end-offset entity) top))
        (call-next-method))))
 
-(defmethod display-parse-tree ((entity html-token) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity html-lexeme) (syntax html-syntax) pane)
   (flet ((cache-test (t1 t2)
-	   (and (eq t1 t2)
-		(eq (slot-value t1 'ink)
-		    (medium-ink (sheet-medium pane)))
-		(eq (slot-value t1 'face)
-		    (text-style-face (medium-text-style (sheet-medium pane)))))))
+	   (let ((result (and (eq t1 t2)
+			      (eq (slot-value t1 'ink)
+				  (medium-ink (sheet-medium pane)))
+			      (eq (slot-value t1 'face)
+				  (text-style-face (medium-text-style (sheet-medium pane)))))))
+	     result)))
     (updating-output (pane :unique-id entity
 			   :id-test #'eq
 			   :cache-value entity
@@ -761,7 +741,7 @@
   (with-drawing-options (pane :ink +green4+)
     (call-next-method)))
 
-(defmethod display-parse-tree :before ((entity html-token) (syntax html-syntax) pane)
+(defmethod display-parse-tree :before ((entity html-lexeme) (syntax html-syntax) pane)
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
   (setf *white-space-start* (end-offset entity)))
 

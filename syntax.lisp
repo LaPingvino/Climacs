@@ -205,6 +205,7 @@ position in the lexemes of LEXER"
   ((left-hand-side :initarg :left-hand-side :reader left-hand-side)
    (right-hand-side :initarg :right-hand-side :reader right-hand-side)
    (symbols :initarg :symbols :reader symbols)
+   (predict-test :initarg :predict-test :reader predict-test)
    (number)))
 
 (defclass grammar ()
@@ -212,7 +213,7 @@ position in the lexemes of LEXER"
    (hash :initform (make-hash-table) :accessor hash)
    (number-of-rules :initform 0)))
 
-(defmacro grammar-rule ((left-hand-side arrow arglist &body body))
+(defmacro grammar-rule ((left-hand-side arrow arglist &body body) &key predict-test)
   (declare (ignore arrow))
   (labels ((var-of (arg)
 	     (if (symbolp arg)
@@ -244,7 +245,8 @@ position in the lexemes of LEXER"
 			     (symbolp (car body)))
 			 `(make-instance ',left-hand-side ,@body)
 			 `(progn ,@body)))
-	:symbols ,(coerce (mapcar #'sym-of arglist) 'vector))))
+	:symbols ,(coerce (mapcar #'sym-of arglist) 'vector)
+	:predict-test ,predict-test)))
 
 
 (defmacro grammar (&body body)
@@ -308,14 +310,15 @@ position in the lexemes of LEXER"
     (cond ((null remaining)
 	   nil)
 	  ((functionp remaining)
-	   (handle-incomplete-item (make-instance 'incomplete-item
-				      :orig-state (orig-state prev-item)
-				      :predicted-from (predicted-from prev-item)
-				      :rule (rule prev-item)
-				      :dot-position (1+ (dot-position prev-item))
-				      :parse-trees (cons parse-tree (parse-trees prev-item))
-				      :suffix remaining)
-				   orig-state to-state))
+	   (handle-incomplete-item
+	    (make-instance 'incomplete-item
+	       :orig-state (orig-state prev-item)
+	       :predicted-from (predicted-from prev-item)
+	       :rule (rule prev-item)
+	       :dot-position (1+ (dot-position prev-item))
+	       :parse-trees (cons parse-tree (parse-trees prev-item))
+	       :suffix remaining)
+	    orig-state to-state))
 	  (t
 	   (let* ((parse-trees (cons parse-tree (parse-trees prev-item)))
 		  (start (find-if-not #'null parse-trees
@@ -389,30 +392,45 @@ position in the lexemes of LEXER"
 	    (t (push parse-tree (gethash from-state parse-trees))
 	       (handle-parse-tree))))))
 
+(defun predict (item state tokens)
+  (dolist (rule (gethash (aref (symbols (rule item)) (dot-position item))
+			 (hash (parser-grammar (parser state)))))
+    (if (functionp (right-hand-side rule))
+	(let ((predicted-rules (slot-value state 'predicted-rules))
+	      (rule-number (slot-value rule 'number))
+	      (predict-test (predict-test rule)))
+	  (when (zerop (sbit predicted-rules rule-number))
+	    (setf (sbit predicted-rules rule-number) 1)
+	    (when (or (null predict-test)
+		      (some predict-test tokens))
+	      (handle-and-predict-incomplete-item
+	       (make-instance 'incomplete-item
+		  :orig-state state
+		  :predicted-from item
+		  :rule rule
+		  :dot-position 0
+		  :suffix (right-hand-side rule))
+	       state tokens))))
+	(potentially-handle-parse-tree (right-hand-side rule) state state)))
+  (loop for parse-tree in (gethash state (parse-trees state))
+	do (derive-and-handle-item item parse-tree state state)))
+
 (defun handle-incomplete-item (item orig-state to-state)
   (declare (optimize speed))
   (cond ((find item (the list (gethash orig-state (incomplete-items to-state)))
  	       :test #'item-equal)
 	  nil)
  	(t
- 	 (push item (gethash orig-state (incomplete-items to-state)))
-	 (dolist (rule (gethash (aref (symbols (rule item)) (dot-position item))
-				(hash (parser-grammar (parser to-state)))))
-	   (if (functionp (right-hand-side rule))
-	       (let ((predicted-rules (slot-value to-state 'predicted-rules))
-		     (rule-number (slot-value rule 'number)))
-		 (when (zerop (sbit predicted-rules rule-number))
-		   (setf (sbit predicted-rules rule-number) 1)
-		   (handle-incomplete-item (make-instance 'incomplete-item
-					      :orig-state to-state
-					      :predicted-from item
-					      :rule rule
-					      :dot-position 0
-					      :suffix (right-hand-side rule))
-					   to-state to-state)))
-	       (potentially-handle-parse-tree (right-hand-side rule) to-state to-state)))
-	 (loop for parse-tree in (gethash to-state (parse-trees to-state))
- 	       do (derive-and-handle-item item parse-tree to-state to-state)))))
+ 	 (push item (gethash orig-state (incomplete-items to-state))))))
+
+(defun handle-and-predict-incomplete-item (item state tokens)
+  (declare (optimize speed))
+  (cond ((find item (the list (gethash state (incomplete-items state)))
+ 	       :test #'item-equal)
+	  nil)
+ 	(t
+ 	 (push item (gethash state (incomplete-items state)))
+	 (predict item state tokens))))
 
 (defmethod initialize-instance :after ((parser parser) &rest args)
   (declare (ignore args))
@@ -424,13 +442,14 @@ position in the lexemes of LEXER"
 		      (or (subtypep (target parser) sym)
 			  (subtypep sym (target parser))))
 		(if (functionp (right-hand-side rule))
-		    (handle-incomplete-item (make-instance 'incomplete-item
-					       :orig-state initial-state
-					       :predicted-from nil
-					       :rule rule
-					       :dot-position 0
-					       :suffix (right-hand-side rule))
-					    initial-state initial-state)
+		    (handle-incomplete-item
+		     (make-instance 'incomplete-item
+			:orig-state initial-state
+			:predicted-from nil
+			:rule rule
+			:dot-position 0
+			:suffix (right-hand-side rule))
+		     initial-state initial-state)
 		    (potentially-handle-parse-tree
 		     (right-hand-side rule) initial-state initial-state))))))
 
@@ -442,6 +461,11 @@ position in the lexemes of LEXER"
 	  do (return parse-tree)))
 
 (defun advance-parse (parser tokens state)
+  (maphash (lambda (from-state items)
+	     (declare (ignore from-state))
+	     (dolist (item items)
+	       (predict item state tokens)))
+	   (incomplete-items state))
   (let ((new-state (make-instance 'parser-state :parser parser)))
     (loop for token in tokens 
 	  do (potentially-handle-parse-tree token state new-state))
