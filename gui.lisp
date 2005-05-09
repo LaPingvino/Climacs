@@ -741,13 +741,14 @@
 (define-named-command (com-quit) ()
   (loop for buffer in (buffers *application-frame*)
 	when (and (needs-saving buffer)
+		  (filename buffer)
 		  (handler-case (accept 'boolean
 					:prompt (format nil "Save buffer: ~a ?" (name buffer)))
 		    (error () (progn (beep)
 				     (display-message "Invalid answer")
 				     (return-from com-quit nil)))))
 	  do (save-buffer buffer))
-  (when (or (notany #'needs-saving
+  (when (or (notany #'(lambda (buffer) (and (needs-saving buffer) (filename buffer)))
 		    (buffers *application-frame*))
 	    (handler-case (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?")
 	      (error () (progn (beep)
