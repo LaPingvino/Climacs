@@ -53,6 +53,8 @@
 (defclass paren-close (cl-lexeme) ())
 (defclass comma (cl-lexeme) ())
 (defclass quote-symbol (cl-lexeme) ())
+(defclass colon (cl-lexeme) ())
+(defclass ampersand (cl-lexeme) ())
 (defclass double-quote (cl-lexeme) ())
 (defclass hex (cl-lexeme) ())
 (defclass pipe (cl-lexeme) ())
@@ -78,6 +80,8 @@
 	(#\, (fo) (make-instance 'comma))
 	(#\" (fo) (make-instance 'double-quote)) 
 	(#\' (fo) (make-instance 'quote-symbol))
+	(#\: (fo) (make-instance 'colon))
+        (#\& (fo) (make-instance 'ampersand))
 	(#\# (fo) (make-instance 'hex))
 	(#\| (fo) (make-instance 'pipe))
 	(#\` (fo) (make-instance 'backquote))
@@ -115,7 +119,7 @@
 (defun neutralcharp (var)
   (and (characterp var)
        (not (member var '(#\( #\) #\, #\" #\' #\# #\| #\` #\@ #\; #\\
-			  #\/ #\. #\+ #\- #\Newline #\Space #\Tab)
+			  #\: #\/ #\Newline #\Space #\Tab)
 		    :test #'char=))))
 
 
@@ -783,6 +787,98 @@
       (display-parse-tree start syntax pane))
     (display-parse-tree item syntax pane))) 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Qualified symbols
+
+;; XXX: There's a bit of duplication going on here. I'm not sure if
+;; that could be reduced by clever inheritance. But then, it's only
+;; OAOOM.
+
+(defclass qualified-symbol (cl-entry)
+     ((package-name :initarg :package-name)
+      (colon1 :initarg :colon1)
+      (colon2 :initarg :colon2)
+      (symbol-name :initarg :symbol-name)))
+
+(defclass qualified-exported-symbol (cl-entry)
+     ((package-name :initarg :package-name)
+      (colon :initarg :colon)
+      (symbol-name :initarg :symbol-name)))
+
+(add-cl-rule (qualified-symbol -> ((package-name default-item)
+                                   (colon1 colon (= (end-offset package-name)
+                                                    (start-offset colon1)))
+                                   (colon2 colon (= (end-offset colon1)
+                                                    (start-offset colon2)))
+                                   (symbol-name default-item (= (end-offset colon2)
+                                                                (start-offset symbol-name))))
+                             :package-name package-name
+                             :colon1 colon1
+                             :colon2 colon2
+                             :symbol-name symbol-name))
+
+(add-cl-rule (qualified-exported-symbol -> ((package-name default-item)
+                                            (colon colon (= (end-offset package-name)
+                                                            (start-offset colon)))
+                                            (symbol-name default-item (= (end-offset colon)
+                                                                         (start-offset symbol-name))))
+                                        :package-name package-name
+                                        :colon colon
+                                        :symbol-name symbol-name))
+
+(defmethod display-parse-tree ((entity qualified-symbol) (syntax cl-syntax) pane)
+  (with-slots (package-name colon1 colon2 symbol-name) entity
+       (with-drawing-options (pane :text-style (make-text-style :fix :bold nil) :ink +purple+)
+         (display-parse-tree package-name syntax pane)     
+         (display-parse-tree colon1 syntax pane)
+         (display-parse-tree colon2 syntax pane))
+       (display-parse-tree symbol-name syntax pane)))
+
+(defmethod display-parse-tree ((entity qualified-exported-symbol) (syntax cl-syntax) pane)
+  (with-slots (package-name colon symbol-name) entity
+     (display-parse-tree package-name syntax pane)
+       (with-drawing-options (pane :ink (make-rgb-color 0.0 0.0 1.0))
+         (display-parse-tree colon syntax pane))
+       (display-parse-tree symbol-name syntax pane)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Keyword symbols
+
+(defclass keyword-symbol (cl-entry)
+     ((start :initarg :start)
+      (item :initarg :item)))
+
+(add-cl-rule (keyword-symbol -> ((start colon)
+                                 (item identifier))
+                             :start start :item item))
+
+(defmethod display-parse-tree ((entity keyword-symbol) (syntax cl-syntax) pane)
+  (with-slots (start item) entity
+     (with-text-face (pane :bold)
+       (display-parse-tree start syntax pane)
+       (display-parse-tree item syntax pane))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Lambda list Keywords
+
+(defclass lambda-list-keyword (cl-entry)
+     ((start :initarg :start)
+      (item :initarg :item)))
+
+(add-cl-rule (lambda-list-keyword -> ((start ampersand)
+                                      (item default-item (and
+                                                          (= (end-offset start)
+                                                             (start-offset item))
+                                                          (member item
+                                                                  '( ;; ordinary LLs
+                                                                    "optional" "rest" "key" "aux" "allow-other-keys"
+                                                                    ;; macro LLs
+                                                                    "body" "whole" "environment")
+                                                                  :test #'default-item-is))))
+                                  :start start :item item))
+
+(defmethod display-parse-tree ((entity lambda-list-keyword) (syntax cl-syntax) pane)
+  (with-slots (start item) entity
+     (with-drawing-options (pane :ink +blue+)
+       (display-parse-tree start syntax pane)
+       (display-parse-tree item syntax pane))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Backquoted expr
 
@@ -850,6 +946,10 @@
 (add-cl-rule (cl-terminal -> (balanced-comment) :item balanced-comment))
 (add-cl-rule (cl-terminal -> (cl-string) :item cl-string))
 (add-cl-rule (cl-terminal -> (quoted-expr) :item quoted-expr))
+(add-cl-rule (cl-terminal -> (keyword-symbol) :item keyword-symbol))
+(add-cl-rule (cl-terminal -> (lambda-list-keyword) :item lambda-list-keyword))
+(add-cl-rule (cl-terminal -> (qualified-symbol) :item qualified-symbol))
+(add-cl-rule (cl-terminal -> (qualified-exported-symbol) :item qualified-exported-symbol))
 (add-cl-rule (cl-terminal -> (backquoted-expr) :item backquoted-expr))
 (add-cl-rule (cl-terminal -> (char-item) :item char-item))
 (add-cl-rule (cl-terminal -> (unquoted-expr) :item unquoted-expr))
@@ -925,19 +1025,21 @@
 (defun handle-whitespace (pane buffer start end)
   (let ((space-width (space-width pane))
 	(tab-width (tab-width pane)))
-    (loop while (< start end)
-       do (ecase (buffer-object buffer start)
-	    (#\Newline (terpri pane)
-		       (setf (aref *cursor-positions* (incf *current-line*))
-			     (multiple-value-bind (x y) (stream-cursor-position pane)
-			       (declare (ignore x))
-			       y)))
-	    (#\Space (stream-increment-cursor-position
-		      pane space-width 0))
-	    (#\Tab (let ((x (stream-cursor-position pane)))
-		     (stream-increment-cursor-position
-		      pane (- tab-width (mod x tab-width)) 0))))
-	 (incf start))))		    
+    (loop while (and (< start end)
+                     (whitespacep (buffer-object buffer start)))
+          do (ecase (buffer-object buffer start)
+               (#\Newline (terpri pane)
+                          (setf (aref *cursor-positions* (incf *current-line*))
+                                (multiple-value-bind (x y) (stream-cursor-position pane)
+                                  (declare (ignore x))
+                                  y)))
+               (#\Space (stream-increment-cursor-position
+                         pane space-width 0))
+               (#\Tab (let ((x (stream-cursor-position pane)))
+                        (stream-increment-cursor-position
+                         pane (- tab-width (mod x tab-width)) 0)))
+               (#\Page nil))
+	 (incf start))))
 
 (defmethod display-parse-tree :around ((entity cl-parse-tree) syntax pane)
   (with-slots (top bot) pane
