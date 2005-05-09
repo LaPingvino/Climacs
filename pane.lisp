@@ -196,6 +196,7 @@
 (defclass climacs-buffer (delegating-buffer filepath-mixin name-mixin)
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :accessor syntax)
+   (point :initform nil :initarg :point :accessor point)
    (indent-tabs-mode :initarg indent-tabs-mode :initform t
                      :accessor indent-tabs-mode))
   (:default-initargs
@@ -204,13 +205,14 @@
 
 (defmethod initialize-instance :after ((buffer climacs-buffer) &rest args)
   (declare (ignore args))
-  (with-slots (syntax) buffer
+  (with-slots (syntax point) buffer
      (setf syntax (make-instance
-		   'basic-syntax :buffer (implementation buffer)))))
+		   'basic-syntax :buffer (implementation buffer))
+	   point (clone-mark (low-mark buffer) :right))))
 
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
-   (point :initform nil :initarg :point :reader point)
+   (point :initform nil :initarg :point :accessor point)
    (mark :initform nil :initarg :mark :accessor mark)
    (top :reader top)
    (bot :reader bot)
@@ -240,6 +242,7 @@
 (defmethod initialize-instance :after ((pane climacs-pane) &rest args)
   (declare (ignore args))
   (with-slots (buffer point mark) pane
+     (setf point (clone-mark (point buffer)))
      (when (null point)
        (setf point (clone-mark (low-mark buffer) :right)))
      (when (null mark)
@@ -256,7 +259,7 @@
 
 (defmethod (setf buffer) :after (buffer (pane climacs-pane))
   (with-slots (point mark top bot) pane
-       (setf point (clone-mark (low-mark buffer) :right)
+       (setf point (clone-mark (point buffer))
 	     mark (clone-mark (low-mark buffer) :right)
 	     top (clone-mark (low-mark buffer) :left)
 	     bot (clone-mark (high-mark buffer) :right))))

@@ -704,6 +704,7 @@
 			  :prompt "Find File"))
 	(buffer (make-instance 'climacs-buffer))
 	(pane (current-window)))
+    (setf (point (buffer pane)) (clone-mark (point pane)))
     (push buffer (buffers *application-frame*))
     (setf (buffer (current-window)) buffer)
     (setf (syntax buffer) (make-instance
@@ -787,6 +788,7 @@
   (let ((buffer (accept 'buffer
 			:prompt "Switch to buffer"))
 	(pane (current-window)))
+    (setf (point (buffer pane)) (clone-mark (point pane)))
     (setf (buffer pane) buffer)
     (full-redisplay pane)))
 
@@ -966,7 +968,8 @@ as two values"
     (multiple-value-bind (vbox new-pane) (make-pane-constellation)
       (let* ((current-window (current-window))
 	     (constellation-root (parent3 current-window)))
-        (setf (buffer new-pane) (buffer current-window)
+        (setf (point (buffer current-window)) (clone-mark (point current-window))
+	      (buffer new-pane) (buffer current-window)
               (auto-fill-mode new-pane) (auto-fill-mode current-window)
               (auto-fill-column new-pane) (auto-fill-column current-window))
 	(push new-pane (windows *application-frame*))
@@ -980,7 +983,8 @@ as two values"
     (multiple-value-bind (vbox new-pane) (make-pane-constellation)
       (let* ((current-window (current-window))
 	     (constellation-root (parent3 current-window)))
-        (setf (buffer new-pane) (buffer current-window)
+        (setf (point (buffer current-window)) (clone-mark (point current-window))
+	      (buffer new-pane) (buffer current-window)
               (auto-fill-mode new-pane) (auto-fill-mode current-window)
               (auto-fill-column new-pane) (auto-fill-column current-window))
 	(push new-pane (windows *application-frame*))
