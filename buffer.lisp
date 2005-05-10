@@ -1,3 +1,35 @@
+;;; -*- Mode: Lisp; Package: CLIMACS-BUFFER -*-
+
+;;;  (c) copyright 2004-2005 by
+;;;           Robert Strandh (strandh at labri.fr)
+;;;  (c) copyright 2004-2005 by
+;;;           Elliott Johnson (ejohnson at fasl.info)
+;;;  (c) copyright 2005 by
+;;;           Matthieu Villeneuve (matthieu.villeneuve at free.fr)
+
+;;; This library is free software; you can redistribute it and/or
+;;; modify it under the terms of the GNU Library General Public
+;;; License as published by the Free Software Foundation; either
+;;; version 2 of the License, or (at your option) any later version.
+;;;
+;;; This library is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; Library General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU Library General Public
+;;; License along with this library; if not, write to the
+;;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+;;; Boston, MA  02111-1307  USA.
+
+;;; A not-so-stupid implementation of the buffer protocol.  This
+;;; implementation serves two purposes: First, so that higher-level
+;;; functionality can be built on top of a working implementation of
+;;; the buffer protocol, and second, to use as a comparison for
+;;; testing a new, better implementation of the buffer protocol.
+
+(in-package :climacs-buffer)
+
 (defclass buffer () ()
   (:documentation "A base class for all buffers. A buffer conceptually contains a
 large array of arbitrary objects.  Lines of objects are separated by
