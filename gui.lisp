@@ -721,6 +721,20 @@
     ;; resets the low and high marks after redisplay
     (redisplay-frame-panes *application-frame*)))
 
+(define-named-command com-insert-file ()
+  (let ((filename (accept 'completable-pathname
+			  :prompt "Insert File"))
+	(pane (current-window)))
+    (when (probe-file filename)
+      (setf (mark pane) (clone-mark (point pane) :left))
+      (with-open-file (stream filename :direction :input)
+	(input-from-stream stream
+			   (buffer pane)
+			   (offset (point pane))))
+      (psetf (offset (mark pane)) (offset (point pane))
+	     (offset (point pane)) (offset (mark pane))))
+    (redisplay-frame-panes *application-frame*)))
+
 (defun save-buffer (buffer)
   (let ((filepath (or (filepath buffer)
 		      (accept 'completable-pathname
@@ -1458,6 +1472,7 @@ as two values"
 (c-x-set-key '(#\e) 'com-call-last-kbd-macro)
 (c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
+(c-x-set-key '(#\i) 'com-insert-file)
 (c-x-set-key '(#\k) 'com-kill-buffer)
 (c-x-set-key '(#\l :control) 'com-load-file)
 (c-x-set-key '(#\o) 'com-other-window)
