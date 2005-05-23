@@ -64,6 +64,7 @@
    "cl-syntax"
    "html-syntax"
    "prolog-syntax"
+   "ttcn3-syntax"
    "gui"
    ;;---- optional ----
    "testing/rt"
