@@ -61,4 +61,5 @@
      (climacs-buffer::cursors buffer)
      #'(lambda (c) (flexichain::weak-pointer-value c buffer))
      #'(lambda (wpc)
-	 (setf (cursor-pos wpc) (min (cursor-pos wpc) (1- (size buffer))))))))
+	 (setf (cursor-pos wpc)
+	       (max 0 (min (cursor-pos wpc) (1- (size buffer)))))))))
