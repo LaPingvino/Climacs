@@ -29,11 +29,18 @@
 (define-syntax prolog-syntax (basic-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
-   (parser))
+   (parser)
+   (operator-directives :initform nil :accessor operator-directives))
   (:name "Prolog")
   (:pathname-types "pl"))
 
 (defparameter *prolog-grammar* (grammar))
+
+;;; *THIS-SYNTAX* is bound around calls to the parser, so that the
+;;; parser rules can update the operator directive table.  Possibly
+;;; this functionality ought to be offered by the syntax module
+;;; itself?
+(defvar *this-syntax*)
 
 (defmacro define-prolog-rule ((&rest rule) &body body)
   `(add-rule (grammar-rule (,@rule ,@body)) *prolog-grammar*))
@@ -431,6 +438,8 @@
    (open-ct :initarg :open-ct :accessor open-ct)
    (arg-list :initarg :arg-list :accessor arg-list)
    (close :initarg :close :accessor close)))
+(defmethod arity ((f functional-compound-term))
+  (arg-list-length (arg-list f)))
 (defclass bracketed-term (term)
   ((open :initarg :open :accessor open)
    (term :initarg :term :accessor term)
@@ -563,6 +572,16 @@
 (defclass arg-list-pair (arg-list)
   ((comma :initarg :comma :accessor comma)
    (arg-list :initarg :arg-list :accessor arg-list)))
+(defmethod arg-list-length ((a arg-list))
+  1)
+(defmethod arg-list-length ((a arg-list-pair))
+  ;; Hoho.  See also Felleisen (ECOOP 2004) about TRE and OO.
+  (1+ (arg-list-length (arg-list a))))
+
+(defmethod arg-list-nth (n (a arg-list))
+  (if (= n 0)
+      (exp a)
+      (arg-list-nth (1- n) (arg-list a))))
 
 (defmethod display-parse-tree ((entity arg-list) (syntax prolog-syntax) pane)
   (display-parse-tree (exp entity) syntax pane))
@@ -666,10 +685,83 @@
   (display-parse-tree (comma entity) syntax pane)
   (display-parse-tree (tlist entity) syntax pane))
 
+;;; FIXME FIXME FIXME!!!
+;;;
+;;; This is a band-aid for not having taken the time to sort out an
+;;; LTERM "protocol".  I think the proper solution is to
+;;;
+;;; * make an "encapsulating-lterm" subclass of lterm, and use it in
+;;; the lterm -> term rule;
+;;;
+;;; * for all the relevant questions we can ask of terms
+;;; (COMPOUND-TERM-P, ARITY, FUNCTOR, NUMERIC-CONSTANT-P, and so on)
+;;; implement methods which do the right thing for this
+;;; encapsulating-lterm class, and also for bracketed-term.
+;;;
+;;; this SLOT-MISSING hack will cause pain later.  Please FIXME.
+;;;
+;;; CSR, 2005-05-26.
+(defmethod slot-missing (class (lterm lterm) name operation &optional value)
+  (case operation
+    (slot-value (slot-value (term lterm) name))))
+
 ;;; 6.2.1
+(defun op/3-directive-p (directive)
+  (with-slots (directive-term) directive
+    (with-slots (term) directive-term
+      (with-slots (right) term
+	(and (compound-term-p right)
+	     (string= (canonical-name (functor right)) "op")
+	     (= (arity right) 3))))))
+
+(defun op/3-directive-priority (directive)
+  (with-slots (directive-term) directive
+    (with-slots (term) directive-term
+      (with-slots (right) term
+	(let* ((a (arg-list right))
+	       ;; FIXME: error-checking
+	       (exp (arg-list-nth 0 a))
+	       (term (term exp)))
+	  (when (numeric-constant-p term)
+	    (let ((value (numeric-constant-value term)))
+	      (and (<= 0 value 1200) value))))))))
+
+(defun op/3-directive-specifier (directive)
+  (with-slots (directive-term) directive
+    (with-slots (term) directive-term
+      (with-slots (right) term
+	(let* ((a (arg-list right))
+	       (exp (arg-list-nth 1 a))
+	       (term (term exp)))
+	  (let ((string (coerce (buffer-sequence (buffer term)
+						 (start-offset term)
+						 (end-offset term))
+				'string)))
+	    (cdr (assoc string '(("fx" . :fx) ("fy" . :fy)
+				 ("xfx" . :xfx) ("xfy" . :xfy) ("yfx" . :yfx)
+				 ("xf" . :xf) ("yf" . :yf))
+			:test #'string=))))))))
+
+(defun op/3-directive-operator (directive)
+  (with-slots (directive-term) directive
+    (with-slots (term) directive-term
+      (with-slots (right) term
+	(let* ((a (arg-list right))
+	       (exp (arg-list-nth 2 a))
+	       (term (term exp)))
+	  (let ((value (slot-value term 'value)))
+	    (when (typep value 'atom)
+	      (canonical-name value))))))))
+	   
 (define-prolog-rule (prolog-text -> (prolog-text directive))
+  (when (and (op/3-directive-p directive)
+	     (op/3-directive-priority directive)
+	     (op/3-directive-specifier directive)
+	     (op/3-directive-operator directive))
+    ;; FIXME: argh.
+    (push directive (operator-directives *this-syntax*)))
   (make-instance 'directive-prolog-text :directive directive
-                 :text-rest prolog-text))
+		 :text-rest prolog-text))
 (define-prolog-rule (prolog-text -> (prolog-text clause))
   (make-instance 'clause-prolog-text :clause clause :text-rest prolog-text))
 (define-prolog-rule (prolog-text -> ())
@@ -906,8 +998,15 @@
                        *predefined-operators*)
         :key #'opspec-name :test #'string=))
 (defun find-defined-operator (name specifiers)
-  (declare (ignore name specifiers))
-  nil)
+  (let ((operator-directives (operator-directives *this-syntax*)))
+    (dolist (d operator-directives)
+      (when (> (start-offset name) (end-offset d))
+	(when (string= (canonical-name name) (op/3-directive-operator d))
+	  (when (member (op/3-directive-specifier d) specifiers)
+	    (return (make-opspec :name (op/3-directive-operator d)
+				 :priority (op/3-directive-priority d)
+				 :specifier (op/3-directive-specifier d)))))))))
+		       
 (defun operatorp (name)
   (or (find-predefined-operator name '(:xf :yf :fx :fx :xfx :xfy :yfx))
       (find-defined-operator name '(:xf :yf :fx :fx :xfx :xfy :yfx))))
@@ -921,12 +1020,20 @@
    'string))
 
 (defun numeric-constant-p (thing)
-  (and (typep thing 'constant-term)
-       (let ((value (value thing)))
-         (or (typep value 'integer)
-             (and (consp value)
-                  (typep (car value) 'atom)
-                  (typep (cadr value) 'integer))))))
+  (if (typep thing 'lterm)
+      (numeric-constant-p (term thing))
+      (and (typep thing 'constant-term)
+	   (let ((value (value thing)))
+	     (or (typep value 'integer)
+		 (and (consp value)
+		      (typep (car value) 'atom)
+		      (typep (cadr value) 'integer)))))))
+
+(defun numeric-constant-value (thing)
+  (parse-integer
+   (coerce
+    (buffer-sequence (buffer thing) (start-offset thing) (end-offset thing))
+    'string)))
 
 (defun first-lexeme (thing)
   ;; FIXME: we'll need to implement this.
@@ -942,6 +1049,8 @@
 	    (high-mark (high-mark buffer)))
         (setf (offset scan)
               (end-offset (lexeme lexer (1- valid-lex))))
+	;; this magic belongs in a superclass' method.  (It's not the
+	;; same as HTML/Common Lisp relexing, though)
         (loop named relex
 	      do (skip-inter-lexeme-objects lexer scan)
               until (end-of-buffer-p scan)
@@ -976,15 +1085,21 @@
 	      do (delete* climacs-syntax::lexemes valid-lex)))
       ;; parse up to the limit of validity imposed by the lexer, or
       ;; the bottom of the visible area, whichever comes sooner
-      (loop until (= valid-parse valid-lex)
-	    until (mark<= bot (start-offset (lexeme lexer (1- valid-parse))))
-	    do (let ((current-token (lexeme lexer (1- valid-parse)))
-		     (next-lexeme (lexeme lexer valid-parse)))
-		 (setf (slot-value next-lexeme 'state)
-		       (advance-parse parser (list next-lexeme) 
-				      (slot-value current-token 'state)))
-		 (incf valid-parse))))))
-
+      ;;
+      ;; This is ugly, but apparently necessary to be able to refer to
+      ;; the syntax in question: (syntax (buffer thing)) doesn't work,
+      ;; because SYNTAX isn't part of the buffer protocol, and (buffer
+      ;; thing) can return a delegating buffer.
+      (let ((*this-syntax* syntax))
+	(loop until (= valid-parse valid-lex)
+	      until (mark<= bot (start-offset (lexeme lexer (1- valid-parse))))
+	      do (let ((current-token (lexeme lexer (1- valid-parse)))
+		       (next-lexeme (lexeme lexer valid-parse)))
+		   (setf (slot-value next-lexeme 'state)
+			 (advance-parse parser (list next-lexeme) 
+					(slot-value current-token 'state)))
+		   (incf valid-parse)))))))
+  
 (defmethod inter-lexeme-object-p ((lexer prolog-lexer) object)
   (member object '(#\Space #\Newline #\Tab)))
 
@@ -992,6 +1107,8 @@
   (with-slots (lexer valid-parse) syntax
     (let* ((low-mark (low-mark buffer))
 	   (high-mark (high-mark buffer)))
+      ;; this bit really belongs in a method on a superclass --
+      ;; something like incremental-lexer.
       (when (mark<= low-mark high-mark)
 	(with-slots (climacs-syntax::lexemes valid-lex)
 	    lexer
@@ -1004,7 +1121,16 @@
 			   (setf start (1+ middle))
 			   (setf end middle))))
 	    (setf valid-lex start)
-	    (setf valid-parse start)))))))
+	    (setf valid-parse start))))
+      ;; this bit is truly prolog-syntax specific.
+      (when (mark<= low-mark high-mark)
+	(with-slots (operator-directives) syntax
+	  (do ((directives operator-directives (cdr directives)))
+	      ((null directives) (setf operator-directives nil))
+	    (when (< (end-offset (car directives))
+		     (offset low-mark))
+	      (setf operator-directives directives)
+	      (return nil))))))))
 
 ;;; display
 
