@@ -39,6 +39,50 @@ the mark, according to the specified syntax."))
 
 (defparameter *syntaxes* '())
 
+(defstruct (syntax-description (:type list))
+  (name (error "required argument") :type string)
+  (class-name (error "required argument") :type symbol)
+  (pathname-types nil :type list))
+
+(defmacro define-syntax (class-name superclasses slots &rest options)
+  (let ((defclass-options nil)
+	(default-initargs nil)
+	(name nil)
+	(pathname-types nil))
+    (dolist (option options)
+      (case (car option)
+	((:name)
+	 (if name
+	     (error "More than one ~S option provided to ~S"
+		    ':name 'define-syntax)
+	     (setf name (cadr option))))
+	((:pathname-types)
+	 (if pathname-types
+	     (error "More than one ~S option provided to ~S"
+		    ':pathname-types 'define-syntax)
+	     (setf pathname-types (cdr option))))
+	((:default-initargs)
+	 (if default-initargs
+	     (error "More than one ~S option provided to ~S"
+		    ':default-initargs 'define-syntax)
+	     (setf default-initargs (cdr option))))
+	(t (push (cdr option) defclass-options))))
+    (unless name
+      (error "~S not supplied to ~S" ':name 'define-syntax))
+    ;; FIXME: the :NAME initarg looks, well, a bit generic, and could
+    ;; collide with user-defined syntax initargs.  Use
+    ;; CLIMACS-SYNTAX::%NAME instead.
+    (setf default-initargs (list* :name name default-initargs))
+    `(progn
+      (push (make-syntax-description
+	     :name ,name :class-name ',class-name
+	     :pathname-types ',pathname-types)
+       *syntaxes*)
+      (defclass ,class-name ,superclasses ,slots
+	(:default-initargs ,@default-initargs)
+	,@defclass-options))))
+
+#+nil
 (defmacro define-syntax (class-name (name superclasses) &body body)
   `(progn (push '(,name . ,class-name) *syntaxes*)
 	  (defclass ,class-name ,superclasses
@@ -52,8 +96,8 @@ the mark, according to the specified syntax."))
 		      (lambda (so-far action)
 			(complete-from-possibilities
 			 so-far *syntaxes* '() :action action
-			 :name-key #'car
-			 :value-key #'cdr))
+			 :name-key #'syntax-description-name
+			 :value-key #'syntax-description-class-name))
 		      :partial-completers '(#\Space)
 		      :allow-any-input t)
     (declare (ignore success string))
@@ -63,8 +107,11 @@ the mark, according to the specified syntax."))
 ;;;
 ;;; Basic syntax
 
-(define-syntax basic-syntax ("Basic" (syntax))
-  ())
+;;; FIXME: this is a really bad name.  It's even worse if it's
+;;; case-insensitive.  Emacs' "Fundamental" isn't too bad.
+(define-syntax basic-syntax (syntax)
+  ()
+  (:name "Basic"))
 
 (defmethod update-syntax (buffer (syntax basic-syntax))
   (declare (ignore buffer))

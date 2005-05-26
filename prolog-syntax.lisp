@@ -26,10 +26,12 @@
 (defclass prolog-parse-tree (parse-tree)
   ())
 
-(define-syntax prolog-syntax ("Prolog" (basic-syntax))
+(define-syntax prolog-syntax (basic-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
-   (parser)))
+   (parser))
+  (:name "Prolog")
+  (:pathname-types "pl"))
 
 (defparameter *prolog-grammar* (grammar))
 

@@ -119,10 +119,12 @@
 	     (make-instance 'identifier))
 	    (t (fo) (make-instance 'other-entry)))))))))
 
-(define-syntax ttcn3-syntax ("TTCN3" (basic-syntax))
+(define-syntax ttcn3-syntax (basic-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
-   (parser)))
+   (parser))
+  (:name "TTCN3")
+  (:pathname-types "ttcn" "ttcn3"))
 
 (defparameter *ttcn3-grammar* (grammar))
 

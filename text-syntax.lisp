@@ -57,8 +57,10 @@
             (setf low-position (floor (+ low-position 1 high-position) 2)))
      finally (return low-position)))
 
-(define-syntax text-syntax ("Text" (basic-syntax))
-  ((paragraphs :initform (make-instance 'standard-flexichain))))
+(define-syntax text-syntax (basic-syntax)
+  ((paragraphs :initform (make-instance 'standard-flexichain)))
+  (:name "Text")
+  (:pathname-types "text" "txt" "README"))
 
 (defmethod update-syntax (buffer (syntax text-syntax))
   (let* ((high-offset (min (+ (offset (high-mark buffer)) 3) (size buffer)))

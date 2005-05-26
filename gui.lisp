@@ -699,6 +699,16 @@
       (concatenate 'string (pathname-name pathname)
 		   "." (pathname-type pathname))))
 
+(defun syntax-class-name-for-filepath (filepath)
+  (or (climacs-syntax::syntax-description-class-name
+       (find (or (pathname-type filepath)
+		 (pathname-name filepath))
+	     climacs-syntax::*syntaxes*
+	     :test (lambda (x y)
+		     (member x y :test #'string=))
+	     :key #'climacs-syntax::syntax-description-pathname-types))
+      'basic-syntax))
+
 (define-named-command com-find-file ()
   (let ((filepath (accept 'completable-pathname
 			  :prompt "Find File"))
@@ -707,8 +717,10 @@
     (setf (point (buffer pane)) (clone-mark (point pane)))
     (push buffer (buffers *application-frame*))
     (setf (buffer (current-window)) buffer)
-    (setf (syntax buffer) (make-instance
-			   'basic-syntax :buffer (buffer (point pane))))
+    (setf (syntax buffer)
+	  (make-instance
+	   (syntax-class-name-for-filepath filepath)
+	   :buffer (buffer (point pane))))
     ;; Don't want to create the file if it doesn't exist.
     (when (probe-file filepath) 
       (with-open-file (stream filepath :direction :input)

@@ -111,10 +111,12 @@
 		    (make-instance 'other-entry))))))))
 
 
-(define-syntax cl-syntax ("Common-lisp" (basic-syntax))
+(define-syntax cl-syntax (basic-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
-   (parser)))
+   (parser))
+  (:name "Common Lisp")
+  (:pathname-types "lisp" "lsp" "cl"))
 
 (defun neutralcharp (var)
   (and (characterp var)
