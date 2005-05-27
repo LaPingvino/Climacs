@@ -747,11 +747,13 @@
     (with-slots (term) directive-term
       (with-slots (right) term
 	(let* ((a (arg-list right))
-	       (exp (arg-list-nth 2 a))
-	       (term (term exp)))
-	  (let ((value (slot-value term 'value)))
-	    (when (typep value 'atom)
-	      (canonical-name value))))))))
+	       (exp (arg-list-nth 2 a)))
+	  (etypecase exp
+	    (exp-atom (canonical-name (atom exp)))
+	    (exp-term (let* ((term (term exp))
+			     (value (slot-value term 'value)))
+			  (when (typep value 'atom)
+			    (canonical-name value))))))))))
 	   
 (define-prolog-rule (prolog-text -> (prolog-text directive))
   (when (and (op/3-directive-p directive)
