@@ -806,6 +806,13 @@
   (with-drawing-options (pane :ink +red+)
     (call-next-method)))
 
+(defmethod display-parse-tree ((parse-symbol token-lexeme) (syntax lisp-syntax) pane)
+  (if (and (> (end-offset parse-symbol) (start-offset parse-symbol))
+	   (eql (buffer-object (buffer syntax) (start-offset parse-symbol)) #\:))
+      (with-drawing-options (pane :ink +dark-violet+)
+	(call-next-method))
+      (call-next-method)))
+
 (defmethod display-parse-tree ((parser-symbol lisp-lexeme) (syntax lisp-syntax) pane)
   (flet ((cache-test (t1 t2)
 	   (and (eq t1 t2)
