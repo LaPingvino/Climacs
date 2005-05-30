@@ -65,6 +65,7 @@
    "html-syntax"
    "prolog-syntax"
    "ttcn3-syntax"
+   "lisp-syntax"
    "gui"
    ;;---- optional ----
    "testing/rt"

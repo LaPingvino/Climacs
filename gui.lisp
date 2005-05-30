@@ -270,7 +270,11 @@
 		 (motion-before-beginning ()
 		   (beep) (display-message "Beginning of buffer"))
 		 (motion-after-end ()
-		   (beep) (display-message "End of buffer")))
+		   (beep) (display-message "End of buffer"))
+		 (no-expression ()
+		   (beep) (display-message "No expression around point"))
+		 (no-such-operation ()
+		   (beep) (display-message "Operation unavailable for syntax")))
 	       (setf (previous-command *standard-output*)
 		     (if (consp command)
 			 (car command)
@@ -1375,6 +1379,33 @@ as two values"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
+;;; For testing purposes
+
+(define-named-command com-reset-profile ()
+  (sb-profile:reset))
+
+(define-named-command com-report-profile ()
+  (sb-profile:report))
+
+(define-named-command com-recompile ()
+  (asdf:operate 'asdf:load-op :climacs))
+
+(define-named-command com-backward-expression ((count 'integer :prompt "Number of expressions"))
+  (declare (ignore count))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (backward-expression point syntax)))
+
+(define-named-command com-forward-expression ((count 'integer :prompt "Number of expresssions"))
+  (declare (ignore count))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (forward-expression point syntax)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
 ;;; Global and dead-escape command tables
 
 (make-command-table 'global-climacs-table :errorp nil)
@@ -1459,6 +1490,9 @@ as two values"
 (global-set-key #\Backspace `(com-backward-delete-object ,*numeric-argument-marker*))
 
 (global-set-key '(:insert) 'com-toggle-overwrite-mode)
+
+(global-set-key '(#\b :control :meta) `(com-backward-expression ,*numeric-argument-marker*))
+(global-set-key '(#\f :control :meta) `(com-forward-expression ,*numeric-argument-marker*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

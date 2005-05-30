@@ -103,7 +103,9 @@
 	   #:parse-stack-top #:target-parse-tree #:parse-state-empty-p
 	   #:parse-stack-next #:parse-stack-symbol
 	   #:parse-stack-parse-trees #:map-over-parse-trees
+	   #:no-such-operation #:no-expression
            #:syntax-line-indentation
+	   #:forward-expression #:backward-expression
 	   #:redisplay-pane-with-syntax
 	   #:beginning-of-paragraph #:end-of-paragraph))
 
@@ -149,6 +151,11 @@
   (:shadow "ATOM" "CLOSE" "EXP" "INTEGER" "OPEN" "VARIABLE"))
 
 (defpackage :climacs-cl-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
+	:climacs-syntax :flexichain :climacs-pane)
+  (:export))
+
+(defpackage :climacs-lisp-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
 	:climacs-syntax :flexichain :climacs-pane)
   (:export))

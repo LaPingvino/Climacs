@@ -25,6 +25,20 @@
 (defclass syntax (name-mixin)
   ((buffer :initarg :buffer :reader buffer)))
 
+(define-condition no-such-operation (simple-error)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "Operation unavailable for this syntax")))
+  (:documentation "This condition is signaled whenever an attempt is
+made to execute an operation that is unavailable for the particular syntax" ))
+
+(define-condition no-expression (simple-error)
+  ()
+  (:report (lambda (condition stream)
+	     (format stream "No expression at point")))
+  (:documentation "This condition is signaled whenever an attempt is
+made to execute a by-experssion motion command and no expression is available." ))
+
 (defgeneric update-syntax (buffer syntax))
 
 (defgeneric update-syntax-for-display (buffer syntax from to))
@@ -32,6 +46,10 @@
 (defgeneric syntax-line-indentation (mark tab-width syntax)
   (:documentation "Return the correct indentation for the line containing
 the mark, according to the specified syntax."))
+
+(defgeneric forward-expression (mark syntax))
+
+(defgeneric backward-expression (mark syntax))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -124,6 +142,12 @@ the mark, according to the specified syntax."))
 (defmethod syntax-line-indentation (mark tab-width (syntax basic-syntax))
   (declare (ignore mark tab-width))
   0)
+
+(defmethod forward-expression (mark syntax)
+  (error 'no-such-operation))
+
+(defmethod backward-expression (mark syntax)
+  (error 'no-such-operation))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
