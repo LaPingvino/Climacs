@@ -179,6 +179,7 @@
 (defclass text-lexeme (lisp-lexeme) ())
 (defclass reader-conditional-positive-lexeme (lisp-lexeme) ())
 (defclass reader-conditional-negative-lexeme (lisp-lexeme) ())
+(defclass uninterned-symbol-lexeme (lisp-lexeme) ())
 
 (defmethod skip-inter ((syntax lisp-syntax) state scan)
   (macrolet ((fo () `(forward-object scan)))
@@ -236,6 +237,8 @@
 			 (make-instance 'reader-conditional-positive-lexeme))
 		    (#\- (fo)
 			 (make-instance 'reader-conditional-negative-lexeme))
+		    (#\: (fo)
+			 (make-instance 'uninterned-symbol-lexeme))
 		    (t (fo) (make-instance 'error-lexeme)))))
 	(t (cond ((constituentp object)
 		  (loop until (end-of-buffer-p scan)
@@ -605,6 +608,22 @@
 
 (define-lisp-action (|#- form form | t)
   (reduce-rule reader-conditional-negative-form 3))
+
+;;;;;;;;;;;;;;;; uninterned symbol
+
+;;; parse trees
+(defclass uninterned-symbol-form (form) ())
+
+(define-parser-state |#: | (form-may-follow) ())
+(define-parser-state |#: form | (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (form-may-follow uninterned-symbol-lexeme) |' |)
+(define-new-lisp-state (|#: | form) |#: form |)
+
+;;; reduce according to the rule form -> #: form
+(define-lisp-action (|#: form | t)
+  (reduce-rule uninterned-symbol-form 2))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
