@@ -1406,6 +1406,12 @@ as two values"
 	 (syntax (syntax (buffer pane))))
     (forward-expression point syntax)))
 
+(define-named-command com-eval-defun ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (eval-defun point syntax)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Global and dead-escape command tables
@@ -1495,6 +1501,7 @@ as two values"
 
 (global-set-key '(#\b :control :meta) `(com-backward-expression ,*numeric-argument-marker*))
 (global-set-key '(#\f :control :meta) `(com-forward-expression ,*numeric-argument-marker*))
+(global-set-key '(#\x :control :meta) '(com-eval-defun))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

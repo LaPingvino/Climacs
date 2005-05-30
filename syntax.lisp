@@ -28,6 +28,7 @@
 (define-condition no-such-operation (simple-error)
   ()
   (:report (lambda (condition stream)
+	     (declare (ignore condition))
 	     (format stream "Operation unavailable for this syntax")))
   (:documentation "This condition is signaled whenever an attempt is
 made to execute an operation that is unavailable for the particular syntax" ))
@@ -35,6 +36,7 @@ made to execute an operation that is unavailable for the particular syntax" ))
 (define-condition no-expression (simple-error)
   ()
   (:report (lambda (condition stream)
+	     (declare (ignore condition))
 	     (format stream "No expression at point")))
   (:documentation "This condition is signaled whenever an attempt is
 made to execute a by-experssion motion command and no expression is available." ))
@@ -50,6 +52,8 @@ the mark, according to the specified syntax."))
 (defgeneric forward-expression (mark syntax))
 
 (defgeneric backward-expression (mark syntax))
+
+(defgeneric eval-defun (mark syntax))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -147,6 +151,9 @@ the mark, according to the specified syntax."))
   (error 'no-such-operation))
 
 (defmethod backward-expression (mark syntax)
+  (error 'no-such-operation))
+
+(defmethod eval-defun (mark syntax)
   (error 'no-such-operation))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

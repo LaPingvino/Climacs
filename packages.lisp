@@ -106,6 +106,7 @@
 	   #:no-such-operation #:no-expression
            #:syntax-line-indentation
 	   #:forward-expression #:backward-expression
+	   #:eval-defun
 	   #:redisplay-pane-with-syntax
 	   #:beginning-of-paragraph #:end-of-paragraph))
 

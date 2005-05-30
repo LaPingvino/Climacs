@@ -415,14 +415,14 @@
 
 (define-parser-state |form* | (lexer-toplevel-state parser-state) ())
 (define-parser-state form-may-follow (lexer-toplevel-state parser-state) ())
-(define-parser-state initial-state (form-may-follow) ())
+(define-parser-state |initial-state | (form-may-follow) ())
 
-(define-new-lisp-state (initial-state form) initial-state)
+(define-new-lisp-state (|initial-state | form) |initial-state |)
 
-(define-lisp-action (initial-state (eql nil))
+(define-lisp-action (|initial-state | (eql nil))
   (make-instance 'form* :children (pop-all syntax)))
 
-(define-new-lisp-state (initial-state form*) |form* | )
+(define-new-lisp-state (|initial-state | form*) |form* | )
   
 (define-lisp-action (|form* | (eql nil))
   (throw 'done nil))
@@ -742,7 +742,7 @@
 	   (setf stack-top (find-last-valid-lexeme stack-top (offset low-mark)))
 	   (setf (offset scan) (if (null stack-top) 0 (end-offset stack-top))
 		 current-state (if (null stack-top)
-				   initial-state
+				   |initial-state |
 				   (new-state syntax
 					      (parser-state stack-top)
 					      stack-top)))
@@ -958,3 +958,14 @@
     (if potential-form
 	(setf (offset mark) (end-offset potential-form))
 	(error 'no-expression))))
+
+(defmethod eval-defun (mark (syntax lisp-syntax))
+  (with-slots (stack-top) syntax
+     (loop for form in (children stack-top)
+	   when (and (mark<= (start-offset form) mark)
+		     (mark<= mark (end-offset form)))
+	     do (return (eval (read-from-string 
+			       (coerce (buffer-sequence (buffer syntax)
+							(start-offset form)
+							(end-offset form))
+				       'string)))))))
