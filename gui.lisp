@@ -1382,10 +1382,12 @@ as two values"
 ;;; For testing purposes
 
 (define-named-command com-reset-profile ()
-  (sb-profile:reset))
+  #+sbcl (sb-profile:reset)
+  #-sbcl nil)
 
 (define-named-command com-report-profile ()
-  (sb-profile:report))
+  #+sbcl (sb-profile:report)
+  #-sbcl nil)
 
 (define-named-command com-recompile ()
   (asdf:operate 'asdf:load-op :climacs))
