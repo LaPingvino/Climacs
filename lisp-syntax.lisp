@@ -365,6 +365,15 @@
 	do (push (pop-one syntax) result)
 	finally (return result)))
 
+(defmacro reduce-fixed-number (symbol nb-children)
+  `(let ((result (make-instance ',symbol :children (pop-number syntax ,nb-children))))
+     (when (zerop ,nb-children)
+       (with-slots (scan) syntax
+	  (with-slots (start-mark size) result
+	     (setf start-mark (clone-mark scan :right)
+		   size 0))))
+     result))
+
 (defun pop-until-type (syntax type)
   (with-slots (stack-top) syntax
      (loop with result = '()
@@ -373,12 +382,31 @@
 	   until (typep child type)
 	   finally (return result))))
 
+(defmacro reduce-until-type (symbol type)
+  `(let ((result (make-instance ',symbol
+		    :children (pop-until-type syntax ',type))))
+     (when (null (children result))
+       (with-slots (scan) syntax
+	  (with-slots (start-mark size) result
+	     (setf start-mark (clone-mark scan :right)
+		   size 0))))
+     result))
+
 (defun pop-all (syntax)
   (with-slots (stack-top) syntax
      (loop with result = '()
 	   until (null stack-top)
 	   do (push (pop-one syntax) result)
 	   finally (return result))))
+
+(defmacro reduce-all (symbol)
+  `(let ((result (make-instance ',symbol :children (pop-all syntax))))
+     (when (null (children result))
+       (with-slots (scan) syntax
+	  (with-slots (start-mark size) result
+	     (setf start-mark (clone-mark scan :right)
+		   size 0))))
+     result))     
 
 (define-parser-state error-state (lexer-toplevel-state parser-state) ())
 (define-parser-state error-reduce-state (lexer-toplevel-state parser-state) ())
@@ -392,7 +420,7 @@
 
 ;;; the action on end-of-buffer is to reduce to the error symbol
 (define-lisp-action (t (eql nil))
-  (make-instance 'error-symbol :children (pop-all syntax)))
+  (reduce-all error-symbol))
 
 ;;; the default new state is the error state
 (define-new-lisp-state (t parser-symbol) error-state)
@@ -400,8 +428,6 @@
 ;;; the new state when an error-state 
 (define-new-lisp-state (t error-symbol) error-reduce-state)
 
-(defmacro reduce-rule (symbol nb-children)
-  `(make-instance ',symbol :children (pop-number syntax ,nb-children)))
 
 ;;;;;;;;;;;;;;;; Top-level 
 
@@ -420,7 +446,7 @@
 (define-new-lisp-state (|initial-state | form) |initial-state |)
 
 (define-lisp-action (|initial-state | (eql nil))
-  (make-instance 'form* :children (pop-all syntax)))
+  (reduce-all form*))
 
 (define-new-lisp-state (|initial-state | form*) |form* | )
   
@@ -445,8 +471,7 @@
 
 ;;; reduce according to the rule form -> ( form* )
 (define-lisp-action (|( form* ) | t)
-  (make-instance 'list-form
-     :children (pop-until-type syntax 'left-parenthesis-lexeme)))
+  (reduce-until-type list-form left-parenthesis-lexeme))
 
 ;;;;;;;;;;;;;;;; String
 
@@ -463,8 +488,7 @@
 
 ;;; reduce according to the rule form -> " word* "
 (define-lisp-action (|" word* " | t)
-  (make-instance 'string-form
-     :children (pop-until-type syntax 'string-start-lexeme)))
+  (reduce-until-type string-form string-start-lexeme))
 
 ;;;;;;;;;;;;;;;; Line comment
 
@@ -481,8 +505,7 @@
 
 ;;; reduce according to the rule form -> ; word* NL
 (define-lisp-action (|; word* NL | t)
-  (make-instance 'line-comment-form
-     :children (pop-until-type syntax 'line-comment-start-lexeme)))
+  (reduce-until-type line-comment-form line-comment-start-lexeme))
 
 ;;;;;;;;;;;;;;;; Long comment
 
@@ -503,8 +526,7 @@
 
 ;;; reduce according to the rule form -> #| word* |#
 (define-lisp-action (|#\| word* \|# | t)
-  (make-instance 'long-comment-form
-     :children (pop-until-type syntax 'long-comment-start-lexeme)))
+  (reduce-until-type long-comment-form long-comment-start-lexeme))
 
 ;;;;;;;;;;;;;;;; Symbol name surrounded with vertical bars
 
@@ -520,8 +542,7 @@
 
 ;;; reduce according to the rule form -> | text* |
 (define-lisp-action (|\| text* \| | t)
-  (make-instance 'symbol-form
-     :children (pop-until-type syntax 'symbol-start-lexeme)))
+  (reduce-until-type symbol-form symbol-start-lexeme))
 
 ;;;;;;;;;;;;;;;; Quote
 
@@ -536,7 +557,7 @@
 
 ;;; reduce according to the rule form -> ' form
 (define-lisp-action (|' form | t)
-  (reduce-rule quote-form 2))
+  (reduce-fixed-number quote-form 2))
 
 ;;;;;;;;;;;;;;;; Backquote
 
@@ -551,7 +572,7 @@
 
 ;;; reduce according to the rule form -> ` form
 (define-lisp-action (|` form | t)
-  (reduce-rule backquote-form 2))
+  (reduce-fixed-number backquote-form 2))
 
 ;;;;;;;;;;;;;;;; Comma
 
@@ -566,7 +587,7 @@
 
 ;;; reduce according to the rule form -> , form
 (define-lisp-action (|, form | t)
-  (reduce-rule backquote-form 2))
+  (reduce-fixed-number backquote-form 2))
 
 ;;;;;;;;;;;;;;;; Function
 
@@ -581,7 +602,7 @@
 
 ;;; reduce according to the rule form -> #' form
 (define-lisp-action (|#' form | t)
-  (reduce-rule function-form 2))
+  (reduce-fixed-number function-form 2))
 
 ;;;;;;;;;;;;;;;; Reader conditionals
 
@@ -604,10 +625,10 @@
 (define-new-lisp-state (|#- form | form) |#- form form |)
   
 (define-lisp-action (|#+ form form | t)
-  (reduce-rule reader-conditional-positive-form 3))
+  (reduce-fixed-number reader-conditional-positive-form 3))
 
 (define-lisp-action (|#- form form | t)
-  (reduce-rule reader-conditional-negative-form 3))
+  (reduce-fixed-number reader-conditional-negative-form 3))
 
 ;;;;;;;;;;;;;;;; uninterned symbol
 
@@ -622,7 +643,7 @@
 
 ;;; reduce according to the rule form -> #: form
 (define-lisp-action (|#: form | t)
-  (reduce-rule uninterned-symbol-form 2))
+  (reduce-fixed-number uninterned-symbol-form 2))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -640,12 +661,7 @@
 	  (setf parser-state current-state
 		current-state new-state
 		preceding-parse-tree stack-top
-		stack-top new-parser-symbol)))))
-
-(defun parse-until-shift (syntax)
-  (with-slots (stack-top scan) syntax
-     (loop do (parser-step syntax)
-	   until (typep stack-top 'lexeme))
+		stack-top new-parser-symbol)))
      (setf (offset scan) (end-offset stack-top))))
 
 (defun prev-tree (tree)
@@ -691,35 +707,39 @@
 	       finally (return tree)))
 	(t (car parse-trees))))
 
-(defun find-next-lexeme (parse-tree)
-  (loop for tree = (next-tree parse-tree) then (next-tree tree)
-	until (or (null tree) (typep tree 'lexeme))
-	finally (return tree)))
-
 (defun parse-tree-equal (tree1 tree2)
   (and (eq (class-of tree1) (class-of tree2))
        (eq (parser-state tree1) (parser-state tree2))
-       (= (start-offset tree1) (start-offset tree2))
        (= (end-offset tree1) (end-offset tree2))))
+
+(defmethod print-object ((mark mark) stream)
+  (print-unreadable-object (mark stream :type t :identity t)
+    (format stream "~s" (offset mark))))
 
 (defun parse-patch (syntax)
   (with-slots (current-state stack-top scan potentially-valid-trees) syntax
-     (parse-until-shift syntax)
+     (parser-step syntax)
+     (finish-output *trace-output*)
      (cond ((parse-tree-equal stack-top potentially-valid-trees)
-	    (setf (slot-value potentially-valid-trees 'preceding-parse-tree)
-		  (slot-value stack-top 'preceding-parse-tree))
+	    (unless (or (null (parent potentially-valid-trees))
+			(eq potentially-valid-trees
+			    (car (last (children (parent potentially-valid-trees))))))
+	      (loop for tree = (cadr (member potentially-valid-trees
+					     (children (parent potentially-valid-trees))
+					     :test #'eq))
+		      then (car (children tree))
+		    until (null tree)
+		    do (setf (slot-value tree 'preceding-parse-tree)
+			     stack-top))
+	      (setf stack-top (prev-tree (parent potentially-valid-trees))))
 	    (setf potentially-valid-trees (parent potentially-valid-trees))
-	    (setf stack-top potentially-valid-trees)
-	    (loop until (typep stack-top 'lexeme)
-		  do (setf stack-top (prev-tree stack-top)))
 	    (setf current-state (new-state syntax (parser-state stack-top) stack-top))
-	    (setf potentially-valid-trees (find-next-lexeme potentially-valid-trees)
-		  (offset scan) (end-offset stack-top)))
+	    (setf (offset scan) (end-offset stack-top)))
 	   (t (loop until (or (null potentially-valid-trees)
 			      (>= (start-offset potentially-valid-trees)
 				  (end-offset stack-top)))
 		    do (setf potentially-valid-trees
-			     (find-next-lexeme potentially-valid-trees)))))))
+			     (next-tree potentially-valid-trees)))))))	    
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
