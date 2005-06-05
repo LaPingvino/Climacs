@@ -64,6 +64,7 @@
     (loop repeat 2 do (terpri pane))))
 
 (defmethod display-parse-tree ((entity slidemacs-bullet) (syntax slidemacs-gui-syntax) pane)
+  (stream-increment-cursor-position pane (space-width pane) 0)
   (with-text-style (pane '(:serif :roman 48))
     (with-slots (point) pane
       (if (and (mark>= point (start-offset entity))
