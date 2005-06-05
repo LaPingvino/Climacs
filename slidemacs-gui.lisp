@@ -73,6 +73,7 @@
           (call-next-method)))))
 
 (defmethod display-parse-tree ((entity bullet) (syntax slidemacs-gui-syntax) pane)
+  (stream-increment-cursor-position pane (space-width pane) 0)
   (present (lexeme-string entity) 'string :stream pane)
   (stream-increment-cursor-position pane (space-width pane) 0))
 
@@ -95,13 +96,16 @@
              'string
              :stream pane)))
 
+(defparameter *slidemacs-gui-ink* +black+)
+
 (defun set-pane-colors (pane c1 c2)
   (setf (medium-background (sheet-medium pane)) c1
-        (medium-ink (sheet-medium pane)) c2)
+        (medium-ink (sheet-medium pane)) c2
+        *slidemacs-gui-ink* c2)
   (window-refresh pane))
 
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax slidemacs-gui-syntax) current-p)
-  (with-drawing-options (pane :ink +white+)
+  (with-drawing-options (pane :ink *slidemacs-gui-ink*)
     (with-slots (top bot point) pane
       (with-slots (lexer) syntax
         ;; display the parse tree if any
