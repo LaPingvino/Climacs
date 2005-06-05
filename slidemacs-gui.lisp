@@ -54,7 +54,7 @@
                   (display-parse-tree nonempty-list-of-bullets syntax pane)))))
 
 (defmethod display-parse-tree ((entity slidemacs-slide-name) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane '(:serif :bold :huge))
+  (with-text-style (pane '(:serif :bold 64))
     (present (coerce (buffer-sequence (buffer syntax)
                                       (1+ (start-offset entity))
                                       (1- (end-offset entity)))
@@ -64,7 +64,7 @@
     (loop repeat 2 do (terpri pane))))
 
 (defmethod display-parse-tree ((entity slidemacs-bullet) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane '(:serif :roman :very-large))
+  (with-text-style (pane '(:serif :roman 48))
     (with-slots (point) pane
       (if (and (mark>= point (start-offset entity))
                (mark<= point (end-offset entity)))
@@ -156,5 +156,3 @@
 
 (climacs-gui::global-set-key '(#\= :control) 'com-next-talking-point)
 (climacs-gui::global-set-key '(#\- :control) 'com-previous-talking-point)
-(climacs-gui::global-set-key '(#\1 :control) 'com-set-colors-for-presentation)
-(climacs-gui::global-set-key '(#\2 :control) 'com-set-colors-for-editing)
