@@ -67,6 +67,8 @@
    "ttcn3-syntax"
    "lisp-syntax"
    "gui"
+   "slidemacs"
+   "slidemacs-gui"
    ;;---- optional ----
    "testing/rt"
    "buffer-test"
