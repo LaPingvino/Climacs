@@ -20,8 +20,6 @@
 
 ;;; Alternative syntax module for analysing Common Lisp
 
-;;; move the package definition to packages.lisp later
-
 (in-package :climacs-lisp-syntax)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -63,6 +61,11 @@
 (defmacro define-lexer-state (name superclasses &body body)
   `(defclass ,name (,@superclasses lexer-state)
       ,@body))
+
+(define-lexer-state lexer-error-state ()
+  ()
+  (:documentation "In this state, the lexer returns error lexemes
+    consisting of entire lines of text"))
 
 (define-lexer-state lexer-toplevel-state ()
   ()
@@ -332,6 +335,12 @@
 				 (fo)))
 			    (t (fo))))))))
 
+(defmethod lex ((syntax lisp-syntax) (state lexer-error-state) scan)
+  (macrolet ((fo () `(forward-object scan)))
+    (loop until (end-of-line-p scan)
+	  do (fo))
+    (make-instance 'error-lexeme)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; nonterminals
@@ -408,7 +417,7 @@
 		   size 0))))
      result))     
 
-(define-parser-state error-state (lexer-toplevel-state parser-state) ())
+(define-parser-state error-state (lexer-error-state parser-state) ())
 (define-parser-state error-reduce-state (lexer-toplevel-state parser-state) ())
 
 (define-lisp-action (error-reduce-state (eql nil))
@@ -899,7 +908,10 @@
     (let* ((cursor-line (number-of-lines-in-region top (point pane)))
 	   (height (text-style-height (medium-text-style pane) pane))
 	   (cursor-y (+ (* cursor-line (+ height (stream-vertical-spacing pane)))))
-	   (cursor-column (column-number (point pane)))
+	   (cursor-column 
+	    (buffer-display-column
+	     (buffer (point pane)) (offset (point pane))
+	     (round (tab-width pane) (space-width pane))))
 	   (cursor-x (* cursor-column (text-style-width (medium-text-style pane) pane))))
       (updating-output (pane :unique-id -1)
 	(draw-rectangle* pane
