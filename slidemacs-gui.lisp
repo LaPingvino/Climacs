@@ -198,12 +198,6 @@
 
 (defparameter *slidemacs-gui-ink* +black+)
 
-(defun set-pane-colors (pane c1 c2)
-  (setf (medium-background (sheet-medium pane)) c1
-        (medium-ink (sheet-medium pane)) c2
-        *slidemacs-gui-ink* c2)
-  (window-refresh pane))
-
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax slidemacs-gui-syntax) current-p) 
   (with-drawing-options (pane :ink *slidemacs-gui-ink*)
     (with-slots (top bot point) pane
@@ -264,12 +258,6 @@
                      (< thing 16))
               collect thing
               else collect (if decrease-p (- thing 8) (+ thing 8)))))
-
-(climacs-gui::define-named-command com-set-colors-for-presentation ()
-  (set-pane-colors (climacs-gui::current-window) +blue+ +white+))
-
-(climacs-gui::define-named-command com-set-colors-for-editing ()
-  (set-pane-colors (climacs-gui::current-window) +white+ +black+))
 
 (climacs-gui::define-named-command com-decrease-presentation-font-sizes ()
   (adjust-font-sizes t)
