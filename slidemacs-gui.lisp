@@ -32,9 +32,13 @@
 
 (defvar *slidemacs-display* nil)
 
+(defvar *current-slideset*)
+
 (defmethod display-parse-tree ((parse-tree slidemacs-slideset) (syntax slidemacs-gui-syntax) pane)
-  (with-slots (nonempty-list-of-slides slidemacs-slideset-name) parse-tree 
-    (display-parse-tree nonempty-list-of-slides syntax pane)))
+  (with-slots (slideset-info nonempty-list-of-slides slidemacs-slideset-name) parse-tree
+    (let ((*current-slideset* (lexeme-string slidemacs-slideset-name)))
+      (display-parse-tree slideset-info syntax pane)
+      (display-parse-tree nonempty-list-of-slides syntax pane))))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slideset-keyword) (syntax slidemacs-gui-syntax) pane)
   (format *debug-io* "Oops!~%")
@@ -43,6 +47,48 @@
 (defmethod display-parse-tree :around ((entity slidemacs-entry) (syntax slidemacs-gui-syntax) pane)
   (let ((*handle-whitespace* nil))
     (call-next-method)))
+
+(defun display-text-with-wrap-for-pane (text pane)
+  (let* ((text (substitute #\space #\newline text))
+         (split (remove
+                 ""
+                 (loop with start = 0
+                       with length = (length text)
+                       for cur from 0 upto length
+                       for is-space =
+                       (or (eql cur length)
+                           (eql (elt text cur) #\space))
+                       when is-space
+                       collect
+                       (prog1
+                           (subseq text start cur)
+                         (setf start (1+ cur))))
+                 :test #'equal)))
+    (present (pop split) 'string :stream pane)
+    (loop
+     with margin = (stream-text-margin pane)
+     for word in split
+     do (if (> (+ (stream-cursor-position pane)
+                  (stream-string-width pane word))
+               margin)
+            (progn
+              (terpri pane)
+              (present word 'string :stream pane))
+            (progn
+              (present " " 'string :stream pane)
+              (present word 'string :stream pane))))
+    (loop repeat 2 do (terpri pane))))
+
+(defmethod display-parse-tree ((parse-tree slideset-info) (syntax slidemacs-gui-syntax) pane)
+  ;; do nothing yet
+  #+nil
+  (with-slots (point) pane
+    (when (and (mark>= point (start-offset parse-tree))
+               (mark<= point (end-offset parse-tree)))
+      (with-slots (opt-slide-author opt-slide-institution opt-slide-venue opt-slide-date)
+          parse-tree
+        (display-parse-tree slidemacs-slide-name syntax pane)
+        (display-parse-tree nonempty-list-of-bullets syntax pane)))))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slide) (syntax slidemacs-gui-syntax) pane)
   (with-slots (point) pane
@@ -53,19 +99,21 @@
                   (display-parse-tree slidemacs-slide-name syntax pane)
                   (display-parse-tree nonempty-list-of-bullets syntax pane)))))
 
+(defparameter *slidemacs-sizes*
+  '(:title 64
+    :bullet 32)) ;; must all be powers of 2
+
 (defmethod display-parse-tree ((entity slidemacs-slide-name) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane '(:serif :bold 64))
-    (present (coerce (buffer-sequence (buffer syntax)
-                                      (1+ (start-offset entity))
-                                      (1- (end-offset entity)))
-                     'string)
-             'string
-             :stream pane)
-    (loop repeat 2 do (terpri pane))))
+  (with-text-style (pane `(:serif :bold ,(getf *slidemacs-sizes* :title)))
+    (display-text-with-wrap-for-pane
+     (coerce (buffer-sequence (buffer syntax)
+                              (1+ (start-offset entity))
+                              (1- (end-offset entity)))
+             'string) pane)))
 
 (defmethod display-parse-tree ((entity slidemacs-bullet) (syntax slidemacs-gui-syntax) pane)
   (stream-increment-cursor-position pane (space-width pane) 0)
-  (with-text-style (pane '(:serif :roman 48))
+  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :bullet)))
     (with-slots (point) pane
       (if (and (mark>= point (start-offset entity))
                (mark<= point (end-offset entity)))
@@ -79,12 +127,11 @@
   (stream-increment-cursor-position pane (space-width pane) 0))
 
 (defmethod display-parse-tree ((entity talking-point) (syntax slidemacs-gui-syntax) pane)
-  (present (coerce (buffer-sequence (buffer syntax)
-                                    (1+ (start-offset entity))
-                                    (1- (end-offset entity)))
-                   'string)
-           'string :stream pane)
-  (loop repeat 2 do (terpri pane)))
+  (let* ((bullet-text (coerce (buffer-sequence (buffer syntax)
+                                               (1+ (start-offset entity))
+                                               (1- (end-offset entity)))
+                              'string)))
+    (display-text-with-wrap-for-pane bullet-text pane)))
 
 (defmethod display-parse-tree ((entity slidemacs-entry) (syntax slidemacs-gui-syntax) pane)
   (with-slots (ink face) entity
@@ -105,7 +152,7 @@
         *slidemacs-gui-ink* c2)
   (window-refresh pane))
 
-(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax slidemacs-gui-syntax) current-p)
+(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax slidemacs-gui-syntax) current-p) 
   (with-drawing-options (pane :ink *slidemacs-gui-ink*)
     (with-slots (top bot point) pane
       (with-slots (lexer) syntax
@@ -153,11 +200,29 @@
                (return (setf (offset point) (start-offset lexeme)))))
           (full-redisplay pane))))))
 
+(defun adjust-font-sizes (decrease-p)
+  (setf *slidemacs-sizes*
+        (loop for thing in *slidemacs-sizes*
+              if (or (not (numberp thing))
+                     (< thing 16))
+              collect thing
+              else collect (if decrease-p (- thing 8) (+ thing 8)))))
+
 (climacs-gui::define-named-command com-set-colors-for-presentation ()
   (set-pane-colors (climacs-gui::current-window) +blue+ +white+))
 
 (climacs-gui::define-named-command com-set-colors-for-editing ()
   (set-pane-colors (climacs-gui::current-window) +white+ +black+))
 
+(climacs-gui::define-named-command com-decrease-presentation-font-sizes ()
+  (adjust-font-sizes t)
+  (full-redisplay (climacs-gui::current-window)))
+
+(climacs-gui::define-named-command com-increase-presentation-font-sizes ()
+  (adjust-font-sizes nil)
+  (full-redisplay (climacs-gui::current-window)))
+
 (climacs-gui::global-set-key '(#\= :control) 'com-next-talking-point)
 (climacs-gui::global-set-key '(#\- :control) 'com-previous-talking-point)
+(climacs-gui::global-set-key '(#\= :meta) 'com-increase-presentation-font-sizes)
+(climacs-gui::global-set-key '(#\- :meta) 'com-decrease-presentation-font-sizes)
