@@ -33,12 +33,21 @@
 (defvar *slidemacs-display* nil)
 
 (defvar *current-slideset*)
+(defvar *did-display-a-slide*)
+
+(defun slidemacs-entity-string (entity)
+  (coerce (buffer-sequence (buffer entity)
+                           (1+ (start-offset entity))
+                           (1- (end-offset entity)))
+          'string))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slideset) (syntax slidemacs-gui-syntax) pane)
   (with-slots (slideset-info nonempty-list-of-slides slidemacs-slideset-name) parse-tree
-    (let ((*current-slideset* (lexeme-string slidemacs-slideset-name)))
-      (display-parse-tree slideset-info syntax pane)
-      (display-parse-tree nonempty-list-of-slides syntax pane))))
+    (let ((*current-slideset* (slidemacs-entity-string slidemacs-slideset-name))
+          (*did-display-a-slide* nil))
+      (display-parse-tree nonempty-list-of-slides syntax pane)
+      (unless *did-display-a-slide*
+        (display-parse-tree slideset-info syntax pane)))))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slideset-keyword) (syntax slidemacs-gui-syntax) pane)
   (format *debug-io* "Oops!~%")
@@ -77,39 +86,81 @@
             (progn
               (present " " 'string :stream pane)
               (present word 'string :stream pane))))
-    (loop repeat 2 do (terpri pane))))
+    (terpri pane)))
+
+(defparameter *slidemacs-sizes*
+  '(:title 64
+    :bullet 32
+    :slideset-title 48
+    :slideset-info 32))
 
 (defmethod display-parse-tree ((parse-tree slideset-info) (syntax slidemacs-gui-syntax) pane)
-  ;; do nothing yet
-  #+nil
   (with-slots (point) pane
-    (when (and (mark>= point (start-offset parse-tree))
-               (mark<= point (end-offset parse-tree)))
-      (with-slots (opt-slide-author opt-slide-institution opt-slide-venue opt-slide-date)
-          parse-tree
-        (display-parse-tree slidemacs-slide-name syntax pane)
-        (display-parse-tree nonempty-list-of-bullets syntax pane)))))
+    (with-text-style (pane `(:serif :bold ,(getf *slidemacs-sizes* :slideset-title)))
+      (display-text-with-wrap-for-pane
+       *current-slideset* pane)
+      (terpri pane))
+    (with-slots (opt-slide-author opt-slide-institution opt-slide-venue opt-slide-date)
+        parse-tree
+      (display-parse-tree opt-slide-author syntax pane)
+      (display-parse-tree opt-slide-institution syntax pane)
+      (display-parse-tree opt-slide-venue syntax pane)
+      (display-parse-tree opt-slide-date syntax pane))))
+
+(defmethod display-parse-tree ((entity slide-author) (syntax slidemacs-gui-syntax) pane)
+  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
+    (with-slots (author) entity
+      (display-text-with-wrap-for-pane
+       (slidemacs-entity-string author) pane))))
+
+(defmethod display-parse-tree ((entity slide-institution) (syntax slidemacs-gui-syntax) pane)
+  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
+    (with-slots (institution) entity
+      (display-text-with-wrap-for-pane
+       (slidemacs-entity-string institution) pane))))
+
+(defmethod display-parse-tree ((entity slide-venue) (syntax slidemacs-gui-syntax) pane)
+  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
+    (with-slots (venue) entity
+      (display-text-with-wrap-for-pane
+       (slidemacs-entity-string venue) pane))))
+
+(defun today-string ()
+  (multiple-value-bind (second minute hour date month year day)
+      (get-decoded-time)
+    (declare (ignore second minute hour day))
+    (format nil "~A ~A ~A"
+            date
+            (elt
+             '("Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec")
+             (1- month))
+            year)))
+
+(defmethod display-parse-tree ((entity slide-date) (syntax slidemacs-gui-syntax) pane)
+  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
+    (with-slots (opt-date-string) entity
+      (if (typep (slot-value opt-date-string 'item)
+                 'empty-slidemacs-terminals)
+          (display-text-with-wrap-for-pane (today-string) pane)
+          (display-text-with-wrap-for-pane
+           (slidemacs-entity-string opt-date-string) pane)))))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slide) (syntax slidemacs-gui-syntax) pane)
   (with-slots (point) pane
               (when (and (mark>= point (start-offset parse-tree))
                          (mark<= point (end-offset parse-tree)))
+                (when (boundp '*did-display-a-slide*)
+                  (setf *did-display-a-slide* t))
                 (with-slots (slidemacs-slide-name nonempty-list-of-bullets)
                     parse-tree
                   (display-parse-tree slidemacs-slide-name syntax pane)
                   (display-parse-tree nonempty-list-of-bullets syntax pane)))))
 
-(defparameter *slidemacs-sizes*
-  '(:title 64
-    :bullet 32)) ;; must all be powers of 2
-
 (defmethod display-parse-tree ((entity slidemacs-slide-name) (syntax slidemacs-gui-syntax) pane)
   (with-text-style (pane `(:serif :bold ,(getf *slidemacs-sizes* :title)))
     (display-text-with-wrap-for-pane
-     (coerce (buffer-sequence (buffer syntax)
-                              (1+ (start-offset entity))
-                              (1- (end-offset entity)))
-             'string) pane)))
+     (slidemacs-entity-string entity) pane)
+    (terpri pane)))
 
 (defmethod display-parse-tree ((entity slidemacs-bullet) (syntax slidemacs-gui-syntax) pane)
   (stream-increment-cursor-position pane (space-width pane) 0)
@@ -131,7 +182,8 @@
                                                (1+ (start-offset entity))
                                                (1- (end-offset entity)))
                               'string)))
-    (display-text-with-wrap-for-pane bullet-text pane)))
+    (display-text-with-wrap-for-pane bullet-text pane)
+    (terpri pane)))
 
 (defmethod display-parse-tree ((entity slidemacs-entry) (syntax slidemacs-gui-syntax) pane)
   (with-slots (ink face) entity
@@ -170,6 +222,11 @@
 ;;; It's not necessary to draw the cursor, and in fact quite confusing
       )))
 
+(defun talking-point-stop-p (lexeme)
+  (or (typep lexeme 'bullet)
+      (and (typep lexeme 'slidemacs-keyword)
+           (word-is lexeme "info"))))
+
 (climacs-gui::define-named-command com-next-talking-point ()
   (let* ((pane (climacs-gui::current-window))
          (buffer (buffer pane))
@@ -180,7 +237,7 @@
           (loop for token from 0 below (nb-lexemes lexer)
                for lexeme = (lexeme lexer token)
              do
-             (when (and (typep lexeme 'bullet)
+             (when (and (talking-point-stop-p lexeme)
                         (> (start-offset lexeme) point-pos))
                (return (setf (offset point) (start-offset lexeme)))))
           (full-redisplay pane))))))
@@ -195,7 +252,7 @@
           (loop for token from (1- (nb-lexemes lexer)) downto 0
              for lexeme = (lexeme lexer token)
              do
-             (when (and (typep lexeme 'bullet)
+             (when (and (talking-point-stop-p lexeme)
                         (< (start-offset lexeme) point-pos))
                (return (setf (offset point) (start-offset lexeme)))))
           (full-redisplay pane))))))
