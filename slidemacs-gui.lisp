@@ -91,12 +91,13 @@
 (defparameter *slidemacs-sizes*
   '(:title 64
     :bullet 32
+    :graph-node 16
     :slideset-title 48
     :slideset-info 32))
 
 (defmethod display-parse-tree ((parse-tree slideset-info) (syntax slidemacs-gui-syntax) pane)
   (with-slots (point) pane
-    (with-text-style (pane `(:serif :bold ,(getf *slidemacs-sizes* :slideset-title)))
+    (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :slideset-title)))
       (display-text-with-wrap-for-pane
        *current-slideset* pane)
       (terpri pane))
@@ -108,19 +109,19 @@
       (display-parse-tree opt-slide-date syntax pane))))
 
 (defmethod display-parse-tree ((entity slide-author) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
+  (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
     (with-slots (author) entity
       (display-text-with-wrap-for-pane
        (slidemacs-entity-string author) pane))))
 
 (defmethod display-parse-tree ((entity slide-institution) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
+  (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
     (with-slots (institution) entity
       (display-text-with-wrap-for-pane
        (slidemacs-entity-string institution) pane))))
 
 (defmethod display-parse-tree ((entity slide-venue) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
+  (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
     (with-slots (venue) entity
       (display-text-with-wrap-for-pane
        (slidemacs-entity-string venue) pane))))
@@ -137,7 +138,7 @@
             year)))
 
 (defmethod display-parse-tree ((entity slide-date) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
+  (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :slideset-info)))
     (with-slots (opt-date-string) entity
       (if (typep (slot-value opt-date-string 'item)
                  'empty-slidemacs-terminals)
@@ -156,15 +157,83 @@
                   (display-parse-tree slidemacs-slide-name syntax pane)
                   (display-parse-tree nonempty-list-of-bullets syntax pane)))))
 
+(defun traverse-list-entry (list-entry unit-type function)
+  (when (and
+         (slot-exists-p list-entry 'items)
+         (slot-exists-p list-entry 'item)
+         (typep (slot-value list-entry 'item) unit-type))
+    (funcall function (slot-value list-entry 'item))
+    (traverse-list-entry (slot-value list-entry 'items) unit-type function)))
+
+(defmethod display-parse-tree ((parse-tree slidemacs-graph-slide) (syntax slidemacs-gui-syntax) pane)
+  (with-slots (point) pane
+    (when (and (mark>= point (start-offset parse-tree))
+               (mark<= point (end-offset parse-tree)))
+      (when (boundp '*did-display-a-slide*)
+        (setf *did-display-a-slide* t))
+      (with-slots (slidemacs-slide-name list-of-roots list-of-edges)
+          parse-tree
+        (display-parse-tree slidemacs-slide-name syntax pane)
+        (let (roots edges italic)
+          (traverse-list-entry
+           list-of-roots 'graph-root
+           (lambda (entry)
+             (with-slots (vertex-name) entry
+               (with-slots (slidemacs-string) vertex-name
+                 (with-slots (item) slidemacs-string
+                   (when (typep item 'slidemacs-italic-string)
+                     (pushnew (slidemacs-entity-string vertex-name) italic :test #'equal))))
+               (pushnew (slidemacs-entity-string vertex-name) roots
+                        :test #'equal))))
+          (traverse-list-entry
+           list-of-edges 'graph-edge
+           (flet ((push-if-italic (thing)
+                    (with-slots (vertex-name) thing
+                      (with-slots (slidemacs-string) vertex-name
+                        (with-slots (item) slidemacs-string
+                          (when (typep item 'slidemacs-italic-string)
+                            (pushnew (slidemacs-entity-string vertex-name) italic :test #'equal)))))))
+             (lambda (entry)
+               (with-slots (from-vertex to-vertex) entry
+                 (let ((from (slidemacs-entity-string from-vertex))
+                       (to (slidemacs-entity-string to-vertex)))
+                   (push-if-italic from-vertex)
+                   (push-if-italic to-vertex)
+                   (pushnew (cons from to)
+                            edges :test #'equal))))))
+          (format-graph-from-roots
+           roots
+           (lambda (node stream)
+             (with-text-style (pane `(:sans-serif
+                                      ,(if (find node italic :test #'equal)
+                                           :italic :roman)
+                                      ,(getf *slidemacs-sizes* :graph-node)))
+               (surrounding-output-with-border (pane :shape :drop-shadow)
+                 (present node 'string :stream stream))))
+           (lambda (node)
+             (loop for edge in edges
+                  if (equal (car edge) node)
+                  collect (cdr edge)))
+           :orientation :horizontal
+           :generation-separation "xxxxxx"
+           :arc-drawer
+           (lambda (stream obj1 obj2 x1 y1 x2 y2)
+             (declare (ignore obj1 obj2))
+             (draw-arrow* stream x1 y1 x2 y2 :line-thickness 1 :head-length 8 :head-width 4))
+           :merge-duplicates t
+           :duplicate-test #'equal
+           :graph-type :tree
+           ))))))
+
 (defmethod display-parse-tree ((entity slidemacs-slide-name) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane `(:serif :bold ,(getf *slidemacs-sizes* :title)))
+  (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :title)))
     (display-text-with-wrap-for-pane
      (slidemacs-entity-string entity) pane)
     (terpri pane)))
 
 (defmethod display-parse-tree ((entity slidemacs-bullet) (syntax slidemacs-gui-syntax) pane)
   (stream-increment-cursor-position pane (space-width pane) 0)
-  (with-text-style (pane `(:serif :roman ,(getf *slidemacs-sizes* :bullet)))
+  (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :bullet)))
     (with-slots (point) pane
       (if (and (mark>= point (start-offset entity))
                (mark<= point (end-offset entity)))
@@ -178,12 +247,15 @@
   (stream-increment-cursor-position pane (space-width pane) 0))
 
 (defmethod display-parse-tree ((entity talking-point) (syntax slidemacs-gui-syntax) pane)
-  (let* ((bullet-text (coerce (buffer-sequence (buffer syntax)
-                                               (1+ (start-offset entity))
-                                               (1- (end-offset entity)))
-                              'string)))
-    (display-text-with-wrap-for-pane bullet-text pane)
-    (terpri pane)))
+  (with-slots (slidemacs-string) entity
+    (let ((is-italic (typep (slot-value slidemacs-string 'item)
+                            'slidemacs-italic-string))
+          (bullet-text (slidemacs-entity-string entity)))
+      (if is-italic
+          (with-text-face (pane :italic)
+            (display-text-with-wrap-for-pane bullet-text pane))
+          (display-text-with-wrap-for-pane bullet-text pane))
+      (terpri pane))))
 
 (defmethod display-parse-tree ((entity slidemacs-entry) (syntax slidemacs-gui-syntax) pane)
   (with-slots (ink face) entity
@@ -219,7 +291,8 @@
 (defun talking-point-stop-p (lexeme)
   (or (typep lexeme 'bullet)
       (and (typep lexeme 'slidemacs-keyword)
-           (word-is lexeme "info"))))
+           (or (word-is lexeme "info")
+               (word-is lexeme "graph")))))
 
 (climacs-gui::define-named-command com-next-talking-point ()
   (let* ((pane (climacs-gui::current-window))

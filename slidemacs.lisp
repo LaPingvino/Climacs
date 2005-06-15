@@ -60,7 +60,7 @@
 	    collect `(defclass ,lexeme (,superclass) ()))))
 
 (define-lexemes slidemacs-lexeme start-lexeme slidemacs-keyword
-                block-open block-close slidemacs-string bullet other-entry)
+                block-open block-close slidemacs-quoted-string slidemacs-italic-string bullet other-entry)
 
 (defclass slidemacs-lexer (incremental-lexer) ())
 
@@ -89,7 +89,13 @@
                     do (fo))
               (unless (end-of-buffer-p scan)
                 (fo)) ; get the closing #\"
-              (make-instance 'slidemacs-string))
+              (make-instance 'slidemacs-quoted-string))
+         (#\/ (loop until (end-of-buffer-p scan)
+                    while (not (eql (object-after scan) #\/))
+                    do (fo))
+              (unless (end-of-buffer-p scan)
+                (fo)) ; get the closing #\/
+              (make-instance 'slidemacs-italic-string))
          (#\* bullet)
 	 (t
           (cond ((identifier-char-p object :start t)
@@ -237,6 +243,7 @@
   (:== slidemacs-slideset slidemacs-slideset-keyword slidemacs-slideset-name block-open
        slideset-info nonempty-list-of-slides block-close)
   (:= slidemacs-slideset-keyword "slideset")
+  (:= slidemacs-string (or slidemacs-quoted-string slidemacs-italic-string))
   (:= slidemacs-slideset-name slidemacs-string)
   (:= slideset-info slideset-info-keyword block-open opt-slide-author opt-slide-institution opt-slide-venue opt-slide-date block-close)
   (:= slideset-info-keyword "info")
@@ -258,7 +265,22 @@
   (:= date-keyword "date")
   (:= date-string slidemacs-string)
   (:= nonempty-list-of-slides
-       (nonempty-list-of slidemacs-slide))
+       (nonempty-list-of slidemacs-all-slide-types))
+  (:= slidemacs-all-slide-types
+      (or slidemacs-slide slidemacs-graph-slide))
+  (:= slidemacs-graph-slide slidemacs-graph-slide-keyword slidemacs-slide-name block-open list-of-roots list-of-edges block-close)
+  (:= slidemacs-graph-slide-keyword "graph")
+  (:= list-of-roots (list-of graph-root))
+  (:= graph-root graph-root-keyword vertex-name)
+  (:= graph-root-keyword "root")
+  (:= list-of-edges (list-of graph-edge))
+  (:= graph-edge graph-edge-keyword from-keyword from-vertex to-keyword to-vertex)
+  (:= graph-edge-keyword "edge")
+  (:= from-keyword "from")
+  (:= to-keyword "to")
+  (:= from-vertex vertex-name)
+  (:= to-vertex vertex-name)
+  (:= vertex-name slidemacs-string)
   (:= slidemacs-slide slidemacs-slide-keyword slidemacs-slide-name block-open
       nonempty-list-of-bullets block-close)
   (:= slidemacs-slide-keyword "slide")
@@ -270,6 +292,10 @@
 (defmethod display-parse-tree ((entity slidemacs-terminal) (syntax slidemacs-editor-syntax) pane)
   (with-slots (item) entity
       (display-parse-tree item syntax pane)))
+
+(defmethod display-parse-tree ((entity slidemacs-italic-string) (syntax slidemacs-editor-syntax) pane)
+  (with-text-face (pane :italic)
+    (call-next-method)))
 
 (defmethod display-parse-tree ((entity slidemacs-entry) (syntax slidemacs-editor-syntax) pane)
   (flet ((cache-test (t1 t2)
