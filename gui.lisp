@@ -1412,6 +1412,18 @@ as two values"
 	 (syntax (syntax (buffer pane))))
     (eval-defun point syntax)))
 
+(define-named-command com-package ()
+  (let* ((pane (current-window))
+	 (syntax (syntax (buffer pane)))
+	 (package (climacs-lisp-syntax::package-of syntax)))
+    (display-message (format nil "~s" package))))
+
+(define-named-command com-accept-string ()
+  (display-message (format nil "~s" (accept 'string))))
+	 
+(define-named-command com-accept-symbol ()
+  (display-message (format nil "~s" (accept 'symbol))))	 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Global and dead-escape command tables

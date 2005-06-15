@@ -33,7 +33,8 @@
    (current-state)
    (current-start-mark)
    (current-size)
-   (scan))
+   (scan)
+   (package))
   (:name "Lisp")
   (:pathname-types "lisp" "lsp" "cl"))
 
@@ -757,6 +758,30 @@
 (defmethod update-syntax-for-display (buffer (syntax lisp-syntax) top bot)
   nil)
 
+(defun package-of (syntax)
+  (let ((buffer (buffer syntax)))
+    (flet ((test (x)
+	     (and (typep x 'list-form)
+		  (not (null (cdr (children x))))
+		  (buffer-looking-at buffer
+				     (start-offset (cadr (children x)))
+				     "in-package"
+				     :test #'char-equal))))
+      (with-slots (stack-top) syntax
+	(let ((form (find-if #'test (children stack-top))))
+	  (and form
+	       (not (null (cddr (children form))))
+	       (let* ((package-form (caddr (children form)))
+		      (package-name (coerce (buffer-sequence
+					     buffer
+					     (start-offset package-form)
+					     (end-offset package-form))
+					    'string))
+		      (package-symbol
+		       (let ((*package* (find-package :common-lisp)))
+			 (read-from-string package-name nil nil))))
+		 (find-package package-symbol))))))))
+
 (defmethod update-syntax (buffer (syntax lisp-syntax))
   (let* ((low-mark (low-mark buffer))
 	 (high-mark (high-mark buffer)))
@@ -775,7 +800,9 @@
 				   (new-state syntax
 					      (parser-state stack-top)
 					      stack-top)))
-	   (loop do (parse-patch syntax)))))))
+	   (loop do (parse-patch syntax))))))
+  (with-slots (package) syntax
+    (setf package (package-of syntax))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -849,19 +876,24 @@
 		    (medium-ink (sheet-medium pane)))
 		(eq (slot-value t1 'face)
 		    (text-style-face (medium-text-style (sheet-medium pane)))))))
-    (updating-output (pane :unique-id parser-symbol
-			   :id-test #'eq
-			   :cache-value parser-symbol
-			   :cache-test #'cache-test)
-		     (with-slots (ink face) parser-symbol
-		       (setf ink (medium-ink (sheet-medium pane))
-			     face (text-style-face (medium-text-style (sheet-medium pane))))
-		       (present (coerce (buffer-sequence (buffer syntax)
-							 (start-offset parser-symbol)
-							 (end-offset parser-symbol))
-					'string)
-				'string
-				:stream pane)))))
+    (updating-output
+	(pane :unique-id parser-symbol
+	      :id-test #'eq
+	      :cache-value parser-symbol
+	      :cache-test #'cache-test)
+      (with-slots (ink face) parser-symbol
+	(setf ink (medium-ink (sheet-medium pane))
+	      face (text-style-face (medium-text-style (sheet-medium pane))))
+	(let ((string (coerce (buffer-sequence (buffer syntax)
+					       (start-offset parser-symbol)
+					       (end-offset parser-symbol))
+			      'string)))
+	  (multiple-value-bind (symbol status)
+	      (token-to-symbol syntax parser-symbol)
+	    (declare (ignore symbol))
+	    (if (and status (typep parser-symbol 'form))
+		(present string 'symbol :stream pane)
+		(present string 'string :stream pane))))))))
 
 (defmethod display-parse-tree :before ((parse-symbol lisp-lexeme) (syntax lisp-syntax) pane)
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset parse-symbol))
@@ -1008,3 +1040,51 @@
 							(start-offset form)
 							(end-offset form))
 				       'string)))))))
+
+;;; shamelessly stolen from SWANK
+
+(defconstant keyword-package (find-package :keyword)
+  "The KEYWORD package.")
+
+;; FIXME: deal with #\| etc.  hard to do portably.
+(defun tokenize-symbol (string)
+  (let ((package (let ((pos (position #\: string)))
+                   (if pos (subseq string 0 pos) nil)))
+        (symbol (let ((pos (position #\: string :from-end t)))
+                  (if pos (subseq string (1+ pos)) string)))
+        (internp (search "::" string)))
+    (values symbol package internp)))
+
+;; FIXME: Escape chars are ignored
+(defun casify (string)
+  "Convert string accoring to readtable-case."
+  (ecase (readtable-case *readtable*)
+    (:preserve string)
+    (:upcase   (string-upcase string))
+    (:downcase (string-downcase string))
+    (:invert (multiple-value-bind (lower upper) (determine-case string)
+               (cond ((and lower upper) string)
+                     (lower (string-upcase string))
+                     (upper (string-downcase string))
+                     (t string))))))
+
+(defun parse-symbol (string &optional (package *package*))
+  "Find the symbol named STRING.
+Return the symbol and a flag indicating whether the symbols was found."
+  (multiple-value-bind (sname pname) (tokenize-symbol string)
+    (let ((package (cond ((string= pname "") keyword-package)
+                         (pname              (find-package (casify pname)))
+                         (t                  package))))
+      (if package
+          (find-symbol (casify sname) package)
+          (values nil nil)))))
+
+
+(defun token-to-symbol (syntax token)
+  (let ((package (or (slot-value syntax 'package)
+		     (find-package :common-lisp)))
+	(token-string (coerce (buffer-sequence (buffer syntax)
+					       (start-offset token)
+					       (end-offset token))
+			      'string)))
+    (parse-symbol token-string package)))
