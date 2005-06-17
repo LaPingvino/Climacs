@@ -34,6 +34,7 @@
 
 (defvar *current-slideset*)
 (defvar *did-display-a-slide*)
+(defvar *last-slide-displayed* nil)
 
 (defun slidemacs-entity-string (entity)
   (coerce (buffer-sequence (buffer entity)
@@ -151,6 +152,9 @@
     (when (and (mark>= point (start-offset parse-tree))
                (mark<= point (end-offset parse-tree))) 
       (when (boundp '*did-display-a-slide*)
+        (when (not (eq *last-slide-displayed* parse-tree))
+          (setf *last-slide-displayed* parse-tree)
+          (window-erase-viewport pane))
         (setf *did-display-a-slide* t))
       (with-slots (slidemacs-slide-name nonempty-list-of-bullets)
           parse-tree
@@ -170,6 +174,9 @@
     (when (and (mark>= point (start-offset parse-tree))
                (mark<= point (end-offset parse-tree)))
       (when (boundp '*did-display-a-slide*)
+        (when (not (eq *last-slide-displayed* parse-tree))
+          (setf *last-slide-displayed* parse-tree)
+          (window-erase-viewport pane))
         (setf *did-display-a-slide* t))
       (with-slots (slidemacs-slide-name list-of-roots list-of-edges)
           parse-tree
