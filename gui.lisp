@@ -315,7 +315,7 @@
 		  (progn
 		    (handler-case
 			(with-input-context 
-			      ('(command :command-table 'global-climacs-table))
+			      ('(command :command-table global-climacs-table))
 			    (object)
 		            (process-gestures)
 			  (t
