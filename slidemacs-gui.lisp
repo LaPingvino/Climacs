@@ -73,7 +73,7 @@
                            (subseq text start cur)
                          (setf start (1+ cur))))
                  :test #'equal)))
-    (present (pop split) 'string :stream pane)
+    (write-string (pop split) pane)
     (loop
      with margin = (stream-text-margin pane)
      for word in split
@@ -82,14 +82,14 @@
                margin)
             (progn
               (terpri pane)
-              (present word 'string :stream pane))
+              (write-string word pane))
             (progn
-              (present " " 'string :stream pane)
-              (present word 'string :stream pane))))
+              (write-string " " pane)
+              (write-string word pane))))
     (terpri pane)))
 
 (defparameter *slidemacs-sizes*
-  '(:title 64
+  '(:title 48
     :bullet 32
     :graph-node 16
     :slideset-title 48
@@ -148,14 +148,14 @@
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slide) (syntax slidemacs-gui-syntax) pane)
   (with-slots (point) pane
-              (when (and (mark>= point (start-offset parse-tree))
-                         (mark<= point (end-offset parse-tree)))
-                (when (boundp '*did-display-a-slide*)
-                  (setf *did-display-a-slide* t))
-                (with-slots (slidemacs-slide-name nonempty-list-of-bullets)
-                    parse-tree
-                  (display-parse-tree slidemacs-slide-name syntax pane)
-                  (display-parse-tree nonempty-list-of-bullets syntax pane)))))
+    (when (and (mark>= point (start-offset parse-tree))
+               (mark<= point (end-offset parse-tree))) 
+      (when (boundp '*did-display-a-slide*)
+        (setf *did-display-a-slide* t))
+      (with-slots (slidemacs-slide-name nonempty-list-of-bullets)
+          parse-tree
+        (display-parse-tree slidemacs-slide-name syntax pane)
+        (display-parse-tree nonempty-list-of-bullets syntax pane)))))
 
 (defun traverse-list-entry (list-entry unit-type function)
   (when (and
@@ -212,8 +212,8 @@
                  (present node 'string :stream stream))))
            (lambda (node)
              (loop for edge in edges
-                  if (equal (car edge) node)
-                  collect (cdr edge)))
+                if (equal (car edge) node)
+                collect (cdr edge)))
            :orientation :horizontal
            :generation-separation "xxxxxx"
            :arc-drawer
@@ -270,7 +270,7 @@
 
 (defparameter *slidemacs-gui-ink* +black+)
 
-(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax slidemacs-gui-syntax) current-p) 
+(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax slidemacs-gui-syntax) current-p)
   (with-drawing-options (pane :ink *slidemacs-gui-ink*)
     (with-slots (top bot point) pane
       (with-slots (lexer) syntax
@@ -328,7 +328,7 @@
   (setf *slidemacs-sizes*
         (loop for thing in *slidemacs-sizes*
               if (or (not (numberp thing))
-                     (< thing 16))
+                     (and (not decrease-p) (< thing 16)))
               collect thing
               else collect (if decrease-p (- thing 8) (+ thing 8)))))
 
