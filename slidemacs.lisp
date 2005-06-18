@@ -394,10 +394,12 @@
     (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
     (setf *white-space-start* (end-offset entity))))
 
-(defmethod display-parse-tree :around ((entity slidemacs-parse-tree) syntax pane)
-  (with-slots (top bot) pane
-    (when (and (end-offset entity) (mark> (end-offset entity) top))
-      (call-next-method))))
+(defmethod display-parse-tree :around ((entity slidemacs-parse-tree) (syntax slidemacs-editor-syntax) pane)
+  (if (not (typep syntax 'slidemacs-gui-syntax))
+      (with-slots (top bot) pane
+        (when (and (end-offset entity) (mark> (end-offset entity) top))
+          (call-next-method)))
+      (call-next-method)))
 
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax slidemacs-editor-syntax) current-p)
   (with-slots (top bot) pane

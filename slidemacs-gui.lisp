@@ -56,8 +56,8 @@
          (slot-exists-p list-entry 'items)
          (slot-exists-p list-entry 'item)
          (typep (slot-value list-entry 'item) unit-type))
-    (funcall function (slot-value list-entry 'item))
-    (traverse-list-entry (slot-value list-entry 'items) unit-type function)))
+    (traverse-list-entry (slot-value list-entry 'items) unit-type function)
+    (funcall function (slot-value list-entry 'item))))
 
 (defmethod display-parse-tree-for-postscript ((parse-tree slidemacs-slideset) (syntax slidemacs-gui-syntax) stream)
   (with-slots (slideset-info nonempty-list-of-slides slidemacs-slideset-name) parse-tree
@@ -67,8 +67,10 @@
       (display-parse-tree slideset-info syntax stream)
       (new-page stream)
       (traverse-list-entry nonempty-list-of-slides
-                           'slidemacs-slide
+                           'slidemacs-all-slide-types
                            (lambda (slide)
+                             (format *debug-io* "Displaying slide ~S~%"
+                                     slide)
                              (display-parse-tree slide syntax stream)
                              (new-page stream))))))
 
@@ -80,7 +82,7 @@
   (let ((*handle-whitespace* nil))
     (call-next-method)))
 
-(defun display-text-with-wrap-for-pane (text pane)
+(defmethod display-text-with-wrap-for-pane (text (pane climacs-pane))
   (let* ((text (substitute #\space #\newline text))
          (split (remove
                  ""
@@ -110,6 +112,10 @@
               (write-string " " pane)
               (write-string word pane))))
     (terpri pane)))
+
+(defmethod display-text-with-wrap-for-pane (text pane)
+  (stream-write-string pane text)
+  (terpri pane))
 
 (defparameter *slidemacs-sizes*
   '(:title 48
@@ -183,11 +189,23 @@
       (display-parse-tree slidemacs-slide-name syntax pane)
       (display-parse-tree nonempty-list-of-bullets syntax pane))))
 
+(defmacro possibly-capturing-and-flipping-output-twice
+    (pane conditional &body body)
+  `(flet ((b () ,@body))
+     (if ,conditional
+         (let ((rec (with-new-output-record (,pane)
+                      (b))))
+           (with-bounding-rectangle*
+               (x1 y1 x2 y2) rec
+             (draw-rectangle* ,pane x1 y1 x2 y2 :ink +flipping-ink+)
+             (draw-rectangle* ,pane x1 y1 x2 y2 :ink +flipping-ink+)))
+         (b))))
+
 (defmethod display-parse-tree ((parse-tree slidemacs-graph-slide) (syntax slidemacs-gui-syntax) pane)
   (when (or *no-check-point*
             (with-slots (point) pane
-              (when (and (mark>= point (start-offset parse-tree))
-                         (mark<= point (end-offset parse-tree))))))
+              (and (mark>= point (start-offset parse-tree))
+                   (mark<= point (end-offset parse-tree)))))
     (when (boundp '*did-display-a-slide*)
       (setf *did-display-a-slide* t))
     (with-slots (slidemacs-slide-name orientation list-of-roots list-of-edges)
@@ -222,37 +240,33 @@
                  (push-if-italic to-vertex)
                  (pushnew (cons from to)
                           edges :test #'equal))))))
-        (let (record)
-          (with-new-output-record (pane 'standard-sequence-output-record rec)
-            (format-graph-from-roots
-             roots
-             (lambda (node stream)
-               (with-text-style (pane `(:sans-serif
-                                        ,(if (find node italic :test #'equal)
-                                             :italic :roman)
-                                        ,(getf *slidemacs-sizes* :graph-node)))
-                 (surrounding-output-with-border (pane :shape :drop-shadow)
-                   (present node 'string :stream stream))))
-             (lambda (node)
-               (loop for edge in edges
-                  if (equal (car edge) node)
-                  collect (cdr edge)))
-             :orientation orientation-val
-             ;;:generation-separation "xxxxxx"
-             :arc-drawer
-             (lambda (stream obj1 obj2 x1 y1 x2 y2)
-               (declare (ignore obj1 obj2)) 
-               (draw-arrow* stream x1 y1 x2 y2 :line-thickness 1 :head-length 8 :head-width 4))
-             :merge-duplicates t
-             :duplicate-test #'equal
-             :graph-type :tree
-             )
-            (setf record rec))
-          ;; Isn't this a hack?
-          (with-bounding-rectangle*
-              (x1 y1 x2 y2) record
-            (draw-rectangle* pane x1 y1 x2 y2 :ink +flipping-ink+)
-            (draw-rectangle* pane x1 y1 x2 y2 :ink +flipping-ink+)))))))
+        (possibly-capturing-and-flipping-output-twice
+            pane (typep pane 'climacs-pane)
+          (format-graph-from-roots
+           roots
+           (lambda (node stream)
+             (with-text-style (pane `(:sans-serif
+                                      ,(if (find node italic :test #'equal)
+                                           :italic :roman)
+                                      ,(getf *slidemacs-sizes* :graph-node)))
+               (surrounding-output-with-border (pane :shape :drop-shadow)
+                 (present node 'string :stream stream))))
+           (lambda (node)
+             (loop for edge in edges
+                if (equal (car edge) node)
+                collect (cdr edge)))
+           :orientation orientation-val
+           ;;:generation-separation "xxxxxx"
+           :stream pane
+           :arc-drawer
+           (lambda (stream obj1 obj2 x1 y1 x2 y2)
+             (declare (ignore obj1 obj2)) 
+             (draw-arrow* stream x1 y1 x2 y2 :line-thickness 1 :head-length 8 :head-width 4))
+           :merge-duplicates t
+           :duplicate-test #'equal
+           :graph-type :tree
+           :move-cursor nil
+           ))))))
 
 (defmethod display-parse-tree ((entity slidemacs-slide-name) (syntax slidemacs-gui-syntax) pane)
   (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :title)))
@@ -261,7 +275,7 @@
     (terpri pane)))
 
 (defmethod display-parse-tree ((entity slidemacs-bullet) (syntax slidemacs-gui-syntax) pane)
-  (stream-increment-cursor-position pane (space-width pane) 0)
+  (stream-write-string pane " ")
   (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :bullet)))
     (if (and (not *no-check-point*)
              (with-slots (point) pane
@@ -272,9 +286,9 @@
         (call-next-method))))
 
 (defmethod display-parse-tree ((entity bullet) (syntax slidemacs-gui-syntax) pane)
-  (stream-increment-cursor-position pane (space-width pane) 0)
+  (stream-write-string pane " ")
   (present (lexeme-string entity) 'string :stream pane)
-  (stream-increment-cursor-position pane (space-width pane) 0))
+  (stream-write-string pane " "))
 
 (defmethod display-parse-tree ((entity talking-point) (syntax slidemacs-gui-syntax) pane)
   (with-slots (slidemacs-string) entity
