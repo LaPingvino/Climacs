@@ -41,7 +41,7 @@
                            (1- (end-offset entity)))
           'string))
 
-(defparameter *no-check-point* nil)
+(defparameter *postscript-display* nil)
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slideset) (syntax slidemacs-gui-syntax) pane)
   (with-slots (slideset-info nonempty-list-of-slides slidemacs-slideset-name) parse-tree
@@ -63,16 +63,13 @@
   (with-slots (slideset-info nonempty-list-of-slides slidemacs-slideset-name) parse-tree
     (let ((*current-slideset* (slidemacs-entity-string slidemacs-slideset-name))
           (*did-display-a-slide* nil)
-          (*no-check-point* t))
+          (*postscript-display* t))
       (display-parse-tree slideset-info syntax stream)
-      (new-page stream)
       (traverse-list-entry nonempty-list-of-slides
                            'slidemacs-all-slide-types
                            (lambda (slide)
-                             (format *debug-io* "Displaying slide ~S~%"
-                                     slide)
-                             (display-parse-tree slide syntax stream)
-                             (new-page stream))))))
+                             (new-page stream) 
+                             (display-parse-tree slide syntax stream))))))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slideset-keyword) (syntax slidemacs-gui-syntax) pane)
   (format *debug-io* "Oops!~%")
@@ -82,7 +79,7 @@
   (let ((*handle-whitespace* nil))
     (call-next-method)))
 
-(defmethod display-text-with-wrap-for-pane (text (pane climacs-pane))
+(defun undisplay-text-with-wrap-for-pane (text pane)
   (let* ((text (substitute #\space #\newline text))
          (split (remove
                  ""
@@ -113,10 +110,6 @@
               (write-string word pane))))
     (terpri pane)))
 
-(defmethod display-text-with-wrap-for-pane (text pane)
-  (stream-write-string pane text)
-  (terpri pane))
-
 (defparameter *slidemacs-sizes*
   '(:title 48
     :bullet 32
@@ -126,6 +119,8 @@
 
 (defmethod display-parse-tree ((parse-tree slideset-info) (syntax slidemacs-gui-syntax) pane)
   (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :slideset-title)))
+    (when *postscript-display*
+      (loop repeat 2 do (terpri pane)))
     (display-text-with-wrap-for-pane
      *current-slideset* pane)
     (terpri pane))
@@ -178,7 +173,7 @@
            (slidemacs-entity-string opt-date-string) pane)))))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slide) (syntax slidemacs-gui-syntax) pane)
-  (when (or *no-check-point*
+  (when (or *postscript-display*
             (with-slots (point) pane
               (and (mark>= point (start-offset parse-tree))
                    (mark<= point (end-offset parse-tree)))))
@@ -202,7 +197,7 @@
          (b))))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-graph-slide) (syntax slidemacs-gui-syntax) pane)
-  (when (or *no-check-point*
+  (when (or *postscript-display*
             (with-slots (point) pane
               (and (mark>= point (start-offset parse-tree))
                    (mark<= point (end-offset parse-tree)))))
@@ -270,6 +265,8 @@
 
 (defmethod display-parse-tree ((entity slidemacs-slide-name) (syntax slidemacs-gui-syntax) pane)
   (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :title)))
+    (when *postscript-display*
+      (loop repeat 2 do (terpri pane)))
     (display-text-with-wrap-for-pane
      (slidemacs-entity-string entity) pane)
     (terpri pane)))
@@ -277,7 +274,7 @@
 (defmethod display-parse-tree ((entity slidemacs-bullet) (syntax slidemacs-gui-syntax) pane)
   (stream-write-string pane " ")
   (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :bullet)))
-    (if (and (not *no-check-point*)
+    (if (and (not *postscript-display*)
              (with-slots (point) pane
                (and (mark>= point (start-offset entity))
                     (mark<= point (end-offset entity)))))
@@ -318,6 +315,8 @@
   (make-hash-table :test #'equal))
 
 (defun load-and-cache-xpm (pathname)
+  nil
+  #+nil
   (let ((hash-key (cons pathname (file-write-date pathname))))
     (let ((pattern (gethash hash-key *picture-cache*)))
       (if pattern pattern
@@ -366,8 +365,8 @@
 ;;; It's not necessary to draw the cursor, and in fact quite confusing
       )))
 
-(defun postscript-print-pane (pane)
-  (with-open-file (file-stream "slides.ps" :direction :output
+(defun postscript-print-pane (pane file)
+  (with-open-file (file-stream file :direction :output
                                :if-exists :supersede)
     (with-output-to-postscript-stream
         (stream file-stream)
@@ -467,28 +466,10 @@
 (climacs-gui::global-set-key '(#\- :control :meta) 'com-first-talking-point)
 (climacs-gui::global-set-key '(#\s :control :meta) 'com-flip-slidemacs-syntax)
 
-(defun next-text-size (size)
-  (if (symbolp size) 16 ;obviously
-      (+ size 4)))
-
-(defun prev-text-size (size)
-  (if (symbolp size) 12 ;obviously
-      (if (> size 4)
-          (- size 4)
-          size)))
-
-(climacs-gui::define-named-command com-increase-text-size ()
-  (symbol-macrolet ((style (medium-text-style (sheet-medium (climacs-gui::current-window)))))
-    (format *debug-io* "Size is ~S~%" (text-style-size style))
-    (setf style (make-text-style (text-style-family style)
-                                 (text-style-face style)
-                                 (next-text-size (text-style-size style))))
-    (format *debug-io* "Size is now ~S~%" (text-style-size style)))
-  (full-redisplay (climacs-gui::current-window)))
-
-(climacs-gui::define-named-command com-decrease-text-size ()
-  (symbol-macrolet ((style (medium-text-style (sheet-medium (climacs-gui::current-window)))))
-    (setf style (make-text-style (text-style-family style)
-                                 (text-style-face style)
-                                 (prev-text-size (text-style-size style)))))
-  (full-redisplay (climacs-gui::current-window)))
+(climacs-gui::define-named-command com-postscript-print-presentation ()
+  (let ((pane (climacs-gui::current-window)))
+    (if (not (and (typep pane 'climacs-pane)
+                  (typep (syntax (buffer pane)) 'slidemacs-gui-syntax)))
+        (beep)
+        (let ((file (accept 'climacs-gui::completable-pathname :prompt "Output to")))
+          (postscript-print-pane pane file)))))
