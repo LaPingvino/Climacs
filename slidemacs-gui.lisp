@@ -64,12 +64,13 @@
     (let ((*current-slideset* (slidemacs-entity-string slidemacs-slideset-name))
           (*did-display-a-slide* nil)
           (*postscript-display* t))
-      (display-parse-tree slideset-info syntax stream)
-      (traverse-list-entry nonempty-list-of-slides
-                           'slidemacs-all-slide-types
-                           (lambda (slide)
-                             (new-page stream) 
-                             (display-parse-tree slide syntax stream))))))
+      (with-translation (stream 20 70)
+        (display-parse-tree slideset-info syntax stream)
+        (traverse-list-entry nonempty-list-of-slides
+                             'slidemacs-all-slide-types
+                             (lambda (slide)
+                               (new-page stream) 
+                               (display-parse-tree slide syntax stream)))))))
 
 (defmethod display-parse-tree ((parse-tree slidemacs-slideset-keyword) (syntax slidemacs-gui-syntax) pane)
   (format *debug-io* "Oops!~%")
@@ -118,9 +119,7 @@
     :slideset-info 32))
 
 (defmethod display-parse-tree ((parse-tree slideset-info) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :slideset-title)))
-    (when *postscript-display*
-      (loop repeat 2 do (terpri pane)))
+  (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :slideset-title))) 
     (display-text-with-wrap-for-pane
      *current-slideset* pane)
     (terpri pane))
@@ -260,13 +259,11 @@
            :merge-duplicates t
            :duplicate-test #'equal
            :graph-type :tree
-           :move-cursor nil
+           :move-cursor t
            ))))))
 
 (defmethod display-parse-tree ((entity slidemacs-slide-name) (syntax slidemacs-gui-syntax) pane)
-  (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :title)))
-    (when *postscript-display*
-      (loop repeat 2 do (terpri pane)))
+  (with-text-style (pane `(:sans-serif :bold ,(getf *slidemacs-sizes* :title))) 
     (display-text-with-wrap-for-pane
      (slidemacs-entity-string entity) pane)
     (terpri pane)))
@@ -298,6 +295,7 @@
           (display-text-with-wrap-for-pane bullet-text pane))
       (terpri pane))))
 
+#+(or)
 (defun draw-picture (stream pattern)
   (multiple-value-bind (x y)
       (stream-cursor-position stream)
@@ -311,25 +309,27 @@
                            (make-translation-transformation x y)
                            pattern)))))
 
+#+(or)
 (defparameter *picture-cache*
   (make-hash-table :test #'equal))
 
+#+(or)
 (defun load-and-cache-xpm (pathname)
   nil
-  #+nil
   (let ((hash-key (cons pathname (file-write-date pathname))))
     (let ((pattern (gethash hash-key *picture-cache*)))
       (if pattern pattern
           (setf (gethash hash-key *picture-cache*)
                 (climi::xpm-parse-file pathname))))))
 
+#+(or)
 (defmethod display-parse-tree ((entity picture-node) (syntax slidemacs-gui-syntax) pane)
   (with-slots (picture-pathname) entity
     (let ((real-pathname (slidemacs-entity-string picture-pathname)))
       (if (probe-file real-pathname)
           (let ((pattern (load-and-cache-xpm real-pathname)))
             (format *debug-io* "Loaded ~S!~%" real-pathname)
-            (with-output-recording-options (pane nil t)
+            (with-output-recording-options (pane :record nil :draw t)
               (draw-picture pane pattern)))
           (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :bullet)))
             (display-text-with-wrap-for-pane (format nil "Missing picture ~S" real-pathname) pane))))))
@@ -369,7 +369,7 @@
   (with-open-file (file-stream file :direction :output
                                :if-exists :supersede)
     (with-output-to-postscript-stream
-        (stream file-stream)
+        (stream file-stream :orientation :landscape :device-type :letter)
   (with-drawing-options (stream :ink *slidemacs-gui-ink*)
     (with-slots (top bot point) pane
       (let ((syntax (syntax (buffer pane))))
