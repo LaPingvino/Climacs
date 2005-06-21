@@ -80,7 +80,7 @@
   (let ((*handle-whitespace* nil))
     (call-next-method)))
 
-(defun undisplay-text-with-wrap-for-pane (text pane)
+(defun display-text-with-wrap-for-pane (text pane)
   (let* ((text (substitute #\space #\newline text))
          (split (remove
                  ""
@@ -295,6 +295,79 @@
           (display-text-with-wrap-for-pane bullet-text pane))
       (terpri pane))))
 
+(define-presentation-type slidemacs-url () :inherit-from 'string)
+
+(define-presentation-method present (object (type slidemacs-url)
+                                            stream (view textual-view)
+                                            &key &allow-other-keys)
+  (display-text-with-wrap-for-pane object stream))
+
+(define-command (com-browse-to-url :name "Browse To URL"
+                                   :command-table global-command-table
+                                   :menu t
+                                   :provide-output-destination-keyword t)
+    ((url 'slidemacs-url :prompt "url"))
+  #+sbcl
+  (sb-ext:run-program "/usr/bin/open" (list url)))
+
+(define-presentation-to-command-translator browse-url-translator
+    (slidemacs-url com-browse-to-url global-command-table
+                   :gesture :select
+                   :documentation "Browse To URL"
+                   :pointer-documentation "Browse To URL")
+    (presentation)
+  (list (presentation-object presentation)))
+
+(defmethod display-parse-tree ((entity url-point) (syntax slidemacs-gui-syntax) pane)
+  (stream-write-string pane " ")
+  (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :bullet)))
+    (with-slots (url-string) entity
+      (display-parse-tree url-string syntax pane))))
+
+(defmethod display-parse-tree ((entity url-string) (syntax slidemacs-gui-syntax) pane)
+  (with-slots (slidemacs-string) entity
+    (let ((is-italic (typep (slot-value slidemacs-string 'item)
+                            'slidemacs-italic-string))
+          (bullet-text (slidemacs-entity-string entity))) 
+      (if is-italic
+          (with-text-face (pane :italic)
+            (present bullet-text 'slidemacs-url :stream pane))
+          (present bullet-text 'slidemacs-url :stream pane))
+      (terpri pane))))
+
+(define-presentation-type reveal-button () :inherit-from t)
+
+(define-presentation-method present (object (type reveal-button)
+                                            stream (view textual-view)
+                                            &key &allow-other-keys)
+  (with-slots (button-label) object
+    (display-text-with-wrap-for-pane (slidemacs-entity-string button-label)
+                                     stream)))
+
+(define-command (com-reveal-text :name "Reveal Text In Window"
+                                   :command-table global-command-table
+                                   :menu t
+                                   :provide-output-destination-keyword t)
+    ((text 'string :prompt "text"))
+  (let ((stream (open-window-stream)))
+    (with-text-style (stream `(:sans-serif :roman ,(getf *slidemacs-sizes* :bullet)))
+      (write-string text stream))))
+
+(define-presentation-to-command-translator reveal-text-translator
+    (reveal-button com-reveal-text global-command-table
+                   :gesture :select
+                   :documentation "Reveal Text In Window"
+                   :pointer-documentation "Reveal Text In Window")
+    (presentation)
+  (with-slots (reveal-text) (presentation-object presentation)
+    (list (slidemacs-entity-string reveal-text))))
+
+(defmethod display-parse-tree ((entity reveal-button-point) (syntax slidemacs-gui-syntax) pane)
+  (write-string " " pane)
+  (with-text-style (pane `(:sans-serif :roman ,(getf *slidemacs-sizes* :bullet)))
+      (present entity 'reveal-button :stream pane))
+  (terpri pane))
+      
 #+(or)
 (defun draw-picture (stream pattern)
   (multiple-value-bind (x y)
