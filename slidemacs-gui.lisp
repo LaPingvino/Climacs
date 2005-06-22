@@ -300,7 +300,9 @@
 (define-presentation-method present (object (type slidemacs-url)
                                             stream (view textual-view)
                                             &key &allow-other-keys)
-  (display-text-with-wrap-for-pane object stream))
+  (with-drawing-options (stream :ink +blue+)
+    (surrounding-output-with-border (stream :shape :underline)
+      (display-text-with-wrap-for-pane object stream))))
 
 (define-command (com-browse-to-url :name "Browse To URL"
                                    :command-table global-command-table
@@ -341,8 +343,18 @@
                                             stream (view textual-view)
                                             &key &allow-other-keys)
   (with-slots (button-label) object
-    (display-text-with-wrap-for-pane (slidemacs-entity-string button-label)
-                                     stream)))
+    (let (record)
+      (with-output-to-output-record (stream 'standard-sequence-output-record rec)
+        (display-text-with-wrap-for-pane (slidemacs-entity-string button-label)
+                                         stream)
+        (setf record rec))
+      (multiple-value-bind (sx sy) (stream-cursor-position stream)
+        (setf (output-record-position record) (values sx sy))
+        (with-bounding-rectangle* (x1 y1 x2 y2) record
+          (draw-rectangle* stream x1 y1 x2 y2 :filled t :line-thickness 1 :ink (make-rgb-color 1.0 0.7 0.7))
+          (stream-add-output-record stream record)
+          (stream-increment-cursor-position stream (- x2 x1)
+                                            (- y2 y1)))))))
 
 (define-command (com-reveal-text :name "Reveal Text In Window"
                                    :command-table global-command-table
@@ -525,11 +537,11 @@
          (syntax (syntax buffer)))
     (typecase syntax
       (slidemacs-gui-syntax
-       (climacs-gui::set-syntax (make-instance 'slidemacs-editor-syntax
-                                               :buffer buffer)))
+       (setf (syntax buffer) (make-instance 'slidemacs-editor-syntax
+                                            :buffer buffer)))
       (slidemacs-editor-syntax
-       (climacs-gui::set-syntax (make-instance 'slidemacs-gui-syntax
-                                               :buffer buffer))))))
+       (setf (syntax buffer) (make-instance 'slidemacs-gui-syntax
+                                            :buffer buffer))))))
 
 (climacs-gui::global-set-key '(#\= :control) 'com-next-talking-point)
 (climacs-gui::global-set-key '(#\- :control) 'com-previous-talking-point)
