@@ -210,6 +210,10 @@
 		   'basic-syntax :buffer (implementation buffer))
 	   point (clone-mark (low-mark buffer) :right))))
 
+(defmethod (setf syntax) :after (syntax (buffer climacs-buffer))
+  (setf (offset (low-mark buffer)) 0
+        (offset (high-mark buffer)) (size buffer)))
+
 (defclass climacs-pane (application-pane)
   ((buffer :initform (make-instance 'climacs-buffer) :accessor buffer)
    (point :initform nil :initarg :point :accessor point)
@@ -250,7 +254,7 @@
   (with-slots (buffer top bot scan) pane
      (setf top (clone-mark (low-mark buffer) :left)
 	   bot (clone-mark (high-mark buffer) :right)))
-  (setf (stream-default-view pane) (make-instance 'climacs-textual-view))
+  (setf (stream-default-view pane) (make-instance 'climacs-textual-view)) 
   (with-slots (space-width tab-width) (stream-default-view pane)
      (let* ((medium (sheet-medium pane))
 	    (style (medium-text-style medium)))

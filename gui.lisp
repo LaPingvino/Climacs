@@ -904,13 +904,6 @@
     (psetf (offset (mark pane)) (offset (point pane))
 	   (offset (point pane)) (offset (mark pane)))))
 
-(defun set-syntax (syntax)
-  (let* ((pane (current-window))
-	 (buffer (buffer pane)))
-    (setf (syntax buffer) syntax)
-    (setf (offset (low-mark buffer)) 0
-	  (offset (high-mark buffer)) (size buffer))))
-
 (define-named-command com-set-syntax ()
   (let* ((pane (current-window))
 	 (buffer (buffer pane)))
@@ -919,9 +912,7 @@
 			     (progn (beep)
 				    (display-message "No such syntax")
 				    (return-from com-set-syntax nil)))
-	     :buffer (buffer (point pane))))
-    (setf (offset (low-mark buffer)) 0
-	  (offset (high-mark buffer)) (size buffer))))
+	     :buffer (buffer (point pane))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
