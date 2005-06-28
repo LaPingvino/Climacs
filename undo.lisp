@@ -65,8 +65,8 @@ call undo on a tree that is in its initial state."))
   (:documentation "Protocol class for all undo trees"))
 
 (defclass standard-undo-tree (undo-tree)
-  ((current-record :initform nil :accessor current-record)
-   (leaf-record :initform nil :accessor leaf-record)
+  ((current-record :accessor current-record)
+   (leaf-record :accessor leaf-record)
    (redo-path :initform '() :accessor redo-path)
    (children :initform '() :accessor children)
    (depth :initform 0 :reader depth))
@@ -74,7 +74,8 @@ call undo on a tree that is in its initial state."))
 
 (defmethod initialize-instance :after ((tree standard-undo-tree) &rest args)
   (declare (ignore args))
-  (setf (current-record tree) tree))
+  (setf (current-record tree) tree
+	(leaf-record tree) tree))
 
 (defclass undo-record () ()
   (:documentation "The protocol class for all undo records."))

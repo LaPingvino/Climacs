@@ -1300,11 +1300,13 @@ as two values"
 ;;; Undo/redo
 
 (define-named-command com-undo ()
-  (undo (undo-tree (buffer (current-window))))
+  (handler-case (undo (undo-tree (buffer (current-window))))
+    (no-more-undo () (beep) (display-message "No more undo")))
   (full-redisplay (current-window)))
 
 (define-named-command com-redo ()
-  (redo (undo-tree (buffer (current-window))))
+  (handler-case (redo (undo-tree (buffer (current-window))))
+    (no-more-undo () (beep) (display-message "No more redo")))
   (full-redisplay (current-window)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
