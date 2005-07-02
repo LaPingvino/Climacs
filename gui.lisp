@@ -150,7 +150,7 @@
 
 (defmethod handle-repaint :before ((pane extended-pane) region)
   (declare (ignore region))
-  (redisplay-frame-panes *application-frame*))
+  (redisplay-frame-pane *application-frame* pane))
 
 (defun find-gestures (gestures start-table)
   (loop with table = (find-command-table start-table)
