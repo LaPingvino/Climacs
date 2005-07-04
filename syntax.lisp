@@ -520,14 +520,20 @@ position in the lexemes of LEXER"
 		      (or (subtypep (target parser) sym)
 			  (subtypep sym (target parser))))
 		(if (functionp (right-hand-side rule))
-		    (handle-incomplete-item
-		     (make-instance 'incomplete-item
-			:orig-state initial-state
-			:predicted-from nil
-			:rule rule
-			:dot-position 0
-			:suffix (right-hand-side rule))
-		     initial-state initial-state)
+		    (let ((predicted-rules (slot-value initial-state 'predicted-rules))
+			  (rule-number (slot-value rule 'number))
+			  (predict-test (predict-test rule)))
+		      (when (zerop (sbit predicted-rules rule-number))
+			(setf (sbit predicted-rules rule-number) 1)
+			(when (null predict-test)
+			  (handle-and-predict-incomplete-item
+			   (make-instance 'incomplete-item
+					  :orig-state initial-state
+					  :predicted-from nil
+					  :rule rule
+					  :dot-position 0
+					  :suffix (right-hand-side rule))
+			   initial-state nil))))
 		    (potentially-handle-parse-tree
 		     (right-hand-side rule) initial-state initial-state))))))
 
