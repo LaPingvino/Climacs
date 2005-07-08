@@ -156,6 +156,7 @@
 
 (defclass lisp-nonterminal (nonterminal) ())     
 (defclass form (lisp-nonterminal) ())
+(defclass incomplete-form-mixin () ())
 
 (defclass lisp-lexeme (lexeme)
   ((ink)
@@ -471,6 +472,8 @@
 
 ;;; parse trees
 (defclass list-form (form) ())
+(defclass complete-list-form (list-form) ())
+(defclass incomplete-list-form (list-form incomplete-form-mixin) ())
 
 (define-parser-state |( form* | (lexer-list-state form-may-follow) ())
 (define-parser-state |( form* ) | (lexer-toplevel-state parser-state) ())
@@ -481,12 +484,18 @@
 
 ;;; reduce according to the rule form -> ( form* )
 (define-lisp-action (|( form* ) | t)
-  (reduce-until-type list-form left-parenthesis-lexeme))
+  (reduce-until-type complete-list-form left-parenthesis-lexeme))
+
+;;; reduce at the end of the buffer
+(define-lisp-action (|( form* | (eql nil))
+  (reduce-until-type incomplete-list-form left-parenthesis-lexeme))
 
 ;;;;;;;;;;;;;;;; String
 
 ;;; parse trees
 (defclass string-form (form) ())
+(defclass complete-string-form (string-form) ())
+(defclass incomplete-string-form (string-form incomplete-form-mixin) ())
 
 (define-parser-state |" word* | (lexer-string-state parser-state) ())
 (define-parser-state |" word* " | (lexer-toplevel-state parser-state) ())
@@ -498,7 +507,11 @@
 
 ;;; reduce according to the rule form -> " word* "
 (define-lisp-action (|" word* " | t)
-  (reduce-until-type string-form string-start-lexeme))
+  (reduce-until-type complete-string-form string-start-lexeme))
+
+;;; reduce at the end of the buffer 
+(define-lisp-action (|" word* | (eql nil))
+  (reduce-until-type incomplete-string-form string-start-lexeme))
 
 ;;;;;;;;;;;;;;;; Line comment
 
@@ -523,6 +536,8 @@
 
 ;;; parse trees
 (defclass long-comment-form (form) ())
+(defclass complete-long-comment-form (long-comment-form) ())
+(defclass incomplete-long-comment-form (long-comment-form incomplete-form-mixin) ())
 
 (define-parser-state |#\| word* | (lexer-long-comment-state parser-state) ())
 (define-parser-state |#\| word* \|# | (lexer-toplevel-state parser-state) ())
@@ -536,12 +551,18 @@
 
 ;;; reduce according to the rule form -> #| word* |#
 (define-lisp-action (|#\| word* \|# | t)
-  (reduce-until-type long-comment-form long-comment-start-lexeme))
+  (reduce-until-type complete-long-comment-form long-comment-start-lexeme))
+
+;;; reduce at the end of the buffer
+(define-lisp-action (|#\| word* | (eql nil))
+  (reduce-until-type incomplete-long-comment-form long-comment-start-lexeme))
 
 ;;;;;;;;;;;;;;;; Symbol name surrounded with vertical bars
 
 ;;; parse trees
 (defclass symbol-form (form) ())
+(defclass complete-symbol-form (symbol-form) ())
+(defclass incomplete-symbol-form (symbol-form incomplete-form-mixin) ())
 
 (define-parser-state |\| text* | (lexer-symbol-state parser-state) ())
 (define-parser-state |\| text* \| | (lexer-toplevel-state parser-state) ())
@@ -552,7 +573,11 @@
 
 ;;; reduce according to the rule form -> | text* |
 (define-lisp-action (|\| text* \| | t)
-  (reduce-until-type symbol-form symbol-start-lexeme))
+  (reduce-until-type complete-symbol-form symbol-start-lexeme))
+
+;;; reduce at the end of the buffer
+(define-lisp-action (|\| text* | (eql nil))
+  (reduce-until-type incomplete-symbol-form symbol-start-lexeme))
 
 ;;;;;;;;;;;;;;;; Quote
 
@@ -899,13 +924,20 @@
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset parse-symbol))
   (setf *white-space-start* (end-offset parse-symbol)))
 
-(defmethod display-parse-tree ((parse-symbol string-form) (syntax lisp-syntax) pane)
+(defmethod display-parse-tree ((parse-symbol complete-string-form) (syntax lisp-syntax) pane)
   (let ((children (children parse-symbol)))
     (display-parse-tree  (pop children) syntax pane)
     (with-text-face (pane :italic)
       (loop until (null (cdr children))
 	    do (display-parse-tree (pop children) syntax pane)))
     (display-parse-tree (pop children) syntax pane)))
+
+(defmethod display-parse-tree ((parse-symbol incomplete-string-form) (syntax lisp-syntax) pane)
+  (let ((children (children parse-symbol)))
+    (display-parse-tree  (pop children) syntax pane)
+    (with-text-face (pane :italic)
+      (loop until (null children)
+	    do (display-parse-tree (pop children) syntax pane)))))
 
 (defmethod display-parse-tree ((parse-symbol line-comment-form) (syntax lisp-syntax) pane)
   (with-drawing-options (pane :ink +maroon+)
@@ -915,7 +947,7 @@
   (with-drawing-options (pane :ink +maroon+)
     (call-next-method)))
     
-(defmethod display-parse-tree ((parse-symbol list-form) (syntax lisp-syntax) pane)
+(defmethod display-parse-tree ((parse-symbol complete-list-form) (syntax lisp-syntax) pane)
   (let ((children (children parse-symbol)))
     (if (= (end-offset parse-symbol) (offset (point pane)))
 	(with-text-face (pane :bold)
@@ -1055,6 +1087,12 @@
         (internp (search "::" string)))
     (values symbol package internp)))
 
+(defun determine-case (string)
+  "Return two booleans LOWER and UPPER indicating whether STRING
+contains lower or upper case characters."
+  (values (some #'lower-case-p string)
+          (some #'upper-case-p string)))
+
 ;; FIXME: Escape chars are ignored
 (defun casify (string)
   "Convert string accoring to readtable-case."
@@ -1088,3 +1126,154 @@ Return the symbol and a flag indicating whether the symbols was found."
 					       (end-offset token))
 			      'string)))
     (parse-symbol token-string package)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; indentation
+
+(defmethod indent-form ((syntax lisp-syntax) (tree form*) path)
+  (cond ((or (null path)
+	     (and (null (cdr path)) (zerop (car path))))
+	 (values tree 0))
+	((null (cdr path))
+	 (values (elt (children tree) (1- (car path))) 0))
+	(t (indent-form syntax (elt (children tree) (car path)) (cdr path)))))
+
+(defmethod indent-form ((syntax lisp-syntax) (tree list-form) path)
+  (if (= (car path) 1)
+      ;; before first element
+      (values tree 1)
+      (let ((first-child (elt (children tree) 1)))
+	(cond ((and (typep first-child 'token-lexeme)
+		    (token-to-symbol syntax first-child))
+	       (compute-list-indentation syntax (token-to-symbol syntax first-child) tree path))
+	      ((null (cdr path))
+	       ;; top level
+	       (if (= (car path) 2)
+		   ;; indent like first element
+		   (values (elt (children tree) 1) 0)
+		   ;; indent like second element
+		   (values (elt (children tree) 2) 0)))
+	      (t
+	       ;; inside a subexpression
+	       (indent-form syntax (elt (children tree) (car path)) (cdr path)))))))	    
+
+(defmethod indent-binding ((syntax lisp-syntax) tree path)
+  (if (null (cdr path))
+      ;; top level
+      (cond ((= (car path) 1)
+	     ;; before variable, indent 1
+	     (values tree 1))
+	    ((= (car path) 2)
+	     ;; between variable and value
+	     (values (elt (children tree) 1) 0))
+	    (t
+	     ;; after value
+	     (values (elt (children tree) 2) 0)))
+      (indent-form syntax (elt (children tree) (car path)) (cdr path))))
+
+(defmethod indent-bindings ((syntax lisp-syntax) tree path)
+  (if (null (cdr path))
+      ;; entire bind form
+      (if (= (car path) 1)
+	  ;; before first binding, indent 1
+	  (values tree 1)
+	  ;; after some bindings, align with first binding
+	  (values (elt (children tree) 1) 0))
+      ;; inside a bind form
+      (indent-binding syntax (elt (children tree) (car path)) (cdr path))))
+
+(defmethod compute-list-indentation ((syntax lisp-syntax) symbol tree path)
+  (if (null (cdr path))
+      ;; top level
+      (if (= (car path) 2)
+	  ;; indent like first child
+	  (values (elt (children tree) 1) 0)
+	  ;; indent like second child
+	  (values (elt (children tree) 2) 0))
+      ;; inside a subexpression
+      (indent-form syntax (elt (children tree) (car path)) (cdr path))))
+
+;;; line up the elements vertically
+(defun indent-list (syntax tree path)
+  (if (null (cdr path))
+      ;; top level
+      (if (= (car path) 1)
+	  ;; indent one more than the list
+	  (values tree 1)
+	  ;; indent like the first element
+	  (values (elt (children tree) 1) 0))
+      ;; inside an element
+      (indent-list syntax (elt (children tree) (car path)) (cdr path))))
+
+;;; for now the same as indent-list, but try to do better with
+;;; optional parameters with default values
+(defun indent-lambda-list (syntax tree path)
+  (if (null (cdr path))
+      ;; top level
+      (if (= (car path) 1)
+	  ;; indent one more than the list
+	  (values tree 1)
+	  ;; indent like the first parameter
+	  (values (elt (children tree) 1) 0))
+      ;; inside a parameter 
+      (indent-list syntax (elt (children tree) (car path)) (cdr path))))
+
+(defmacro define-simple-indentor (template)
+  `(defmethod compute-list-indentation
+       ((syntax lisp-syntax) (symbol (eql ',(car template))) tree path)
+     (cond ((null (cdr path))
+	    (values tree (if (<= (car path) ,(length template)) 4 2)))
+	   ,@(loop for fun in (cdr template)
+		  for i from 2
+		  collect `((= (car path) ,i) (,fun syntax (elt (children tree) ,i) (cdr path))))
+	   (t (indent-form syntax (elt (children tree) (car path)) (cdr path))))))
+
+(define-simple-indentor (prog1 indent-form))
+(define-simple-indentor (let indent-bindings))
+(define-simple-indentor (let* indent-bindings))
+(define-simple-indentor (defun indent-list indent-lambda-list))
+(define-simple-indentor (with-slots indent-list))
+(define-simple-indentor (when indent-form))
+(define-simple-indentor (unless indent-form))
+
+(defun compute-path-in-trees (trees n offset)
+  (cond ((or (null trees)
+	     (>= (start-offset (car trees)) offset))    
+	 (list n))
+	((or (< (start-offset (car trees)) offset (end-offset (car trees)))
+	     (typep (car trees) 'incomplete-form-mixin))
+	 (cons n (compute-path-in-tree (car trees) offset)))
+	(t (compute-path-in-trees (cdr trees) (1+ n) offset))))
+
+(defun compute-path-in-tree (tree offset)
+  (if (null (children tree))
+      '()
+      (compute-path-in-trees (children tree) 0 offset)))
+
+(defun compute-path (syntax offset)
+  (with-slots (stack-top) syntax
+    (compute-path-in-tree stack-top offset)))
+
+(defun real-column-number (mark tab-width)
+  (let ((mark2 (clone-mark mark)))
+    (beginning-of-line mark2)
+    (loop with column = 0
+	  until (mark= mark mark2)
+	  do (if (eql (object-after mark2) #\Tab)
+		 (loop do (incf column)
+		       until (zerop (mod column tab-width)))
+		 (incf column))
+	  do (incf (offset mark2))
+          finally (return column))))
+
+(defmethod syntax-line-indentation (mark tab-width (syntax lisp-syntax))
+  (setf mark (clone-mark mark))
+  (with-slots (stack-top) syntax
+    (let ((path (compute-path syntax (offset mark))))
+      (beginning-of-line mark)
+      (multiple-value-bind (tree offset)
+	  (indent-form syntax stack-top path)
+	(setf (offset mark) (start-offset tree))
+	(+ (real-column-number mark tab-width)
+	   offset)))))
