@@ -804,7 +804,8 @@
 					    'string))
 		      (package-symbol
 		       (let ((*package* (find-package :common-lisp)))
-			 (read-from-string package-name nil nil))))
+			 (ignore-errors
+			   (read-from-string package-name nil nil)))))
 		 (find-package package-symbol))))))))
 
 (defmethod update-syntax (buffer (syntax lisp-syntax))
@@ -1158,6 +1159,9 @@ Return the symbol and a flag indicating whether the symbols was found."
 	       ;; inside a subexpression
 	       (indent-form syntax (elt (children tree) (car path)) (cdr path)))))))	    
 
+(defmethod indent-form ((syntax lisp-syntax) (tree string-form) path)
+  (values tree 1))
+
 (defmethod indent-binding ((syntax lisp-syntax) tree path)
   (if (null (cdr path))
       ;; top level
@@ -1194,30 +1198,24 @@ Return the symbol and a flag indicating whether the symbols was found."
       ;; inside a subexpression
       (indent-form syntax (elt (children tree) (car path)) (cdr path))))
 
+(defmacro define-list-indentor (name element-indentor)
+  `(defun ,name (syntax tree path)
+     (if (null (cdr path))
+	 ;; top level
+	 (if (= (car path) 1)
+	     ;; indent one more than the list
+	     (values tree 1)
+	     ;; indent like the first element
+	     (values (elt (children tree) 1) 0))
+	 ;; inside an element
+	 (,element-indentor syntax (elt (children tree) (car path)) (cdr path)))))
+
 ;;; line up the elements vertically
-(defun indent-list (syntax tree path)
-  (if (null (cdr path))
-      ;; top level
-      (if (= (car path) 1)
-	  ;; indent one more than the list
-	  (values tree 1)
-	  ;; indent like the first element
-	  (values (elt (children tree) 1) 0))
-      ;; inside an element
-      (indent-list syntax (elt (children tree) (car path)) (cdr path))))
+(define-list-indentor indent-list indent-list)
 
 ;;; for now the same as indent-list, but try to do better with
 ;;; optional parameters with default values
-(defun indent-lambda-list (syntax tree path)
-  (if (null (cdr path))
-      ;; top level
-      (if (= (car path) 1)
-	  ;; indent one more than the list
-	  (values tree 1)
-	  ;; indent like the first parameter
-	  (values (elt (children tree) 1) 0))
-      ;; inside a parameter 
-      (indent-list syntax (elt (children tree) (car path)) (cdr path))))
+(define-list-indentor indent-lambda-list indent-list)
 
 (defmacro define-simple-indentor (template)
   `(defmethod compute-list-indentation
@@ -1236,6 +1234,25 @@ Return the symbol and a flag indicating whether the symbols was found."
 (define-simple-indentor (with-slots indent-list))
 (define-simple-indentor (when indent-form))
 (define-simple-indentor (unless indent-form))
+
+;;; do this better 
+(define-list-indentor indent-slot-specs indent-list)
+
+(defmethod compute-list-indentation
+    ((syntax lisp-syntax) (symbol (eql 'defclass)) tree path)
+  (if (null (cdr path))
+      ;; top level
+      (values tree (if (<= (car path) 3) 4 2))
+      (case (car path)
+	((2 3)
+	 ;; in the class name or superclasses respectively
+	 (indent-list syntax (elt (children tree) 2) (cdr path)))
+	(3
+	 ;; in the slot specs 
+	 (indent-slot-specs syntax (elt (children tree) 3) (cdr path)))
+	(t
+	 ;; this is an approximation, might want to do better
+	 (indent-list syntax (elt (children tree) (car path)) (cdr path))))))
 
 (defun compute-path-in-trees (trees n offset)
   (cond ((or (null trees)
@@ -1269,9 +1286,9 @@ Return the symbol and a flag indicating whether the symbols was found."
 
 (defmethod syntax-line-indentation (mark tab-width (syntax lisp-syntax))
   (setf mark (clone-mark mark))
+  (beginning-of-line mark)
   (with-slots (stack-top) syntax
     (let ((path (compute-path syntax (offset mark))))
-      (beginning-of-line mark)
       (multiple-value-bind (tree offset)
 	  (indent-form syntax stack-top path)
 	(setf (offset mark) (start-offset tree))

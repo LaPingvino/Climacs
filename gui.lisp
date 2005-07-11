@@ -1453,6 +1453,7 @@ as two values"
 
 (global-set-key #\Newline 'com-self-insert)
 (global-set-key #\Tab 'com-indent-line)
+(global-set-key '(#\i :control) 'com-indent-line)
 (global-set-key '(#\: :shift :meta) `(com-eval-expression ,*numeric-argument-p*))
 (global-set-key '(#\j :control) 'com-newline-and-indent)
 (global-set-key '(#\f :control) `(com-forward-object ,*numeric-argument-marker*))
