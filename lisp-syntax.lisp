@@ -1246,12 +1246,28 @@ Return the symbol and a flag indicating whether the symbols was found."
       (case (car path)
 	((2 3)
 	 ;; in the class name or superclasses respectively
-	 (indent-list syntax (elt (children tree) 2) (cdr path)))
-	(3
+	 (indent-list syntax (elt (children tree) (car path)) (cdr path)))
+	(4
 	 ;; in the slot specs 
-	 (indent-slot-specs syntax (elt (children tree) 3) (cdr path)))
+	 (indent-slot-specs syntax (elt (children tree) 4) (cdr path)))
 	(t
 	 ;; this is an approximation, might want to do better
+	 (indent-list syntax (elt (children tree) (car path)) (cdr path))))))
+
+(defmethod compute-list-indentation
+    ((syntax lisp-syntax) (symbol (eql 'defgeneric)) tree path)
+  (if (null (cdr path))
+      ;; top level
+      (values tree (if (<= (car path) 3) 4 2))
+      (case (car path)
+	(2
+	 ;; in the function name
+	 (indent-list syntax (elt (children tree) 2) (cdr path)))
+	(3
+	 ;; in the lambda-list
+	 (indent-lambda-list syntax (elt (children tree) 3) (cdr path)))
+	(t
+	 ;; in the options or method specifications
 	 (indent-list syntax (elt (children tree) (car path)) (cdr path))))))
 
 (defun compute-path-in-trees (trees n offset)
