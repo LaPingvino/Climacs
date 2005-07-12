@@ -1231,6 +1231,7 @@ Return the symbol and a flag indicating whether the symbols was found."
 (define-simple-indentor (let indent-bindings))
 (define-simple-indentor (let* indent-bindings))
 (define-simple-indentor (defun indent-list indent-lambda-list))
+(define-simple-indentor (defmacro indent-list indent-lambda-list))
 (define-simple-indentor (with-slots indent-list))
 (define-simple-indentor (when indent-form))
 (define-simple-indentor (unless indent-form))
