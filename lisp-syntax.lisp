@@ -1270,6 +1270,24 @@ Return the symbol and a flag indicating whether the symbols was found."
 	 ;; in the options or method specifications
 	 (indent-list syntax (elt (children tree) (car path)) (cdr path))))))
 
+(defmethod compute-list-indentation
+    ((syntax lisp-syntax) (symbol (eql 'defmethod)) tree path)
+  (let ((lambda-list-pos (position-if (lambda (x) (typep x 'list-form))
+				      (children tree))))
+    (cond ((null (cdr path))
+	   ;; top level
+	   (values tree (if (or (null lambda-list-pos)
+				(<= (car path) lambda-list-pos))
+			    4
+			    2)))
+	  ((or (null lambda-list-pos)
+	       (< (car path) lambda-list-pos))
+	   (indent-list syntax (elt (children tree) (car path)) (cdr path)))
+	  ((= (car path) lambda-list-pos)
+	   (indent-lambda-list syntax (elt (children tree) (car path)) (cdr path)))
+	  (t
+	   (indent-form syntax (elt (children tree) (car path)) (cdr path))))))
+
 (defun compute-path-in-trees (trees n offset)
   (cond ((or (null trees)
 	     (>= (start-offset (car trees)) offset))    
