@@ -1289,6 +1289,20 @@ Return the symbol and a flag indicating whether the symbols was found."
 	  (t
 	   (indent-form syntax (elt (children tree) (car path)) (cdr path))))))
 
+(define-list-indentor indent-clause indent-form)
+
+(defmethod compute-list-indentation
+    ((syntax lisp-syntax) (symbol (eql 'cond)) tree path)
+  (if (null (cdr path))
+      ;; top level
+      (if (= (car path) 2)
+	  ;; after `cond' 
+	  (values tree 2)
+	  ;; indent like the first clause
+	  (values (elt (children tree) 2) 0))
+      ;; inside a clause
+      (indent-clause syntax (elt (children tree) (car path)) (cdr path))))
+
 (defun compute-path-in-trees (trees n offset)
   (cond ((or (null trees)
 	     (>= (start-offset (car trees)) offset))    
