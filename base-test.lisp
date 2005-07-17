@@ -467,7 +467,7 @@ climacs")
    (not (null (whitespacep #\Tab)))
    (not (null (whitespacep " ")))
    (not (null (whitespacep #\Null))))
-  nil nil t t nil nil)
+  nil t t t nil nil)
 
 (defmultitest forward-to-word-boundary.test-1
   (let ((buffer (make-instance %%buffer)))
@@ -953,8 +953,7 @@ climacs  ")
       (values
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
-  1 "
-climacs   ")
+  0 "climacs   ")
 
 (defmultitest fill-line.test-1
   (let ((buffer (make-instance %%buffer)))
