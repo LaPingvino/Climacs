@@ -39,14 +39,42 @@
    (dabbrev-expansion-mark :initform nil)
    (overwrite-mode :initform nil)))
 
+;;; a pane that displays some information about another pane
 (defclass info-pane (application-pane)
-  ((climacs-pane :initarg :climacs-pane)))
+  ((master-pane :initarg :master-pane))
+  (:default-initargs
+      :background +gray85+
+      :scroll-bars nil
+      :borders nil))
 
-(defclass minibuffer-pane (application-pane) ())
+(defclass minibuffer-pane (application-pane)
+  ((message :initform nil :accessor message))
+  (:default-initargs
+      :scroll-bars nil
+      :display-function 'display-minibuffer))
+
+(defun display-minibuffer (frame pane)
+  (declare (ignore frame))
+  (with-slots (message) pane
+    (unless (null message)
+    (princ message pane)
+    (setf message nil))))
 
 (defmethod stream-accept :before ((pane minibuffer-pane) type &rest args)
   (declare (ignore type args))
   (window-clear pane))
+
+(defclass climacs-info-pane (info-pane)
+  ()
+  (:default-initargs
+      :height 20 :max-height 20 :min-height 20
+      :display-function 'display-info
+      :incremental-redisplay t))
+
+(defclass climacs-minibuffer-pane (minibuffer-pane)
+  ()
+  (:default-initargs
+      :height 20 :max-height 20 :min-height 20))
 
 (define-application-frame climacs ()
   ((windows :accessor windows)
@@ -64,22 +92,14 @@
 			   :incremental-redisplay t
 			   :display-function 'display-win))
 	       (info-pane
-		(make-pane 'info-pane
-			   :climacs-pane extended-pane
-			   :width 900 :height 20 :max-height 20 :min-height 20
-			   ::background +gray85+
-			   :scroll-bars nil
-			   :borders nil
-			   :incremental-redisplay t
-			   :display-function 'display-info)))
+		(make-pane 'climacs-info-pane
+			   :master-pane extended-pane
+			   :width 900)))
 	  (vertically ()
 	    (scrolling ()
 	      extended-pane)
 	    info-pane)))
-   (int (make-pane 'minibuffer-pane
-		   :width 900 :height 20 :max-height 20 :min-height 20
-		   :display-function 'display-minibuffer
-		   :scroll-bars nil)))
+   (int (make-pane 'climacs-minibuffer-pane :width 900)))
   (:layouts
    (default
        (vertically (:scroll-bars nil)
@@ -87,17 +107,9 @@
 	 int)))
   (:top-level (climacs-top-level)))
 
-(defparameter *message* nil)
-
 (defun display-message (format-string &rest format-args)
-  (setf *message* 
+  (setf (message *standard-input*)
 	(apply #'format nil format-string format-args)))
-
-(defun display-minibuffer (frame pane)
-  (declare (ignore frame))
-  (unless (null *message*)
-    (princ *message* pane)
-    (setf *message* nil)))
 
 (defmacro current-window () ; shouldn't this be an inlined function? --amb
   `(car (windows *application-frame*)))
@@ -116,26 +128,26 @@
     (loop for buffer in buffers
 	  do (clear-modify buffer))))
 
-(defun climacs ()
+(defun climacs (&key (width 900) (height 400))
   "Starts up a climacs session"
-  (let ((frame (make-application-frame 'climacs)))
+  (let ((frame (make-application-frame 'climacs :width width :height height)))
     (run-frame-top-level frame)))
 
 (defun display-info (frame pane)
   (declare (ignore frame))
-  (with-slots (climacs-pane) pane
-     (let* ((buf (buffer climacs-pane))
+  (with-slots (master-pane) pane
+     (let* ((buf (buffer master-pane))
 	    (name-info (format nil "   ~a   ~a   Syntax: ~a~a~a~a    ~a"
 			       (if (needs-saving buf) "**" "--")
 			       (name buf)
 			       (name (syntax buf))
-			       (if (slot-value climacs-pane 'overwrite-mode)
+			       (if (slot-value master-pane 'overwrite-mode)
 				   " Ovwrt"
 				   "")
-                               (if (auto-fill-mode climacs-pane)
+                               (if (auto-fill-mode master-pane)
                                    " Fill"
                                    "")
-                               (if (isearch-mode climacs-pane)
+                               (if (isearch-mode master-pane)
                                    " Isearch"
                                    "")
 			       (if (recordingp *application-frame*)
@@ -979,15 +991,9 @@ as two values"
 	 (vbox
 	  (vertically ()
 	    (scrolling () extended-pane)
-	    (make-pane 'info-pane
-		       :climacs-pane extended-pane
-		       :width 900 :height 20
-		       :max-height 20 :min-height 20
-		       ::background +gray85+
-		       :scroll-bars nil
-		       :borders nil
-		       :incremental-redisplay t
-		       :display-function 'display-info))))
+	    (make-pane 'climacs-info-pane
+		       :master-pane extended-pane
+		       :width 900))))
     (values vbox extended-pane)))
 
 (define-named-command com-split-window-vertically ()
