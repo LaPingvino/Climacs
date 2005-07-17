@@ -295,6 +295,30 @@
     (setf (executingp *application-frame*) nil)
     (redisplay-frame-panes frame)))
 
+(defun process-gestures (frame)
+  (loop
+   for gestures = '()
+   do (multiple-value-bind (numarg numargp)
+	  (read-numeric-argument :stream *standard-input*)
+	(loop 
+	 (setf *current-gesture* (climacs-read-gesture))
+	 (setf gestures 
+	       (nconc gestures (list *current-gesture*)))
+	 (let ((item (find-gestures gestures 'global-climacs-table)))
+	   (cond 
+	     ((not item)
+	      (beep) (return))
+	     ((eq (command-menu-item-type item) :command)
+	      (let ((command (command-menu-item-value item)))
+		(unless (consp command)
+		  (setf command (list command)))
+		(setf command (substitute-numeric-argument-marker command numarg))
+		(setf command (substitute-numeric-argument-p command numargp))
+		(do-command frame command)
+		(return)))
+	     (t nil)))))
+   do (update-climacs frame)))
+
 (defun climacs-top-level (frame &key
                           command-parser command-unparser
                           partial-command-parser prompt)
@@ -307,47 +331,23 @@
 	  (*print-pretty* nil)
 	  (*abort-gestures* '((:keyboard #\g 512))))
       (redisplay-frame-panes frame :force-p t)
-      (flet ()
-	(flet ((process-gestures ()
-		 (loop
-		  for gestures = '()
-		  do (multiple-value-bind (numarg numargp)
-			 (read-numeric-argument :stream *standard-input*)
-		       (loop 
-			(setf *current-gesture* (climacs-read-gesture))
-			(setf gestures 
-			      (nconc gestures (list *current-gesture*)))
-			(let ((item (find-gestures gestures 'global-climacs-table)))
-			  (cond 
-			    ((not item)
-			     (beep) (return))
-			    ((eq (command-menu-item-type item) :command)
-			     (let ((command (command-menu-item-value item)))
-			       (unless (consp command)
-				 (setf command (list command)))
-			       (setf command (substitute-numeric-argument-marker command numarg))
-			       (setf command (substitute-numeric-argument-p command numargp))
-			       (do-command frame command)
-			       (return)))
-			    (t nil)))))
-		  do (update-climacs frame))))
-	  (loop
-	   for maybe-error = t
-	   do (restart-case
-		  (progn
-		    (handler-case
-			(with-input-context 
-			      ('(command :command-table global-climacs-table))
-			    (object)
-		            (process-gestures)
-			  (t
-			   (do-command frame object)
-			   (setq maybe-error nil)))
-		      (abort-gesture () (display-message "Quit")))
-		    (when maybe-error
-		      (beep))
-		    (update-climacs frame))
-		(return-to-climacs () nil))))))))
+      (loop
+       for maybe-error = t
+       do (restart-case
+	   (progn
+	     (handler-case
+	      (with-input-context 
+		  ('(command :command-table global-climacs-table))
+		  (object)
+		  (process-gestures frame)
+		(t
+		 (do-command frame object)
+		 (setq maybe-error nil)))
+	      (abort-gesture () (display-message "Quit")))
+	     (when maybe-error
+	       (beep))
+	     (update-climacs frame))
+	   (return-to-climacs () nil))))))
 
 (defmacro simple-command-loop (command-table loop-condition end-clauses)
   (let ((gesture (gensym))
