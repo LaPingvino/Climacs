@@ -76,13 +76,17 @@
   (:default-initargs
       :height 20 :max-height 20 :min-height 20))
 
-(define-application-frame climacs ()
+(defclass multi-frame-mixin ()
   ((windows :accessor windows)
    (buffers :initform '() :accessor buffers)
    (recordingp :initform nil :accessor recordingp)
    (executingp :initform nil :accessor executingp)
    (recorded-keys :initform '() :accessor recorded-keys)
-   (remaining-keys :initform '() :accessor remaining-keys))
+   (remaining-keys :initform '() :accessor remaining-keys)))
+
+(define-application-frame climacs (standard-application-frame
+				   multi-frame-mixin)
+  ()
   (:panes
    (win (let* ((extended-pane 
 		(make-pane 'extended-pane
@@ -260,6 +264,22 @@
 (defun substitute-numeric-argument-p (command numargp)
   (substitute numargp *numeric-argument-p* command :test #'eq))
 
+(defmethod execute-frame-command :around ((frame climacs) command)
+  (handler-case
+      (call-next-method)
+    (offset-before-beginning ()
+      (beep) (display-message "Beginning of buffer"))
+    (offset-after-end ()
+      (beep) (display-message "End of buffer"))
+    (motion-before-beginning ()
+      (beep) (display-message "Beginning of buffer"))
+    (motion-after-end ()
+      (beep) (display-message "End of buffer"))
+    (no-expression ()
+      (beep) (display-message "No expression around point"))
+    (no-such-operation ()
+      (beep) (display-message "Operation unavailable for syntax"))))  
+
 (defun climacs-top-level (frame &key
                           command-parser command-unparser
                           partial-command-parser prompt)
@@ -273,20 +293,7 @@
 	  (*abort-gestures* '((:keyboard #\g 512))))
       (redisplay-frame-panes frame :force-p t)
       (flet ((do-command (command)
-	       (handler-case
-		   (execute-frame-command frame command)
-		 (offset-before-beginning ()
-		   (beep) (display-message "Beginning of buffer"))
-		 (offset-after-end ()
-		   (beep) (display-message "End of buffer"))
-		 (motion-before-beginning ()
-		   (beep) (display-message "Beginning of buffer"))
-		 (motion-after-end ()
-		   (beep) (display-message "End of buffer"))
-		 (no-expression ()
-		   (beep) (display-message "No expression around point"))
-		 (no-such-operation ()
-		   (beep) (display-message "Operation unavailable for syntax")))
+	       (execute-frame-command frame command)
 	       (setf (previous-command *standard-output*)
 		     (if (consp command)
 			 (car command)
