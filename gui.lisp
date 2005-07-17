@@ -118,11 +118,6 @@
 (defun current-window ()
   (car (windows *application-frame*)))
 
-(defmethod execute-frame-command :around ((frame climacs) command)
-  (declare (ignore command))
-  (with-undo ((buffer (current-window)))
-    (call-next-method)))
-
 (defmethod redisplay-frame-panes :around ((frame climacs) &rest args)
   (declare (ignore args))
   (let ((buffers (remove-duplicates (mapcar #'buffer (windows frame)))))
@@ -266,7 +261,8 @@
 
 (defmethod execute-frame-command :around ((frame climacs) command)
   (handler-case
-      (call-next-method)
+      (with-undo ((buffer (current-window)))
+	(call-next-method))
     (offset-before-beginning ()
       (beep) (display-message "Beginning of buffer"))
     (offset-after-end ()

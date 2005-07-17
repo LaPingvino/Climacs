@@ -93,7 +93,6 @@
 	     :buffer buffer :offset offset :length (length sequence))
 	  (undo-accumulate buffer))))
 
-
 (defmethod delete-buffer-range :before ((buffer undo-mixin) offset n)
   (unless (performing-undo buffer)
     (push (make-instance 'insert-record
