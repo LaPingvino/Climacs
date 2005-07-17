@@ -115,8 +115,8 @@
   (setf (message *standard-input*)
 	(apply #'format nil format-string format-args)))
 
-(defmacro current-window () ; shouldn't this be an inlined function? --amb
-  `(car (windows *application-frame*)))
+(defun current-window ()
+  (car (windows *application-frame*)))
 
 (defmethod execute-frame-command :around ((frame climacs) command)
   (declare (ignore command))
@@ -280,6 +280,21 @@
     (no-such-operation ()
       (beep) (display-message "Operation unavailable for syntax"))))  
 
+(defun do-command (frame command)
+  (execute-frame-command frame command)
+  (setf (previous-command *standard-output*)
+	(if (consp command)
+	    (car command)
+	    command)))
+	     
+(defun update-climacs (frame)
+  (let ((buffer (buffer (current-window))))
+    (when (modified-p buffer)
+      (setf (needs-saving buffer) t)))
+  (when (null (remaining-keys *application-frame*))
+    (setf (executingp *application-frame*) nil)
+    (redisplay-frame-panes frame)))
+
 (defun climacs-top-level (frame &key
                           command-parser command-unparser
                           partial-command-parser prompt)
@@ -292,19 +307,7 @@
 	  (*print-pretty* nil)
 	  (*abort-gestures* '((:keyboard #\g 512))))
       (redisplay-frame-panes frame :force-p t)
-      (flet ((do-command (command)
-	       (execute-frame-command frame command)
-	       (setf (previous-command *standard-output*)
-		     (if (consp command)
-			 (car command)
-			 command)))
-	     (update-climacs ()
-	       (let ((buffer (buffer (current-window))))
-		 (when (modified-p buffer)
-		   (setf (needs-saving buffer) t)))
-	       (when (null (remaining-keys *application-frame*))
-		 (setf (executingp *application-frame*) nil)
-		 (redisplay-frame-panes frame))))
+      (flet ()
 	(flet ((process-gestures ()
 		 (loop
 		  for gestures = '()
@@ -324,10 +327,10 @@
 				 (setf command (list command)))
 			       (setf command (substitute-numeric-argument-marker command numarg))
 			       (setf command (substitute-numeric-argument-p command numargp))
-			       (do-command command)
+			       (do-command frame command)
 			       (return)))
 			    (t nil)))))
-		  do (update-climacs))))
+		  do (update-climacs frame))))
 	  (loop
 	   for maybe-error = t
 	   do (restart-case
@@ -338,12 +341,12 @@
 			    (object)
 		            (process-gestures)
 			  (t
-			   (do-command object)
+			   (do-command frame object)
 			   (setq maybe-error nil)))
 		      (abort-gesture () (display-message "Quit")))
 		    (when maybe-error
 		      (beep))
-		    (update-climacs))
+		    (update-climacs frame))
 		(return-to-climacs () nil))))))))
 
 (defmacro simple-command-loop (command-table loop-condition end-clauses)
