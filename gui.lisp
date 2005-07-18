@@ -182,9 +182,9 @@
 	      (#\5 :meta) (#\6 :meta) (#\7 :meta) (#\8 :meta) (#\9 :meta))
 	    :test #'event-matches-gesture-name-p))
 
-(defun climacs-read-gesture ()
+(defun generic-read-gesture ()
   (unless (null (remaining-keys *application-frame*))
-    (return-from climacs-read-gesture
+    (return-from generic-read-gesture
       (pop (remaining-keys *application-frame*))))
   (loop for gesture = (read-gesture :stream *standard-input*)
 	until (or (characterp gesture)
@@ -203,7 +203,7 @@
 			 (push gesture (recorded-keys *application-frame*)))
 		       (return gesture))))
 
-(defun climacs-unread-gesture (gesture stream)
+(defun generic-unread-gesture (gesture stream)
   (cond ((recordingp *application-frame*)
 	 (pop (recorded-keys *application-frame*))
 	 (unread-gesture gesture :stream stream))
@@ -213,35 +213,35 @@
 	 (unread-gesture gesture :stream stream))))
 
 (defun read-numeric-argument (&key (stream *standard-input*))
-  (let ((gesture (climacs-read-gesture)))
+  (let ((gesture (generic-read-gesture)))
     (cond ((event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
 	   (let ((numarg 4))
-	     (loop for gesture = (climacs-read-gesture)
+	     (loop for gesture = (generic-read-gesture)
 		   while (event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
 		   do (setf numarg (* 4 numarg))
-		   finally (climacs-unread-gesture gesture stream))
-	     (let ((gesture (climacs-read-gesture)))
+		   finally (generic-unread-gesture gesture stream))
+	     (let ((gesture (generic-read-gesture)))
 	       (cond ((and (characterp gesture)
 			   (digit-char-p gesture 10))
 		      (setf numarg (- (char-code gesture) (char-code #\0)))
-		      (loop for gesture = (climacs-read-gesture)
+		      (loop for gesture = (generic-read-gesture)
 			    while (and (characterp gesture)
 				       (digit-char-p gesture 10))
 			    do (setf numarg (+ (* 10 numarg)
 					       (- (char-code gesture) (char-code #\0))))
-			    finally (climacs-unread-gesture gesture stream)
+			    finally (generic-unread-gesture gesture stream)
 				    (return (values numarg t))))
 		     (t
-		      (climacs-unread-gesture gesture stream)
+		      (generic-unread-gesture gesture stream)
 		      (values numarg t))))))
 	  ((meta-digit gesture)
 	   (let ((numarg (meta-digit gesture)))
-	     (loop for gesture = (climacs-read-gesture)
+	     (loop for gesture = (generic-read-gesture)
 		   while (meta-digit gesture)
 		   do (setf numarg (+ (* 10 numarg) (meta-digit gesture)))
-		   finally (climacs-unread-gesture gesture stream)
+		   finally (generic-unread-gesture gesture stream)
 			   (return (values numarg t)))))
-	  (t (climacs-unread-gesture gesture stream)
+	  (t (generic-unread-gesture gesture stream)
 	     (values 1 nil)))))
 
 ;;; we know the vbox pane has a scroller pane and an info
@@ -276,6 +276,11 @@
     (no-such-operation ()
       (beep) (display-message "Operation unavailable for syntax"))))  
 
+(defmethod execute-frame-command :after ((frame climacs) command)
+  (loop for buffer in (buffers frame)
+	do (when (modified-p buffer)
+	     (setf (needs-saving buffer) t))))	
+
 (defun do-command (frame command)
   (execute-frame-command frame command)
   (setf (previous-command *standard-output*)
@@ -283,10 +288,10 @@
 	    (car command)
 	    command)))
 	     
-(defun update-climacs (frame)
-  (let ((buffer (buffer (current-window))))
-    (when (modified-p buffer)
-      (setf (needs-saving buffer) t)))
+(defgeneric update-frame (frame)
+  (:method (frame) (declare (ignore frame)) nil))
+
+(defmethod update-frame ((frame climacs))
   (when (null (remaining-keys *application-frame*))
     (setf (executingp *application-frame*) nil)
     (redisplay-frame-panes frame)))
@@ -297,7 +302,7 @@
    do (multiple-value-bind (numarg numargp)
 	  (read-numeric-argument :stream *standard-input*)
 	(loop 
-	 (setf *current-gesture* (climacs-read-gesture))
+	 (setf *current-gesture* (generic-read-gesture))
 	 (setf gestures 
 	       (nconc gestures (list *current-gesture*)))
 	 (let ((item (find-gestures gestures 'global-climacs-table)))
@@ -313,7 +318,7 @@
 		(do-command frame command)
 		(return)))
 	     (t nil)))))
-   do (update-climacs frame)))
+   do (update-frame frame)))
 
 (defun climacs-top-level (frame &key
                           command-parser command-unparser
@@ -342,7 +347,7 @@
 	      (abort-gesture () (display-message "Quit")))
 	     (when maybe-error
 	       (beep))
-	     (update-climacs frame))
+	     (update-frame frame))
 	   (return-to-climacs () nil))))))
 
 (defmacro simple-command-loop (command-table loop-condition end-clauses)
@@ -352,7 +357,7 @@
     `(progn 
        (redisplay-frame-panes *application-frame*)
        (loop while ,loop-condition
-             as ,gesture = (climacs-read-gesture)
+             as ,gesture = (generic-read-gesture)
              as ,item = (find-gestures (list ,gesture) ,command-table)
              do (cond ((and ,item (eq (command-menu-item-type ,item) :command))
                        (setf *current-gesture* ,gesture)
