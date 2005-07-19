@@ -61,6 +61,7 @@
    "delegating-buffer"
    "Persistent/persistent-undo"
    "pane"
+   "fundamental-syntax"
    "cl-syntax"
    "html-syntax"
    "prolog-syntax"

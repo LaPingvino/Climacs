@@ -142,6 +142,11 @@
 	   #:with-undo
 	   #:url))
 
+(defpackage :climacs-fundamental-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
+	:climacs-syntax :flexichain :climacs-pane)
+  (:export))
+
 (defpackage :climacs-html-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
 	:climacs-syntax :flexichain :climacs-pane))
