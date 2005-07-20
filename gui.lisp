@@ -431,6 +431,32 @@
 (define-named-command com-delete-object ((count 'integer :prompt "Number of Objects"))
   (delete-range (point (current-window)) count))
 
+(define-named-command com-zap-to-object ()
+  (let* ((item (handler-case (accept 't :prompt "Zap to Object")
+		(error () (progn (beep)
+				 (display-message "Not a valid object")
+				 (return-from com-zap-to-object nil)))))
+	 (current-point (point (current-window)))
+	 (item-mark (clone-mark current-point))
+	 (current-offset (offset current-point)))
+    (search-forward item-mark (vector item))
+    (delete-range current-point (- (offset item-mark) current-offset))))
+
+(define-named-command com-zap-to-character ()
+  (let* ((item-string (handler-case (accept 'string :prompt "Zap to Character") ; Figure out how to get #\d and d.  (or 'string 'character)?
+		(error () (progn (beep)
+				 (display-message "Not a valid string. ")
+				 (return-from com-zap-to-character nil)))))
+       (item (subseq item-string 0 1))
+       (current-point (point (current-window)))
+       (item-mark (clone-mark current-point))
+
+       (current-offset (offset current-point)))
+  (if (> (length item-string) 1)
+      (display-message "Using just the first character"))
+  (search-forward item-mark item)
+  (delete-range current-point (- (offset item-mark) current-offset))))
+
 (define-named-command com-backward-delete-object ((count 'integer :prompt "Number of Objects"))
   (delete-range (point (current-window)) (- count)))
 
@@ -1493,6 +1519,8 @@ as two values"
 (global-set-key '(#\Space :control) 'com-set-mark)
 (global-set-key '(#\y :control) 'com-yank)
 (global-set-key '(#\w :control) 'com-cut-out)
+(global-set-key '(#\e :meta) `(com-forward-expression ,*numeric-argument-marker*))
+(global-set-key '(#\a :meta) `(com-backward-expression ,*numeric-argument-marker*))
 (global-set-key '(#\f :meta) `(com-forward-word ,*numeric-argument-marker*))
 (global-set-key '(#\b :meta) `(com-backward-word ,*numeric-argument-marker*))
 (global-set-key '(#\t :meta) 'com-transpose-words)
@@ -1501,6 +1529,7 @@ as two values"
 (global-set-key '(#\c :meta) 'com-capitalize-word)
 (global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\y :meta) 'com-rotate-yank) 
+(global-set-key '(#\z :meta) 'com-zap-to-character)
 (global-set-key '(#\w :meta) 'com-copy-out)
 (global-set-key '(#\v :control) 'com-page-down)
 (global-set-key '(#\v :meta) 'com-page-up)
@@ -1516,6 +1545,8 @@ as two values"
 (global-set-key '(#\e :control :meta) 'com-end-of-paragraph)
 (global-set-key '(#\s :control) 'com-isearch-mode-forward)
 (global-set-key '(#\r :control) 'com-isearch-mode-backward)
+(global-set-key '(#\_ :shift :meta) 'com-redo)
+(global-set-key '(#\_ :shift :control) 'com-undo)
 (global-set-key '(#\% :shift :meta) 'com-query-replace)
 
 (global-set-key '(:up) `(com-previous-line ,*numeric-argument-marker*))
