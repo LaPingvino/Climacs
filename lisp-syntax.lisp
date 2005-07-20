@@ -849,7 +849,7 @@
 			     (multiple-value-bind (x y) (stream-cursor-position pane)
 			       (declare (ignore x))
 			       y)))
-	    (#\Space (stream-increment-cursor-position
+	    ((#\Page #\Return #\Space) (stream-increment-cursor-position
 		      pane space-width 0))
 	    (#\Tab (let ((x (stream-cursor-position pane)))
 		     (stream-increment-cursor-position
