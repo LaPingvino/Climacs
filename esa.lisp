@@ -282,7 +282,7 @@
 
 (defun display-my-pane (frame pane)
   (declare (ignore frame))
-  (princ *standard-output* (buffer pane)))
+  (princ (buffer pane) *standard-output*))
 
 (defun example (&key (width 900) (height 400))
   "Starts up the example application"
