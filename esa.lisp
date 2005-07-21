@@ -24,17 +24,28 @@
 ;;; move this to packages.lisp eventually
 (defpackage :esa
   (:use :clim-lisp :clim)
-  (:export))
+  (:export #:minibuffer-pane #:display-message
+	   #:esa-pane-mixin #:previous-command
+	   #:esa-frame-mixin #:windows #:recordingp #:execcutingp
+	   #:*numeric-argument-p*
+	   #:esa-top-level))
 
 (in-package :esa)
 
-;;; a pane that displays some information about another pane
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Info pane, a pane that displays some information about another pane
+
 (defclass info-pane (application-pane)
   ((master-pane :initarg :master-pane))
   (:default-initargs
       :background +gray85+
       :scroll-bars nil
       :borders nil))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Minibuffer pane
 
 (defclass minibuffer-pane (application-pane)
   ((message :initform nil :accessor message))
@@ -53,18 +64,31 @@
   (declare (ignore type args))
   (window-clear pane))
 
+(defun display-message (format-string &rest format-args)
+  (setf (message *standard-input*)
+	(apply #'format nil format-string format-args)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; ESA pane mixin
+
+(defclass esa-pane-mixin ()
+  ((previous-command :initform nil :accessor previous-command)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; ESA frame mixin
+
 (defclass esa-frame-mixin ()
   ((windows :accessor windows)
-   (buffers :initform '() :accessor buffers)
    (recordingp :initform nil :accessor recordingp)
    (executingp :initform nil :accessor executingp)
    (recorded-keys :initform '() :accessor recorded-keys)
    (remaining-keys :initform '() :accessor remaining-keys)))
 
-(defclass esa-window-mixin ()
-  ((previous-command :initform nil :accessor previous-command)))
-
-(defgeneric buffer (esa-window-mixin))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Command processing
 
 (defun find-gestures (gestures start-table)
   (loop with table = (find-command-table start-table)
@@ -84,9 +108,9 @@
 	      (#\5 :meta) (#\6 :meta) (#\7 :meta) (#\8 :meta) (#\9 :meta))
 	    :test #'event-matches-gesture-name-p))
 
-(defun generic-read-gesture ()
+(defun esa-read-gesture ()
   (unless (null (remaining-keys *application-frame*))
-    (return-from generic-read-gesture
+    (return-from esa-read-gesture
       (pop (remaining-keys *application-frame*))))
   (loop for gesture = (read-gesture :stream *standard-input*)
 	until (or (characterp gesture)
@@ -105,7 +129,7 @@
 			 (push gesture (recorded-keys *application-frame*)))
 		       (return gesture))))
 
-(defun generic-unread-gesture (gesture stream)
+(defun esa-unread-gesture (gesture stream)
   (cond ((recordingp *application-frame*)
 	 (pop (recorded-keys *application-frame*))
 	 (unread-gesture gesture :stream stream))
@@ -115,35 +139,35 @@
 	 (unread-gesture gesture :stream stream))))
 
 (defun read-numeric-argument (&key (stream *standard-input*))
-  (let ((gesture (generic-read-gesture)))
+  (let ((gesture (esa-read-gesture)))
     (cond ((event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
 	   (let ((numarg 4))
-	     (loop for gesture = (generic-read-gesture)
+	     (loop for gesture = (esa-read-gesture)
 		   while (event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
 		   do (setf numarg (* 4 numarg))
-		   finally (generic-unread-gesture gesture stream))
-	     (let ((gesture (generic-read-gesture)))
+		   finally (esa-unread-gesture gesture stream))
+	     (let ((gesture (esa-read-gesture)))
 	       (cond ((and (characterp gesture)
 			   (digit-char-p gesture 10))
 		      (setf numarg (- (char-code gesture) (char-code #\0)))
-		      (loop for gesture = (generic-read-gesture)
+		      (loop for gesture = (esa-read-gesture)
 			    while (and (characterp gesture)
 				       (digit-char-p gesture 10))
 			    do (setf numarg (+ (* 10 numarg)
 					       (- (char-code gesture) (char-code #\0))))
-			    finally (generic-unread-gesture gesture stream)
+			    finally (esa-unread-gesture gesture stream)
 				    (return (values numarg t))))
 		     (t
-		      (generic-unread-gesture gesture stream)
+		      (esa-unread-gesture gesture stream)
 		      (values numarg t))))))
 	  ((meta-digit gesture)
 	   (let ((numarg (meta-digit gesture)))
-	     (loop for gesture = (generic-read-gesture)
+	     (loop for gesture = (esa-read-gesture)
 		   while (meta-digit gesture)
 		   do (setf numarg (+ (* 10 numarg) (meta-digit gesture)))
-		   finally (generic-unread-gesture gesture stream)
+		   finally (esa-unread-gesture gesture stream)
 			   (return (values numarg t)))))
-	  (t (generic-unread-gesture gesture stream)
+	  (t (esa-unread-gesture gesture stream)
 	     (values 1 nil)))))
 
 (defvar *numeric-argument-p* (list nil))
@@ -157,7 +181,7 @@
    do (multiple-value-bind (numarg numargp)
 	  (read-numeric-argument :stream *standard-input*)
 	(loop 
-	 (setf *current-gesture* (generic-read-gesture))
+	 (setf *current-gesture* (esa-read-gesture))
 	 (setf gestures 
 	       (nconc gestures (list *current-gesture*)))
 	 (let ((item (find-gestures gestures command-table)))
@@ -175,25 +199,18 @@
 	     (t nil)))))
    do (redisplay-frame-panes frame)))
 
-(defun display-message (format-string &rest format-args)
-  (setf (message *standard-input*)
-	(apply #'format nil format-string format-args)))
-
-(defgeneric update-frame (frame)
-  (:method (frame) (declare (ignore frame)) nil))
-
-(defmethod update-frame ((frame esa-frame-mixin))
+(defmethod redisplay-frame-panes :around ((frame esa-frame-mixin) &key force-p)
+  (declare (ignore force-p))
   (when (null (remaining-keys *application-frame*))
     (setf (executingp *application-frame*) nil)
-    (redisplay-frame-panes frame)))
+    (call-next-method)))
 
-(defun do-command (frame command)
-  (execute-frame-command frame command)
+(defmethod execute-frame-command :after ((frame esa-frame-mixin) command)
   (setf (previous-command *standard-output*)
 	(if (consp command)
 	    (car command)
 	    command)))
-	     
+
 (defun find-real-pane (vbox)
   (first (sheet-children
 	  (find-if-not (lambda (pane) (typep pane 'scroll-bar-pane))
@@ -201,13 +218,16 @@
 			(find-if (lambda (pane) (typep pane 'scroller-pane))
 				 (sheet-children vbox)))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Top level
+
 (defun esa-top-level (frame &key
 			    command-parser command-unparser
 			    partial-command-parser prompt)
   (declare (ignore command-parser command-unparser partial-command-parser prompt))
   (with-slots (windows) frame
     (setf windows (list (find-real-pane (find-pane-named frame 'win))))
-    (push (buffer (car windows)) (buffers frame))
     (let ((*standard-output* (car windows))
 	  (*standard-input* (frame-standard-input frame))
 	  (*print-pretty* nil)
@@ -223,12 +243,12 @@
 		  (object)
 		  (process-gestures frame 'global-example-table)
 		(t
-		 (do-command frame object)
+		 (execute-frame-command frame object)
 		 (setq maybe-error nil)))
 	      (abort-gesture () (display-message "Quit")))
 	     (when maybe-error
 	       (beep))
-	     (update-frame frame))
+	     (redisplay-frame-panes frame))
 	   (return-to-climacs () nil))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -252,8 +272,8 @@
   (:default-initargs
       :height 20 :max-height 20 :min-height 20))
 
-(defclass example-pane (esa-window-mixin application-pane)
-  ((buffer :initform "hello" :accessor buffer)))
+(defclass example-pane (esa-pane-mixin application-pane)
+  ((contents :initform "hello" :accessor contents)))
 
 (define-application-frame example (standard-application-frame
 				   esa-frame-mixin)
@@ -282,7 +302,7 @@
 
 (defun display-my-pane (frame pane)
   (declare (ignore frame))
-  (princ (buffer pane) *standard-output*))
+  (princ (contents pane) *standard-output*))
 
 (defun example (&key (width 900) (height 400))
   "Starts up the example application"
