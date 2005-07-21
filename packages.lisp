@@ -170,9 +170,12 @@
   (:use :clim-lisp :clim)
   (:export #:minibuffer-pane #:display-message
 	   #:esa-pane-mixin #:previous-command
-;;	   #:esa-frame-mixin #:windows #:recordingp #:execcutingp
-;;	   #:*numeric-argument-p*
-	   #:esa-top-level))
+	   #:info-pane #:master-pane
+	   #:esa-frame-mixin #:windows #:recordingp #:executingp
+	   #:*numeric-argument-p* #:*current-gesture*
+	   #:esa-top-level #:simple-command-loop
+	   ;; remove these when kbd macros move to esa
+	   #:recorded-keys #:remaining-keys))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax

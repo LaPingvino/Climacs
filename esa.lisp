@@ -27,7 +27,7 @@
 ;;; Info pane, a pane that displays some information about another pane
 
 (defclass info-pane (application-pane)
-  ((master-pane :initarg :master-pane))
+  ((master-pane :initarg :master-pane :reader master-pane))
   (:default-initargs
       :background +gray85+
       :scroll-bars nil
@@ -79,7 +79,9 @@
    (recordingp :initform nil :accessor recordingp)
    (executingp :initform nil :accessor executingp)
    (recorded-keys :initform '() :accessor recorded-keys)
-   (remaining-keys :initform '() :accessor remaining-keys)))
+   (remaining-keys :initform '() :accessor remaining-keys)
+   ;; temporary hack.  The command table should be buffer or pane specific
+   (command-table :initarg :command-table :reader command-table)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -222,7 +224,6 @@
 			    partial-command-parser prompt)
   (declare (ignore command-parser command-unparser partial-command-parser prompt))
   (with-slots (windows) frame
-    (setf windows (list (find-real-pane (find-pane-named frame 'win))))
     (let ((*standard-output* (car windows))
 	  (*standard-input* (frame-standard-input frame))
 	  (*print-pretty* nil)
@@ -234,9 +235,9 @@
 	   (progn
 	     (handler-case
 	      (with-input-context 
-		  ('(command :command-table global-example-table))
+		  (`(command :command-table ,(command-table frame)))
 		  (object)
-		  (process-gestures frame 'global-example-table)
+		  (process-gestures frame (command-table frame))
 		(t
 		 (execute-frame-command frame object)
 		 (setq maybe-error nil)))
@@ -245,6 +246,27 @@
 	       (beep))
 	     (redisplay-frame-panes frame))
 	   (return-to-climacs () nil))))))
+
+(defmacro simple-command-loop (command-table loop-condition end-clauses)
+  (let ((gesture (gensym))
+        (item (gensym))
+        (command (gensym)))
+    `(progn 
+       (redisplay-frame-panes *application-frame*)
+       (loop while ,loop-condition
+             as ,gesture = (esa-read-gesture)
+             as ,item = (find-gestures (list ,gesture) ,command-table)
+             do (cond ((and ,item (eq (command-menu-item-type ,item) :command))
+                       (setf *current-gesture* ,gesture)
+                       (let ((,command (command-menu-item-value ,item)))
+                         (unless (consp ,command)
+                           (setf ,command (list ,command)))
+			 (execute-frame-command *application-frame*
+						,command)))
+                      (t
+                       (unread-gesture ,gesture)
+                       ,@end-clauses))
+             (redisplay-frame-panes *application-frame*)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -259,8 +281,7 @@
 
 (defun display-info (frame pane)
   (declare (ignore frame))
-  (with-slots (master-pane) pane
-    (format pane "Pane name: ~s" (pane-name master-pane))))
+  (format pane "Pane name: ~s" (pane-name (master-pane pane))))
 
 (defclass example-minibuffer-pane (minibuffer-pane)
   ()
@@ -283,6 +304,7 @@
 		(make-pane 'example-info-pane
 			   :master-pane my-pane
 			   :width 900)))
+	  (setf (windows *application-frame*) (list my-pane))
 	  (vertically ()
 	    (scrolling ()
 	      my-pane)
@@ -301,7 +323,10 @@
 
 (defun example (&key (width 900) (height 400))
   "Starts up the example application"
-  (let ((frame (make-application-frame 'example :width width :height height)))
+  (let ((frame (make-application-frame
+		'example
+		:width width :height height
+		:command-table 'global-example-table)))
     (run-frame-top-level frame)))
 
 (define-command-table global-example-table)

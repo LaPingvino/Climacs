@@ -37,14 +37,6 @@
    (dabbrev-expansion-mark :initform nil)
    (overwrite-mode :initform nil)))
 
-;;; a pane that displays some information about another pane
-(defclass info-pane (application-pane)
-  ((master-pane :initarg :master-pane))
-  (:default-initargs
-      :background +gray85+
-      :scroll-bars nil
-      :borders nil))
-
 (defclass climacs-info-pane (info-pane)
   ()
   (:default-initargs
@@ -57,18 +49,9 @@
   (:default-initargs
       :height 20 :max-height 20 :min-height 20))
 
-;;; eventually remove in favor of esa-frame-mixin
-(defclass multi-frame-mixin ()
-  ((windows :accessor windows)
-   (buffers :initform '() :accessor buffers)
-   (recordingp :initform nil :accessor recordingp)
-   (executingp :initform nil :accessor executingp)
-   (recorded-keys :initform '() :accessor recorded-keys)
-   (remaining-keys :initform '() :accessor remaining-keys)))
-
 (define-application-frame climacs (standard-application-frame
-				   multi-frame-mixin)
-  ()
+				   esa-frame-mixin)
+  ((buffers :initform '() :accessor buffers))
   (:panes
    (win (let* ((extended-pane 
 		(make-pane 'extended-pane
@@ -81,6 +64,7 @@
 		(make-pane 'climacs-info-pane
 			   :master-pane extended-pane
 			   :width 900)))
+	  (setf (windows *application-frame*) (list extended-pane))
 	  (vertically ()
 	    (scrolling ()
 	      extended-pane)
@@ -91,7 +75,7 @@
        (vertically (:scroll-bars nil)
 	 win
 	 int)))
-  (:top-level (climacs-top-level)))
+  (:top-level (esa-top-level)))
 
 (defun current-window ()
   (car (windows *application-frame*)))
@@ -107,30 +91,32 @@
 
 (defun climacs (&key (width 900) (height 400))
   "Starts up a climacs session"
-  (let ((frame (make-application-frame 'climacs :width width :height height)))
+  (let ((frame (make-application-frame
+		'climacs :width width :height height
+		:command-table 'global-climacs-table)))
     (run-frame-top-level frame)))
 
 (defun display-info (frame pane)
   (declare (ignore frame))
-  (with-slots (master-pane) pane
-     (let* ((buf (buffer master-pane))
-	    (name-info (format nil "   ~a   ~a   Syntax: ~a~a~a~a    ~a"
-			       (if (needs-saving buf) "**" "--")
-			       (name buf)
-			       (name (syntax buf))
-			       (if (slot-value master-pane 'overwrite-mode)
-				   " Ovwrt"
-				   "")
-                               (if (auto-fill-mode master-pane)
-                                   " Fill"
-                                   "")
-                               (if (isearch-mode master-pane)
-                                   " Isearch"
-                                   "")
-			       (if (recordingp *application-frame*)
-				   "Def"
-				   ""))))
-       (princ name-info pane))))
+  (let* ((master-pane (master-pane pane))
+	 (buf (buffer master-pane))
+	 (name-info (format nil "   ~a   ~a   Syntax: ~a~a~a~a    ~a"
+			    (if (needs-saving buf) "**" "--")
+			    (name buf)
+			    (name (syntax buf))
+			    (if (slot-value master-pane 'overwrite-mode)
+				" Ovwrt"
+				"")
+			    (if (auto-fill-mode master-pane)
+				" Fill"
+				"")
+			    (if (isearch-mode master-pane)
+				" Isearch"
+				"")
+			    (if (recordingp *application-frame*)
+				"Def"
+				""))))
+    (princ name-info pane)))
 
 (defun display-win (frame pane)
   "The display function used by the climacs application frame."
@@ -141,86 +127,13 @@
   (declare (ignore region))
   (redisplay-frame-pane *application-frame* pane))
 
-(defun find-gestures (gestures start-table)
-  (loop with table = (find-command-table start-table)
-	for (gesture . rest) on gestures
-	for item = (find-keystroke-item  gesture table :errorp nil)
-	while item
-	do (if (eq (command-menu-item-type item) :command)
-	       (return (if (null rest) item nil))
-	       (setf table (command-menu-item-value item)))
-	finally (return item)))
-
 (defvar *kill-ring* (make-instance 'kill-ring :max-size 7))
-(defparameter *current-gesture* nil)
 
 (defun meta-digit (gesture)
   (position gesture
 	    '((#\0 :meta) (#\1 :meta) (#\2 :meta) (#\3 :meta) (#\4 :meta)
 	      (#\5 :meta) (#\6 :meta) (#\7 :meta) (#\8 :meta) (#\9 :meta))
 	    :test #'event-matches-gesture-name-p))
-
-(defun generic-read-gesture ()
-  (unless (null (remaining-keys *application-frame*))
-    (return-from generic-read-gesture
-      (pop (remaining-keys *application-frame*))))
-  (loop for gesture = (read-gesture :stream *standard-input*)
-	until (or (characterp gesture)
-		  (and (typep gesture 'keyboard-event)
-		       (or (keyboard-event-character gesture)
-			   (not (member (keyboard-event-key-name
-					 gesture)
-					'(:control-left :control-right
-					  :shift-left :shift-right
-					  :meta-left :meta-right
-					  :super-left :super-right
-					  :hyper-left :hyper-right
-					  :shift-lock :caps-lock
-					  :alt-left :alt-right))))))
-	finally (progn (when (recordingp *application-frame*)
-			 (push gesture (recorded-keys *application-frame*)))
-		       (return gesture))))
-
-(defun generic-unread-gesture (gesture stream)
-  (cond ((recordingp *application-frame*)
-	 (pop (recorded-keys *application-frame*))
-	 (unread-gesture gesture :stream stream))
-	((executingp *application-frame*)
-	 (push gesture (remaining-keys *application-frame*)))
-	(t 
-	 (unread-gesture gesture :stream stream))))
-
-(defun read-numeric-argument (&key (stream *standard-input*))
-  (let ((gesture (generic-read-gesture)))
-    (cond ((event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
-	   (let ((numarg 4))
-	     (loop for gesture = (generic-read-gesture)
-		   while (event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
-		   do (setf numarg (* 4 numarg))
-		   finally (generic-unread-gesture gesture stream))
-	     (let ((gesture (generic-read-gesture)))
-	       (cond ((and (characterp gesture)
-			   (digit-char-p gesture 10))
-		      (setf numarg (- (char-code gesture) (char-code #\0)))
-		      (loop for gesture = (generic-read-gesture)
-			    while (and (characterp gesture)
-				       (digit-char-p gesture 10))
-			    do (setf numarg (+ (* 10 numarg)
-					       (- (char-code gesture) (char-code #\0))))
-			    finally (generic-unread-gesture gesture stream)
-				    (return (values numarg t))))
-		     (t
-		      (generic-unread-gesture gesture stream)
-		      (values numarg t))))))
-	  ((meta-digit gesture)
-	   (let ((numarg (meta-digit gesture)))
-	     (loop for gesture = (generic-read-gesture)
-		   while (meta-digit gesture)
-		   do (setf numarg (+ (* 10 numarg) (meta-digit gesture)))
-		   finally (generic-unread-gesture gesture stream)
-			   (return (values numarg t)))))
-	  (t (generic-unread-gesture gesture stream)
-	     (values 1 nil)))))
 
 ;;; we know the vbox pane has a scroller pane and an info
 ;;; pane in it.  The scroller pane has a viewport in it,
@@ -231,8 +144,6 @@
 		       (sheet-children
 			(find-if (lambda (pane) (typep pane 'scroller-pane))
 				 (sheet-children vbox)))))))
-
-(defvar *numeric-argument-p* (list nil))
 
 (defun substitute-numeric-argument-p (command numargp)
   (substitute numargp *numeric-argument-p* command :test #'eq))
@@ -258,102 +169,6 @@
   (loop for buffer in (buffers frame)
 	do (when (modified-p buffer)
 	     (setf (needs-saving buffer) t))))	
-
-(defmethod execute-frame-command :after ((frame multi-frame-mixin) command)
-  (setf (previous-command *standard-output*)
-	(if (consp command)
-	    (car command)
-	    command)))
-
-(defmethod redisplay-frame-panes :around ((frame multi-frame-mixin) &key force-p)
-  (declare (ignore force-p))
-  (when (null (remaining-keys *application-frame*))
-    (setf (executingp *application-frame*) nil)
-    (call-next-method)))
-
-(defun process-gestures (frame command-table)
-  (loop
-   for gestures = '()
-   do (multiple-value-bind (numarg numargp)
-	  (read-numeric-argument :stream *standard-input*)
-	(loop 
-	 (setf *current-gesture* (generic-read-gesture))
-	 (setf gestures 
-	       (nconc gestures (list *current-gesture*)))
-	 (let ((item (find-gestures gestures command-table)))
-	   (cond 
-	     ((not item)
-	      (beep) (return))
-	     ((eq (command-menu-item-type item) :command)
-	      (let ((command (command-menu-item-value item)))
-		(unless (consp command)
-		  (setf command (list command)))
-		(setf command (substitute-numeric-argument-marker command numarg))
-		(setf command (substitute-numeric-argument-p command numargp))
-		(execute-frame-command frame command)
-		(return)))
-	     (t nil)))))
-   do (redisplay-frame-panes frame)))
-
-(defun climacs-top-level (frame &key
-                          command-parser command-unparser
-                          partial-command-parser prompt)
-  (declare (ignore command-parser command-unparser partial-command-parser prompt))
-  (with-slots (windows) frame
-    (setf windows (list (find-climacs-pane (find-pane-named frame 'win))))
-    (push (buffer (car windows)) (buffers frame))
-    (let ((*standard-output* (car windows))
-	  (*standard-input* (frame-standard-input frame))
-	  (*print-pretty* nil)
-	  (*abort-gestures* '((:keyboard #\g 512))))
-      (redisplay-frame-panes frame :force-p t)
-      (loop
-       for maybe-error = t
-       do (restart-case
-	   (progn
-	     (handler-case
-	      (with-input-context 
-		  ('(command :command-table global-climacs-table))
-		  (object)
-		  (process-gestures frame 'global-climacs-table)
-		(t
-		 (execute-frame-command frame object)
-		 (setq maybe-error nil)))
-	      (abort-gesture () (display-message "Quit")))
-	     (when maybe-error
-	       (beep))
-	     (redisplay-frame-panes frame))
-	   (return-to-climacs () nil))))))
-
-(defmacro simple-command-loop (command-table loop-condition end-clauses)
-  (let ((gesture (gensym))
-        (item (gensym))
-        (command (gensym)))
-    `(progn 
-       (redisplay-frame-panes *application-frame*)
-       (loop while ,loop-condition
-             as ,gesture = (generic-read-gesture)
-             as ,item = (find-gestures (list ,gesture) ,command-table)
-             do (cond ((and ,item (eq (command-menu-item-type ,item) :command))
-                       (setf *current-gesture* ,gesture)
-                       (let ((,command (command-menu-item-value ,item)))
-                         (unless (consp ,command)
-                           (setf ,command (list ,command)))
-                         (handler-case 
-                             (execute-frame-command *application-frame*
-                                                    ,command)
-                           (offset-before-beginning ()
-			     (beep) (display-message "Beginning of buffer"))
-			   (offset-after-end ()
-			     (beep) (display-message "End of buffer"))
-			   (motion-before-beginning ()
-			     (beep) (display-message "Beginning of buffer"))
-			   (motion-after-end ()
-			     (beep) (display-message "End of buffer")))))
-                      (t
-                       (unread-gesture ,gesture)
-                       ,@end-clauses))
-             (redisplay-frame-panes *application-frame*)))))
 
 (defmacro define-named-command (command-name args &body body)
   `(define-climacs-command ,(if (listp command-name)
