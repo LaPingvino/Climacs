@@ -28,10 +28,8 @@
 
 (in-package :climacs-gui)
 
-(defclass extended-pane (climacs-pane)
-  (;; allows a certain number of commands to have some minimal memory
-   (previous-command :initform nil :accessor previous-command)
-   ;; for next-line and previous-line commands
+(defclass extended-pane (climacs-pane esa-pane-mixin)
+  (;; for next-line and previous-line commands
    (goal-column :initform nil)
    ;; for dynamic abbrev expansion
    (original-prefix :initform nil)
@@ -47,23 +45,6 @@
       :scroll-bars nil
       :borders nil))
 
-(defclass minibuffer-pane (application-pane)
-  ((message :initform nil :accessor message))
-  (:default-initargs
-      :scroll-bars nil
-      :display-function 'display-minibuffer))
-
-(defun display-minibuffer (frame pane)
-  (declare (ignore frame))
-  (with-slots (message) pane
-    (unless (null message)
-    (princ message pane)
-    (setf message nil))))
-
-(defmethod stream-accept :before ((pane minibuffer-pane) type &rest args)
-  (declare (ignore type args))
-  (window-clear pane))
-
 (defclass climacs-info-pane (info-pane)
   ()
   (:default-initargs
@@ -76,6 +57,7 @@
   (:default-initargs
       :height 20 :max-height 20 :min-height 20))
 
+;;; eventually remove in favor of esa-frame-mixin
 (defclass multi-frame-mixin ()
   ((windows :accessor windows)
    (buffers :initform '() :accessor buffers)
@@ -110,10 +92,6 @@
 	 win
 	 int)))
   (:top-level (climacs-top-level)))
-
-(defun display-message (format-string &rest format-args)
-  (setf (message *standard-input*)
-	(apply #'format nil format-string format-args)))
 
 (defun current-window ()
   (car (windows *application-frame*)))
@@ -281,22 +259,19 @@
 	do (when (modified-p buffer)
 	     (setf (needs-saving buffer) t))))	
 
-(defun do-command (frame command)
-  (execute-frame-command frame command)
+(defmethod execute-frame-command :after ((frame multi-frame-mixin) command)
   (setf (previous-command *standard-output*)
 	(if (consp command)
 	    (car command)
 	    command)))
-	     
-(defgeneric update-frame (frame)
-  (:method (frame) (declare (ignore frame)) nil))
 
-(defmethod update-frame ((frame climacs))
+(defmethod redisplay-frame-panes :around ((frame multi-frame-mixin) &key force-p)
+  (declare (ignore force-p))
   (when (null (remaining-keys *application-frame*))
     (setf (executingp *application-frame*) nil)
-    (redisplay-frame-panes frame)))
+    (call-next-method)))
 
-(defun process-gestures (frame)
+(defun process-gestures (frame command-table)
   (loop
    for gestures = '()
    do (multiple-value-bind (numarg numargp)
@@ -305,7 +280,7 @@
 	 (setf *current-gesture* (generic-read-gesture))
 	 (setf gestures 
 	       (nconc gestures (list *current-gesture*)))
-	 (let ((item (find-gestures gestures 'global-climacs-table)))
+	 (let ((item (find-gestures gestures command-table)))
 	   (cond 
 	     ((not item)
 	      (beep) (return))
@@ -315,10 +290,10 @@
 		  (setf command (list command)))
 		(setf command (substitute-numeric-argument-marker command numarg))
 		(setf command (substitute-numeric-argument-p command numargp))
-		(do-command frame command)
+		(execute-frame-command frame command)
 		(return)))
 	     (t nil)))))
-   do (update-frame frame)))
+   do (redisplay-frame-panes frame)))
 
 (defun climacs-top-level (frame &key
                           command-parser command-unparser
@@ -340,14 +315,14 @@
 	      (with-input-context 
 		  ('(command :command-table global-climacs-table))
 		  (object)
-		  (process-gestures frame)
+		  (process-gestures frame 'global-climacs-table)
 		(t
-		 (do-command frame object)
+		 (execute-frame-command frame object)
 		 (setq maybe-error nil)))
 	      (abort-gesture () (display-message "Quit")))
 	     (when maybe-error
 	       (beep))
-	     (update-frame frame))
+	     (redisplay-frame-panes frame))
 	   (return-to-climacs () nil))))))
 
 (defmacro simple-command-loop (command-table loop-condition end-clauses)

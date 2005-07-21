@@ -20,16 +20,6 @@
 
 ;;; Emacs-Style Appication
 
-
-;;; move this to packages.lisp eventually
-(defpackage :esa
-  (:use :clim-lisp :clim)
-  (:export #:minibuffer-pane #:display-message
-	   #:esa-pane-mixin #:previous-command
-	   #:esa-frame-mixin #:windows #:recordingp #:execcutingp
-	   #:*numeric-argument-p*
-	   #:esa-top-level))
-
 (in-package :esa)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -73,7 +63,12 @@
 ;;; ESA pane mixin
 
 (defclass esa-pane-mixin ()
-  ((previous-command :initform nil :accessor previous-command)))
+  (;; allows a certain number of commands to have some minimal memory
+   (previous-command :initform nil :accessor previous-command)))
+
+(defmethod handle-repaint :before ((pane esa-pane-mixin) region)
+  (declare (ignore region))
+  (redisplay-frame-pane *application-frame* pane))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

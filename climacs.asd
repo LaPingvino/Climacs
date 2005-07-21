@@ -67,6 +67,7 @@
    "prolog-syntax"
    "ttcn3-syntax"
    "lisp-syntax"
+   "esa"
    "gui"
    "slidemacs"
    "slidemacs-gui"

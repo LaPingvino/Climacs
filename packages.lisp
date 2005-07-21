@@ -166,7 +166,15 @@
 	:climacs-syntax :flexichain :climacs-pane)
   (:export))
 
+(defpackage :esa
+  (:use :clim-lisp :clim)
+  (:export #:minibuffer-pane #:display-message
+	   #:esa-pane-mixin #:previous-command
+;;	   #:esa-frame-mixin #:windows #:recordingp #:execcutingp
+;;	   #:*numeric-argument-p*
+	   #:esa-top-level))
+
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
-	:climacs-kill-ring :climacs-pane :clim-extensions :undo))
+	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa))
 
