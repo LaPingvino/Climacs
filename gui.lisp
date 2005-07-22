@@ -56,7 +56,6 @@
    (win (let* ((extended-pane 
 		(make-pane 'extended-pane
 			   :width 900 :height 400
-			   :name 'bla
 			   :end-of-line-action :scroll
 			   :incremental-redisplay t
 			   :display-function 'display-win))
@@ -134,16 +133,6 @@
 	    '((#\0 :meta) (#\1 :meta) (#\2 :meta) (#\3 :meta) (#\4 :meta)
 	      (#\5 :meta) (#\6 :meta) (#\7 :meta) (#\8 :meta) (#\9 :meta))
 	    :test #'event-matches-gesture-name-p))
-
-;;; we know the vbox pane has a scroller pane and an info
-;;; pane in it.  The scroller pane has a viewport in it,
-;;; and the viewport contains the climacs-pane as its only child.
-(defun find-climacs-pane (vbox)
-  (first (sheet-children
-	  (find-if-not (lambda (pane) (typep pane 'scroll-bar-pane))
-		       (sheet-children
-			(find-if (lambda (pane) (typep pane 'scroller-pane))
-				 (sheet-children vbox)))))))
 
 (defun substitute-numeric-argument-p (command numargp)
   (substitute numargp *numeric-argument-p* command :test #'eq))

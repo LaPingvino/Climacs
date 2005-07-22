@@ -208,13 +208,6 @@
 	    (car command)
 	    command)))
 
-(defun find-real-pane (vbox)
-  (first (sheet-children
-	  (find-if-not (lambda (pane) (typep pane 'scroll-bar-pane))
-		       (sheet-children
-			(find-if (lambda (pane) (typep pane 'scroller-pane))
-				 (sheet-children vbox)))))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Top level
@@ -270,6 +263,37 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
+;;; comand table manipulation
+
+(defun ensure-subtable (table gesture)
+  (let* ((event (make-instance
+		'key-press-event
+		:key-name nil
+		:key-character (car gesture)
+		:modifier-state (apply #'make-modifier-state (cdr gesture))))
+	 (item (find-keystroke-item event table :errorp nil)))
+    (when (or (null item) (not (eq (command-menu-item-type item) :menu)))
+      (let ((name (gensym)))
+	(make-command-table name :errorp nil)
+	(add-menu-item-to-command-table table (symbol-name name)
+					:menu name
+					:keystroke gesture)))
+    (command-menu-item-value
+     (find-keystroke-item event table :errorp nil))))
+    
+      
+(defun set-key (command table gestures)
+  (if (null (cdr gestures))
+      (add-command-to-command-table
+       command table :keystroke (car gestures) :errorp nil)
+      (set-key command
+	       (ensure-subtable table (car gestures))
+	       (cdr gestures))))
+  
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
 ;;; example application
 
 (defclass example-info-pane (info-pane)
@@ -298,7 +322,6 @@
    (win (let* ((my-pane 
 		(make-pane 'example-pane
 			   :width 900 :height 400
-			   :name 'my-pane
 			   :display-function 'display-my-pane))
 	       (my-info-pane
 		(make-pane 'example-info-pane
@@ -329,29 +352,13 @@
 		:command-table 'global-example-table)))
     (run-frame-top-level frame)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Commands and key bindings
+
 (define-command-table global-example-table)
 
 (define-command (com-quit :name t :command-table global-example-table) ()
   (frame-exit *application-frame*))
 
-(defun set-key (command table gesture)
-  (add-command-to-command-table
-    command table :keystroke gesture :errorp nil))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; C-x command table
-
-(make-command-table 'global-c-x-example-table :errorp nil)
-
-(add-menu-item-to-command-table 'global-example-table "C-x"
-				:menu 'global-c-x-example-table
-				:keystroke '(#\x :control))
-
-(set-key 'com-quit 'global-c-x-example-table
-	 '(#\c :control))
-
-
-
-
-
+(set-key 'com-quit 'global-example-table '((#\x :control) (#\c :control)))
