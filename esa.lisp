@@ -97,6 +97,13 @@
 	       (setf table (command-menu-item-value item)))
 	finally (return item)))
 
+(defun find-gestures-with-inheritance (gestures start-table)
+  (or (find-gestures gestures start-table)
+      (some (lambda (table)
+	      (find-gestures-with-inheritance gestures table))
+	    (command-table-inherit-from
+	     (find-command-table start-table)))))
+
 (defparameter *current-gesture* nil)
 
 (defun meta-digit (gesture)
@@ -185,7 +192,7 @@
 	 (setf *current-gesture* (esa-read-gesture))
 	 (setf gestures 
 	       (nconc gestures (list *current-gesture*)))
-	 (let ((item (find-gestures gestures command-table)))
+	 (let ((item (find-gestures-with-inheritance gestures command-table)))
 	   (cond 
 	     ((not item)
 	      (beep) (return))
@@ -252,7 +259,7 @@
        (redisplay-frame-panes *application-frame*)
        (loop while ,loop-condition
              as ,gesture = (esa-read-gesture)
-             as ,item = (find-gestures (list ,gesture) ,command-table)
+             as ,item = (find-gestures-with-inheritance (list ,gesture) ,command-table)
              do (cond ((and ,item (eq (command-menu-item-type ,item) :command))
                        (setf *current-gesture* ,gesture)
                        (let ((,command (command-menu-item-value ,item)))
@@ -294,7 +301,18 @@
 	       (ensure-subtable table (car gestures))
 	       (cdr gestures))))
   
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; standard key bindings 
 
+;;; global
+
+(define-command-table global-esa-table)
+
+(define-command (com-quit :name t :command-table global-esa-table) ()
+  (frame-exit *application-frame*))
+
+(set-key 'com-quit 'global-esa-table '((#\x :control) (#\c :control)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -360,9 +378,5 @@
 ;;; 
 ;;; Commands and key bindings
 
-(define-command-table global-example-table)
+(define-command-table global-example-table :inherit-from (global-esa-table))
 
-(define-command (com-quit :name t :command-table global-example-table) ()
-  (frame-exit *application-frame*))
-
-(set-key 'com-quit 'global-example-table '((#\x :control) (#\c :control)))
