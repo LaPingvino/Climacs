@@ -137,10 +137,14 @@
 
 (defun read-numeric-argument (&key (stream *standard-input*))
   (let ((gesture (esa-read-gesture)))
-    (cond ((event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
+    (cond ((event-matches-gesture-name-p
+	    gesture
+	    '(:keyboard #\u (make-modifier-state :control)))
 	   (let ((numarg 4))
 	     (loop for gesture = (esa-read-gesture)
-		   while (event-matches-gesture-name-p gesture '(:keyboard #\u 512)) ; FIXME
+		   while (event-matches-gesture-name-p
+			  gesture
+			  '(:keyboard #\u (make-modifier-state :control)))
 		   do (setf numarg (* 4 numarg))
 		   finally (esa-unread-gesture gesture stream))
 	     (let ((gesture (esa-read-gesture)))
@@ -220,7 +224,7 @@
     (let ((*standard-output* (car windows))
 	  (*standard-input* (frame-standard-input frame))
 	  (*print-pretty* nil)
-	  (*abort-gestures* '((:keyboard #\g 512))))
+	  (*abort-gestures* `((:keyboard #\g ,(make-modifier-state :control)))))
       (redisplay-frame-panes frame :force-p t)
       (loop
        for maybe-error = t
