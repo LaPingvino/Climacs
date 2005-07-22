@@ -81,7 +81,7 @@
    (recorded-keys :initform '() :accessor recorded-keys)
    (remaining-keys :initform '() :accessor remaining-keys)
    ;; temporary hack.  The command table should be buffer or pane specific
-   (command-table :initarg :command-table :reader command-table)))
+   (esa-command-table :initarg :esa-command-table :reader command-table)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -371,7 +371,7 @@
   (let ((frame (make-application-frame
 		'example
 		:width width :height height
-		:command-table 'global-example-table)))
+		:esa-command-table 'global-example-table)))
     (run-frame-top-level frame)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -92,7 +92,7 @@
   "Starts up a climacs session"
   (let ((frame (make-application-frame
 		'climacs :width width :height height
-		:command-table 'global-climacs-table)))
+		:esa-command-table 'global-climacs-table)))
     (run-frame-top-level frame)))
 
 (defun display-info (frame pane)
