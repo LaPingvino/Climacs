@@ -58,7 +58,8 @@
 			   :width 900 :height 400
 			   :end-of-line-action :scroll
 			   :incremental-redisplay t
-			   :display-function 'display-win))
+			   :display-function 'display-win
+			   :command-table 'global-climacs-table))
 	       (info-pane
 		(make-pane 'climacs-info-pane
 			   :master-pane extended-pane
@@ -91,8 +92,7 @@
 (defun climacs (&key (width 900) (height 400))
   "Starts up a climacs session"
   (let ((frame (make-application-frame
-		'climacs :width width :height height
-		:esa-command-table 'global-climacs-table)))
+		'climacs :width width :height height)))
     (run-frame-top-level frame)))
 
 (defun display-info (frame pane)
@@ -159,10 +159,13 @@
 	do (when (modified-p buffer)
 	     (setf (needs-saving buffer) t))))	
 
+(make-command-table 'global-climacs-table :errorp nil :inherit-from '(global-esa-table))
+
 (defmacro define-named-command (command-name args &body body)
-  `(define-climacs-command ,(if (listp command-name)
-				`(,@command-name :name t)
-				`(,command-name :name t)) ,args ,@body))
+  `(define-command ,(if (listp command-name)
+			`(,@command-name :name t :command-table global-climacs-table)
+			`(,command-name :name t :command-table global-climacs-table))
+       ,args ,@body))
 
 (define-named-command com-toggle-overwrite-mode ()
   (with-slots (overwrite-mode) (current-window)
@@ -436,13 +439,6 @@
       (possibly-fill-line)
       (setf (offset point) (offset point-backup)))))
 
-(define-command com-extended-command ()
-  (let ((item (handler-case (accept 'command :prompt "Extended Command")
-		(error () (progn (beep)
-				 (display-message "No such command")
-				 (return-from com-extended-command nil))))))		       
-    (execute-frame-command *application-frame* item)))
-
 (eval-when (:compile-toplevel :load-toplevel)
   (define-presentation-type completable-pathname ()
   :inherit-from 'pathname))
@@ -597,23 +593,23 @@
 	(save-buffer buffer)
 	(display-message "No changes need to be saved from ~a" (name buffer)))))
 
-(define-named-command (com-quit) ()
-  (loop for buffer in (buffers *application-frame*)
+(defmethod frame-exit :around ((frame climacs))
+  (loop for buffer in (buffers frame)
 	when (and (needs-saving buffer)
 		  (filepath buffer)
 		  (handler-case (accept 'boolean
 					:prompt (format nil "Save buffer: ~a ?" (name buffer)))
 		    (error () (progn (beep)
 				     (display-message "Invalid answer")
-				     (return-from com-quit nil)))))
+				     (return-from frame-exit nil)))))
 	  do (save-buffer buffer))
   (when (or (notany #'(lambda (buffer) (and (needs-saving buffer) (filepath buffer)))
-		    (buffers *application-frame*))
+		    (buffers frame))
 	    (handler-case (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?")
 	      (error () (progn (beep)
 			       (display-message "Invalid answer")
-			       (return-from com-quit nil)))))
-    (frame-exit *application-frame*)))
+			       (return-from frame-exit nil)))))
+    (call-next-method)))
 
 (define-named-command com-write-buffer ()
   (let ((filepath (accept 'completable-pathname
@@ -803,7 +799,8 @@ as two values"
 		     :name 'win
 		     :end-of-line-action :scroll
 		     :incremental-redisplay t
-		     :display-function 'display-win))
+		     :display-function 'display-win
+		     :command-table 'global-climacs-table))
 	 (vbox
 	  (vertically ()
 	    (scrolling () extended-pane)
@@ -1254,9 +1251,7 @@ as two values"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
-;;; Global and dead-escape command tables
-
-(make-command-table 'global-climacs-table :errorp nil)
+;;; Dead-escape command tables
 
 (make-command-table 'dead-escape-climacs-table :errorp nil)
 
@@ -1306,7 +1301,6 @@ as two values"
 (global-set-key '(#\u :meta) 'com-upcase-word)
 (global-set-key '(#\l :meta) 'com-downcase-word)
 (global-set-key '(#\c :meta) 'com-capitalize-word)
-(global-set-key '(#\x :meta) 'com-extended-command)
 (global-set-key '(#\y :meta) 'com-rotate-yank) 
 (global-set-key '(#\z :meta) 'com-zap-to-character)
 (global-set-key '(#\w :meta) 'com-copy-out)
@@ -1371,7 +1365,6 @@ as two values"
 (c-x-set-key '(#\)) 'com-end-kbd-macro)
 (c-x-set-key '(#\b) 'com-switch-to-buffer)
 (c-x-set-key '(#\e) 'com-call-last-kbd-macro)
-(c-x-set-key '(#\c :control) 'com-quit)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\i) 'com-insert-file)
 (c-x-set-key '(#\k) 'com-kill-buffer)

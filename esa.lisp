@@ -64,7 +64,8 @@
 
 (defclass esa-pane-mixin ()
   (;; allows a certain number of commands to have some minimal memory
-   (previous-command :initform nil :accessor previous-command)))
+   (previous-command :initform nil :accessor previous-command)
+   (command-table :initarg :command-table :accessor command-table)))
 
 (defmethod handle-repaint :before ((pane esa-pane-mixin) region)
   (declare (ignore region))
@@ -79,9 +80,7 @@
    (recordingp :initform nil :accessor recordingp)
    (executingp :initform nil :accessor executingp)
    (recorded-keys :initform '() :accessor recorded-keys)
-   (remaining-keys :initform '() :accessor remaining-keys)
-   ;; temporary hack.  The command table should be buffer or pane specific
-   (esa-command-table :initarg :esa-command-table :reader command-table)))
+   (remaining-keys :initform '() :accessor remaining-keys)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -239,9 +238,9 @@
 	   (progn
 	     (handler-case
 	      (with-input-context 
-		  (`(command :command-table ,(command-table frame)))
+		  (`(command :command-table ,(command-table (car (windows frame)))))
 		  (object)
-		  (process-gestures frame (command-table frame))
+		  (process-gestures frame (command-table (car (windows frame))))
 		(t
 		 (execute-frame-command frame object)
 		 (setq maybe-error nil)))
@@ -314,6 +313,22 @@
 
 (set-key 'com-quit 'global-esa-table '((#\x :control) (#\c :control)))
 
+(define-command (com-extended-command
+		 :name t
+		 :command-table global-esa-table)
+    ()
+  (let ((item (handler-case
+	       (accept
+		`(command :command-table
+			  ,(command-table (car (windows *application-frame*))))
+		:prompt "Extended Command")
+	       (error () (progn (beep)
+				(display-message "No such command")
+				(return-from com-extended-command nil))))))
+    (execute-frame-command *application-frame* item)))
+
+(set-key 'com-extended-command 'global-esa-table '((#\x :meta)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; example application
@@ -344,7 +359,8 @@
    (win (let* ((my-pane 
 		(make-pane 'example-pane
 			   :width 900 :height 400
-			   :display-function 'display-my-pane))
+			   :display-function 'display-my-pane
+			   :command-table 'global-example-table))
 	       (my-info-pane
 		(make-pane 'example-info-pane
 			   :master-pane my-pane
@@ -370,8 +386,7 @@
   "Starts up the example application"
   (let ((frame (make-application-frame
 		'example
-		:width width :height height
-		:esa-command-table 'global-example-table)))
+		:width width :height height)))
     (run-frame-top-level frame)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
