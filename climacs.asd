@@ -36,7 +36,7 @@
                          (:file "obinseq" :depends-on ("binseq-package" "binseq"))
                          (:file "binseq2" :depends-on ("binseq-package" "obinseq" "binseq"))))
 
-   (:file "packages")
+   (:file "packages" :depends-on ("Persistent"))
    (:file "buffer" :depends-on ("packages"))
    (:file "persistent-buffer"
           :pathname #p"Persistent/persistent-buffer.lisp"
