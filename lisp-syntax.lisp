@@ -94,10 +94,10 @@
   (:documentation "In this state, the lexer is working inside a long
     comment delimited by #| and |#."))
 
-(define-lexer-state lexer-symbol-state ()
+(define-lexer-state lexer-escaped-token-state ()
   ()
-  (:documentation "In this state, the lexer is working inside a symbol
-    delimited by | and |."))
+  (:documentation "In this state, the lexer is accumulating a token
+    and an odd number of multiple escapes have been seen."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; this should go in syntax.lisp or lr-syntax.lisp
@@ -164,17 +164,15 @@
 
 (defclass error-lexeme (lisp-lexeme) ())
 (defclass left-parenthesis-lexeme (lisp-lexeme) ())
+(defclass simple-vector-start-lexeme (lisp-lexeme) ())
 (defclass right-parenthesis-lexeme (lisp-lexeme) ())
 (defclass quote-lexeme (lisp-lexeme) ())
 (defclass backquote-lexeme (lisp-lexeme) ())
 (defclass comma-lexeme (lisp-lexeme) ())
 (defclass form-lexeme (form lisp-lexeme) ())
-(defclass token-lexeme (form-lexeme) ())
 (defclass character-lexeme (form-lexeme) ())
 (defclass function-lexeme (lisp-lexeme) ())
 (defclass line-comment-start-lexeme (lisp-lexeme) ())
-(defclass symbol-start-lexeme (lisp-lexeme) ())
-(defclass symbol-end-lexeme (lisp-lexeme) ())
 (defclass long-comment-start-lexeme (lisp-lexeme) ())
 (defclass comment-end-lexeme (lisp-lexeme) ())
 (defclass string-start-lexeme (lisp-lexeme) ())
@@ -182,9 +180,21 @@
 (defclass word-lexeme (lisp-lexeme) ())
 (defclass delimiter-lexeme (lisp-lexeme) ())
 (defclass text-lexeme (lisp-lexeme) ())
+(defclass sharpsign-equals-lexeme (lisp-lexeme) ())
+(defclass sharpsign-sharpsign-lexeme (form-lexeme) ())
 (defclass reader-conditional-positive-lexeme (lisp-lexeme) ())
 (defclass reader-conditional-negative-lexeme (lisp-lexeme) ())
 (defclass uninterned-symbol-lexeme (lisp-lexeme) ())
+(defclass readtime-evaluation-lexeme (lisp-lexeme) ())
+(defclass array-start-lexeme (lisp-lexeme) ())
+(defclass structure-start-lexeme (lisp-lexeme) ())
+(defclass pathname-start-lexeme (lisp-lexeme) ())
+(defclass undefined-reader-macro-lexeme (lisp-lexeme) ())
+(defclass bit-vector-lexeme (form-lexeme) ())
+(defclass token-mixin () ())
+(defclass complete-token-lexeme (token-mixin form-lexeme) ())
+(defclass multiple-escape-start-lexeme (lisp-lexeme) ())
+(defclass multiple-escape-end-lexeme (lisp-lexeme) ())
 
 (defmethod skip-inter ((syntax lisp-syntax) state scan)
   (macrolet ((fo () `(forward-object scan)))
@@ -210,46 +220,89 @@
     (let ((object (object-after scan)))
       (case object
 	(#\( (fo) (make-instance 'left-parenthesis-lexeme))
+	;#\) is an error
 	(#\' (fo) (make-instance 'quote-lexeme))
-	(#\` (fo) (make-instance 'backquote-lexeme))
-	(#\, (fo) (make-instance 'comma-lexeme))
-	(#\" (fo) (make-instance 'string-start-lexeme))
 	(#\; (fo)
 	     (loop until (or (end-of-buffer-p scan)
 			     (end-of-line-p scan)
 			     (not (eql (object-after scan) #\;)))
 		   do (fo))
 	     (make-instance 'line-comment-start-lexeme))
-	(#\| (fo) (make-instance 'symbol-start-lexeme))
+	(#\" (fo) (make-instance 'string-start-lexeme))
+	(#\` (fo) (make-instance 'backquote-lexeme))
+	(#\, (fo) (make-instance 'comma-lexeme))
 	(#\# (fo)
-	     ( if (end-of-buffer-p scan)
-		  (make-instance 'error-lexeme)
-		  (case (object-after scan)
-		    (#\\ (fo)
-			 (cond ((end-of-buffer-p scan)
-				(make-instance 'error-lexeme))
-			       ((not (constituentp (object-after scan)))
-				(fo) (make-instance 'character-lexeme))
-			       (t (loop until (end-of-buffer-p scan)
-					while (constituentp (object-after scan))
-					do (fo))
-				  (make-instance 'character-lexeme))))
-		    (#\' (fo)
-			 (make-instance 'function-lexeme))
-		    (#\| (fo)
-			 (make-instance 'long-comment-start-lexeme))
-		    (#\+ (fo)
-			 (make-instance 'reader-conditional-positive-lexeme))
-		    (#\- (fo)
-			 (make-instance 'reader-conditional-negative-lexeme))
-		    (#\: (fo)
-			 (make-instance 'uninterned-symbol-lexeme))
-		    (t (fo) (make-instance 'error-lexeme)))))
-	(t (cond ((constituentp object)
-		  (loop until (end-of-buffer-p scan)
-			while (constituentp (object-after scan))
-			do (fo))
-		  (make-instance 'token-lexeme))
+	     (cond ((end-of-buffer-p scan)
+		    (make-instance 'error-lexeme))
+		   (t 
+		    (loop until (end-of-buffer-p scan)
+		          while (digit-char-p (object-after scan))
+		          do (fo))
+		    (if (end-of-buffer-p scan)
+			(make-instance 'error-lexeme)
+			(case (object-after scan)
+			  ((#\Backspace #\Tab #\Newline #\Linefeed 
+			    #\Page #\Return #\Space #\))
+			   (fo)
+			   (make-instance 'error-lexeme))
+			  (#\\ (fo)
+			       (cond ((end-of-buffer-p scan)
+				      (make-instance 'error-lexeme))
+				     ((not (constituentp (object-after scan)))
+				      (fo) (make-instance 'character-lexeme))
+				     (t (loop until (end-of-buffer-p scan)
+					   while (constituentp (object-after scan))
+					   do (fo))
+					(make-instance 'character-lexeme))))
+			  (#\' (fo)
+			       (make-instance 'function-lexeme))
+			  (#\( (fo)
+			       (make-instance 'simple-vector-start-lexeme))
+			  (#\* (fo)
+			       (loop until (end-of-buffer-p scan)
+				     while (or (eql (object-after scan) #\1)
+					       (eql (object-after scan) #\0))
+				     do (fo))
+			       (if (and (not (end-of-buffer-p scan))
+					(constituentp (object-after scan)))
+				   (make-instance 'error-lexeme)
+				   (make-instance 'bit-vector-lexeme)))
+			  (#\: (fo)
+			       (make-instance 'uninterned-symbol-lexeme))
+			  (#\. (fo)
+			       (make-instance 'readtime-evaluation-lexeme))
+			  ;((#\B #\b) )
+			  ;((#\O #\o) )
+			  ;((#\X #\x) )
+			  ;((#\R #\r) )
+			  ;((#\C #\c) )
+			  ((#\A #\a) (fo)
+			   (make-instance 'array-start-lexeme))
+			  ((#\S #\s) (fo)
+			   (cond ((and (not (end-of-buffer-p scan))
+				       (eql (object-after scan) #\())
+				  (fo)
+				  (make-instance 'structure-start-lexeme))
+				 (t (make-instance 'error-lexeme))))
+			  ((#\P #\p) (fo)
+			   (make-instance 'pathname-start-lexeme))
+			  (#\= (fo)
+			       (make-instance 'sharpsign-equals-lexeme))
+			  (#\# (fo)
+			       (make-instance 'sharpsign-sharpsign-lexeme))
+			  (#\+ (fo)
+			       (make-instance 'reader-conditional-positive-lexeme))
+			  (#\- (fo)
+			       (make-instance 'reader-conditional-negative-lexeme))
+			  (#\| (fo)
+			       (make-instance 'long-comment-start-lexeme))
+			  (#\< (fo)
+			       (make-instance 'error-lexeme))
+			  (t (fo) (make-instance 'undefined-reader-macro-lexeme)))))))
+	(#\| (fo) (make-instance 'multiple-escape-start-lexeme))
+	(t (cond ((or (constituentp object)
+		      (eql object #\\))
+		  (lex-token scan))
 		 (t (fo) (make-instance 'error-lexeme))))))))
 
 (defmethod lex ((syntax lisp-syntax) (state lexer-list-state) scan)
@@ -315,27 +368,50 @@
 	   (make-instance 'word-lexeme))
 	  (t (fo) (make-instance 'delimiter-lexeme)))))
 
-(defmethod skip-inter ((syntax lisp-syntax) (state lexer-symbol-state) scan)
+(defun lex-token (scan)
   (macrolet ((fo () `(forward-object scan)))
-    (loop while (and (end-of-line-p scan)
-		     (not (end-of-buffer-p scan)))
-	  do (fo)))
-  (not (end-of-buffer-p scan)))
-	  
-(defmethod lex ((syntax lisp-syntax) (state lexer-symbol-state) scan)
-  (macrolet ((fo () `(forward-object scan)))
-    (cond ((eql (object-after scan) #\|)
+    (tagbody
+       start
+       (when (end-of-buffer-p scan)
+	 (return-from lex-token (make-instance 'complete-token-lexeme)))
+       (when (constituentp (object-after scan))
+	 (fo)
+	 (go start))
+       (when (eql (object-after scan) #\\)
+	 (fo)
+	 (when (end-of-buffer-p scan)
+	   (return-from lex-token (make-instance 'error-lexeme)))
+	 (fo)
+	 (go start))
+       (when (eql (object-after scan) #\|)
+	 (fo)
+	 (return-from lex-token (make-instance 'multiple-escape-start-lexeme)))
+       (return-from lex-token (make-instance 'complete-token-lexeme)))))
+
+(defmethod lex ((syntax lisp-syntax) (state lexer-escaped-token-state) scan)
+  (let ((bars-seen 0))
+    (macrolet ((fo () `(forward-object scan)))
+      (tagbody
+       start
+	 (when (end-of-buffer-p scan)
+	   (return-from lex (make-instance 'error-lexeme)))
+	 (when (eql (object-after scan) #\\)
 	   (fo)
-	   (make-instance 'symbol-end-lexeme))
-	  (t (loop do (cond ((or (end-of-line-p scan)
-				 (eql (object-after scan) #\|))
-			     (return (make-instance 'text-lexeme)))
-			    ((eql (object-after scan) #\\)
-			     (fo)
-			     (if (end-of-line-p scan)
-				 (return (make-instance 'text-lexeme))
-				 (fo)))
-			    (t (fo))))))))
+	   (when (end-of-buffer-p scan)
+	     (return-from lex (make-instance 'error-lexeme)))
+	   (fo)
+	   (go start))
+	 (when (eql (object-after scan) #\|)
+	   (incf bars-seen)
+	   (fo)
+	   (go start))
+	 (unless (whitespacep (object-after scan))
+	   (fo)
+	   (go start))	 
+	 (return-from lex 
+	   (if (oddp bars-seen)
+	       (make-instance 'multiple-escape-end-lexeme)
+	       (make-instance 'text-lexeme)))))))
 
 (defmethod lex ((syntax lisp-syntax) (state lexer-error-state) scan)
   (macrolet ((fo () `(forward-object scan)))
@@ -490,6 +566,28 @@
 (define-lisp-action (|( form* | (eql nil))
   (reduce-until-type incomplete-list-form left-parenthesis-lexeme))
 
+;;;;;;;;;;;;;;;; Simple Vector
+
+;;; parse trees
+(defclass simple-vector-form (list-form) ())
+(defclass complete-simple-vector-form (complete-list-form) ())
+(defclass incomplete-simple-vector-form (incomplete-list-form) ())
+
+(define-parser-state |#( form* | (lexer-list-state form-may-follow) ())
+(define-parser-state |#( form* ) | (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (form-may-follow simple-vector-start-lexeme) |#( form* |)
+(define-new-lisp-state (|#( form* | form) |#( form* |)
+(define-new-lisp-state (|#( form* | right-parenthesis-lexeme) |#( form* ) |)
+
+;;; reduce according to the rule form -> #( form* )
+(define-lisp-action (|#( form* ) | t)
+  (reduce-until-type complete-simple-vector-form simple-vector-start-lexeme))
+
+;;; reduce at the end of the buffer
+(define-lisp-action (|#( form* | (eql nil))
+  (reduce-until-type incomplete-simple-vector-form simple-vector-start-lexeme))
+
 ;;;;;;;;;;;;;;;; String
 
 ;;; parse trees
@@ -532,8 +630,6 @@
 
 ;;;;;;;;;;;;;;;; Long comment
 
-;; FIXME  this does not work for nested comments
-
 ;;; parse trees
 (defclass long-comment-form (form) ())
 (defclass complete-long-comment-form (long-comment-form) ())
@@ -557,27 +653,27 @@
 (define-lisp-action (|#\| word* | (eql nil))
   (reduce-until-type incomplete-long-comment-form long-comment-start-lexeme))
 
-;;;;;;;;;;;;;;;; Symbol name surrounded with vertical bars
+;;;;;;;;;;;;;;;; Token (number or symbol)
 
 ;;; parse trees
-(defclass symbol-form (form) ())
-(defclass complete-symbol-form (symbol-form) ())
-(defclass incomplete-symbol-form (symbol-form incomplete-form-mixin) ())
+(defclass token-form (form token-mixin) ())
+(defclass complete-token-form (token-form) ())
+(defclass incomplete-token-form (token-form) ())
 
-(define-parser-state |\| text* | (lexer-symbol-state parser-state) ())
-(define-parser-state |\| text* \| | (lexer-toplevel-state parser-state) ())
+(define-parser-state | m-e-start text* | (lexer-escaped-token-state parser-state) ())
+(define-parser-state | m-e-start text* m-e-end | (lexer-toplevel-state parser-state) ())
 
-(define-new-lisp-state (form-may-follow symbol-start-lexeme) |\| text* |)
-(define-new-lisp-state (|\| text* | text-lexeme) |\| text* |)
-(define-new-lisp-state (|\| text* | symbol-end-lexeme) |\| text* \| |)
+(define-new-lisp-state (form-may-follow multiple-escape-start-lexeme) | m-e-start text* |)
+(define-new-lisp-state (| m-e-start text* | text-lexeme) | m-e-start text* |)
+(define-new-lisp-state (| m-e-start text* | multiple-escape-end-lexeme) | m-e-start text* m-e-end |)
 
-;;; reduce according to the rule form -> | text* |
-(define-lisp-action (|\| text* \| | t)
-  (reduce-until-type complete-symbol-form symbol-start-lexeme))
+;;; reduce according to the rule form -> m-e-start text* m-e-end
+(define-lisp-action (| m-e-start text* m-e-end | t)
+  (reduce-until-type complete-token-form multiple-escape-start-lexeme))
 
 ;;; reduce at the end of the buffer
-(define-lisp-action (|\| text* | (eql nil))
-  (reduce-until-type incomplete-symbol-form symbol-start-lexeme))
+(define-lisp-action (| m-e-start text* | (eql nil))
+  (reduce-until-type incomplete-token-form multiple-escape-start-lexeme))
 
 ;;;;;;;;;;;;;;;; Quote
 
@@ -675,6 +771,106 @@
 
 (define-new-lisp-state (form-may-follow uninterned-symbol-lexeme) |' |)
 (define-new-lisp-state (|#: | form) |#: form |)
+
+;;; reduce according to the rule form -> #: form
+(define-lisp-action (|#: form | t)
+  (reduce-fixed-number uninterned-symbol-form 2))
+
+;;;;;;;;;;;;;;;; readtime evaluation
+
+;;; parse trees
+(defclass readtime-evaluation-form (form) ())
+
+(define-parser-state |#. | (form-may-follow) ())
+(define-parser-state |#. form | (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (form-may-follow readtime-evaluation-lexeme) |' |)
+(define-new-lisp-state (|#. | form) |#. form |)
+
+;;; reduce according to the rule form -> #. form
+(define-lisp-action (|#. form | t)
+  (reduce-fixed-number readtime-evaluation-form 2))
+
+;;;;;;;;;;;;;;;; sharpsign equals
+
+;;; parse trees
+(defclass sharpsign-equals-form (form) ())
+
+(define-parser-state |#= | (form-may-follow) ())
+(define-parser-state |#= form | (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (form-may-follow sharpsign-equals-lexeme) |' |)
+(define-new-lisp-state (|#= | form) |#= form |)
+
+;;; reduce according to the rule form -> #= form
+(define-lisp-action (|#= form | t)
+  (reduce-fixed-number sharpsign-equals-form 2))
+
+;;;;;;;;;;;;;;;; array
+
+;;; parse trees
+(defclass array-form (form) ())
+
+(define-parser-state |#A | (form-may-follow) ())
+(define-parser-state |#A form | (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (form-may-follow array-start-lexeme) |' |)
+(define-new-lisp-state (|#A | form) |#A form |)
+
+;;; reduce according to the rule form -> #A form
+(define-lisp-action (|#A form | t)
+  (reduce-fixed-number array-start-form 2))
+
+;;;;;;;;;;;;;;;; structure
+
+;;; parse trees
+(defclass structure-form (list-form) ())
+(defclass complete-structure-form (complete-list-form) ())
+(defclass incomplete-structure-form (incomplete-list-form) ())
+
+(define-parser-state |#S( form* | (lexer-list-state form-may-follow) ())
+(define-parser-state |#S( form* ) | (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (form-may-follow structure-start-lexeme) |#S( form* |)
+(define-new-lisp-state (|#S( form* | form) |#S( form* |)
+(define-new-lisp-state (|#S( form* | right-parenthesis-lexeme) |#S( form* ) |)
+
+;;; reduce according to the rule form -> #S( form* )
+(define-lisp-action (|#S( form* ) | t)
+  (reduce-until-type complete-structure-form structure-start-lexeme))
+
+;;; reduce at the end of the buffer
+(define-lisp-action (|#S( form* | (eql nil))
+  (reduce-until-type incomplete-structure-form structure-start-lexeme))
+
+
+;;;;;;;;;;;;;;;; pathname
+
+;;; FIXME: #P _must_ be followed by a string
+
+;;; parse trees
+(defclass pathname-form (form) ())
+
+(define-parser-state |#P | (form-may-follow) ())
+(define-parser-state |#P form | (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (form-may-follow pathname-start-lexeme) |' |)
+(define-new-lisp-state (|#P | form) |#P form |)
+
+;;; reduce according to the rule form -> #P form
+(define-lisp-action (|#P form | t)
+  (reduce-fixed-number pathname-start-form 2))
+
+;;;;;;;;;;;;;;;; undefined reader macro
+
+;;; parse trees
+(defclass undefined-reader-macro-form (form) ())
+
+(define-parser-state |#<other> | (form-may-follow) ())
+(define-parser-state |#<other> form | (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (form-may-follow undefined-reader-macro-lexeme) |' |)
+(define-new-lisp-state (|#<other> | form) |#<other> form |)
 
 ;;; reduce according to the rule form -> #: form
 (define-lisp-action (|#: form | t)
@@ -888,11 +1084,15 @@
   (with-drawing-options (pane :ink +red+)
     (call-next-method)))
 
-(defmethod display-parse-tree ((parse-symbol token-lexeme) (syntax lisp-syntax) pane)
-  (if (and (> (end-offset parse-symbol) (start-offset parse-symbol))
-	   (eql (buffer-object (buffer syntax) (start-offset parse-symbol)) #\:))
-      (with-drawing-options (pane :ink +dark-violet+)
-	(call-next-method))
+(defmethod display-parse-tree ((parse-symbol token-mixin) (syntax lisp-syntax) pane)
+  (if (> (end-offset parse-symbol) (start-offset parse-symbol))
+      (cond ((eql (buffer-object (buffer syntax) (start-offset parse-symbol)) #\:)
+	     (with-drawing-options (pane :ink +dark-violet+)
+	       (call-next-method)))
+	    ((eql (buffer-object (buffer syntax) (start-offset parse-symbol)) #\&)
+	     (with-drawing-options (pane :ink +dark-green+)
+	       (call-next-method)))
+	    (t (call-next-method)))
       (call-next-method)))
 
 (defmethod display-parse-tree ((parser-symbol lisp-lexeme) (syntax lisp-syntax) pane)
@@ -957,9 +1157,6 @@
     (loop for child in (cdr children)
 	  do (display-parse-tree child syntax pane))))
     
-(defmethod display-parse-tree ((parse-symbol symbol-form) (syntax lisp-syntax) pane)
-  (call-next-method))
-
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax lisp-syntax) current-p)
   (declare (ignore current-p))
   (with-slots (top bot) pane
@@ -971,7 +1168,10 @@
      (display-parse-tree stack-top syntax pane))
   (with-slots (top) pane
     (let* ((cursor-line (number-of-lines-in-region top (point pane)))
-	   (height (text-style-height (medium-text-style pane) pane))
+	   (style (medium-text-style pane))
+	   (ascent (text-style-ascent style pane))
+	   (descent (text-style-descent style pane))
+	   (height (+ ascent descent))
 	   (cursor-y (+ (* cursor-line (+ height (stream-vertical-spacing pane)))))
 	   (cursor-column 
 	    (buffer-display-column
@@ -980,8 +1180,8 @@
 	   (cursor-x (* cursor-column (text-style-width (medium-text-style pane) pane))))
       (updating-output (pane :unique-id -1)
 	(draw-rectangle* pane
-			 (1- cursor-x) (- cursor-y (* 0.2 height))
-			 (+ cursor-x 2) (+ cursor-y (* 0.8 height))
+			 (1- cursor-x) cursor-y
+			 (+ cursor-x 2) (+ cursor-y ascent descent)
 			 :ink (if current-p +red+ +blue+))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1079,45 +1279,140 @@
 (defconstant keyword-package (find-package :keyword)
   "The KEYWORD package.")
 
-;; FIXME: deal with #\| etc.  hard to do portably.
-(defun tokenize-symbol (string)
-  (let ((package (let ((pos (position #\: string)))
-                   (if pos (subseq string 0 pos) nil)))
-        (symbol (let ((pos (position #\: string :from-end t)))
-                  (if pos (subseq string (1+ pos)) string)))
-        (internp (search "::" string)))
-    (values symbol package internp)))
+;;; shamelessly replacing SWANK code
+;; We first work through the string removing the characters and noting
+;; which ones are escaped. We then replace each character with the
+;; appropriate case version, according to the readtable.
+;; Finally, we extract the package and symbol names.
+;; Being in an editor, we are waaay more lenient than the reader.
 
-(defun determine-case (string)
-  "Return two booleans LOWER and UPPER indicating whether STRING
-contains lower or upper case characters."
-  (values (some #'lower-case-p string)
-          (some #'upper-case-p string)))
+(defun parse-escapes (string)
+  "Return a string and a list of escaped character positions.
+Uses part of the READ algorithm in CLTL2 22.1.1."
+  (let ((length (length string))
+	(index 0)
+	irreplaceables chars)
+    (tagbody
+     step-8
+       (unless (< index length) (go end))
+       (cond 
+	 ((char/= (char string index) #\\ #\|)
+	  (push (char string index) chars)
+	  (incf index)
+	  (go step-8))
+	 ((char= (char string index) #\\)
+	  (push (length chars) irreplaceables)
+	  (incf index)
+	  (unless (< index length) (go end))
+	  (push (char string index) chars)
+	  (incf index)
+	  (go step-8))
+	 ((char= (char string index) #\|)
+	  (incf index)
+	  (go step-9)))
+     step-9
+       (unless (< index length) (go end))
+       (cond 
+	 ((char/= (char string index) #\\ #\|)
+	  (push (length chars) irreplaceables)
+	  (push (char string index) chars)
+	  (incf index)
+	  (go step-9))
+	 ((char= (char string index) #\\)
+	  (push (length chars) irreplaceables)
+	  (incf index)
+	  (unless (< index length) (go end))
+	  (push (char string index) chars)
+	  (incf index)
+	  (go step-9))
+	 ((char= (char string index) #\|)
+	  (incf index)
+	  (go step-8)))
+     end
+       (return-from parse-escapes
+	 (values (coerce (nreverse chars) 'string)
+		 (nreverse irreplaceables))))))
 
-;; FIXME: Escape chars are ignored
-(defun casify (string)
-  "Convert string accoring to readtable-case."
-  (ecase (readtable-case *readtable*)
-    (:preserve string)
-    (:upcase   (string-upcase string))
-    (:downcase (string-downcase string))
-    (:invert (multiple-value-bind (lower upper) (determine-case string)
-               (cond ((and lower upper) string)
-                     (lower (string-upcase string))
-                     (upper (string-downcase string))
-                     (t string))))))
+(defun invert-cases (string &optional (irreplaceables nil))
+  "Returns two flags: unescaped upper-case and lower-case chars in STRING."
+  (loop for index below (length string)
+       with upper = nil
+       with lower = nil
+       when (not (member index irreplaceables))
+        if (upper-case-p (char string index))
+         do (setf upper t) end
+        if (lower-case-p (char string index))
+         do (setf lower t) end
+     finally (return (values upper lower))))
+
+(defun replace-case (string &optional (case (readtable-case *readtable*))
+		                      (irreplaceables nil))
+  "Convert string according to readtable-case."
+  (multiple-value-bind (upper lower) (invert-cases string irreplaceables)
+    (loop for index below (length string)
+       as char = (char string index) then (char string index)
+       if (member index irreplaceables)
+         collect char into chars
+       else
+         collect (ecase case
+		   (:preserve char)
+		   (:upcase (char-upcase char))
+		   (:downcase (char-downcase char))
+		   (:invert (cond ((and lower upper) char)
+				  (lower (char-upcase char))
+				  (upper (char-downcase char))
+				  (t char)))) into chars
+       finally (return (coerce chars 'string)))))
+
+(defun parse-token (string &optional (case (readtable-case *readtable*)))
+  "Extracts the symbol-name and package name from STRING
+and whether the symbol-name was separated from the package by a double colon."
+  (multiple-value-bind (string irreplaceables) (parse-escapes string)
+    (let ((string (replace-case string case irreplaceables))
+	  package-name symbol-name internalp)
+      (loop for index below (length string)
+	   with symbol-start = 0
+	   when (and (char= (char string index) #\:)
+		     (not (member index irreplaceables)))
+	        do (setf package-name (subseq string 0 index))
+	           (if (and (< (incf index) (length string))
+			    (char= (char string index) #\:)
+			    (not (member index irreplaceables)))
+		       (setf symbol-start (1+ index)
+			     internalp t)
+		       (setf symbol-start index))
+	           (loop-finish)
+	   finally (setf symbol-name (subseq string symbol-start)))
+      (values symbol-name package-name internalp))))
+
+#|
+;;; Compare CLHS 23.1.2.1
+ (defun test-parse-token ()
+  (let ((*readtable* (copy-readtable nil)))
+    (format t "READTABLE-CASE  Input         Symbol-name   Token-name~
+             ~%------------------------------------------------------~
+             ~%")
+    (dolist (readtable-case '(:upcase :downcase :preserve :invert))
+      (dolist (input '("ZEBRA" "Zebra" "zebra" "\\zebra" "\\Zebra" "z|ebr|a"
+		       "|ZE\\bRA|" "ze\\|bra"))
+	(format t "~&:~A~16T~A~30T~A~44T~A"
+		(string-upcase readtable-case)
+		input
+		(progn (setf (readtable-case *readtable*) readtable-case)
+		       (symbol-name (read-from-string input)))
+		(parse-token input readtable-case))))))
+|#
 
 (defun parse-symbol (string &optional (package *package*))
   "Find the symbol named STRING.
-Return the symbol and a flag indicating whether the symbols was found."
-  (multiple-value-bind (sname pname) (tokenize-symbol string)
-    (let ((package (cond ((string= pname "") keyword-package)
-                         (pname              (find-package (casify pname)))
-                         (t                  package))))
+Return the symbol and a flag indicating whether the symbol was found."
+  (multiple-value-bind (symbol-name package-name) (parse-token string)
+    (let ((package (cond ((string= package-name "") keyword-package)
+                         (package-name              (find-package package-name))
+                         (t                         package))))
       (if package
-          (find-symbol (casify sname) package)
+          (find-symbol symbol-name package)
           (values nil nil)))))
-
 
 (defun token-to-symbol (syntax token)
   (let ((package (or (slot-value syntax 'package)
@@ -1145,7 +1440,7 @@ Return the symbol and a flag indicating whether the symbols was found."
       ;; before first element
       (values tree 1)
       (let ((first-child (elt (children tree) 1)))
-	(cond ((and (typep first-child 'token-lexeme)
+	(cond ((and (typep first-child 'token-mixin)
 		    (token-to-symbol syntax first-child))
 	       (compute-list-indentation syntax (token-to-symbol syntax first-child) tree path))
 	      ((null (cdr path))
