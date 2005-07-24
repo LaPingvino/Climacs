@@ -20,61 +20,61 @@
 
 ;;; ASDF system definition for Climacs.
 
-(in-package :common-lisp-user)
+(defpackage :climacs.system
+  (:use :cl :asdf))
+
+(in-package :climacs.system)
 
 (defparameter *climacs-directory* (directory-namestring *load-truename*))
 
-(defmacro climacs-defsystem ((module &key depends-on) &rest components)
-  `(progn
-    #+mk-defsystem
-    (mk:defsystem ,module
-	:source-pathname *climacs-directory*
-	,@(and depends-on `(:depends-on ,depends-on))
-	:components (:serial ,@components))
-    #+asdf
-    (asdf:defsystem ,module
-	,@(and depends-on `(:depends-on ,depends-on))
-	:serial t
-	:components (,@(loop for c in components
-			     for p = (merge-pathnames
-				      (parse-namestring c)
-				      (make-pathname :type "lisp"
-						     :defaults *climacs-directory*))
-			     collect `(:file ,(pathname-name p) :pathname ,p))))))
+(defsystem :climacs
+  :depends-on (:mcclim :flexichain)
+  :components
+  ((:module "Persistent"
+            :components ((:file "binseq-package")
+                         (:file "binseq" :depends-on ("binseq-package"))
+                         (:file "obinseq" :depends-on ("binseq-package" "binseq"))
+                         (:file "binseq2" :depends-on ("binseq-package" "obinseq" "binseq"))))
 
-(climacs-defsystem (:climacs :depends-on (:mcclim :flexichain))
-   "Persistent/binseq-package"
-   "Persistent/binseq"
-   "Persistent/obinseq"
-   "Persistent/binseq2"
-   "translate"
-   "packages"
-   "buffer"
-   "Persistent/persistent-buffer"
-   "base"
-   "io"
-   "abbrev"
-   "syntax"
-   "text-syntax"
-   "kill-ring"
-   "undo"
-   "delegating-buffer"
-   "Persistent/persistent-undo"
-   "pane"
-   "fundamental-syntax"
-   "cl-syntax"
-   "html-syntax"
-   "prolog-syntax"
-   "ttcn3-syntax"
-   "lisp-syntax"
-   "esa"
-   "gui"
-   "slidemacs"
-   "slidemacs-gui"
-   ;;---- optional ----
-   "testing/rt"
-   "buffer-test"
-   "base-test")
+   (:file "packages")
+   (:file "buffer" :depends-on ("packages"))
+   (:file "persistent-buffer"
+          :pathname #p"Persistent/persistent-buffer.lisp"
+          :depends-on ("packages" "buffer" "Persistent"))
+
+   (:file "base" :depends-on ("packages" "buffer" "persistent-buffer"))
+   (:file "io" :depends-on ("packages" "buffer"))
+   (:file "abbrev" :depends-on ("packages" "buffer" "base"))
+   (:file "syntax" :depends-on ("packages" "buffer" "base"))
+   (:file "text-syntax" :depends-on ("packages" "base" "buffer" "syntax"))
+   (:file "delegating-buffer" :depends-on ("packages" "buffer"))
+   (:file "kill-ring" :depends-on ("packages"))
+   (:file "undo" :depends-on ("packages"))
+   (:file "persistent-undo"
+          :pathname #p"Persistent/persistent-undo.lisp"
+          :depends-on ("packages" "buffer" "persistent-buffer" "undo"))
+   (:file "pane" :depends-on ("packages" "syntax" "buffer" "base"
+                                         "persistent-undo" "persistent-buffer" "abbrev"
+                                         "delegating-buffer" "undo"))
+   (:file "fundamental-syntax" :depends-on ("packages" "syntax" "buffer" "pane"
+                                                       "base"))
+   (:file "cl-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
+   (:file "html-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
+   (:file "prolog-syntax" :depends-on ("packages" "base" "syntax" "pane" "buffer"))
+   (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
+   (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"))
+   (:file "esa" :depends-on ("packages"))
+   (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
+                                        "esa" "kill-ring" "io" "text-syntax" "abbrev"))
+   (:file "slidemacs" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
+   (:file "slidemacs-gui" :depends-on ("packages" "slidemacs" "pane" "buffer" "syntax"))))
+
+(defsystem :climacs.tests
+  :depends-on (:climacs)
+  :components
+  ((:file "rt" :pathname #p"testing/rt.lisp")
+   (:file "buffer-test" :depends-on ("rt"))
+   (:file "base-test" :depends-on ("rt"))))
 
 #+asdf
 (defmethod asdf:perform :around ((o asdf:compile-op)
