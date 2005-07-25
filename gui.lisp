@@ -159,7 +159,8 @@
 	do (when (modified-p buffer)
 	     (setf (needs-saving buffer) t))))	
 
-(make-command-table 'global-climacs-table :errorp nil :inherit-from '(global-esa-table))
+(make-command-table 'global-climacs-table :errorp nil
+		    :inherit-from '(global-esa-table keyboard-macro-table))
 
 (defmacro define-named-command (command-name args &body body)
   `(define-command ,(if (listp command-name)
@@ -737,25 +738,6 @@
 				    (display-message "No such syntax")
 				    (return-from com-set-syntax nil)))
 	     :buffer (buffer (point pane))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Keyboard macros
-
-(define-named-command com-start-kbd-macro ()
-  (setf (recordingp *application-frame*) t)
-  (setf (recorded-keys *application-frame*) '()))
-
-(define-named-command com-end-kbd-macro ()
-  (setf (recordingp *application-frame*) nil)
-  (setf (recorded-keys *application-frame*)
-	;; this won't work if the command was invoked in any old way
-	(reverse (cddr (recorded-keys *application-frame*)))))
-
-(define-named-command com-call-last-kbd-macro ()
-  (setf (remaining-keys *application-frame*)
-	(recorded-keys *application-frame*))
-  (setf (executingp *application-frame*) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -1361,10 +1343,7 @@ as two values"
 (c-x-set-key '(#\1) 'com-single-window)
 (c-x-set-key '(#\2) 'com-split-window-vertically)
 (c-x-set-key '(#\3) 'com-split-window-horizontally)
-(c-x-set-key '(#\() 'com-start-kbd-macro)
-(c-x-set-key '(#\)) 'com-end-kbd-macro)
 (c-x-set-key '(#\b) 'com-switch-to-buffer)
-(c-x-set-key '(#\e) 'com-call-last-kbd-macro)
 (c-x-set-key '(#\f :control) 'com-find-file)
 (c-x-set-key '(#\i) 'com-insert-file)
 (c-x-set-key '(#\k) 'com-kill-buffer)

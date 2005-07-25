@@ -174,9 +174,7 @@
 	   #:esa-frame-mixin #:windows #:recordingp #:executingp
 	   #:*numeric-argument-p* #:*current-gesture*
 	   #:esa-top-level #:simple-command-loop
-	   #:global-esa-table
-	   ;; remove these when kbd macros move to esa
-	   #:recorded-keys #:remaining-keys))
+	   #:global-esa-table #:keyboard-macro-table))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax

@@ -331,6 +331,42 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
+;;; Keyboard macros
+
+(define-command-table keyboard-macro-table)
+
+(define-command (com-start-kbd-macro
+		 :name t
+		 :command-table keyboard-macro-table)
+    ()
+  (setf (recordingp *application-frame*) t)
+  (setf (recorded-keys *application-frame*) '()))
+
+(set-key 'com-start-kbd-macro 'keyboard-macro-table '((#\x :control) #\())
+
+(define-command (com-end-kbd-macro
+		 :name t
+		 :command-table keyboard-macro-table)
+    ()
+  (setf (recordingp *application-frame*) nil)
+  (setf (recorded-keys *application-frame*)
+	;; this won't work if the command was invoked in any old way
+	(reverse (cddr (recorded-keys *application-frame*)))))
+
+(set-key 'com-end-kbd-macro 'keyboard-macro-table '((#\x :control) #\)))
+
+(define-command (com-call-last-kbd-macro
+		 :name t
+		 :command-table keyboard-macro-table)
+    ()
+  (setf (remaining-keys *application-frame*)
+	(recorded-keys *application-frame*))
+  (setf (executingp *application-frame*) t))
+
+(set-key 'com-call-last-kbd-macro 'keyboard-macro-table '((#\x :control) #\e))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
 ;;; example application
 
 (defclass example-info-pane (info-pane)
@@ -393,5 +429,6 @@
 ;;; 
 ;;; Commands and key bindings
 
-(define-command-table global-example-table :inherit-from (global-esa-table))
+(define-command-table global-example-table
+    :inherit-from (global-esa-table keyboard-macro-table))
 
