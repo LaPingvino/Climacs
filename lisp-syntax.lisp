@@ -394,7 +394,7 @@
       (tagbody
        start
 	 (when (end-of-buffer-p scan)
-	   (return-from lex (make-instance 'error-lexeme)))
+	   (return-from lex (make-instance 'text-lexeme)))
 	 (when (eql (object-after scan) #\\)
 	   (fo)
 	   (when (end-of-buffer-p scan)
@@ -405,9 +405,13 @@
 	   (incf bars-seen)
 	   (fo)
 	   (go start))
-	 (unless (whitespacep (object-after scan))
-	   (fo)
-	   (go start))	 
+         (if (evenp bars-seen)
+             (unless (whitespacep (object-after scan))
+               (fo)
+               (go start))
+             (when (constituentp (object-after scan))
+               (fo)
+               (go start)))
 	 (return-from lex 
 	   (if (oddp bars-seen)
 	       (make-instance 'multiple-escape-end-lexeme)
@@ -1456,6 +1460,9 @@ Return the symbol and a flag indicating whether the symbol was found."
 
 (defmethod indent-form ((syntax lisp-syntax) (tree string-form) path)
   (values tree 1))
+
+(defmethod indent-form ((syntax lisp-syntax) (tree token-form) path)
+  (values tree 0))
 
 (defmethod indent-binding ((syntax lisp-syntax) tree path)
   (if (null (cdr path))
