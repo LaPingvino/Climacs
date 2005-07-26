@@ -1225,11 +1225,25 @@ as two values"
 	 (package (climacs-lisp-syntax::package-of syntax)))
     (display-message (format nil "~s" package))))
 
+(define-gesture-name :select-other :pointer-button-press (:left :meta) :unique nil)
+
+(define-presentation-translator lisp-string-to-string
+    (climacs-lisp-syntax::lisp-string string global-climacs-table
+                  :gesture :select-other
+                  :tester-definitive t
+                  :menu nil
+                  :priority 11)
+    (object)
+  object)
+
 (define-named-command com-accept-string ()
   (display-message (format nil "~s" (accept 'string))))
 	 
 (define-named-command com-accept-symbol ()
   (display-message (format nil "~s" (accept 'symbol))))	 
+
+(define-named-command com-accept-lisp-string ()
+  (display-message (format nil "~s" (accept 'climacs-lisp-syntax::lisp-string))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

@@ -174,7 +174,8 @@
 	   #:esa-frame-mixin #:windows #:recordingp #:executingp
 	   #:*numeric-argument-p* #:*current-gesture*
 	   #:esa-top-level #:simple-command-loop
-	   #:global-esa-table #:keyboard-macro-table))
+	   #:global-esa-table #:keyboard-macro-table
+	   #:set-key))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
