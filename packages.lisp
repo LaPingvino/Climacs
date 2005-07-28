@@ -164,7 +164,7 @@
 (defpackage :climacs-lisp-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
 	:climacs-syntax :flexichain :climacs-pane)
-  (:export))
+  (:export :lisp-string))
 
 (defpackage :esa
   (:use :clim-lisp :clim)
@@ -179,5 +179,6 @@
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
-	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa))
+	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa)
+  (:import-from :climacs-lisp-syntax :lisp-string))
 

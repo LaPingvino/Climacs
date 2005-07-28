@@ -1143,9 +1143,6 @@
 (define-presentation-type lisp-string () 
                           :description "lisp string")
 
-;(define-presentation-method presentation-typep (object (type lisp-string))
-;  (stringp object))
-
 (defmethod display-parse-tree ((parse-symbol complete-string-form) (syntax lisp-syntax) pane)
   (let ((children (children parse-symbol)))
     (if (third children)

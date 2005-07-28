@@ -52,6 +52,8 @@
 (define-application-frame climacs (standard-application-frame
 				   esa-frame-mixin)
   ((buffers :initform '() :accessor buffers))
+  (:command-table (global-climacs-table :inherit-from (global-esa-table)))
+  (:menu-bar nil)
   (:panes
    (win (let* ((extended-pane 
 		(make-pane 'extended-pane
@@ -158,9 +160,6 @@
   (loop for buffer in (buffers frame)
 	do (when (modified-p buffer)
 	     (setf (needs-saving buffer) t))))	
-
-(make-command-table 'global-climacs-table :errorp nil
-		    :inherit-from '(global-esa-table keyboard-macro-table))
 
 (defmacro define-named-command (command-name args &body body)
   `(define-command ,(if (listp command-name)
@@ -1232,7 +1231,7 @@ as two values"
                   :gesture :select-other
                   :tester-definitive t
                   :menu nil
-                  :priority 11)
+                  :priority 10)
     (object)
   object)
 
@@ -1243,7 +1242,7 @@ as two values"
   (display-message (format nil "~s" (accept 'symbol))))	 
 
 (define-named-command com-accept-lisp-string ()
-  (display-message (format nil "~s" (accept 'climacs-lisp-syntax::lisp-string))))
+  (display-message (format nil "~s" (accept 'lisp-string))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
