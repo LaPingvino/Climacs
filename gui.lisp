@@ -357,6 +357,14 @@
 (define-named-command com-delete-word ((count 'integer :prompt "Number of words"))
   (delete-word (point (current-window)) count))
 
+(define-named-command com-mark-word ((count 'integer :prompt "Number of words"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (mark pane)))
+    (unless (eq (previous-command pane) 'com-mark-word)
+      (setf (offset mark) (offset point)))
+    (forward-word mark count)))
+
 (define-named-command com-backward-delete-word ((count 'integer :prompt "Number of words"))
   (backward-delete-word (point (current-window)) count))
 
@@ -683,6 +691,10 @@
 
 (define-named-command com-end-of-buffer ()
   (end-of-buffer (point (current-window))))
+
+(define-named-command com-mark-whole-buffer ()
+  (beginning-of-buffer (point (current-window)))
+  (end-of-buffer (mark (current-window))))
 
 (define-named-command com-back-to-indentation ()
   (let ((point (point (current-window))))
@@ -1168,6 +1180,16 @@ as two values"
 	 (syntax (syntax (buffer pane))))
     (end-of-paragraph point syntax)))
 
+(define-named-command com-mark-paragraph ((count 'integer :prompt "Number of paragraphs"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (mark pane))
+	 (syntax (syntax (buffer pane))))
+    (unless (eq (previous-command pane) 'com-mark-paragraph)
+      (setf (offset mark) (offset point))
+      (beginning-of-paragraph point syntax))
+    (dotimes (i count) (end-of-paragraph mark syntax))))
+
 (define-named-command com-eval-expression ((insertp 'boolean :prompt "Insert?"))
   (let* ((*package* (find-package :climacs-gui))
 	 (string (handler-case (accept 'string :prompt "Eval")
@@ -1211,6 +1233,16 @@ as two values"
 	 (point (point pane))
 	 (syntax (syntax (buffer pane))))
     (forward-expression point syntax)))
+
+(define-named-command com-mark-expression ((count 'integer :prompt "Number of expressions"))
+  (declare (ignore count))
+  (let* ((pane (current-window))
+	  (point (point pane))
+	  (mark (mark pane))
+	  (syntax (syntax (buffer pane))))
+       (unless (eq (previous-command pane) 'com-mark-expression)
+	 (setf (offset mark) (offset point)))
+       (forward-expression mark syntax)))
 
 (define-named-command com-eval-defun ()
   (let* ((pane (current-window))
@@ -1290,6 +1322,7 @@ as two values"
 (global-set-key '(#\w :control) 'com-cut-out)
 (global-set-key '(#\e :meta) `(com-forward-expression ,*numeric-argument-marker*))
 (global-set-key '(#\a :meta) `(com-backward-expression ,*numeric-argument-marker*))
+(global-set-key '(#\@ :meta :control :shift) `(com-mark-expression ,*numeric-argument-marker*))
 (global-set-key '(#\f :meta) `(com-forward-word ,*numeric-argument-marker*))
 (global-set-key '(#\b :meta) `(com-backward-word ,*numeric-argument-marker*))
 (global-set-key '(#\t :meta) 'com-transpose-words)
@@ -1308,9 +1341,11 @@ as two values"
 (global-set-key '(#\q :meta) 'com-fill-paragraph)
 (global-set-key '(#\d :meta) `(com-delete-word ,*numeric-argument-marker*))
 (global-set-key '(#\Backspace :meta) `(com-backward-delete-word ,*numeric-argument-marker*))
+(global-set-key '(#\@ :meta :shift) `(com-mark-word ,*numeric-argument-marker*))
 (global-set-key '(#\/ :meta) 'com-dabbrev-expand)
 (global-set-key '(#\a :control :meta) 'com-beginning-of-paragraph)
 (global-set-key '(#\e :control :meta) 'com-end-of-paragraph)
+(global-set-key '(#\h :meta) `(com-mark-paragraph ,*numeric-argument-marker*))
 (global-set-key '(#\s :control) 'com-isearch-mode-forward)
 (global-set-key '(#\r :control) 'com-isearch-mode-backward)
 (global-set-key '(#\_ :shift :meta) 'com-redo)
@@ -1358,6 +1393,7 @@ as two values"
 (c-x-set-key '(#\3) 'com-split-window-horizontally)
 (c-x-set-key '(#\b) 'com-switch-to-buffer)
 (c-x-set-key '(#\f :control) 'com-find-file)
+(c-x-set-key '(#\h) 'com-mark-whole-buffer)
 (c-x-set-key '(#\i) 'com-insert-file)
 (c-x-set-key '(#\k) 'com-kill-buffer)
 (c-x-set-key '(#\l :control) 'com-load-file)
