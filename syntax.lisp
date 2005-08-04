@@ -57,6 +57,60 @@ the mark, according to the specified syntax."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; Commenting
+
+(defgeneric syntax-line-comment-string (syntax)
+  (:documentation "string to use at the beginning of a line to 
+indicate a line comment"))
+
+(defgeneric line-comment-region (syntax mark1 mark2)
+  (:documentation "inset a line comment string at the beginning of 
+every line in the region"))
+
+(defmethod line-comment-region (syntax mark1 mark2)
+  (when (mark< mark2 mark1)
+    (rotatef mark1 mark2))
+  (let ((mark (clone-mark mark1)))
+    (unless (beginning-of-line-p mark)
+      (end-of-line mark)
+      (unless (end-of-buffer-p mark)
+	(forward-object mark)))
+    (loop while (mark< mark mark2)
+	  do (insert-sequence mark (syntax-line-comment-string syntax))
+	     (end-of-line mark)
+	     (unless (end-of-buffer-p mark)
+	       (forward-object mark)))))	  
+
+(defgeneric line-uncomment-region (syntax mark1 mark2)
+  (:documentation "inset a line comment string at the beginning of 
+every line in the region"))
+
+(defmethod line-uncomment-region (syntax mark1 mark2)
+  (when (mark< mark2 mark1)
+    (rotatef mark1 mark2))
+  (let ((mark (clone-mark mark1)))
+    (unless (beginning-of-line-p mark)
+      (end-of-line mark)
+      (unless (end-of-buffer-p mark)
+	(forward-object mark)))
+    (loop while (mark< mark mark2)
+	  do (when (looking-at mark (syntax-line-comment-string syntax))
+	       (delete-range mark (length (syntax-line-comment-string syntax))))
+	     (end-of-line mark)
+	     (unless (end-of-buffer-p mark)
+	       (forward-object mark)))))
+
+(defgeneric comment-region (syntax mark1 mark2)
+  (:documentation "turn the region between the two marks into a comment
+in the specific syntax.")
+  (:method (syntax mark1 mark2) nil))
+
+(defgeneric uncomment-region (syntax mark1 mark2)
+  (:documentation "remove comment around region")
+  (:method (syntax mark1 mark2) nil))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Syntax completion
 
 (defparameter *syntaxes* '())

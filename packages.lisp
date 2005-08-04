@@ -108,7 +108,10 @@
 	   #:forward-expression #:backward-expression
 	   #:eval-defun
 	   #:redisplay-pane-with-syntax
-	   #:beginning-of-paragraph #:end-of-paragraph))
+	   #:beginning-of-paragraph #:end-of-paragraph
+	   #:syntax-line-comment-string
+	   #:line-comment-region #:comment-region
+	   #:line-uncomment-region #:uncomment-region))
 
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)

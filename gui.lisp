@@ -1207,6 +1207,18 @@ as two values"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
+;;; Commenting
+
+;;; figure out how to make commands without key bindings accept numeric arguments. 
+(define-named-command com-comment-region ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (mark pane))
+	 (syntax (syntax (buffer pane))))
+    (comment-region syntax point mark)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
 ;;; For testing purposes
 
 (define-named-command com-reset-profile ()

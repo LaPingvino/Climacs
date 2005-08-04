@@ -1676,3 +1676,17 @@ Return the symbol and a flag indicating whether the symbol was found."
 	(setf (offset mark) (start-offset tree))
 	(+ (real-column-number mark tab-width)
 	   offset)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Commenting
+
+(defmethod syntax-line-comment-string ((syntax lisp-syntax))
+  ";;; ")
+
+(defmethod comment-region ((syntax lisp-syntax) mark1 mark2)
+  (line-comment-region syntax mark1 mark2))
+
+(defmethod uncomment-region ((syntax lisp-syntax) mark1 mark2)
+  (line-uncomment-region syntax mark1 mark2))
+
