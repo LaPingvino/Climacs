@@ -30,13 +30,19 @@
 (defsystem :climacs
   :depends-on (:mcclim :flexichain)
   :components
-  ((:module "Persistent"
+  ((:module "cl-automaton"
+	    :components ((:file "automaton-package")
+			 (:file "eqv-hash" :depends-on ("automaton-package"))
+			 (:file "state-and-transition" :depends-on ("eqv-hash"))
+			 (:file "automaton" :depends-on ("state-and-transition" "eqv-hash"))
+			 (:file "regexp" :depends-on ("automaton"))))
+   (:module "Persistent"
             :components ((:file "binseq-package")
                          (:file "binseq" :depends-on ("binseq-package"))
                          (:file "obinseq" :depends-on ("binseq-package" "binseq"))
                          (:file "binseq2" :depends-on ("binseq-package" "obinseq" "binseq"))))
 
-   (:file "packages" :depends-on ("Persistent"))
+   (:file "packages" :depends-on ("cl-automaton" "Persistent"))
    (:file "buffer" :depends-on ("packages"))
    (:file "persistent-buffer"
           :pathname #p"Persistent/persistent-buffer.lisp"
@@ -74,7 +80,22 @@
   :components
   ((:file "rt" :pathname #p"testing/rt.lisp")
    (:file "buffer-test" :depends-on ("rt"))
-   (:file "base-test" :depends-on ("rt"))))
+   (:file "base-test" :depends-on ("rt"))
+   (:file "automaton-test-package"
+	  :pathname #P"cl-automaton/automaton-test-package.lisp"
+	  :depends-on ("rt"))
+   (:file "eqv-hash-test"
+	  :pathname #P"cl-automaton/eqv-hash-test.lisp"
+	  :depends-on ("rt" "automaton-test-package"))
+   (:file "state-and-transition-test"
+	  :pathname #P"cl-automaton/state-and-transition-test.lisp"
+	  :depends-on ("rt" "automaton-test-package"))
+   (:file "automaton-test"
+	  :pathname #P"cl-automaton/automaton-test.lisp"
+	  :depends-on ("rt" "automaton-test-package"))
+   (:file "regexp-test"
+	  :pathname #P"cl-automaton/regexp-test.lisp"
+	  :depends-on ("rt" "automaton-test-package"))))
 
 #+asdf
 (defmethod asdf:perform :around ((o asdf:compile-op)

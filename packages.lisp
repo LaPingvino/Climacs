@@ -79,7 +79,9 @@
 	   #:name-mixin #:name
 	   #:buffer-looking-at #:looking-at
 	   #:buffer-search-forward #:buffer-search-backward
-	   #:search-forward #:search-backward))
+	   #:buffer-re-search-forward #:buffer-re-search-backward
+	   #:search-forward #:search-backward
+	   #:re-search-forward #:re-search-backward))
 
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)

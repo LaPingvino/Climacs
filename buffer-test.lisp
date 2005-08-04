@@ -4,7 +4,7 @@
 ;;; 
 
 (cl:defpackage :climacs-tests
-  (:use :cl :rtest :climacs-buffer :climacs-base))
+  (:use :cl :rtest :climacs-buffer :climacs-base :automaton))
 
 (cl:in-package :climacs-tests)
 

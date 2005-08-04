@@ -608,6 +608,62 @@ containing VECTOR or NIL if no such offset exists"
 	  return i
 	finally (return nil)))
 
+(defun non-greedy-match-forward (a buffer i)
+  (let ((p (automaton::initial a)))
+    (loop for j from i below (size buffer)
+       for q = (automaton::sstep p (buffer-object buffer j)) do
+	 (unless q
+	   (return nil))
+	 (if (automaton::accept q)
+	     (return (1+ j))
+	     (setq p q))
+       finally (return nil))))
+
+(defun buffer-re-search-forward (a buffer offset)
+  "Returns as the first value the smallest offset of BUFFER >= OFFSET
+with contents accepted by deterministic automaton A; otherwise,
+returns nil. If the first value is non-nil, the second value is the
+offset after the matched contents."
+  (if (automaton::singleton a)
+      (buffer-search-forward buffer offset (automaton::singleton a))
+      (loop for i from offset below (size buffer) do
+	 (let ((j (non-greedy-match-forward a buffer i)))
+	   (when j (return (values i j))))
+	 finally (return nil))))
+
+(defun reversed-deterministic-automaton (a)
+  "Reverses and determinizes A, then returns it."
+  (if (automaton::singleton a)
+      (progn
+	(setf (automaton::singleton a) (reverse (automaton::singleton a)))
+	a)
+      (automaton::determinize2
+       a
+       (make-instance 'automaton::state-set :ht (automaton::areverse a)))))
+
+(defun non-greedy-match-backward (a buffer i)
+  (let ((p (automaton::initial a)))
+    (loop for j downfrom i to 0
+       for q = (automaton::sstep p (buffer-object buffer j)) do
+	 (unless q
+	   (return nil))
+	 (if (automaton::accept q)
+	     (return j)
+	     (setq p q))
+       finally (return nil))))
+
+(defun buffer-re-search-backward (a buffer offset)
+  "Returns as the first value the largest offset of BUFFER <= OFFSET
+with contents accepted by (reversed) deterministic automaton A;
+otherwise, returns nil. If the first value is non-nil, the second
+value is the offset after the matched contents."
+  (if (automaton::singleton a)
+      (buffer-search-backward buffer offset (automaton::singleton a))
+      (loop for i downfrom (min offset (1- (size buffer))) to 0 do
+	 (let ((j (non-greedy-match-backward a buffer i)))
+	   (when j (return (values j i))))
+	 finally (return nil))))
+
 (defun search-forward (mark vector &key (test #'eql))
   "move MARK forward after the first occurence of VECTOR after MARK"
   (let ((offset (buffer-search-forward
@@ -621,6 +677,29 @@ containing VECTOR or NIL if no such offset exists"
 		 (buffer mark) (offset mark) vector :test test)))
     (when offset
       (setf (offset mark) offset))))
+
+(defun re-search-forward (mark re)
+  "move MARK forward after the first occurence of string matching RE
+after MARK"
+  (let ((a (automaton::determinize
+	     (automaton::regexp-automaton
+	      (automaton::string-regexp re)))))
+    (multiple-value-bind (i j)
+	(buffer-re-search-forward a (buffer mark) (offset mark))
+      (when i
+	(setf (offset mark) j)))))
+
+(defun re-search-backward (mark re)
+  "move MARK backward before the first occurence of string matching RE
+before MARK"
+  (let ((a (reversed-deterministic-automaton
+	    (automaton::regexp-automaton
+	     (automaton::string-regexp re)))))
+    (multiple-value-bind (i j)
+	(buffer-re-search-backward a (buffer mark) (offset mark))
+      (declare (ignorable j))
+    (when i
+      (setf (offset mark) i)))))
 
 (defun buffer-search-word-backward (buffer offset word &key (test #'eql))
   "return the largest offset of BUFFER <= (- OFFSET (length WORD))

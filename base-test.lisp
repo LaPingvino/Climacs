@@ -457,7 +457,7 @@ climacs")
    (constituentp #\Tab)
    (constituentp "a")
    (constituentp #\Null))
-  t nil nil nil nil nil)
+  t nil nil nil nil #-sbcl nil #+sbcl t)
 
 (defmultitest whitespacep.test-1
   (values
@@ -779,7 +779,7 @@ climacs  ")
 (defmultitest tabify-buffer-region.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "c       l       im              acs")
-    (climacs-base::tabify-buffer-region buffer 0 (size buffer) 8)    
+    (climacs-base::tabify-buffer-region buffer 0 (size buffer) 8)
     (buffer-sequence buffer 0 (size buffer)))
   "c	l	im		acs")
 
@@ -1103,6 +1103,36 @@ climacs")
      (buffer-search-backward buffer 1 "")))
   3 3 0 8 nil nil 0 1)
 
+(defmultitest buffer-re-search-forward.test-1
+  (let ((buffer (make-instance %%buffer))
+	(a1 (automaton::determinize
+	     (regexp-automaton (string-regexp "i[mac]+s"))))
+	(a2 (automaton::determinize
+	     (regexp-automaton (string-regexp "[^aeiou][aeiou]")))))
+    (insert-buffer-sequence buffer 0 "
+climacs")
+      (values
+       (buffer-re-search-forward a1 buffer 0)
+       (buffer-re-search-forward a2 buffer 1)
+       (buffer-re-search-forward a1 buffer 4)
+       (buffer-re-search-forward a2 buffer 6)))
+  3 2 nil nil)
+
+(defmultitest buffer-re-search-backward.test-1
+  (let ((buffer (make-instance %%buffer))
+	(a1 (climacs-base::reversed-deterministic-automaton
+	     (regexp-automaton (string-regexp "i[ma]+c"))))
+	(a2 (climacs-base::reversed-deterministic-automaton
+	     (regexp-automaton (string-regexp "[^aeiou][aeiou]")))))
+    (insert-buffer-sequence buffer 0 "
+climacs")
+      (values
+       (buffer-re-search-backward a1 buffer 7)
+       (buffer-re-search-backward a2 buffer 7)
+       (buffer-re-search-backward a1 buffer 5)
+       (buffer-re-search-backward a2 buffer 2)))
+  3 4 nil nil)
+
 (defmultitest search-forward.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "
@@ -1156,6 +1186,62 @@ climacs")
     (let ((m (clone-mark (low-mark buffer) :right)))
       (setf (offset m) 3)
       (search-backward m "klimaks")
+      (offset m)))
+  3)
+
+(defmultitest re-search-forward.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "
+climacs")
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 0)
+      (re-search-forward m "[mac]{3}")
+      (offset m)))
+  7)
+
+(defmultitest re-search-forward.test-2
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 3)
+      (re-search-forward m "[mac]{3}")
+      (offset m)))
+  6)
+
+(defmultitest re-search-forward.test-3
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 3)
+      (re-search-forward m "klimaks")
+      (offset m)))
+  3)
+
+(defmultitest re-search-backward.test-1
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs
+")
+    (let ((m (clone-mark (low-mark buffer) :left)))
+      (setf (offset m) 8)
+      (re-search-backward m "[mac]{3}")
+      (offset m)))
+  3)
+
+(defmultitest re-search-backward.test-2
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 6)
+      (re-search-backward m "[mac]{3}")
+      (offset m)))
+  3)
+
+(defmultitest re-search-backward.test-3
+  (let ((buffer (make-instance %%buffer)))
+    (insert-buffer-sequence buffer 0 "climacs")
+    (let ((m (clone-mark (low-mark buffer) :right)))
+      (setf (offset m) 3)
+      (re-search-backward m "klimaks")
       (offset m)))
   3)
 
