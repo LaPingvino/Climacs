@@ -1718,4 +1718,3 @@ Return the symbol and a flag indicating whether the symbol was found."
 (defmethod uncomment-region ((syntax lisp-syntax) mark1 mark2)
   (line-uncomment-region syntax mark1 mark2))
 
->>>>>>> 1.19
