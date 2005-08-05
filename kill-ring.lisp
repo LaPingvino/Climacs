@@ -74,6 +74,11 @@ is reached."))
                    of the current contents of the top of the kill ring.
                    If the kill ring is empty the a new entry is pushed."))
 
+(defgeneric kill-ring-reverse-concatenating-push (kr vector)
+  (:documentation "Concatenates the contents of vector onto the front
+of the current contents of the top of the kill ring. If the kill ring
+is empty a new entry is pushed."))
+
 (defgeneric kill-ring-yank (kr &optional reset)
   (:documentation "Returns the vector of objects currently pointed to
                    by the cursor.  If reset is T, a call to
@@ -128,6 +133,15 @@ is reached."))
 				 (pop-start chain) 
 				 vector))))
   (reset-yank-position kr))
+
+(defmethod kill-ring-reverse-concatenating-push ((kr kill-ring) vector)
+  (let ((chain (kill-ring-chain kr)))
+    (if (zerop (kill-ring-length kr))
+	(push-start chain vector)
+	(push-start chain
+		    (concatenate 'vector
+				 vector
+				 (pop-start chain))))))
 
 (defmethod kill-ring-yank ((kr kill-ring) &optional (reset NIL))
   (if reset (reset-yank-position kr))

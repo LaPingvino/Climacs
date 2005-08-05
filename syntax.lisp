@@ -55,6 +55,18 @@ the mark, according to the specified syntax."))
 
 (defgeneric eval-defun (mark syntax))
 
+(defgeneric beginning-of-definition (mark syntax))
+
+(defgeneric end-of-definition (mark syntax))
+
+(defgeneric backward-paragraph (mark syntax))
+
+(defgeneric forward-paragraph (mark syntax))
+
+(defgeneric backward-sentence (mark syntax))
+
+(defgeneric forward-sentence (mark syntax))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Commenting
@@ -208,6 +220,24 @@ in the specific syntax.")
   (error 'no-such-operation))
 
 (defmethod eval-defun (mark syntax)
+  (error 'no-such-operation))
+
+(defmethod beginning-of-defintion (mark syntax)
+  (error 'no-such-operation))
+
+(defmethod end-of-definition (mark syntax)
+  (error 'no-such-operation))
+
+(defmethod backward-paragraph (mark syntax)
+  (error 'no-such-operation))
+
+(defmethod forward-paragraph (mark syntax)
+  (error 'no-such-operation))
+
+(defmethod backward-sentence (mark syntax)
+  (error 'no-such-operation))
+
+(defmethod forward-sentence (mark syntax)
   (error 'no-such-operation))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

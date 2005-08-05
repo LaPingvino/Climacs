@@ -130,15 +130,6 @@
 
 (defvar *kill-ring* (make-instance 'kill-ring :max-size 7))
 
-(defun meta-digit (gesture)
-  (position gesture
-	    '((#\0 :meta) (#\1 :meta) (#\2 :meta) (#\3 :meta) (#\4 :meta)
-	      (#\5 :meta) (#\6 :meta) (#\7 :meta) (#\8 :meta) (#\9 :meta))
-	    :test #'event-matches-gesture-name-p))
-
-(defun substitute-numeric-argument-p (command numargp)
-  (substitute numargp *numeric-argument-p* command :test #'eq))
-
 (defmethod execute-frame-command :around ((frame climacs) command)
   (handler-case
       (with-undo ((buffer (current-window)))
@@ -170,6 +161,14 @@
 (define-named-command com-toggle-overwrite-mode ()
   (with-slots (overwrite-mode) (current-window)
     (setf overwrite-mode (not overwrite-mode))))
+
+(define-named-command com-not-modified ()
+  (setf (needs-saving (buffer (current-window))) nil))
+
+(define-named-command com-set-fill-column ((column 'integer :prompt "Column Number:"))
+  (if (> column 1)
+      (setf (auto-fill-column (current-window)) column)
+      (progn (beep) (display-message "Set Fill Column requires an explicit argument."))))
 
 (defun possibly-fill-line ()
   (let* ((pane (current-window))
@@ -357,6 +356,36 @@
 (define-named-command com-delete-word ((count 'integer :prompt "Number of words"))
   (delete-word (point (current-window)) count))
 
+(define-named-command com-kill-word ((count 'integer :prompt "Number of words"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (offset point)))
+    (loop repeat count
+	  until (end-of-buffer-p point)
+	  do (forward-word point))
+    (unless (mark= point mark)
+      (if (eq (previous-command pane) 'com-kill-word)
+	  (kill-ring-concatenating-push *kill-ring*
+					(region-to-sequence mark point))
+	  (kill-ring-standard-push *kill-ring*
+				   (region-to-sequence mark point)))
+      (delete-region mark point))))
+
+(define-named-command com-backward-kill-word ((count 'integer :prompt "Number of words"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (offset point)))
+    (loop repeat count
+	  until (end-of-buffer-p point)
+	  do (backward-word point))
+    (unless (mark= point mark)
+      (if (eq (previous-command pane) 'com-backward-kill-word)
+	  (kill-ring-reverse-concatenating-push *kill-ring*
+					(region-to-sequence mark point))
+	  (kill-ring-standard-push *kill-ring*
+				   (region-to-sequence mark point)))
+      (delete-region mark point))))
+
 (define-named-command com-mark-word ((count 'integer :prompt "Number of words"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -435,9 +464,9 @@
          (begin-mark (clone-mark point))
          (end-mark (clone-mark point)))
     (unless (eql (object-before begin-mark) #\Newline)
-      (beginning-of-paragraph begin-mark syntax))
+      (backward-paragraph begin-mark syntax))
     (unless (eql (object-after end-mark) #\Newline)
-      (end-of-paragraph end-mark syntax))
+      (forward-paragraph end-mark syntax))
     (do-buffer-region (object offset buffer
                        (offset begin-mark) (offset end-mark))
       (when (eql object #\Newline)
@@ -718,10 +747,10 @@
 		      m)
 	do (end-of-line mark)
 	until (end-of-buffer-p mark)
-	repeat (handler-case (accept 'integer :prompt "Goto Line")
+	repeat (1- (handler-case (accept 'integer :prompt "Goto Line")
 		 (error () (progn (beep)
 				  (display-message "Not a valid line number")
-				  (return-from com-goto-line nil))))
+				  (return-from com-goto-line nil)))))
 	do (incf (offset mark))
 	   (end-of-line mark)
 	finally (beginning-of-line mark)
@@ -882,14 +911,14 @@ as two values"
   (insert-sequence (point (current-window)) (kill-ring-yank *kill-ring*)))
 
 ;; Destructively cut a given buffer region into the kill-ring
-(define-named-command com-cut-out ()
+(define-named-command com-kill-region ()
   (let ((pane (current-window)))
     (kill-ring-standard-push
      *kill-ring* (region-to-sequence (mark pane) (point pane)))
     (delete-region (mark pane) (point pane))))
 
 ;; Non destructively copies in buffer region to the kill ring
-(define-named-command com-copy-out ()
+(define-named-command com-copy-region ()
   (let ((pane (current-window)))
     (kill-ring-standard-push *kill-ring* (region-to-sequence (point pane) (mark pane)))))
 
@@ -1168,17 +1197,17 @@ as two values"
 						(setf (offset dabbrev-expansion-mark) offset))))
 		      (move))))))))
 	   
-(define-named-command com-beginning-of-paragraph ()
+(define-named-command com-backward-paragraph ()
   (let* ((pane (current-window))
 	 (point (point pane))
 	 (syntax (syntax (buffer pane))))
-    (beginning-of-paragraph point syntax)))
+    (backward-paragraph point syntax)))
 
-(define-named-command com-end-of-paragraph ()
+(define-named-command com-forward-paragraph ()
   (let* ((pane (current-window))
 	 (point (point pane))
 	 (syntax (syntax (buffer pane))))
-    (end-of-paragraph point syntax)))
+    (forward-paragraph point syntax)))
 
 (define-named-command com-mark-paragraph ((count 'integer :prompt "Number of paragraphs"))
   (let* ((pane (current-window))
@@ -1187,8 +1216,55 @@ as two values"
 	 (syntax (syntax (buffer pane))))
     (unless (eq (previous-command pane) 'com-mark-paragraph)
       (setf (offset mark) (offset point))
-      (beginning-of-paragraph point syntax))
-    (dotimes (i count) (end-of-paragraph mark syntax))))
+      (backward-paragraph point syntax))
+    (loop repeat count do (forward-paragraph mark syntax))))
+
+(define-named-command com-backward-sentence ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (backward-sentence point syntax)))
+
+(define-named-command com-forward-sentence ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (forward-sentence point syntax)))
+
+(defun forward-page (mark &optional (count 1))
+  (loop repeat count
+	unless (search-forward mark (coerce (list #\Newline #\Page) 'vector))
+	  do (end-of-buffer mark)
+	     (loop-finish)))
+
+(define-named-command com-forward-page ((count 'integer :prompt "Number of pages"))
+  (let* ((pane (current-window))
+	 (point (point pane)))
+    (forward-page point count)))
+
+(defun backward-page (mark &optional (count 1))
+  (loop repeat count
+	  when (search-backward mark (coerce (list #\Newline #\Page) 'vector))
+	    do (forward-object mark)
+	  else do (beginning-of-buffer mark)
+		  (loop-finish)))
+
+(define-named-command com-backward-page ((count 'integer :prompt "Number of pages"))
+  (let* ((pane (current-window))
+	 (point (point pane)))
+    (backward-page point count)))
+
+(define-named-command com-count-lines-page ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (start (clone-mark point))
+	 (end (clone-mark point)))
+    (backward-page start)
+    (forward-page end)
+    (let ((total (number-of-lines-in-region start end))
+	  (before (number-of-lines-in-region start point))
+	  (after (number-of-lines-in-region point end)))
+      (display-message "Page has ~A lines (~A + ~A)" total before after))))
 
 (define-named-command com-eval-expression ((insertp 'boolean :prompt "Insert?"))
   (let* ((*package* (find-package :climacs-gui))
@@ -1262,6 +1338,28 @@ as two values"
 	 (syntax (syntax (buffer pane))))
     (eval-defun point syntax)))
 
+(define-named-command com-beginning-of-definition ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (beginning-of-definition point syntax)))
+
+(define-named-command com-end-of-definition ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (end-of-definition point syntax)))
+
+(define-named-command com-mark-definition ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (mark pane))
+	 (syntax (syntax (buffer pane))))
+    (unless (eq (previous-command pane) 'com-mark-definition)
+      (beginning-of-definition point syntax)
+      (setf (offset mark) (offset point)))
+    (end-of-definition mark syntax)))
+
 (define-named-command com-package ()
   (let* ((pane (current-window))
 	 (syntax (syntax (buffer pane)))
@@ -1331,9 +1429,9 @@ as two values"
 (global-set-key '(#\t :control) 'com-transpose-objects)
 (global-set-key '(#\Space :control) 'com-set-mark)
 (global-set-key '(#\y :control) 'com-yank)
-(global-set-key '(#\w :control) 'com-cut-out)
-(global-set-key '(#\e :meta) `(com-forward-expression ,*numeric-argument-marker*))
-(global-set-key '(#\a :meta) `(com-backward-expression ,*numeric-argument-marker*))
+(global-set-key '(#\w :control) 'com-kill-region)
+(global-set-key '(#\e :meta) 'com-forward-sentence)
+(global-set-key '(#\a :meta) 'com-backward-sentence)
 (global-set-key '(#\@ :meta :control :shift) `(com-mark-expression ,*numeric-argument-marker*))
 (global-set-key '(#\f :meta) `(com-forward-word ,*numeric-argument-marker*))
 (global-set-key '(#\b :meta) `(com-backward-word ,*numeric-argument-marker*))
@@ -1343,7 +1441,7 @@ as two values"
 (global-set-key '(#\c :meta) 'com-capitalize-word)
 (global-set-key '(#\y :meta) 'com-rotate-yank) 
 (global-set-key '(#\z :meta) 'com-zap-to-character)
-(global-set-key '(#\w :meta) 'com-copy-out)
+(global-set-key '(#\w :meta) 'com-copy-region)
 (global-set-key '(#\v :control) 'com-page-down)
 (global-set-key '(#\v :meta) 'com-page-up)
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
@@ -1351,12 +1449,12 @@ as two values"
 (global-set-key '(#\m :meta) 'com-back-to-indentation)
 (global-set-key '(#\^ :shift :meta) 'com-delete-indentation)
 (global-set-key '(#\q :meta) 'com-fill-paragraph)
-(global-set-key '(#\d :meta) `(com-delete-word ,*numeric-argument-marker*))
-(global-set-key '(#\Backspace :meta) `(com-backward-delete-word ,*numeric-argument-marker*))
+(global-set-key '(#\d :meta) `(com-kill-word ,*numeric-argument-marker*))
+(global-set-key '(#\Backspace :meta) `(com-backward-kill-word ,*numeric-argument-marker*))
 (global-set-key '(#\@ :meta :shift) `(com-mark-word ,*numeric-argument-marker*))
 (global-set-key '(#\/ :meta) 'com-dabbrev-expand)
-(global-set-key '(#\a :control :meta) 'com-beginning-of-paragraph)
-(global-set-key '(#\e :control :meta) 'com-end-of-paragraph)
+(global-set-key '(#\{ :meta :shift) 'com-backward-paragraph)
+(global-set-key '(#\} :meta :shift) 'com-forward-paragraph)
 (global-set-key '(#\h :meta) `(com-mark-paragraph ,*numeric-argument-marker*))
 (global-set-key '(#\s :control) 'com-isearch-mode-forward)
 (global-set-key '(#\r :control) 'com-isearch-mode-backward)
@@ -1380,11 +1478,14 @@ as two values"
 (global-set-key #\Backspace `(com-backward-delete-object ,*numeric-argument-marker*))
 
 (global-set-key '(:insert) 'com-toggle-overwrite-mode)
+(global-set-key '(#\~ :meta :shift) 'com-not-modified)
 
 (global-set-key '(#\b :control :meta) `(com-backward-expression ,*numeric-argument-marker*))
 (global-set-key '(#\f :control :meta) `(com-forward-expression ,*numeric-argument-marker*))
-(global-set-key '(#\x :control :meta) '(com-eval-defun))
-
+(global-set-key '(#\x :control :meta) 'com-eval-defun)
+(global-set-key '(#\a :control :meta) 'com-beginning-of-definition)
+(global-set-key '(#\e :control :meta) 'com-end-of-definition)
+(global-set-key '(#\h :control :meta) 'com-mark-definition)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; C-x command table
@@ -1405,13 +1506,16 @@ as two values"
 (c-x-set-key '(#\3) 'com-split-window-horizontally)
 (c-x-set-key '(#\b) 'com-switch-to-buffer)
 (c-x-set-key '(#\f :control) 'com-find-file)
+(c-x-set-key '(#\f) `(com-set-fill-column ,*numeric-argument-marker*))
 (c-x-set-key '(#\h) 'com-mark-whole-buffer)
 (c-x-set-key '(#\i) 'com-insert-file)
 (c-x-set-key '(#\k) 'com-kill-buffer)
-(c-x-set-key '(#\l :control) 'com-load-file)
 (c-x-set-key '(#\o) 'com-other-window)
 (c-x-set-key '(#\r) 'com-redo)
 (c-x-set-key '(#\u) 'com-undo)
+(c-x-set-key '(#\]) `(com-forward-page ,*numeric-argument-marker*))
+(c-x-set-key '(#\[) `(com-backward-page ,*numeric-argument-marker*))
+(c-x-set-key '(#\l) 'com-count-lines-page)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
 (c-x-set-key '(#\t :control) 'com-transpose-lines)
 (c-x-set-key '(#\w :control) 'com-write-buffer)

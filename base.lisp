@@ -186,7 +186,7 @@ one of the marks"))
   "A predicate to ensure that an object is a whitespace character."
   (and (characterp obj)
        #+sbcl (sb-impl::whitespacep obj)
-       #-sbcl (member obj '(#\Space #\Tab #\Newline))))
+       #-sbcl (member obj '(#\Space #\Tab #\Newline #\Page))))
 
 (defun forward-to-word-boundary (mark)
   "Move the mark forward to the beginning of the next word."
