@@ -850,7 +850,8 @@
 
 ;;;;;;;;;;;;;;;; pathname
 
-;;; FIXME: #P _must_ be followed by a string
+;;; NB: #P need not be followed by a string,
+;;;  as it could be followed by a #. construct instead (or some other reader macro)
 
 ;;; parse trees
 (defclass pathname-form (form) ())
@@ -1309,6 +1310,30 @@
 							(end-offset form))
 				       'string)))))))
 
+(defmethod beginning-of-definition (mark (syntax lisp-syntax))
+  (with-slots (stack-top) syntax
+    (loop for form in (children stack-top)
+	  with last-toplevel-list = nil
+	  when (and (typep form 'list-form)
+		    (mark< mark (end-offset form)))
+          do (if (mark< (start-offset form) mark)
+		 (setf (offset mark) (start-offset form))
+		 (when last-toplevel-list form
+		       (setf (offset mark) (start-offset last-toplevel-list))))
+	     (return t)
+	  when (typep form 'list-form)
+	  do (setf last-toplevel-list form)
+	  finally (when last-toplevel-list form
+		       (setf (offset mark) (start-offset last-toplevel-list))))))
+
+(defmethod end-of-definition (mark (syntax lisp-syntax))
+  (with-slots (stack-top) syntax
+    (loop for form in (children stack-top)
+	  when (and (typep form 'list-form)
+		    (mark< mark (end-offset form)))
+	  do (setf (offset mark) (end-offset form))
+	     (loop-finish))))
+
 ;;; shamelessly stolen from SWANK
 
 (defconstant keyword-package (find-package :keyword)
@@ -1493,6 +1518,9 @@ Return the symbol and a flag indicating whether the symbol was found."
   (values tree 1))
 
 (defmethod indent-form ((syntax lisp-syntax) (tree token-form) path)
+  (values tree 0))
+
+(defmethod indent-form ((syntax lisp-syntax) (tree error-symbol) path)
   (values tree 0))
 
 (defmethod indent-binding ((syntax lisp-syntax) tree path)
@@ -1690,3 +1718,4 @@ Return the symbol and a flag indicating whether the symbol was found."
 (defmethod uncomment-region ((syntax lisp-syntax) mark1 mark2)
   (line-uncomment-region syntax mark1 mark2))
 
+>>>>>>> 1.19

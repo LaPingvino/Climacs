@@ -109,8 +109,10 @@
            #:syntax-line-indentation
 	   #:forward-expression #:backward-expression
 	   #:eval-defun
+	   #:beginning-of-definition #:end-of-definition
 	   #:redisplay-pane-with-syntax
-	   #:beginning-of-paragraph #:end-of-paragraph
+	   #:backward-paragraph #:forward-paragraph
+	   #:backward-sentence #:forward-sentence
 	   #:syntax-line-comment-string
 	   #:line-comment-region #:comment-region
 	   #:line-uncomment-region #:uncomment-region))
@@ -119,7 +121,8 @@
   (:use :clim-lisp :flexichain)
   (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size 
 	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
-	   #:kill-ring-standard-push    #:kill-ring-concatenating-push))
+	   #:kill-ring-standard-push    #:kill-ring-concatenating-push
+	   #:kill-ring-reverse-concatenating-push))
 
 (defpackage :undo
   (:use :common-lisp)
