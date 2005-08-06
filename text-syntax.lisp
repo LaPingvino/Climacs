@@ -148,11 +148,7 @@
 			 (incf pos1))
 			(t nil))))))))
 
-
-
-(defgeneric beginning-of-paragraph (mark text-syntax))
-
-(defmethod beginning-of-paragraph (mark (syntax text-syntax))
+(defmethod backward-paragraph (mark (syntax text-syntax))
   (with-slots (paragraphs) syntax
      (let ((pos1 (index-of-mark-after-offset paragraphs (offset mark))))
        (when (> pos1 0)
@@ -161,9 +157,7 @@
 		   (offset (element* paragraphs (- pos1 2)))
 		   (offset (element* paragraphs (1- pos1)))))))))
 
-(defgeneric end-of-paragraph (mark text-syntax))
-
-(defmethod end-of-paragraph (mark (syntax text-syntax))
+(defmethod forward-paragraph (mark (syntax text-syntax))
   (with-slots (paragraphs) syntax
     (let ((pos1 (index-of-mark-after-offset
                  paragraphs
@@ -176,18 +170,14 @@
 		   (offset (element* paragraphs (1+ pos1)))
 		   (offset (element* paragraphs pos1))))))))
 
-
- (defgeneric backward-expression (mark text-syntax))
-
- (defmethod backward-expression (mark (syntax text-syntax))
+ (defmethod backward-sentence (mark (syntax text-syntax))
    (with-slots (sentence-beginnings) syntax
       (let ((pos1 (index-of-mark-after-offset sentence-beginnings (offset mark))))
         (when (> pos1 0)
  	 (setf (offset mark)
  		   (offset (element* sentence-beginnings (1- pos1))))))))
- (defgeneric forward-expression (mark text-syntax))
 
- (defmethod forward-expression (mark (syntax text-syntax))
+ (defmethod forward-sentence (mark (syntax text-syntax))
    (with-slots (sentence-endings) syntax
      (let ((pos1 (index-of-mark-after-offset
                   sentence-endings

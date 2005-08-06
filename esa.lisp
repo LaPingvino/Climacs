@@ -143,39 +143,65 @@
 	(t 
 	 (unread-gesture gesture :stream stream))))
 
+(define-gesture-name universal-argument :keyboard (#\u :control))
+
+(define-gesture-name meta-minus :keyboard (#\- :meta))
+
 (defun read-numeric-argument (&key (stream *standard-input*))
+  "Reads gestures returning two values: prefix-arg and whether prefix given.
+Accepts: EITHER C-u, optionally followed by other C-u's, optionally followed
+by a minus sign, optionally followed by decimal digits;
+OR An optional M-minus, optionally followed by M-decimal-digits.
+You cannot mix C-u and M-digits.
+C-u gives a numarg of 4. Additional C-u's multiply by 4 (e.g. C-u C-u C-u = 64).
+After C-u you can enter decimal digits, possibly preceded by a minus (but not
+a plus) sign. C-u 3 4 = 34, C-u - 3 4 = -34. Note that C-u 3 - prints 3 '-'s.
+M-1 M-2 = 12. M-- M-1 M-2 = -12. As a special case, C-u - and M-- = -1.
+In the absence of a prefix arg returns 1 (and nil)."
   (let ((gesture (esa-read-gesture)))
     (cond ((event-matches-gesture-name-p
-	    gesture
-	    `(:keyboard #\u ,(make-modifier-state :control)))
+	    gesture 'universal-argument)
 	   (let ((numarg 4))
 	     (loop for gesture = (esa-read-gesture)
 		   while (event-matches-gesture-name-p
-			  gesture
-			  `(:keyboard #\u ,(make-modifier-state :control)))
+			  gesture 'universal-argument)
 		   do (setf numarg (* 4 numarg))
 		   finally (esa-unread-gesture gesture stream))
-	     (let ((gesture (esa-read-gesture)))
+	     (let ((gesture (esa-read-gesture))
+		   (sign +1))
+	       (when (and (characterp gesture)
+			  (char= gesture #\-))
+		 (setf gesture (esa-read-gesture)
+		       sign -1))
 	       (cond ((and (characterp gesture)
 			   (digit-char-p gesture 10))
-		      (setf numarg (- (char-code gesture) (char-code #\0)))
+		      (setf numarg (digit-char-p gesture 10))
 		      (loop for gesture = (esa-read-gesture)
 			    while (and (characterp gesture)
 				       (digit-char-p gesture 10))
 			    do (setf numarg (+ (* 10 numarg)
-					       (- (char-code gesture) (char-code #\0))))
+					       (digit-char-p gesture 10)))
 			    finally (esa-unread-gesture gesture stream)
-				    (return (values numarg t))))
+				    (return (values (* numarg sign) t))))
 		     (t
 		      (esa-unread-gesture gesture stream)
-		      (values numarg t))))))
-	  ((meta-digit gesture)
-	   (let ((numarg (meta-digit gesture)))
+		      (values (if (minusp sign) -1 numarg) t))))))
+	  ((or (meta-digit gesture)
+	       (event-matches-gesture-name-p
+		gesture 'meta-minus))
+	   (let ((numarg 0)
+		 (sign +1))
+	     (cond ((meta-digit gesture)
+		    (setf numarg (meta-digit gesture)))
+		   (t (setf sign -1)))
 	     (loop for gesture = (esa-read-gesture)
 		   while (meta-digit gesture)
 		   do (setf numarg (+ (* 10 numarg) (meta-digit gesture)))
 		   finally (esa-unread-gesture gesture stream)
-			   (return (values numarg t)))))
+			   (return (values (if (and (= sign -1) (= numarg 0))
+					       -1
+					       (* sign numarg))
+					   t)))))
 	  (t (esa-unread-gesture gesture stream)
 	     (values 1 nil)))))
 
