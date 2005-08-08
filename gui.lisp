@@ -790,7 +790,9 @@
 		      (offset mark))))
 
 (define-named-command com-browse-url ()
-  (accept 'url :prompt "Browse URL"))
+  (let ((url (accept 'url :prompt "Browse URL")))
+    #+ (and sbcl darwin)
+    (sb-ext:run-program "/usr/bin/open" `(,url) :wait nil))))
 
 (define-named-command com-set-mark ()
   (let ((pane (current-window)))
@@ -1314,6 +1316,26 @@ as two values"
 	  (after (number-of-lines-in-region point end)))
       (display-message "Page has ~A lines (~A + ~A)" total before after))))
 
+(define-named-command com-count-lines-region ()
+  (let*  ((pane (current-window))
+	  (point (point pane))
+	  (mark (mark pane))
+	  (lines (number-of-lines-in-region point mark))
+	  (chars (abs (- (offset point) (offset mark)))))
+    (display-message "Region has ~D line~:P, ~D character~:P." lines chars)))
+
+(define-named-command com-what-cursor-position ()
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (buffer (buffer pane))
+	 (offset (offset point))
+	 (size (size buffer))
+	 (char (object-after point))
+	 (column (column-number point)))
+    (display-message "Char: ~:C (#o~O ~:*~D ~:*#x~X) point=~D of ~D (~D%) column ~D"
+		     char (char-code char) offset size
+		     (round (* 100 (/ offset size))) column)))
+
 (define-named-command com-eval-expression ((insertp 'boolean :prompt "Insert?"))
   (let* ((*package* (find-package :climacs-gui))
 	 (string (handler-case (accept 'string :prompt "Eval")
@@ -1432,7 +1454,7 @@ as two values"
 
 (define-named-command com-accept-string ()
   (display-message (format nil "~s" (accept 'string))))
-	 
+ 
 (define-named-command com-accept-symbol ()
   (display-message (format nil "~s" (accept 'symbol))))	 
 
@@ -1514,7 +1536,7 @@ as two values"
 (global-set-key '(#\_ :shift :meta) 'com-redo)
 (global-set-key '(#\_ :shift :control) 'com-undo)
 (global-set-key '(#\% :shift :meta) 'com-query-replace)
-
+(global-set-key '(#\= :meta) 'com-count-lines-region)
 (global-set-key '(:up) `(com-previous-line ,*numeric-argument-marker*))
 (global-set-key '(:down) `(com-next-line ,*numeric-argument-marker*))
 (global-set-key '(:left) `(com-backward-object ,*numeric-argument-marker*))
@@ -1573,6 +1595,7 @@ as two values"
 (c-x-set-key '(#\t :control) 'com-transpose-lines)
 (c-x-set-key '(#\w :control) 'com-write-buffer)
 (c-x-set-key '(#\x :control) 'com-exchange-point-and-mark)
+(c-x-set-key '(#\=) 'com-what-cursor-position)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
