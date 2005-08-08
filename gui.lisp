@@ -806,7 +806,7 @@
 (define-named-command com-browse-url ()
   (let ((url (accept 'url :prompt "Browse URL")))
     #+ (and sbcl darwin)
-    (sb-ext:run-program "/usr/bin/open" `(,url) :wait nil))))
+    (sb-ext:run-program "/usr/bin/open" `(,url) :wait nil)))
 
 (define-named-command com-set-mark ()
   (let ((pane (current-window)))
@@ -1304,7 +1304,7 @@ as two values"
 	(loop repeat count do (forward-sentence point syntax))
 	(loop repeat (- count) do (backward-sentence point syntax)))
     (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
-    (delete-region point mark))))
+    (delete-region point mark)))
 
 (define-named-command com-backward-kill-sentence ((count 'integer :prompt "Number of sentences"))
   (let* ((pane (current-window))
