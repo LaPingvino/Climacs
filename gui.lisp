@@ -764,6 +764,20 @@
 	  while (whitespacep (object-after point))
 	  do (incf (offset point)))))
 
+(define-named-command com-delete-horizontal-space ((backward-only-p
+						    'boolean :prompt "Delete backwards only?"))
+  (let* ((point (point (current-window)))
+	 (mark (clone-mark point)))
+    (loop until (beginning-of-line-p point)
+	  while (whitespacep (object-before point))
+	  do (backward-object point))
+    (unless backward-only-p
+      (loop until (end-of-line-p mark)
+	    while (whitespacep (object-after mark))
+	    do (forward-object mark)))
+    (delete-region point mark)))
+
+
 (define-named-command com-goto-position ()
   (setf (offset (point (current-window)))
 	(handler-case (accept 'integer :prompt "Goto Position")
@@ -909,7 +923,11 @@ as two values"
 		    (cadr (windows *application-frame*)))
 	   (com-delete-window))
   (setf *standard-output* (car (windows *application-frame*))))
-	   
+
+(define-named-command com-scroll-other-window ()
+  (let ((other-window (second (windows *application-frame*))))
+    (when other-window
+      (page-down other-window))))
 
 (define-named-command com-delete-window ()
   (unless (null (cdr (windows *application-frame*)))
@@ -1277,6 +1295,28 @@ as two values"
 	(loop repeat count do (forward-sentence point syntax))
 	(loop repeat (- count) do (backward-sentence point syntax)))))
 
+(define-named-command com-kill-sentence ((count 'integer :prompt "Number of sentences"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (clone-mark point))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (forward-sentence point syntax))
+	(loop repeat (- count) do (backward-sentence point syntax)))
+    (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
+    (delete-region point mark))))
+
+(define-named-command com-backward-kill-sentence ((count 'integer :prompt "Number of sentences"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (clone-mark point))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (backward-sentence point syntax))
+	(loop repeat (- count) do (forward-sentence point syntax)))
+    (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
+    (delete-region point mark)))
+
 (defun forward-page (mark &optional (count 1))
   (loop repeat count
 	unless (search-forward mark (coerce (list #\Newline #\Page) 'vector))
@@ -1303,6 +1343,19 @@ as two values"
     (if (plusp count)
 	(backward-page point count)
 	(forward-page point count))))
+
+(define-named-command com-mark-page ((count 'integer :prompt "Move how many pages")
+				     (numargp 'boolean :prompt "Move to another page?"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (mark pane)))
+    (cond ((and numargp (/= 0 count))
+	   (if (plusp count)
+	       (forward-page point count)
+	       (backward-page point (1+ count))))
+	  (t (backward-page point count)))
+    (setf (offset mark) (offset point))
+	   (forward-page mark 1)))
 
 (define-named-command com-count-lines-page ()
   (let* ((pane (current-window))
@@ -1507,6 +1560,7 @@ as two values"
 (global-set-key '(#\w :control) 'com-kill-region)
 (global-set-key '(#\e :meta) `(com-forward-sentence ,*numeric-argument-marker*))
 (global-set-key '(#\a :meta) `(com-backward-sentence ,*numeric-argument-marker*))
+(global-set-key '(#\k :meta) `(com-kill-sentence ,*numeric-argument-marker*))
 (global-set-key '(#\@ :meta :control :shift) `(com-mark-expression ,*numeric-argument-marker*))
 (global-set-key '(#\f :meta) `(com-forward-word ,*numeric-argument-marker*))
 (global-set-key '(#\b :meta) `(com-backward-word ,*numeric-argument-marker*))
@@ -1519,9 +1573,11 @@ as two values"
 (global-set-key '(#\w :meta) 'com-copy-region)
 (global-set-key '(#\v :control) 'com-page-down)
 (global-set-key '(#\v :meta) 'com-page-up)
+(global-set-key '(#\v :control :meta) 'com-scroll-other-window)
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
 (global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
 (global-set-key '(#\m :meta) 'com-back-to-indentation)
+(global-set-key '(#\\ :meta) `(com-delete-horizontal-space ,*numeric-argument-p*))
 (global-set-key '(#\^ :shift :meta) 'com-delete-indentation)
 (global-set-key '(#\q :meta) 'com-fill-paragraph)
 (global-set-key '(#\d :meta) `(com-kill-word ,*numeric-argument-marker*))
@@ -1590,12 +1646,14 @@ as two values"
 (c-x-set-key '(#\u) 'com-undo)
 (c-x-set-key '(#\]) `(com-forward-page ,*numeric-argument-marker*))
 (c-x-set-key '(#\[) `(com-backward-page ,*numeric-argument-marker*))
+(c-x-set-key '(#\p :control) `(com-mark-page ,*numeric-argument-marker* ,*numeric-argument-p*))
 (c-x-set-key '(#\l) 'com-count-lines-page)
 (c-x-set-key '(#\s :control) 'com-save-buffer)
 (c-x-set-key '(#\t :control) 'com-transpose-lines)
 (c-x-set-key '(#\w :control) 'com-write-buffer)
 (c-x-set-key '(#\x :control) 'com-exchange-point-and-mark)
 (c-x-set-key '(#\=) 'com-what-cursor-position)
+(c-x-set-key '(#\Backspace) `(com-backward-kill-sentence ,*numeric-argument-marker*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
