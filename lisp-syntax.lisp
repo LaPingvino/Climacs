@@ -1183,7 +1183,56 @@
 (defmethod display-parse-tree ((parse-symbol long-comment-form) (syntax lisp-syntax) pane)
   (with-drawing-options (pane :ink +maroon+)
     (call-next-method)))
-    
+
+(defmethod display-parse-tree ((parse-symbol reader-conditional-positive-form)
+			       (syntax lisp-syntax) pane)
+  (let ((conditional (second (children parse-symbol))))
+    (if (eval-feature-conditional conditional syntax)
+	(call-next-method)
+	(with-drawing-options (pane :ink +gray50+)
+	  (call-next-method)))))
+
+(defmethod display-parse-tree ((parse-symbol reader-conditional-negative-form)
+				(syntax lisp-syntax) pane)
+  (let ((conditional (second (children parse-symbol))))
+    (if (eval-feature-conditional conditional syntax)
+	(with-drawing-options (pane :ink +gray50+)
+	  (call-next-method))
+	(call-next-method))))
+
+(defparameter climacs-gui::*climacs-features* (copy-list *features*))
+
+(defgeneric eval-feature-conditional (conditional-form syntax))
+
+;; Adapted from slime.el
+
+(defmethod eval-feature-conditional ((conditional token-mixin) (syntax lisp-syntax))
+  (let* ((string (coerce (buffer-sequence (buffer syntax)
+					 (start-offset conditional)
+					 (end-offset conditional))
+		  'string))
+	 (symbol (parse-symbol string keyword-package)))
+    (member symbol climacs-gui::*climacs-features*)))
+
+(defmethod eval-feature-conditional ((conditional list-form) (syntax lisp-syntax))
+  (let ((children (children conditional)))
+    (when (third children)
+      (flet ((eval-fc (conditional)
+	       (funcall #'eval-feature-conditional conditional syntax)))
+	(let* ((type (second children))
+	       (conditionals (butlast (nthcdr 2 children)))
+	       (type-string (coerce (buffer-sequence (buffer syntax)
+						     (start-offset type)
+						     (end-offset type))
+				    'string))
+	       (type-symbol (parse-symbol type-string keyword-package)))
+	  (case type-symbol
+	    (:and (funcall #'every #'eval-fc conditionals))
+	    (:or (funcall #'some #'eval-fc conditionals))
+	    (:not (when conditionals
+		    (funcall #'(lambda (f l) (not (apply f l)))
+			     #'eval-fc conditionals)))))))))
+	  
 (defmethod display-parse-tree ((parse-symbol complete-list-form) (syntax lisp-syntax) pane)
   (let ((children (children parse-symbol)))
     (if (= (end-offset parse-symbol) (offset (point pane)))
