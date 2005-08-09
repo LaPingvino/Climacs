@@ -169,6 +169,8 @@
 (defclass quote-lexeme (lisp-lexeme) ())
 (defclass backquote-lexeme (lisp-lexeme) ())
 (defclass comma-lexeme (lisp-lexeme) ())
+(defclass comma-at-lexeme (lisp-lexeme) ())
+(defclass comma-dot-lexeme (lisp-lexeme) ())
 (defclass form-lexeme (form lisp-lexeme) ())
 (defclass character-lexeme (form-lexeme) ())
 (defclass function-lexeme (lisp-lexeme) ())
@@ -230,7 +232,14 @@
 	     (make-instance 'line-comment-start-lexeme))
 	(#\" (fo) (make-instance 'string-start-lexeme))
 	(#\` (fo) (make-instance 'backquote-lexeme))
-	(#\, (fo) (make-instance 'comma-lexeme))
+	(#\, (fo)
+	     (cond ((end-of-buffer-p scan)
+		    (make-instance 'error-lexeme))
+		   (t
+		    (case (object-after scan)
+		      (#\@ (fo) (make-instance 'comma-at-lexeme))
+		      (#\. (fo) (make-instance 'comma-dot-lexeme))
+		      (t (make-instance 'comma-lexeme))))))
 	(#\# (fo)
 	     (cond ((end-of-buffer-p scan)
 		    (make-instance 'error-lexeme))
@@ -718,6 +727,8 @@
 (define-parser-state |, form | (lexer-toplevel-state parser-state) ())
 
 (define-new-lisp-state (form-may-follow comma-lexeme) |, |)
+(define-new-lisp-state (form-may-follow comma-at-lexeme) |, |)
+(define-new-lisp-state (form-may-follow comma-dot-lexeme) |, |)
 (define-new-lisp-state (|, | form) |, form |)
 
 ;;; reduce according to the rule form -> , form
@@ -1040,6 +1051,35 @@
 (defvar *cursor-positions* nil)
 (defvar *current-line* 0)
 
+(defparameter *standard-faces*
+	      `((:error ,+red+ nil)
+		(:string ,+foreground-ink+ ,(make-text-style nil :italic nil))
+		(:keyword ,+dark-violet+ nil)
+		(:lambda-list-keyword ,+dark-green+ nil)
+		(:comment ,+maroon+ nil)
+		(:reader-conditional ,+gray50+ nil)))
+
+(defparameter *reader-conditional-faces*
+	      `((:error ,+red+ nil)
+		(:string ,+foreground-ink+ ,(make-text-style nil :italic nil))
+		(:keyword ,+gray50+ nil)
+		(:lambda-list-keyword ,+gray50+ nil)
+		(:comment ,+maroon+ nil)
+		(:reader-conditional ,+gray50+ nil)))
+
+(defvar *current-faces* nil)
+
+(defun face-colour (type)
+  (first (cdr (assoc type *current-faces*))))
+
+(defun face-style (type)
+  (second (cdr (assoc type *current-faces*))))
+
+(defmacro with-face ((face) &body body)
+  `(with-drawing-options (pane :ink (face-colour ,face)
+			       :text-style (face-style ,face))
+     ,@body))
+
 (defun handle-whitespace (pane buffer start end)
   (let ((space-width (space-width pane))
 	(tab-width (tab-width pane)))
@@ -1081,12 +1121,12 @@
     (if (and (null (cdr children))
 	     (not (typep (parser-state parse-symbol) 'error-state)))
 	(display-parse-tree (car children) syntax pane)
-	(with-drawing-options (pane :ink +red+)
+	(with-face (:error)
 	  (loop for child in children
 		do (display-parse-tree child syntax pane))))))
 
 (defmethod display-parse-tree ((parse-symbol error-lexeme) (syntax lisp-syntax) pane)
-  (with-drawing-options (pane :ink +red+)
+  (with-face (:error)
     (call-next-method)))
 
 (define-presentation-type unknown-symbol () :inherit-from 'symbol
@@ -1107,10 +1147,10 @@
               (pane (if status symbol string) (if status 'symbol 'unknown-symbol)
                :single-box :highlighting)
             (cond ((eql (buffer-object (buffer syntax) (start-offset parse-symbol)) #\:)
-                   (with-drawing-options (pane :ink +dark-violet+)
+                   (with-face (:keyword)
                      (call-next-method)))
                   ((eql (buffer-object (buffer syntax) (start-offset parse-symbol)) #\&)
-                   (with-drawing-options (pane :ink +dark-green+)
+                   (with-face (:lambda-list-keyword)
                      (call-next-method)))
                   (t (call-next-method)))
             )))
@@ -1154,8 +1194,8 @@
           (with-output-as-presentation (pane string 'lisp-string
                                              :single-box :highlighting)
             (display-parse-tree  (pop children) syntax pane)
-            (with-text-face (pane :italic)
-              (loop until (null (cdr children))
+            (with-face (:string)
+	      (loop until (null (cdr children))
                  do (display-parse-tree (pop children) syntax pane)))
             (display-parse-tree (pop children) syntax pane)))
         (progn (display-parse-tree (pop children) syntax pane)
@@ -1171,17 +1211,17 @@
           (with-output-as-presentation (pane string 'lisp-string
                                              :single-box :highlighting)
             (display-parse-tree  (pop children) syntax pane)
-            (with-text-face (pane :italic)
+            (with-face (:string)
               (loop until (null children)
                  do (display-parse-tree (pop children) syntax pane)))))
         (display-parse-tree  (pop children) syntax pane))))
 
 (defmethod display-parse-tree ((parse-symbol line-comment-form) (syntax lisp-syntax) pane)
-  (with-drawing-options (pane :ink +maroon+)
+  (with-face (:comment)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol long-comment-form) (syntax lisp-syntax) pane)
-  (with-drawing-options (pane :ink +maroon+)
+  (with-face (:comment)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol reader-conditional-positive-form)
@@ -1189,20 +1229,25 @@
   (let ((conditional (second (children parse-symbol))))
     (if (eval-feature-conditional conditional syntax)
 	(call-next-method)
-	(with-drawing-options (pane :ink +gray50+)
-	  (call-next-method)))))
+	(let ((*current-faces* *reader-conditional-faces*))
+	  (with-face (:reader-conditional)
+	    (call-next-method))))))
 
 (defmethod display-parse-tree ((parse-symbol reader-conditional-negative-form)
 				(syntax lisp-syntax) pane)
   (let ((conditional (second (children parse-symbol))))
     (if (eval-feature-conditional conditional syntax)
-	(with-drawing-options (pane :ink +gray50+)
-	  (call-next-method))
+	(let ((*current-faces* *reader-conditional-faces*))
+	  (with-face (:reader-conditional)
+	    (call-next-method)))
 	(call-next-method))))
 
 (defparameter climacs-gui::*climacs-features* (copy-list *features*))
 
 (defgeneric eval-feature-conditional (conditional-form syntax))
+
+(defmethod eval-feature-conditional (conditional-form (syntax lisp-syntax))
+  nil)
 
 ;; Adapted from slime.el
 
@@ -1249,8 +1294,9 @@
 	   *current-line* 0
 	   (aref *cursor-positions* 0) (stream-cursor-position pane))
      (setf *white-space-start* (offset top)))
-  (with-slots (stack-top) syntax
-     (display-parse-tree stack-top syntax pane))
+  (let ((*current-faces* *standard-faces*))
+    (with-slots (stack-top) syntax
+       (display-parse-tree stack-top syntax pane)))
   (with-slots (top) pane
     (let* ((cursor-line (number-of-lines-in-region top (point pane)))
 	   (style (medium-text-style pane))
