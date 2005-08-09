@@ -1251,6 +1251,9 @@
 
 ;; Adapted from slime.el
 
+(defconstant keyword-package (find-package :keyword)
+  "The KEYWORD package.")
+
 (defmethod eval-feature-conditional ((conditional token-mixin) (syntax lisp-syntax))
   (let* ((string (coerce (buffer-sequence (buffer syntax)
 					 (start-offset conditional)
@@ -1428,11 +1431,6 @@
 		    (mark< mark (end-offset form)))
 	  do (setf (offset mark) (end-offset form))
 	     (loop-finish))))
-
-;;; shamelessly stolen from SWANK
-
-(defconstant keyword-package (find-package :keyword)
-  "The KEYWORD package.")
 
 ;;; shamelessly replacing SWANK code
 ;; We first work through the string removing the characters and noting
@@ -1616,6 +1614,9 @@ Return the symbol and a flag indicating whether the symbol was found."
   (values tree 0))
 
 (defmethod indent-form ((syntax lisp-syntax) (tree error-symbol) path)
+  (values tree 0))
+
+(defmethod indent-form ((syntax lisp-syntax) (tree long-comment-form) path)
   (values tree 0))
 
 (defmethod indent-binding ((syntax lisp-syntax) tree path)
