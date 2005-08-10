@@ -158,6 +158,8 @@
 (defclass form (lisp-nonterminal) ())
 (defclass incomplete-form-mixin () ())
 
+(defclass comment (lisp-nonterminal) ())
+
 (defclass lisp-lexeme (lexeme)
   ((ink)
    (face)))
@@ -544,6 +546,7 @@
 (define-parser-state |initial-state | (form-may-follow) ())
 
 (define-new-lisp-state (|initial-state | form) |initial-state |)
+(define-new-lisp-state (|initial-state | comment) |initial-state |)
 
 (define-lisp-action (|initial-state | (eql nil))
   (reduce-all form*))
@@ -569,6 +572,7 @@
 
 (define-new-lisp-state (form-may-follow left-parenthesis-lexeme) |( form* |)
 (define-new-lisp-state (|( form* | form) |( form* |)
+(define-new-lisp-state (|( form* | comment) |( form* |)
 (define-new-lisp-state (|( form* | right-parenthesis-lexeme) |( form* ) |)
 
 ;;; reduce according to the rule form -> ( form* )
@@ -591,6 +595,7 @@
 
 (define-new-lisp-state (form-may-follow simple-vector-start-lexeme) |#( form* |)
 (define-new-lisp-state (|#( form* | form) |#( form* |)
+(define-new-lisp-state (|#( form* | comment) |#( form* |)
 (define-new-lisp-state (|#( form* | right-parenthesis-lexeme) |#( form* ) |)
 
 ;;; reduce according to the rule form -> #( form* )
@@ -627,7 +632,7 @@
 ;;;;;;;;;;;;;;;; Line comment
 
 ;;; parse trees
-(defclass line-comment-form (form) ())
+(defclass line-comment-form (comment) ())
 
 (define-parser-state |; word* | (lexer-line-comment-state parser-state) ())
 (define-parser-state |; word* NL | (lexer-toplevel-state parser-state) ())
@@ -644,7 +649,7 @@
 ;;;;;;;;;;;;;;;; Long comment
 
 ;;; parse trees
-(defclass long-comment-form (form) ())
+(defclass long-comment-form (comment) ())
 (defclass complete-long-comment-form (long-comment-form) ())
 (defclass incomplete-long-comment-form (long-comment-form incomplete-form-mixin) ())
 
@@ -698,10 +703,12 @@
 
 (define-new-lisp-state (form-may-follow quote-lexeme) |' |)
 (define-new-lisp-state (|' | form) |' form |)
+(define-new-lisp-state (|' | comment) |' |)
+
 
 ;;; reduce according to the rule form -> ' form
 (define-lisp-action (|' form | t)
-  (reduce-fixed-number quote-form 2))
+  (reduce-until-type quote-form quote-lexeme))
 
 ;;;;;;;;;;;;;;;; Backquote
 
@@ -713,27 +720,43 @@
 
 (define-new-lisp-state (form-may-follow backquote-lexeme) |` |)
 (define-new-lisp-state (|` | form) |` form |)
+(define-new-lisp-state (|` | comment) |` |)
 
 ;;; reduce according to the rule form -> ` form
 (define-lisp-action (|` form | t)
-  (reduce-fixed-number backquote-form 2))
+  (reduce-until-type backquote-form backquote-lexeme))
 
 ;;;;;;;;;;;;;;;; Comma
 
 ;;; parse trees
 (defclass comma-form (form) ())
+(defclass comma-at-form (form) ())
+(defclass comma-dot-form (form) ())
 
 (define-parser-state |, | (form-may-follow) ())
 (define-parser-state |, form | (lexer-toplevel-state parser-state) ())
+(define-parser-state |,@ | (form-may-follow) ())
+(define-parser-state |,@ form | (lexer-toplevel-state parser-state) ())
+(define-parser-state |,. | (form-may-follow) ())
+(define-parser-state |,. form | (lexer-toplevel-state parser-state) ())
 
 (define-new-lisp-state (form-may-follow comma-lexeme) |, |)
-(define-new-lisp-state (form-may-follow comma-at-lexeme) |, |)
-(define-new-lisp-state (form-may-follow comma-dot-lexeme) |, |)
+(define-new-lisp-state (form-may-follow comma-at-lexeme) |,@ |)
+(define-new-lisp-state (form-may-follow comma-dot-lexeme) |,. |)
 (define-new-lisp-state (|, | form) |, form |)
+(define-new-lisp-state (|, | comment) |, |)
+(define-new-lisp-state (|,@ | form) |,@ form |)
+(define-new-lisp-state (|,@ | comment) |,@ |)
+(define-new-lisp-state (|,. | form) |,. form |)
+(define-new-lisp-state (|,. | comment) |,. |)
 
 ;;; reduce according to the rule form -> , form
 (define-lisp-action (|, form | t)
-  (reduce-fixed-number backquote-form 2))
+  (reduce-until-type comma-form comma-lexeme))
+(define-lisp-action (|,@ form | t)
+  (reduce-until-type comma-at-form comma-at-lexeme))
+(define-lisp-action (|,. form | t)
+  (reduce-until-type comma-dot-form comma-dot-lexeme))
 
 ;;;;;;;;;;;;;;;; Function
 
@@ -745,10 +768,11 @@
 
 (define-new-lisp-state (form-may-follow function-lexeme) |#' |)
 (define-new-lisp-state (|#' | form) |#' form |)
+(define-new-lisp-state (|#' | comment) |#' |)
 
 ;;; reduce according to the rule form -> #' form
 (define-lisp-action (|#' form | t)
-  (reduce-fixed-number function-form 2))
+  (reduce-until-type function-form function-lexeme))
 
 ;;;;;;;;;;;;;;;; Reader conditionals
 
@@ -766,15 +790,19 @@
 (define-new-lisp-state (form-may-follow reader-conditional-positive-lexeme) |#+ |)
 (define-new-lisp-state (|#+ | form) |#+ form |)
 (define-new-lisp-state (|#+ form | form) |#+ form form |)
+(define-new-lisp-state (|#+ | comment) |#+ |)
+(define-new-lisp-state (|#+ form | comment) |#+ form |)
 (define-new-lisp-state (form-may-follow reader-conditional-negative-lexeme) |#- |)
 (define-new-lisp-state (|#- | form) |#- form |)
 (define-new-lisp-state (|#- form | form) |#- form form |)
+(define-new-lisp-state (|#- | comment) |#- |)
+(define-new-lisp-state (|#- form | comment) |#- form |)
   
 (define-lisp-action (|#+ form form | t)
-  (reduce-fixed-number reader-conditional-positive-form 3))
+  (reduce-until-type reader-conditional-positive-form reader-conditional-positive-lexeme))
 
 (define-lisp-action (|#- form form | t)
-  (reduce-fixed-number reader-conditional-negative-form 3))
+  (reduce-until-type reader-conditional-negative-form reader-conditional-negative-lexeme))
 
 ;;;;;;;;;;;;;;;; uninterned symbol
 
@@ -784,7 +812,7 @@
 (define-parser-state |#: | (form-may-follow) ())
 (define-parser-state |#: form | (lexer-toplevel-state parser-state) ())
 
-(define-new-lisp-state (form-may-follow uninterned-symbol-lexeme) |' |)
+(define-new-lisp-state (form-may-follow uninterned-symbol-lexeme) |#: |)
 (define-new-lisp-state (|#: | form) |#: form |)
 
 ;;; reduce according to the rule form -> #: form
@@ -799,12 +827,13 @@
 (define-parser-state |#. | (form-may-follow) ())
 (define-parser-state |#. form | (lexer-toplevel-state parser-state) ())
 
-(define-new-lisp-state (form-may-follow readtime-evaluation-lexeme) |' |)
+(define-new-lisp-state (form-may-follow readtime-evaluation-lexeme) |#. |)
 (define-new-lisp-state (|#. | form) |#. form |)
+(define-new-lisp-state (|#. | comment) |#. |)
 
 ;;; reduce according to the rule form -> #. form
 (define-lisp-action (|#. form | t)
-  (reduce-fixed-number readtime-evaluation-form 2))
+  (reduce-until-type readtime-evaluation-form readtime-evaluation-lexeme))
 
 ;;;;;;;;;;;;;;;; sharpsign equals
 
@@ -814,12 +843,13 @@
 (define-parser-state |#= | (form-may-follow) ())
 (define-parser-state |#= form | (lexer-toplevel-state parser-state) ())
 
-(define-new-lisp-state (form-may-follow sharpsign-equals-lexeme) |' |)
+(define-new-lisp-state (form-may-follow sharpsign-equals-lexeme) |#= |)
 (define-new-lisp-state (|#= | form) |#= form |)
+(define-new-lisp-state (|#= | comment) |#= |)
 
 ;;; reduce according to the rule form -> #= form
 (define-lisp-action (|#= form | t)
-  (reduce-fixed-number sharpsign-equals-form 2))
+  (reduce-until-type sharpsign-equals-form sharpsign-equals-lexeme))
 
 ;;;;;;;;;;;;;;;; array
 
@@ -829,12 +859,13 @@
 (define-parser-state |#A | (form-may-follow) ())
 (define-parser-state |#A form | (lexer-toplevel-state parser-state) ())
 
-(define-new-lisp-state (form-may-follow array-start-lexeme) |' |)
+(define-new-lisp-state (form-may-follow array-start-lexeme) |#A |)
 (define-new-lisp-state (|#A | form) |#A form |)
+(define-new-lisp-state (|#A | comment) |#A |)
 
 ;;; reduce according to the rule form -> #A form
 (define-lisp-action (|#A form | t)
-  (reduce-fixed-number array-start-form 2))
+  (reduce-until-type array-start-form array-start-lexeme))
 
 ;;;;;;;;;;;;;;;; structure
 
@@ -870,12 +901,13 @@
 (define-parser-state |#P | (form-may-follow) ())
 (define-parser-state |#P form | (lexer-toplevel-state parser-state) ())
 
-(define-new-lisp-state (form-may-follow pathname-start-lexeme) |' |)
+(define-new-lisp-state (form-may-follow pathname-start-lexeme) |#P |)
 (define-new-lisp-state (|#P | form) |#P form |)
+(define-new-lisp-state (|#P | comment) |#P |)
 
 ;;; reduce according to the rule form -> #P form
 (define-lisp-action (|#P form | t)
-  (reduce-fixed-number pathname-start-form 2))
+  (reduce-until-type pathname-form pathname-start-lexeme))
 
 ;;;;;;;;;;;;;;;; undefined reader macro
 
@@ -885,12 +917,12 @@
 (define-parser-state |#<other> | (form-may-follow) ())
 (define-parser-state |#<other> form | (lexer-toplevel-state parser-state) ())
 
-(define-new-lisp-state (form-may-follow undefined-reader-macro-lexeme) |' |)
+(define-new-lisp-state (form-may-follow undefined-reader-macro-lexeme) |#<other> |)
 (define-new-lisp-state (|#<other> | form) |#<other> form |)
 
-;;; reduce according to the rule form -> #: form
-(define-lisp-action (|#: form | t)
-  (reduce-fixed-number uninterned-symbol-form 2))
+;;; reduce according to the rule form -> #<other> form
+(define-lisp-action (|#<other> form | t)
+  (reduce-fixed-number undefined-reader-macro-form 2))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1061,10 +1093,10 @@
 
 (defparameter *reader-conditional-faces*
 	      `((:error ,+red+ nil)
-		(:string ,+foreground-ink+ ,(make-text-style nil :italic nil))
+		(:string ,+gray50+ ,(make-text-style nil :italic nil))
 		(:keyword ,+gray50+ nil)
 		(:lambda-list-keyword ,+gray50+ nil)
-		(:comment ,+maroon+ nil)
+		(:comment ,+gray50+ nil)
 		(:reader-conditional ,+gray50+ nil)))
 
 (defvar *current-faces* nil)
