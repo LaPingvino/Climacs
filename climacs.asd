@@ -73,7 +73,7 @@
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
                                         "esa" "kill-ring" "io" "text-syntax" "abbrev"))
    (:file "slidemacs" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
-   (:file "slidemacs-gui" :depends-on ("packages" "slidemacs" "pane" "buffer" "syntax"))))
+   (:file "slidemacs-gui" :depends-on ("packages" "slidemacs" "pane" "buffer" "syntax" "gui"))))
 
 (defsystem :climacs.tests
   :depends-on (:climacs)
