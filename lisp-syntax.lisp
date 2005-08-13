@@ -1683,6 +1683,9 @@ Return the symbol and a flag indicating whether the symbol was found."
 (defmethod indent-form ((syntax lisp-syntax) (tree long-comment-form) path)
   (values tree 0))
 
+(defmethod indent-form ((syntax lisp-syntax) (tree backquote-form) path)
+  (indent-form syntax (elt (children tree) (car path)) (cdr path)))
+
 (defmethod indent-binding ((syntax lisp-syntax) tree path)
   (if (null (cdr path))
       ;; top level
@@ -1736,7 +1739,12 @@ Return the symbol and a flag indicating whether the symbol was found."
 
 ;;; for now the same as indent-list, but try to do better with
 ;;; optional parameters with default values
-(define-list-indentor indent-lambda-list indent-list)
+(define-list-indentor indent-ordinary-lambda-list indent-list)
+;;; again, can do better
+(define-list-indentor indent-macro-lambda-list indent-list)
+;;; FIXME: also BOA, DEFSETF, DEFTYPE, SPECIALIZED, GENERIC-FUNCTION,
+;;; DESTRUCTURING, DEFINE-MODIFY-MACRO and
+;;; DEFINE-METHOD-COMBINATION-ARGUMENTS
 
 (defmacro define-simple-indentor (template)
   `(defmethod compute-list-indentation
@@ -1748,14 +1756,25 @@ Return the symbol and a flag indicating whether the symbol was found."
 		  collect `((= (car path) ,i) (,fun syntax (elt (children tree) ,i) (cdr path))))
 	   (t (indent-form syntax (elt (children tree) (car path)) (cdr path))))))
 
+(define-simple-indentor (progn))
 (define-simple-indentor (prog1 indent-form))
+(define-simple-indentor (prog2 indent-form indent-form))
+(define-simple-indentor (locally))
 (define-simple-indentor (let indent-bindings))
 (define-simple-indentor (let* indent-bindings))
-(define-simple-indentor (defun indent-list indent-lambda-list))
-(define-simple-indentor (defmacro indent-list indent-lambda-list))
-(define-simple-indentor (with-slots indent-list))
+(define-simple-indentor (multiple-value-bind indent-list indent-form))
+(define-simple-indentor (defun indent-list indent-ordinary-lambda-list))
+(define-simple-indentor (defmacro indent-list indent-macro-lambda-list))
+(define-simple-indentor (with-slots indent-bindings indent-form))
+(define-simple-indentor (with-accessors indent-bindings indent-form))
 (define-simple-indentor (when indent-form))
 (define-simple-indentor (unless indent-form))
+(define-simple-indentor (print-unreadable-object indent-list))
+(define-simple-indentor (defvar indent-form))
+(define-simple-indentor (defparameter indent-form))
+(define-simple-indentor (defconstant indent-form))
+
+;;; non-simple-cases: LOOP, MACROLET, FLET, LABELS
 
 ;;; do this better 
 (define-list-indentor indent-slot-specs indent-list)
@@ -1810,7 +1829,14 @@ Return the symbol and a flag indicating whether the symbol was found."
 	  (t
 	   (indent-form syntax (elt (children tree) (car path)) (cdr path))))))
 
-(define-list-indentor indent-clause indent-form)
+(defun indent-clause (syntax tree path)
+  (if (null (cdr path))
+      ;; top level
+      (case (car path)
+        (1 (values tree 1))
+        (2 (values tree 1))
+        (t (values (elt (children tree) 2) 0)))
+      (indent-form syntax (elt (children tree) (car path)) (cdr path))))
 
 (defmethod compute-list-indentation
     ((syntax lisp-syntax) (symbol (eql 'cond)) tree path)
@@ -1823,6 +1849,35 @@ Return the symbol and a flag indicating whether the symbol was found."
 	  (values (elt (children tree) 2) 0))
       ;; inside a clause
       (indent-clause syntax (elt (children tree) (car path)) (cdr path))))
+
+(macrolet ((def (symbol)
+               `(defmethod compute-list-indentation
+                 ((syntax lisp-syntax) (symbol (eql ',symbol)) tree path)
+                 (if (null (cdr path))
+                     (case (car path)
+                       (2 (values tree 4))
+                       (3 (values tree 2))
+                       (t (values (elt (children tree) 3) 0)))
+                     (indent-clause syntax (elt (children tree) (car path)) (cdr path))))))
+  (def case)
+  (def ccase)
+  (def ecase)
+  (def typecase)
+  (def ctypecase)
+  (def etypecase))
+
+(defmethod compute-list-indentation
+    ((syntax lisp-syntax) (symbol (eql 'tagbody)) tree path)
+  (if (null (cdr path))
+      ;; this TOKEN-MIXIN test is not quite right.  It should be a
+      ;; test for symbolness of the token, but it shouldn't depend on
+      ;; the symbol existing in the current image.  (Arguably, too,
+      ;; this is a broken indentation form because it doesn't carry
+      ;; over to the implicit tagbodies in macros such as DO.
+      (if (typep (elt (children tree) (car path)) 'token-mixin) 
+          (values tree 2)
+          (values tree 4))
+      (indent-form syntax (elt (children tree) (car path)) (cdr path))))
 
 (defun compute-path-in-trees (trees n offset)
   (cond ((or (null trees)
