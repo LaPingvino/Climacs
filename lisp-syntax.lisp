@@ -1076,6 +1076,30 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; accessing parser forms
+
+(defun first-form (list)
+  "Returns the first non-comment in list."
+  (find-if-not #'(lambda (item) (typep item 'comment)) list))
+
+(defun nth-form (n list)
+  "Returns the nth non-comment in list."
+  (loop for item in list
+	count (not (typep item 'comment))
+	  into forms
+	until (= forms n)
+	finally (return item)))
+
+(defun second-form (list)
+  "Returns the second non-comment in list."
+  (nth-form 2 list))
+
+(defun third-form (list)
+  "Returns the third non-comment in list."
+  (nth-form 3 list))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; display
 
 (defvar *white-space-start* nil)
@@ -1258,7 +1282,7 @@
 
 (defmethod display-parse-tree ((parse-symbol reader-conditional-positive-form)
 			       (syntax lisp-syntax) pane)
-  (let ((conditional (second (children parse-symbol))))
+  (let ((conditional (second-form (children parse-symbol))))
     (if (eval-feature-conditional conditional syntax)
 	(call-next-method)
 	(let ((*current-faces* *reader-conditional-faces*))
@@ -1267,7 +1291,7 @@
 
 (defmethod display-parse-tree ((parse-symbol reader-conditional-negative-form)
 				(syntax lisp-syntax) pane)
-  (let ((conditional (second (children parse-symbol))))
+  (let ((conditional (second-form (children parse-symbol))))
     (if (eval-feature-conditional conditional syntax)
 	(let ((*current-faces* *reader-conditional-faces*))
 	  (with-face (:reader-conditional)
@@ -1296,11 +1320,16 @@
 
 (defmethod eval-feature-conditional ((conditional list-form) (syntax lisp-syntax))
   (let ((children (children conditional)))
-    (when (third children)
+    (when (third-form children)
       (flet ((eval-fc (conditional)
 	       (funcall #'eval-feature-conditional conditional syntax)))
-	(let* ((type (second children))
-	       (conditionals (butlast (nthcdr 2 children)))
+	(let* ((type (second-form children))
+	       (conditionals  (butlast
+			       (nthcdr
+				2
+				(remove-if
+				 #'(lambda (child) (typep child 'comment))
+				 children))))
 	       (type-string (coerce (buffer-sequence (buffer syntax)
 						     (start-offset type)
 						     (end-offset type))
@@ -1355,14 +1384,15 @@
 ;;; exploit the parse 
 
 (defun form-before-in-children (children offset)
-  (loop for (first second) on children
+  (loop for (first . rest) on children
+	unless (typep first 'comment)
 	do (cond ((< (start-offset first) offset (end-offset first))
 		  (return (if (null (children first))
 			      nil
 			      (form-before-in-children (children first) offset))))
 		 ((and (>= offset (end-offset first))
-		       (or (null second)
-			   (<= offset (start-offset second))))
+		       (or (null rest)
+			   (<= offset (start-offset (first-form rest)))))
 		  (return (let ((potential-form (form-before-in-children (children first) offset)))
 			    (or potential-form
 				(when (typep first 'form)
@@ -1378,16 +1408,17 @@
 
 (defun form-after-in-children (children offset)
   (loop for child in children
-	do (cond ((< (start-offset child) offset (end-offset child))
-		  (return (if (null (children child))
-			      nil
-			      (form-after-in-children (children child) offset))))
-		 ((<= offset (start-offset child))
-		  (return (let ((potential-form (form-after-in-children (children child) offset)))
-			    (or potential-form
-				(when (typep child 'form)
-				  child)))))
-		 (t nil))))
+	unless (typep child 'comment)
+	  do (cond ((< (start-offset child) offset (end-offset child))
+		    (return (if (null (children child))
+				nil
+				(form-after-in-children (children child) offset))))
+		   ((<= offset (start-offset child))
+		    (return (let ((potential-form (form-after-in-children (children child) offset)))
+			      (or potential-form
+				  (when (typep child 'form)
+				    child)))))
+		   (t nil))))
 		 
 (defun form-after (syntax offset)
   (with-slots (stack-top) syntax
@@ -1398,6 +1429,7 @@
 	     
 (defun form-around-in-children (children offset)
   (loop for child in children
+	unless (typep child 'comment)
 	do (cond ((< (start-offset child) offset (end-offset child))
 		  (return (if (null (children child))
 			      (when (typep child 'form)
@@ -1444,14 +1476,14 @@
   (with-slots (stack-top) syntax
     (loop for form in (children stack-top)
 	  with last-toplevel-list = nil
-	  when (and (typep form 'list-form)
+	  when (and (typep form 'form)
 		    (mark< mark (end-offset form)))
           do (if (mark< (start-offset form) mark)
 		 (setf (offset mark) (start-offset form))
 		 (when last-toplevel-list form
 		       (setf (offset mark) (start-offset last-toplevel-list))))
 	     (return t)
-	  when (typep form 'list-form)
+	  when (typep form 'form)
 	  do (setf last-toplevel-list form)
 	  finally (when last-toplevel-list form
 		       (setf (offset mark) (start-offset last-toplevel-list))))))
@@ -1459,7 +1491,7 @@
 (defmethod end-of-definition (mark (syntax lisp-syntax))
   (with-slots (stack-top) syntax
     (loop for form in (children stack-top)
-	  when (and (typep form 'list-form)
+	  when (and (typep form 'form)
 		    (mark< mark (end-offset form)))
 	  do (setf (offset mark) (end-offset form))
 	     (loop-finish))))
