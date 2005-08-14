@@ -49,6 +49,9 @@
   (:default-initargs
       :height 20 :max-height 20 :min-height 20))
 
+(defparameter *with-scrollbars* t
+  "If T, classic look and feel. If NIL, stripped-down look (:")
+
 (define-application-frame climacs (standard-application-frame
 				   esa-frame-mixin)
   ((buffers :initform '() :accessor buffers))
@@ -70,8 +73,10 @@
 		(buffers *application-frame*) (list (buffer extended-pane)))
 	  
 	  (vertically ()
-	    (scrolling ()
-	      extended-pane)
+	    (if *with-scrollbars*
+		(scrolling ()
+		  extended-pane)
+		extended-pane)
 	    info-pane)))
    (int (make-pane 'climacs-minibuffer-pane :width 900)))
   (:layouts
@@ -103,9 +108,24 @@
   (declare (ignore frame))
   (let* ((master-pane (master-pane pane))
 	 (buf (buffer master-pane))
-	 (name-info (format nil "   ~a   ~a   Syntax: ~a~a~a~a    ~a"
+	 (size (size buf))
+	 (top (top master-pane))
+	 (bot (bot master-pane))
+	 (name-info (format nil "   ~a  ~a~:[~30t~a~;~*~]   ~:[(~;Syntax: ~]~a~a~a~a~:[)~;~]    ~a"
 			    (if (needs-saving buf) "**" "--")
 			    (name buf)
+			    *with-scrollbars*
+			    (cond ((and (mark= size bot)
+					(mark= 0 top))
+				   "")
+				  ((mark= size bot)
+				   "Bot")
+				  ((mark= 0 top)
+				   "Top")
+				  (t (format nil "~a%"
+					     (round (* 100 (/ (offset top)
+							      size))))))
+			    *with-scrollbars*
 			    (name (syntax buf))
 			    (if (slot-value master-pane 'overwrite-mode)
 				" Ovwrt"
@@ -116,6 +136,7 @@
 			    (if (isearch-mode master-pane)
 				" Isearch"
 				"")
+			    *with-scrollbars*
 			    (if (recordingp *application-frame*)
 				"Def"
 				""))))
@@ -585,7 +606,6 @@
   (multiple-value-bind (pathname success string)
       (complete-input stream
 		      #'filename-completer
-		      :partial-completers '(#\Space)
 		      :allow-any-input t)
     (declare (ignore success))
     (or pathname string)))
@@ -842,9 +862,9 @@
     (sheet-disown-child parent constellation)
     (let ((new (if vertical-p
 		   (vertically ()
-		     constellation adjust additional-constellation)
+		     (1/2 constellation) adjust (1/2 additional-constellation))
 		   (horizontally ()
-		     constellation adjust additional-constellation))))
+		     (1/2 constellation) adjust (1/2 additional-constellation)))))
       (sheet-adopt-child parent new)
       (reorder-sheets parent 
 		      (if (eq constellation first)
@@ -862,7 +882,9 @@
   "make a vbox containing a scroller pane as its first child and an
 info pane as its second child.  The scroller pane contains a viewport
 which contains an extended pane.  Return the vbox and the extended pane
-as two values"
+as two values.
+If *with-scrollbars nil, omit the scroller."
+
   (let* ((extended-pane
 	  (make-pane 'extended-pane
 		     :width 900 :height 400
@@ -873,7 +895,10 @@ as two values"
 		     :command-table 'global-climacs-table))
 	 (vbox
 	  (vertically ()
-	    (scrolling () extended-pane)
+	    (if *with-scrollbars*
+		(scrolling ()
+		  extended-pane)
+		extended-pane)
 	    (make-pane 'climacs-info-pane
 		       :master-pane extended-pane
 		       :width 900))))
@@ -884,7 +909,9 @@ as two values"
       ((frame-manager *application-frame*) *application-frame*)
     (multiple-value-bind (vbox new-pane) (make-pane-constellation)
       (let* ((current-window (current-window))
-	     (constellation-root (parent3 current-window)))
+	     (constellation-root (if *with-scrollbars*
+				     (parent3 current-window)
+				     (sheet-parent current-window))))
         (setf (offset (point (buffer current-window))) (offset (point current-window))
 	      (buffer new-pane) (buffer current-window)
               (auto-fill-mode new-pane) (auto-fill-mode current-window)
@@ -900,7 +927,9 @@ as two values"
       ((frame-manager *application-frame*) *application-frame*)
     (multiple-value-bind (vbox new-pane) (make-pane-constellation)
       (let* ((current-window (current-window))
-	     (constellation-root (parent3 current-window)))
+	     (constellation-root (if *with-scrollbars*
+				     (parent3 current-window)
+				     (sheet-parent current-window))))
         (setf (offset (point (buffer current-window))) (offset (point current-window))
 	      (buffer new-pane) (buffer current-window)
               (auto-fill-mode new-pane) (auto-fill-mode current-window)
@@ -931,7 +960,9 @@ as two values"
 
 (define-named-command com-delete-window ()
   (unless (null (cdr (windows *application-frame*)))
-    (let* ((constellation (parent3 (current-window)))
+    (let* ((constellation (if *with-scrollbars*
+			      (parent3 (current-window))
+			      (sheet-parent (current-window))))
 	   (box (sheet-parent constellation))
 	   (box-children (sheet-children box))
 	   (other (if (eq constellation (first box-children))
@@ -1449,12 +1480,85 @@ as two values"
 
 (define-named-command com-mark-expression ((count 'integer :prompt "Number of expressions"))
   (let* ((pane (current-window))
-	  (point (point pane))
-	  (mark (mark pane))
-	  (syntax (syntax (buffer pane))))
-       (unless (eq (previous-command pane) 'com-mark-expression)
-	 (setf (offset mark) (offset point)))
-       (loop repeat count do (forward-expression mark syntax))))
+	 (point (point pane))
+	 (mark (mark pane))
+	 (syntax (syntax (buffer pane))))
+    (unless (eq (previous-command pane) 'com-mark-expression)
+      (setf (offset mark) (offset point)))
+    (if (plusp count)
+	(loop repeat count do (forward-expression mark syntax))
+	(loop repeat (- count) do (backward-expression mark syntax)))))
+
+(define-named-command com-kill-expression ((count 'integer :prompt "Number of expressions"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (clone-mark point))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (forward-expression mark syntax))
+	(loop repeat (- count) do (backward-expression mark syntax)))
+    (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
+    (delete-region mark point)))
+
+(define-named-command com-backward-kill-expression
+    ((count 'integer :prompt "Number of expressions"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (mark (clone-mark point))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (backward-expression mark syntax))
+	(loop repeat (- count) do (forward-expression mark syntax)))
+    (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
+    (delete-region mark point)))
+
+(define-named-command com-forward-list ((count 'integer :prompt "Number of lists"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	 (loop repeat count do (forward-list point syntax))
+	 (loop repeat (- count) do (backward-list point syntax)))))
+
+(define-named-command com-backward-list ((count 'integer :prompt "Number of lists"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (backward-list point syntax))
+	(loop repeat (- count) do (forward-list point syntax)))))
+
+(define-named-command com-down-list ((count 'integer :prompt "Number of lists"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (down-list point syntax))
+	(loop repeat (- count) do (backward-down-list point syntax)))))
+
+(define-named-command com-backward-down-list ((count 'integer :prompt "Number of lists"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (backward-down-list point syntax))
+	(loop repeat (- count) do (down-list point syntax)))))
+
+(define-named-command com-backward-up-list ((count 'integer :prompt "Number of lists"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (backward-up-list point syntax))
+	(loop repeat (- count) do (up-list point syntax)))))
+
+(define-named-command com-up-list ((count 'integer :prompt "Number of lists"))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (syntax (syntax (buffer pane))))
+    (if (plusp count)
+	(loop repeat count do (up-list point syntax))
+	(loop repeat (- count) do (backward-up-list point syntax)))))
 
 (define-named-command com-eval-defun ()
   (let* ((pane (current-window))
@@ -1613,6 +1717,12 @@ as two values"
 
 (global-set-key '(#\b :control :meta) `(com-backward-expression ,*numeric-argument-marker*))
 (global-set-key '(#\f :control :meta) `(com-forward-expression ,*numeric-argument-marker*))
+(global-set-key '(#\Backspace :control :meta) `(com-backward-kill-expression ,*numeric-argument-marker*))
+(global-set-key '(#\k :control :meta) `(com-kill-expression ,*numeric-argument-marker*))
+(global-set-key '(#\n :control :meta) `(com-forward-list ,*numeric-argument-marker*))
+(global-set-key '(#\p :control :meta) `(com-backward-list ,*numeric-argument-marker*))
+(global-set-key '(#\d :control :meta) `(com-down-list ,*numeric-argument-marker*))
+(global-set-key '(#\u :control :meta) `(com-backward-up-list ,*numeric-argument-marker*))
 (global-set-key '(#\x :control :meta) 'com-eval-defun)
 (global-set-key '(#\a :control :meta) `(com-beginning-of-definition ,*numeric-argument-marker*))
 (global-set-key '(#\e :control :meta) `(com-end-of-definition ,*numeric-argument-marker*))
@@ -1849,3 +1959,18 @@ as two values"
 (query-replace-set-key '(#\q) 'com-query-replace-exit)
 (query-replace-set-key '(#\y) 'com-query-replace-replace)
 (query-replace-set-key '(#\n) 'com-query-replace-skip)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; C-c command table
+
+(make-command-table 'c-c-climacs-table :errorp nil)
+
+(add-menu-item-to-command-table 'global-climacs-table "C-c"
+				:menu 'c-c-climacs-table
+				:keystroke '(#\c :control))
+
+(defun c-c-set-key (gesture command)
+  (add-command-to-command-table command 'c-c-climacs-table
+				:keystroke gesture :errorp nil))
+
