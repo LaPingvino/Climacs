@@ -31,7 +31,9 @@
 		:accessor kill-ring-chain
 		:initform (make-instance 'standard-cursorchain))
    (yankpoint   :type left-sticky-flexicursor
-	        :accessor kill-ring-cursor))
+	        :accessor kill-ring-cursor)
+   (append-next-p :type boolean :initform nil
+		  :accessor append-next-p))
   (:documentation "A class for all kill rings"))
 
 (defmethod initialize-instance :after((kr kill-ring) &rest args)
@@ -115,14 +117,17 @@ is empty a new entry is pushed."))
 	  (setf (cursor-pos curs) pos))))
 
 (defmethod kill-ring-standard-push ((kr kill-ring) vector)
-  (let ((chain (kill-ring-chain kr)))
-    (if (>= (kill-ring-length kr)
-	    (kill-ring-max-size kr))
-	(progn
-	  (pop-end chain)
-	  (push-start chain vector))
-        (push-start chain vector)))
-  (reset-yank-position kr))
+  (cond ((append-next-p kr)
+	 (kill-ring-concatenating-push kr vector)
+	 (setf (append-next-p kr) nil))
+	(t (let ((chain (kill-ring-chain kr)))
+	   (if (>= (kill-ring-length kr)
+		   (kill-ring-max-size kr))
+	       (progn
+		 (pop-end chain)
+		 (push-start chain vector))
+	       (push-start chain vector)))
+	 (reset-yank-position kr))))
 
 (defmethod kill-ring-concatenating-push ((kr kill-ring) vector)
   (let ((chain (kill-ring-chain kr)))

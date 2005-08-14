@@ -1393,7 +1393,9 @@
 		 ((and (>= offset (end-offset first))
 		       (or (null rest)
 			   (<= offset (start-offset (first-form rest)))))
-		  (return (let ((potential-form (form-before-in-children (children first) offset)))
+		  (return (let ((potential-form
+				 (when (typep first 'list-form)
+				   (form-before-in-children (children first) offset))))
 			    (or potential-form
 				(when (typep first 'form)
 				  first)))))
@@ -1438,7 +1440,7 @@
 		 ((<= offset (start-offset child))
 		  (return nil))
 		 (t nil))))
-		 
+
 (defun form-around (syntax offset)
   (with-slots (stack-top) syntax
     (if (or (null (start-offset stack-top))

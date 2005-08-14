@@ -122,7 +122,8 @@
 
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
-  (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size 
+  (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size
+	   #:append-next-p 
 	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
 	   #:kill-ring-standard-push    #:kill-ring-concatenating-push
 	   #:kill-ring-reverse-concatenating-push))

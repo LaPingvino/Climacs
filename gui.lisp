@@ -797,6 +797,20 @@
 	    do (forward-object mark)))
     (delete-region point mark)))
 
+(define-named-command com-just-one-space ((count 'integer :prompt "Number of spaces"))
+  (let ((point (point (current-window)))
+	offset)
+    (loop until (beginning-of-line-p point)
+	  while (whitespacep (object-before point))
+	  do (backward-object point))
+    (loop until (end-of-line-p point)
+	  while (whitespacep (object-after point))
+	  repeat count do (forward-object point)
+	  finally (setf offset (offset point)))
+    (loop until (end-of-line-p point)
+	  while (whitespacep (object-after point))
+	  do (forward-object point))
+    (delete-region offset point)))
 
 (define-named-command com-goto-position ()
   (setf (offset (point (current-window)))
@@ -958,6 +972,11 @@ If *with-scrollbars nil, omit the scroller."
     (when other-window
       (page-down other-window))))
 
+(define-named-command com-scroll-other-window-up ()
+  (let ((other-window (second (windows *application-frame*))))
+    (when other-window
+      (page-up other-window))))
+
 (define-named-command com-delete-window ()
   (unless (null (cdr (windows *application-frame*)))
     (let* ((constellation (if *with-scrollbars*
@@ -1022,6 +1041,9 @@ If *with-scrollbars nil, omit the scroller."
 				 (display-message "Not a valid kill ring size")
 				 (return-from com-resize-kill-ring nil))))))
     (setf (kill-ring-max-size *kill-ring*) size)))
+
+(define-named-command com-append-next-kill ()
+  (setf (append-next-p *kill-ring*) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -1662,6 +1684,7 @@ If *with-scrollbars nil, omit the scroller."
 (global-set-key '(#\Space :control) 'com-set-mark)
 (global-set-key '(#\y :control) 'com-yank)
 (global-set-key '(#\w :control) 'com-kill-region)
+(global-set-key '(#\w :control :meta) 'com-append-next-kill)
 (global-set-key '(#\e :meta) `(com-forward-sentence ,*numeric-argument-marker*))
 (global-set-key '(#\a :meta) `(com-backward-sentence ,*numeric-argument-marker*))
 (global-set-key '(#\k :meta) `(com-kill-sentence ,*numeric-argument-marker*))
@@ -1678,10 +1701,12 @@ If *with-scrollbars nil, omit the scroller."
 (global-set-key '(#\v :control) 'com-page-down)
 (global-set-key '(#\v :meta) 'com-page-up)
 (global-set-key '(#\v :control :meta) 'com-scroll-other-window)
+(global-set-key '(#\V :control :meta :shift) 'com-scroll-other-window-up)
 (global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
 (global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
 (global-set-key '(#\m :meta) 'com-back-to-indentation)
 (global-set-key '(#\\ :meta) `(com-delete-horizontal-space ,*numeric-argument-p*))
+(global-set-key '(#\Space :meta) `(com-just-one-space ,*numeric-argument-marker*))
 (global-set-key '(#\^ :shift :meta) 'com-delete-indentation)
 (global-set-key '(#\q :meta) 'com-fill-paragraph)
 (global-set-key '(#\d :meta) `(com-kill-word ,*numeric-argument-marker*))
