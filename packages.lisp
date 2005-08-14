@@ -113,6 +113,9 @@
 	   #:redisplay-pane-with-syntax
 	   #:backward-paragraph #:forward-paragraph
 	   #:backward-sentence #:forward-sentence
+	   #:forward-list #:backward-list
+	   #:down-list #:up-list
+	   #:backward-down-list #:backward-up-list
 	   #:syntax-line-comment-string
 	   #:line-comment-region #:comment-region
 	   #:line-uncomment-region #:uncomment-region))

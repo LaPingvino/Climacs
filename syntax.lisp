@@ -67,6 +67,31 @@ the mark, according to the specified syntax."))
 
 (defgeneric forward-sentence (mark syntax))
 
+(defgeneric forward-list (mark syntax)
+  (:method (mark syntax)
+    (error 'no-such-operation)))
+
+(defgeneric backward-list (mark syntax)
+  (:method (mark syntax)
+    (error 'no-such-operation)))
+
+(defgeneric down-list (mark syntax)
+  (:method (mark syntax)
+    (error 'no-such-operation)))
+
+(defgeneric backward-down-list (mark syntax)
+  (:method (mark syntax)
+    (error 'no-such-operation)))
+
+(defgeneric backward-up-list (mark syntax)
+  (:method (mark syntax)
+    (error 'no-such-operation)))
+
+(defgeneric up-list (mark syntax)
+  (:method (mark syntax)
+    (error 'no-such-operation)))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Commenting
