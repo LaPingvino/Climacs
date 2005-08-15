@@ -1891,7 +1891,7 @@ Return the symbol and a flag indicating whether the symbol was found."
 	 (indent-list syntax (elt-form (children tree) 2) (cdr path)))
 	(3
 	 ;; in the lambda-list
-	 (indent-lambda-list syntax (elt-form (children tree) 3) (cdr path)))
+	 (indent-ordinary-lambda-list syntax (elt-form (children tree) 3) (cdr path)))
 	(t
 	 ;; in the options or method specifications
 	 (indent-list syntax (elt-form (children tree) (car path)) (cdr path))))))
@@ -1911,7 +1911,7 @@ Return the symbol and a flag indicating whether the symbol was found."
 	       (< (car path) lambda-list-pos))
 	   (indent-list syntax (elt-form (children tree) (car path)) (cdr path)))
 	  ((= (car path) lambda-list-pos)
-	   (indent-lambda-list syntax (elt-form (children tree) (car path)) (cdr path)))
+	   (indent-ordinary-lambda-list syntax (elt-form (children tree) (car path)) (cdr path)))
 	  (t
 	   (indent-form syntax (elt-form (children tree) (car path)) (cdr path))))))
 
