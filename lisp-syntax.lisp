@@ -1082,21 +1082,34 @@
   "Returns the first non-comment in list."
   (find-if-not #'(lambda (item) (typep item 'comment)) list))
 
+(defun rest-forms (list)
+  "Returns the remainder of the list after the first non-comment,
+stripping leading comments."
+  (loop for rest on list
+	count (not (typep (car rest) 'comment))
+	  into forms
+	until (= forms 2)
+	finally (return rest)))
+
 (defun nth-form (n list)
   "Returns the nth non-comment in list."
   (loop for item in list
 	count (not (typep item 'comment))
 	  into forms
-	until (= forms n)
+	until (> forms n)
 	finally (return item)))
+
+(defun elt-form (list n)
+  "Returns the nth non-comment in list."
+  (nth-form n list))
 
 (defun second-form (list)
   "Returns the second non-comment in list."
-  (nth-form 2 list))
+  (nth-form 1 list))
 
 (defun third-form (list)
   "Returns the third non-comment in list."
-  (nth-form 3 list))
+  (nth-form 2 list))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -1717,14 +1730,14 @@ Return the symbol and a flag indicating whether the symbol was found."
 	     (and (null (cdr path)) (zerop (car path))))
 	 (values tree 0))
 	((null (cdr path))
-	 (values (elt (children tree) (1- (car path))) 0))
-	(t (indent-form syntax (elt (children tree) (car path)) (cdr path)))))
+	 (values (elt-form (children tree) (1- (car path))) 0))
+	(t (indent-form syntax (elt-form (children tree) (car path)) (cdr path)))))
 
 (defmethod indent-form ((syntax lisp-syntax) (tree list-form) path)
   (if (= (car path) 1)
       ;; before first element
       (values tree 1)
-      (let ((first-child (elt (children tree) 1)))
+      (let ((first-child (elt-form (children tree) 1)))
 	(cond ((and (typep first-child 'token-mixin)
 		    (token-to-symbol syntax first-child))
 	       (compute-list-indentation syntax (token-to-symbol syntax first-child) tree path))
@@ -1732,12 +1745,12 @@ Return the symbol and a flag indicating whether the symbol was found."
 	       ;; top level
 	       (if (= (car path) 2)
 		   ;; indent like first element
-		   (values (elt (children tree) 1) 0)
+		   (values (elt-form (children tree) 1) 0)
 		   ;; indent like second element
-		   (values (elt (children tree) 2) 0)))
+		   (values (elt-form (children tree) 2) 0)))
 	      (t
 	       ;; inside a subexpression
-	       (indent-form syntax (elt (children tree) (car path)) (cdr path)))))))	    
+	       (indent-form syntax (elt-form (children tree) (car path)) (cdr path)))))))	    
 
 (defmethod indent-form ((syntax lisp-syntax) (tree string-form) path)
   (values tree 1))
@@ -1751,8 +1764,11 @@ Return the symbol and a flag indicating whether the symbol was found."
 (defmethod indent-form ((syntax lisp-syntax) (tree long-comment-form) path)
   (values tree 0))
 
+(defmethod indent-form ((syntax lisp-syntax) (tree quote-form) path)
+  (indent-form syntax (elt-form (children tree) (car path)) (cdr path)))
+
 (defmethod indent-form ((syntax lisp-syntax) (tree backquote-form) path)
-  (indent-form syntax (elt (children tree) (car path)) (cdr path)))
+  (indent-form syntax (elt-form (children tree) (car path)) (cdr path)))
 
 (defmethod indent-binding ((syntax lisp-syntax) tree path)
   (if (null (cdr path))
@@ -1762,11 +1778,11 @@ Return the symbol and a flag indicating whether the symbol was found."
 	     (values tree 1))
 	    ((= (car path) 2)
 	     ;; between variable and value
-	     (values (elt (children tree) 1) 0))
+	     (values (elt-form (children tree) 1) 0))
 	    (t
 	     ;; after value
-	     (values (elt (children tree) 2) 0)))
-      (indent-form syntax (elt (children tree) (car path)) (cdr path))))
+	     (values (elt-form (children tree) 2) 0)))
+      (indent-form syntax (elt-form (children tree) (car path)) (cdr path))))
 
 (defmethod indent-bindings ((syntax lisp-syntax) tree path)
   (if (null (cdr path))
@@ -1775,20 +1791,20 @@ Return the symbol and a flag indicating whether the symbol was found."
 	  ;; before first binding, indent 1
 	  (values tree 1)
 	  ;; after some bindings, align with first binding
-	  (values (elt (children tree) 1) 0))
+	  (values (elt-form (children tree) 1) 0))
       ;; inside a bind form
-      (indent-binding syntax (elt (children tree) (car path)) (cdr path))))
+      (indent-binding syntax (elt-form (children tree) (car path)) (cdr path))))
 
 (defmethod compute-list-indentation ((syntax lisp-syntax) symbol tree path)
   (if (null (cdr path))
       ;; top level
       (if (= (car path) 2)
 	  ;; indent like first child
-	  (values (elt (children tree) 1) 0)
+	  (values (elt-form (children tree) 1) 0)
 	  ;; indent like second child
-	  (values (elt (children tree) 2) 0))
+	  (values (elt-form (children tree) 2) 0))
       ;; inside a subexpression
-      (indent-form syntax (elt (children tree) (car path)) (cdr path))))
+      (indent-form syntax (elt-form (children tree) (car path)) (cdr path))))
 
 (defmacro define-list-indentor (name element-indentor)
   `(defun ,name (syntax tree path)
@@ -1798,9 +1814,9 @@ Return the symbol and a flag indicating whether the symbol was found."
 	     ;; indent one more than the list
 	     (values tree 1)
 	     ;; indent like the first element
-	     (values (elt (children tree) 1) 0))
+	     (values (elt-form (children tree) 1) 0))
 	 ;; inside an element
-	 (,element-indentor syntax (elt (children tree) (car path)) (cdr path)))))
+	 (,element-indentor syntax (elt-form (children tree) (car path)) (cdr path)))))
 
 ;;; line up the elements vertically
 (define-list-indentor indent-list indent-list)
@@ -1821,8 +1837,9 @@ Return the symbol and a flag indicating whether the symbol was found."
 	    (values tree (if (<= (car path) ,(length template)) 4 2)))
 	   ,@(loop for fun in (cdr template)
 		  for i from 2
-		  collect `((= (car path) ,i) (,fun syntax (elt (children tree) ,i) (cdr path))))
-	   (t (indent-form syntax (elt (children tree) (car path)) (cdr path))))))
+		  collect `((= (car path) ,i)
+			    (,fun syntax (elt-form (children tree) ,i) (cdr path))))
+	   (t (indent-form syntax (elt-form (children tree) (car path)) (cdr path))))))
 
 (define-simple-indentor (progn))
 (define-simple-indentor (prog1 indent-form))
@@ -1855,13 +1872,13 @@ Return the symbol and a flag indicating whether the symbol was found."
       (case (car path)
 	((2 3)
 	 ;; in the class name or superclasses respectively
-	 (indent-list syntax (elt (children tree) (car path)) (cdr path)))
+	 (indent-list syntax (elt-form (children tree) (car path)) (cdr path)))
 	(4
 	 ;; in the slot specs 
-	 (indent-slot-specs syntax (elt (children tree) 4) (cdr path)))
+	 (indent-slot-specs syntax (elt-form (children tree) 4) (cdr path)))
 	(t
 	 ;; this is an approximation, might want to do better
-	 (indent-list syntax (elt (children tree) (car path)) (cdr path))))))
+	 (indent-list syntax (elt-form (children tree) (car path)) (cdr path))))))
 
 (defmethod compute-list-indentation
     ((syntax lisp-syntax) (symbol (eql 'defgeneric)) tree path)
@@ -1871,18 +1888,19 @@ Return the symbol and a flag indicating whether the symbol was found."
       (case (car path)
 	(2
 	 ;; in the function name
-	 (indent-list syntax (elt (children tree) 2) (cdr path)))
+	 (indent-list syntax (elt-form (children tree) 2) (cdr path)))
 	(3
 	 ;; in the lambda-list
-	 (indent-lambda-list syntax (elt (children tree) 3) (cdr path)))
+	 (indent-lambda-list syntax (elt-form (children tree) 3) (cdr path)))
 	(t
 	 ;; in the options or method specifications
-	 (indent-list syntax (elt (children tree) (car path)) (cdr path))))))
+	 (indent-list syntax (elt-form (children tree) (car path)) (cdr path))))))
 
 (defmethod compute-list-indentation
     ((syntax lisp-syntax) (symbol (eql 'defmethod)) tree path)
   (let ((lambda-list-pos (position-if (lambda (x) (typep x 'list-form))
-				      (children tree))))
+				      (remove-if
+				       (lambda (x) (typep x 'comment)) (children tree)))))
     (cond ((null (cdr path))
 	   ;; top level
 	   (values tree (if (or (null lambda-list-pos)
@@ -1891,11 +1909,11 @@ Return the symbol and a flag indicating whether the symbol was found."
 			    2)))
 	  ((or (null lambda-list-pos)
 	       (< (car path) lambda-list-pos))
-	   (indent-list syntax (elt (children tree) (car path)) (cdr path)))
+	   (indent-list syntax (elt-form (children tree) (car path)) (cdr path)))
 	  ((= (car path) lambda-list-pos)
-	   (indent-lambda-list syntax (elt (children tree) (car path)) (cdr path)))
+	   (indent-lambda-list syntax (elt-form (children tree) (car path)) (cdr path)))
 	  (t
-	   (indent-form syntax (elt (children tree) (car path)) (cdr path))))))
+	   (indent-form syntax (elt-form (children tree) (car path)) (cdr path))))))
 
 (defun indent-clause (syntax tree path)
   (if (null (cdr path))
@@ -1903,8 +1921,8 @@ Return the symbol and a flag indicating whether the symbol was found."
       (case (car path)
         (1 (values tree 1))
         (2 (values tree 1))
-        (t (values (elt (children tree) 2) 0)))
-      (indent-form syntax (elt (children tree) (car path)) (cdr path))))
+        (t (values (elt-form (children tree) 2) 0)))
+      (indent-form syntax (elt-form (children tree) (car path)) (cdr path))))
 
 (defmethod compute-list-indentation
     ((syntax lisp-syntax) (symbol (eql 'cond)) tree path)
@@ -1914,9 +1932,9 @@ Return the symbol and a flag indicating whether the symbol was found."
 	  ;; after `cond' 
 	  (values tree 2)
 	  ;; indent like the first clause
-	  (values (elt (children tree) 2) 0))
+	  (values (elt-form (children tree) 2) 0))
       ;; inside a clause
-      (indent-clause syntax (elt (children tree) (car path)) (cdr path))))
+      (indent-clause syntax (elt-form (children tree) (car path)) (cdr path))))
 
 (macrolet ((def (symbol)
                `(defmethod compute-list-indentation
@@ -1925,8 +1943,8 @@ Return the symbol and a flag indicating whether the symbol was found."
                      (case (car path)
                        (2 (values tree 4))
                        (3 (values tree 2))
-                       (t (values (elt (children tree) 3) 0)))
-                     (indent-clause syntax (elt (children tree) (car path)) (cdr path))))))
+                       (t (values (elt-form (children tree) 3) 0)))
+                     (indent-clause syntax (elt-form (children tree) (car path)) (cdr path))))))
   (def case)
   (def ccase)
   (def ecase)
@@ -1942,19 +1960,19 @@ Return the symbol and a flag indicating whether the symbol was found."
       ;; the symbol existing in the current image.  (Arguably, too,
       ;; this is a broken indentation form because it doesn't carry
       ;; over to the implicit tagbodies in macros such as DO.
-      (if (typep (elt (children tree) (car path)) 'token-mixin) 
+      (if (typep (elt-form (children tree) (car path)) 'token-mixin) 
           (values tree 2)
           (values tree 4))
-      (indent-form syntax (elt (children tree) (car path)) (cdr path))))
+      (indent-form syntax (elt-form (children tree) (car path)) (cdr path))))
 
 (defun compute-path-in-trees (trees n offset)
   (cond ((or (null trees)
-	     (>= (start-offset (car trees)) offset))    
+	     (>= (start-offset (first-form trees)) offset))    
 	 (list n))
-	((or (< (start-offset (car trees)) offset (end-offset (car trees)))
-	     (typep (car trees) 'incomplete-form-mixin))
-	 (cons n (compute-path-in-tree (car trees) offset)))
-	(t (compute-path-in-trees (cdr trees) (1+ n) offset))))
+	((or (< (start-offset (first-form trees)) offset (end-offset (first-form trees)))
+	     (typep (first-form trees) 'incomplete-form-mixin))
+	 (cons n (compute-path-in-tree (first-form trees) offset)))
+	(t (compute-path-in-trees (rest-forms trees) (1+ n) offset))))
 
 (defun compute-path-in-tree (tree offset)
   (if (null (children tree))
