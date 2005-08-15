@@ -1640,6 +1640,9 @@ If *with-scrollbars nil, omit the scroller."
 (define-named-command com-accept-lisp-string ()
   (display-message (format nil "~s" (accept 'lisp-string))))
 
+(define-named-command com-toggle-visible-mark ()
+  (setf (mark-visible-p (current-window)) (not (mark-visible-p (current-window)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Dead-escape command tables

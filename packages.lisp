@@ -141,6 +141,8 @@
   (:export #:climacs-buffer #:needs-saving #:filepath
 	   #:climacs-pane #:point #:mark
 	   #:redisplay-pane #:full-redisplay
+	   #:display-cursor
+	   #:display-mark
 	   #:page-down #:page-up
 	   #:top #:bot
            #:tab-space-count #:space-width #:tab-width
@@ -151,6 +153,7 @@
            #:isearch-mode #:isearch-states #:isearch-previous-string
            #:query-replace-state #:string1 #:string2
            #:query-replace-mode
+	   #:mark-visible-p
 	   #:with-undo
 	   #:url))
 

@@ -231,6 +231,7 @@
    (isearch-previous-string :initform nil :accessor isearch-previous-string)
    (query-replace-mode :initform nil :accessor query-replace-mode)
    (query-replace-state :initform nil :accessor query-replace-state)
+   (mark-visible-p :initform nil :accessor mark-visible-p)
    (full-redisplay-p :initform nil :accessor full-redisplay-p)
    (cache :initform (let ((cache (make-instance 'standard-flexichain)))
 		      (insert* cache 0 nil)
@@ -460,37 +461,31 @@
 	 (beginning-of-line (point pane))
 	 (empty-cache cache)))))
 
-(defun display-cache (pane cursor-ink)
-  (let* ((medium (sheet-medium pane))
-	 (style (medium-text-style medium))
-	 (height (text-style-height style medium)))
-    (with-slots (top bot scan cache cursor-x cursor-y) pane
-       (loop with start-offset = (offset top)
-	     for id from 0 below (nb-elements cache)
-	     do (setf scan start-offset)
-		(updating-output
-		    (pane :unique-id (element* cache id)
-			  :cache-value (if (<= start-offset
-					       (offset (point pane))
-					       (+ start-offset (length (element* cache id))))
-					   (cons nil nil)
-					   (element* cache id))
-			  :cache-test #'eq)
-		  (display-line pane (element* cache id) start-offset
-				(syntax (buffer pane)) (stream-default-view pane)))
-		(incf start-offset (1+ (length (element* cache id)))))
-       (when (mark= scan (point pane))
-	 (multiple-value-bind (x y) (stream-cursor-position pane)
-	   (setf cursor-x x
-		 cursor-y y)))
-       (updating-output (pane :unique-id -1)
-	 (draw-rectangle* pane
-			  (1- cursor-x) (- cursor-y (* 0.2 height))
-			  (+ cursor-x 2) (+ cursor-y (* 0.8 height))
-			  :ink cursor-ink)))))  
+(defun display-cache (pane)
+  (with-slots (top bot scan cache cursor-x cursor-y) pane
+     (loop with start-offset = (offset top)
+	   for id from 0 below (nb-elements cache)
+	   do (setf scan start-offset)
+	      (updating-output
+		  (pane :unique-id (element* cache id)
+			:cache-value (if (<= start-offset
+					     (offset (point pane))
+					     (+ start-offset (length (element* cache id))))
+					 (cons nil nil)
+					 (element* cache id))
+			:cache-test #'eq)
+		(display-line pane (element* cache id) start-offset
+			      (syntax (buffer pane)) (stream-default-view pane)))
+	      (incf start-offset (1+ (length (element* cache id)))))
+     (when (mark= scan (point pane))
+       (multiple-value-bind (x y) (stream-cursor-position pane)
+	 (setf cursor-x x
+	       cursor-y y)))))  
 
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax basic-syntax) current-p)
-  (display-cache pane (if current-p +red+ +blue+)))
+  (display-cache pane)
+  (when (mark-visible-p pane) (display-mark pane syntax))
+  (display-cursor pane syntax current-p))
 
 (defgeneric redisplay-pane (pane current-p))
 
@@ -508,3 +503,47 @@
 
 (defmethod full-redisplay ((pane climacs-pane))
   (setf (full-redisplay-p pane) t))
+
+(defgeneric display-cursor (pane syntax current-p))
+
+(defmethod display-cursor ((pane climacs-pane) (syntax basic-syntax) current-p)
+  (with-slots (top) pane
+    (let* ((cursor-line (number-of-lines-in-region top (point pane)))
+	   (style (medium-text-style pane))
+	   (ascent (text-style-ascent style pane))
+	   (descent (text-style-descent style pane))
+	   (height (+ ascent descent))
+	   (cursor-y (+ (* cursor-line (+ height (stream-vertical-spacing pane)))))
+	   (cursor-column 
+	    (buffer-display-column
+	     (buffer (point pane)) (offset (point pane))
+	     (round (tab-width pane) (space-width pane))))
+	   (cursor-x (* cursor-column (text-style-width (medium-text-style pane) pane))))
+      (updating-output (pane :unique-id -1)
+	(draw-rectangle* pane
+			 (1- cursor-x) cursor-y
+			 (+ cursor-x 2) (+ cursor-y ascent descent)
+			 :ink (if current-p +red+ +blue+))))))
+
+(defgeneric display-mark (pane syntax))
+
+(defmethod display-mark ((pane climacs-pane) (syntax basic-syntax))
+  (with-slots (top bot) pane
+     (let ((mark (mark pane)))
+       (when (< (offset top) (offset mark) (offset bot))
+	 (let* ((mark-line (number-of-lines-in-region top mark))
+		(style (medium-text-style pane))
+		(ascent (text-style-ascent style pane))
+		(descent (text-style-descent style pane))
+		(height (+ ascent descent))
+		(mark-y (+ (* mark-line (+ height (stream-vertical-spacing pane)))))
+		(mark-column 
+		 (buffer-display-column
+		  (buffer mark) (offset mark)
+		  (round (tab-width pane) (space-width pane))))
+		(mark-x (* mark-column (text-style-width (medium-text-style pane) pane))))
+	   (updating-output (pane :unique-id -2)
+	     (draw-rectangle* pane
+			      (1- mark-x) mark-y
+			      (+ mark-x 2) (+ mark-y ascent descent)
+			      :ink +green+)))))))

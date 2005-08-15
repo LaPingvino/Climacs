@@ -108,23 +108,6 @@
 		      pane (- tab-width (mod x tab-width)) 0))))
 	 (incf start))))		    
 
-
-(defun display-cursor (pane current-p)
-  (with-slots (top) pane
-    (let* ((cursor-line (number-of-lines-in-region top (point pane)))
-	   (height (text-style-height (medium-text-style pane) pane))
-	   (cursor-y (+ (* cursor-line (+ height (stream-vertical-spacing pane)))))
-	   (cursor-column 
-	    (buffer-display-column
-	     (buffer (point pane)) (offset (point pane))
-	     (round (tab-width pane) (space-width pane))))
-	   (cursor-x (* cursor-column (text-style-width (medium-text-style pane) pane))))
-      (updating-output (pane :unique-id -1)
-	(draw-rectangle* pane
-			 (1- cursor-x) (- cursor-y (* 0.2 height))
-			 (+ cursor-x 2) (+ cursor-y (* 0.8 height))
-			 :ink (if current-p +red+ +blue+))))))
-
 (defmethod display-line (pane mark)
   (setf mark (clone-mark mark))
   (let ((saved-offset nil)
@@ -202,7 +185,8 @@
 					     :cache-value line
 					     :cache-test #'eq)
 			(display-line pane (start-mark (element* lines i))))))))))
-  (display-cursor pane current-p))
+  (when (mark-visible-p pane) (display-mark pane syntax))
+  (display-cursor pane syntax current-p))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

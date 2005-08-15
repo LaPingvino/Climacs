@@ -1374,23 +1374,8 @@ stripping leading comments."
   (let ((*current-faces* *standard-faces*))
     (with-slots (stack-top) syntax
        (display-parse-tree stack-top syntax pane)))
-  (with-slots (top) pane
-    (let* ((cursor-line (number-of-lines-in-region top (point pane)))
-	   (style (medium-text-style pane))
-	   (ascent (text-style-ascent style pane))
-	   (descent (text-style-descent style pane))
-	   (height (+ ascent descent))
-	   (cursor-y (+ (* cursor-line (+ height (stream-vertical-spacing pane)))))
-	   (cursor-column 
-	    (buffer-display-column
-	     (buffer (point pane)) (offset (point pane))
-	     (round (tab-width pane) (space-width pane))))
-	   (cursor-x (* cursor-column (text-style-width (medium-text-style pane) pane))))
-      (updating-output (pane :unique-id -1)
-	(draw-rectangle* pane
-			 (1- cursor-x) cursor-y
-			 (+ cursor-x 2) (+ cursor-y ascent descent)
-			 :ink (if current-p +red+ +blue+))))))
+  (when (mark-visible-p pane) (display-mark pane syntax))
+  (display-cursor pane syntax current-p))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
