@@ -189,6 +189,9 @@
   (setf (needs-saving (buffer (current-window))) nil))
 
 (define-named-command com-set-fill-column ((column 'integer :prompt "Column Number:"))
+  (set-fill-column column))
+
+(defun set-fill-column (column)
   (if (> column 1)
       (setf (auto-fill-column (current-window)) column)
       (progn (beep) (display-message "Set Fill Column requires an explicit argument."))))
@@ -279,15 +282,17 @@
   (delete-range current-point (- (offset item-mark) current-offset))))
 
 (define-named-command com-transpose-objects ()
-  (let* ((point (point (current-window))))
-    (unless (beginning-of-buffer-p point)
-      (when (end-of-line-p point)
-       (backward-object point))
-       (let ((object (object-after point)))
-        (delete-range point)
-       (backward-object point)
-       (insert-object point object)
-       (forward-object point)))))
+  (transpose-objects (point (current-window))))
+
+(defun transpose-objects (mark)
+  (unless (beginning-of-buffer-p mark)
+      (when (end-of-line-p mark)
+       (backward-object mark))
+       (let ((object (object-after mark)))
+        (delete-range mark)
+       (backward-object mark)
+       (insert-object mark object)
+       (forward-object mark))))
 
 (define-named-command com-backward-object ((count 'integer :prompt "Number of Objects"))
   (backward-object (point (current-window)) count))
@@ -296,51 +301,55 @@
   (forward-object (point (current-window)) count))
 
 (define-named-command com-transpose-words ()
-  (let* ((point (point (current-window))))
-    (let (bw1 bw2 ew1 ew2)
-      (backward-word point)
-      (setf bw1 (offset point))
-      (forward-word point)
-      (setf ew1 (offset point))
-      (forward-word point)
-      (when (= (offset point) ew1)
-        ;; this is emacs' message in the minibuffer
-        (error "Don't have two things to transpose"))
-      (setf ew2 (offset point))
-      (backward-word point)
-      (setf bw2 (offset point))
-      (let ((w2 (buffer-sequence (buffer point) bw2 ew2))
-            (w1 (buffer-sequence (buffer point) bw1 ew1)))
-        (delete-word point)
-        (insert-sequence point w1)
-        (backward-word point)
-        (backward-word point)
-        (delete-word point)
-        (insert-sequence point w2)
-        (forward-word point)))))
+  (transpose-words (point (current-window))))
+
+(defun transpose-words (mark)
+  (let (bw1 bw2 ew1 ew2)
+    (backward-word mark)
+    (setf bw1 (offset mark))
+    (forward-word mark)
+    (setf ew1 (offset mark))
+    (forward-word mark)
+    (when (= (offset mark) ew1)
+      ;; this is emacs' message in the minibuffer
+      (error "Don't have two things to transpose"))
+    (setf ew2 (offset mark))
+    (backward-word mark)
+    (setf bw2 (offset mark))
+    (let ((w2 (buffer-sequence (buffer mark) bw2 ew2))
+	  (w1 (buffer-sequence (buffer mark) bw1 ew1)))
+      (delete-word mark)
+      (insert-sequence mark w1)
+      (backward-word mark)
+      (backward-word mark)
+      (delete-word mark)
+      (insert-sequence mark w2)
+      (forward-word mark))))
 
 (define-named-command com-transpose-lines ()
-  (let ((point (point (current-window))))
-    (beginning-of-line point)
-    (unless (beginning-of-buffer-p point)
-      (previous-line point))
-    (let* ((bol (offset point))
-           (eol (progn (end-of-line point)
-                       (offset point)))
-           (line (buffer-sequence (buffer point) bol eol)))
-      (delete-region bol point)
-      ;; Remove newline at end of line as well.
-      (unless (end-of-buffer-p point)
-        (delete-range point))
-      ;; If the current line is at the end of the buffer, we want to
-      ;; be able to insert past it, so we need to get an extra line
-      ;; at the end.
-      (end-of-line point)
-      (when (end-of-buffer-p point)
-        (insert-object point #\Newline))
-      (next-line point 0)
-      (insert-sequence point line)
-      (insert-object point #\Newline))))
+  (transpose-lines (point (current-window))))
+
+(defun transpose-lines (mark)
+  (beginning-of-line mark)
+  (unless (beginning-of-buffer-p mark)
+    (previous-line mark))
+  (let* ((bol (offset mark))
+	 (eol (progn (end-of-line mark)
+		     (offset mark)))
+	 (line (buffer-sequence (buffer mark) bol eol)))
+    (delete-region bol mark)
+    ;; Remove newline at end of line as well.
+    (unless (end-of-buffer-p mark)
+      (delete-range mark))
+    ;; If the current line is at the end of the buffer, we want to
+    ;; be able to insert past it, so we need to get an extra line
+    ;; at the end.
+    (end-of-line mark)
+    (when (end-of-buffer-p mark)
+      (insert-object mark #\Newline))
+    (next-line mark 0)
+    (insert-sequence mark line)
+    (insert-object mark #\Newline)))
 
 (define-named-command com-previous-line ((numarg 'integer :prompt "How many lines?"))
   (let* ((win (current-window))
@@ -365,36 +374,40 @@
 (define-named-command com-open-line ((numarg 'integer :prompt "How many lines?"))
   (open-line (point (current-window)) numarg))
 
+(defun kill-line (mark &optional (count 1) (whole-lines-p nil) (concatenate-p nil))
+  (let ((start (offset mark)))
+    (cond ((= 0 count)
+	   (beginning-of-line mark))
+	  ((< count 0)
+	   (loop repeat (- count)
+		 until (beginning-of-buffer-p mark)
+		 do (beginning-of-line mark)
+		 until (beginning-of-buffer-p mark)
+		 do (backward-object mark)))
+	  ((or whole-lines-p (> count 1))
+	   (loop repeat count
+		 until (end-of-buffer-p mark)
+		 do (end-of-line mark)
+		 until (end-of-buffer-p mark)
+		 do (forward-object mark)))
+	  (t
+	   (cond ((end-of-buffer-p mark) nil)
+		 ((end-of-line-p mark)(forward-object mark))
+		 (t (end-of-line mark)))))
+    (unless (mark= mark start)
+      (if concatenate-p
+	  (kill-ring-concatenating-push *kill-ring*
+					(region-to-sequence start mark))
+	  (kill-ring-standard-push *kill-ring*
+				   (region-to-sequence start mark)))
+      (delete-region start mark))))
+
 (define-named-command com-kill-line ((numarg 'integer :prompt "Kill how many lines?")
 				     (numargp 'boolean :prompt "Kill entire lines?"))
   (let* ((pane (current-window))
 	 (point (point pane))
-         (mark (offset point)))
-    (cond ((= 0 numarg)
-	   (beginning-of-line point))
-	  ((< numarg 0)
-	   (loop repeat (- numarg)
-		 until (beginning-of-buffer-p point)
-		 do (beginning-of-line point)
-		 until (beginning-of-buffer-p point)
-		 do (backward-object point)))
-	  ((or numargp (> numarg 1))
-	   (loop repeat numarg
-		 until (end-of-buffer-p point)
-		 do (end-of-line point)
-		 until (end-of-buffer-p point)
-		 do (forward-object point)))
-	  (t
-	   (cond ((end-of-buffer-p point) nil)
-		 ((end-of-line-p point)(forward-object point))
-		 (t (end-of-line point)))))
-    (unless (mark= point mark)
-      (if (eq (previous-command pane) 'com-kill-line)
-	  (kill-ring-concatenating-push *kill-ring*
-					(region-to-sequence mark point))
-	  (kill-ring-standard-push *kill-ring*
-				   (region-to-sequence mark point)))
-      (delete-region mark point))))	   
+         (concatenate-p (eq (previous-command pane) 'com-kill-line)))
+    (kill-line point numarg numargp concatenate-p)))	   
 
 (define-named-command com-forward-word ((count 'integer :prompt "Number of words"))
   (if (plusp count)
@@ -407,35 +420,37 @@
 (define-named-command com-delete-word ((count 'integer :prompt "Number of words"))
   (delete-word (point (current-window)) count))
 
+(defun kill-word (mark &optional (count 1) (concatenate-p nil))
+  (let ((start (offset mark)))
+    (if (plusp count)
+	(loop repeat count
+	      until (end-of-buffer-p mark)
+	      do (forward-word mark))
+	(loop repeat (- count)
+	      until (beginning-of-buffer-p mark)
+	      do (backward-word mark)))
+    (unless (mark= mark start)
+      (if concatenate-p
+	  (if (plusp count)
+	      (kill-ring-concatenating-push *kill-ring*
+					(region-to-sequence start mark))
+	      (kill-ring-reverse-concatenating-push *kill-ring*
+						    (region-to-sequence start mark)))
+	  (kill-ring-standard-push *kill-ring*
+				   (region-to-sequence start mark)))
+      (delete-region start mark))))
+
 (define-named-command com-kill-word ((count 'integer :prompt "Number of words"))
   (let* ((pane (current-window))
 	 (point (point pane))
-	 (mark (offset point)))
-    (loop repeat count
-	  until (end-of-buffer-p point)
-	  do (forward-word point))
-    (unless (mark= point mark)
-      (if (eq (previous-command pane) 'com-kill-word)
-	  (kill-ring-concatenating-push *kill-ring*
-					(region-to-sequence mark point))
-	  (kill-ring-standard-push *kill-ring*
-				   (region-to-sequence mark point)))
-      (delete-region mark point))))
+	 (concatenate-p (eq (previous-command pane) 'com-kill-word)))
+    (kill-word point count concatenate-p)))
 
 (define-named-command com-backward-kill-word ((count 'integer :prompt "Number of words"))
   (let* ((pane (current-window))
 	 (point (point pane))
-	 (mark (offset point)))
-    (loop repeat count
-	  until (end-of-buffer-p point)
-	  do (backward-word point))
-    (unless (mark= point mark)
-      (if (eq (previous-command pane) 'com-backward-kill-word)
-	  (kill-ring-reverse-concatenating-push *kill-ring*
-					(region-to-sequence mark point))
-	  (kill-ring-standard-push *kill-ring*
-				   (region-to-sequence mark point)))
-      (delete-region mark point))))
+	 (concatenate-p (eq (previous-command pane) 'com-backward-kill-word)))
+    (kill-word point (- count) concatenate-p)))
 
 (define-named-command com-mark-word ((count 'integer :prompt "Number of words"))
   (let* ((pane (current-window))
@@ -546,18 +561,18 @@
 	   (full-so-far (concatenate 'string directory-prefix so-far))
 	   (pathnames
 	    (loop with length = (length full-so-far)
-	       and wildcard = (concatenate 'string (remove-trail so-far) "*.*")
-	       for path in
-		 #+(or sbcl cmu lispworks) (directory wildcard)
-		 #+openmcl (directory wildcard :directories t)
-		 #+allegro (directory wildcard :directories-are-files nil)
-		 #+cormanlisp (nconc (directory wildcard)
+		  and wildcard = (concatenate 'string (remove-trail so-far) "*.*")
+		  for path in
+		  #+(or sbcl cmu lispworks) (directory wildcard)
+		  #+openmcl (directory wildcard :directories t)
+		  #+allegro (directory wildcard :directories-are-files nil)
+		  #+cormanlisp (nconc (directory wildcard)
 				      (cl::directory-subdirs dirname))
-		 #-(or sbcl cmu lispworks openmcl allegro cormanlisp)
-		 (directory wildcard)
-	       when (let ((mismatch (mismatch (namestring path) full-so-far)))
-		      (or (null mismatch) (= mismatch length)))
-	       collect path))
+		  #-(or sbcl cmu lispworks openmcl allegro cormanlisp)
+		    (directory wildcard)
+		  when (let ((mismatch (mismatch (namestring path) full-so-far)))
+			 (or (null mismatch) (= mismatch length)))
+		    collect path))
 	   (strings (mapcar #'namestring pathnames))
 	   (first-string (car strings))
 	   (length-common-prefix nil)
@@ -607,9 +622,13 @@
       (complete-input stream
 		      #'filename-completer
 		      :allow-any-input t)
-    (declare (ignore success))
-    (or pathname string)))
+;    (declare (ignore success))
+;    (or pathname string)))
+    (if success
+	(values pathname 'pathname)
+	(values string 'string))))
 
+    
 (defun filepath-filename (pathname)
   (if (null (pathname-type pathname))
       (pathname-name pathname)
@@ -622,33 +641,44 @@
 		 (pathname-name filepath))
 	     climacs-syntax::*syntaxes*
 	     :test (lambda (x y)
-		     (member x y :test #'string=))
+		     (member x y :test #'string-equal))
 	     :key #'climacs-syntax::syntax-description-pathname-types))
       'basic-syntax))
 
+;; Adapted from cl-fad/PCL
+(defun directory-pathname-p (pathspec)
+  "Returns NIL if PATHSPEC does not designate a directory."
+  (let ((name (pathname-name pathspec))
+	(type (pathname-type pathspec)))
+    (and (or (null name) (eql name :unspecific))
+	 (or (null type) (eql type :unspecific)))))
+
 (define-named-command com-find-file ()
   (let ((filepath (accept 'completable-pathname
-			  :prompt "Find File"))
-	(buffer (make-instance 'climacs-buffer))
-	(pane (current-window)))
-    (setf (offset (point (buffer pane))) (offset (point pane)))
-    (push buffer (buffers *application-frame*))
-    (setf (buffer (current-window)) buffer)
-    (setf (syntax buffer)
-	  (make-instance
-	   (syntax-class-name-for-filepath filepath)
-	   :buffer (buffer (point pane))))
-    ;; Don't want to create the file if it doesn't exist.
-    (when (probe-file filepath) 
-      (with-open-file (stream filepath :direction :input)
-	(input-from-stream stream buffer 0)))
-    (setf (filepath buffer) filepath
-	  (name buffer) (filepath-filename filepath)
-	  (needs-saving buffer) nil)
-    (beginning-of-buffer (point pane))
-    ;; this one is needed so that the buffer modification protocol
-    ;; resets the low and high marks after redisplay
-    (redisplay-frame-panes *application-frame*)))
+			  :prompt "Find File")))
+    (cond ((directory-pathname-p filepath)
+	   (display-message "~A is a directory name." filepath)
+	   (beep))
+	  (t
+	   (let ((buffer (make-instance 'climacs-buffer))
+		 (pane (current-window)))
+	     (setf (offset (point (buffer pane))) (offset (point pane)))
+	     (push buffer (buffers *application-frame*))
+	     (setf (buffer (current-window)) buffer)
+	     (setf (syntax buffer)
+		   (make-instance (syntax-class-name-for-filepath filepath)
+		      :buffer (buffer (point pane))))
+	     ;; Don't want to create the file if it doesn't exist.
+	     (when (probe-file filepath)
+	       (with-open-file (stream filepath :direction :input)
+		 (input-from-stream stream buffer 0)))
+	     (setf (filepath buffer) filepath
+		   (name buffer) (filepath-filename filepath)
+		   (needs-saving buffer) nil)
+	     (beginning-of-buffer (point pane))
+	     ;; this one is needed so that the buffer modification protocol
+	     ;; resets the low and high marks after redisplay
+	     (redisplay-frame-panes *application-frame*))))))
 
 (define-named-command com-insert-file ()
   (let ((filename (accept 'completable-pathname
@@ -668,12 +698,17 @@
   (let ((filepath (or (filepath buffer)
 		      (accept 'completable-pathname
 			      :prompt "Save Buffer to File"))))
-    (with-open-file (stream filepath :direction :output :if-exists :supersede)
-      (output-to-stream stream buffer 0 (size buffer)))
-    (setf (filepath buffer) filepath
-	  (name buffer) (filepath-filename filepath))
-    (display-message "Wrote: ~a" (filepath buffer))
-    (setf (needs-saving buffer) nil)))
+    (cond
+      ((directory-pathname-p filepath)
+       (display-message "~A is a directory." filepath)
+       (beep))
+      (t
+       (with-open-file (stream filepath :direction :output :if-exists :supersede)
+	 (output-to-stream stream buffer 0 (size buffer)))
+       (setf (filepath buffer) filepath
+	     (name buffer) (filepath-filename filepath))
+       (display-message "Wrote: ~a" (filepath buffer))
+       (setf (needs-saving buffer) nil)))))
 
 (define-named-command com-save-buffer ()
   (let ((buffer (buffer (current-window))))
@@ -704,12 +739,16 @@
   (let ((filepath (accept 'completable-pathname
 			  :prompt "Write Buffer to File"))
 	(buffer (buffer (current-window))))
-    (with-open-file (stream filepath :direction :output :if-exists :supersede)
-      (output-to-stream stream buffer 0 (size buffer)))
-    (setf (filepath buffer) filepath
-	  (name buffer) (filepath-filename filepath)
-	  (needs-saving buffer) nil)
-    (display-message "Wrote: ~a" (filepath buffer))))
+    (cond
+      ((directory-pathname-p filepath)
+       (display-message "~A is a directory name." filepath))
+      (t
+       (with-open-file (stream filepath :direction :output :if-exists :supersede)
+	 (output-to-stream stream buffer 0 (size buffer)))
+       (setf (filepath buffer) filepath
+	     (name buffer) (filepath-filename filepath)
+	     (needs-saving buffer) nil)
+       (display-message "Wrote: ~a" (filepath buffer))))))
 
 (define-presentation-method accept
     ((type buffer) stream (view textual-view) &key)
@@ -723,41 +762,82 @@
 		      :partial-completers '(#\Space)
 		      :allow-any-input t)
     (declare (ignore success))
-    (or	object
-	(car (push (make-instance 'climacs-buffer :name string)
-		   (buffers *application-frame*))))))
+    (or	object string)))
 
-(define-named-command com-switch-to-buffer ()
-  (let ((buffer (accept 'buffer
-			:prompt "Switch to buffer"))
-	(pane (current-window)))
+(defgeneric switch-to-buffer (buffer))
+
+(defmethod switch-to-buffer ((buffer climacs-buffer))
+  (let* ((buffers (buffers *application-frame*))
+	 (position (position buffer buffers))
+	 (pane (current-window)))
+    (if position
+	(rotatef (car buffers) (nth position buffers))
+	(push buffer buffers))
     (setf (offset (point (buffer pane))) (offset (point pane)))
     (setf (buffer pane) buffer)
     (full-redisplay pane)))
 
-(define-named-command com-kill-buffer ()
+(defmethod switch-to-buffer ((name string))
+  (let ((buffer (find name (buffers *application-frame*)
+		      :key #'name :test #'string=)))
+    (switch-to-buffer (or buffer
+			  (make-instance 'climacs-buffer :name name)))))
+
+;;placeholder
+(defmethod switch-to-buffer ((symbol (eql 'nil)))
+  (switch-to-buffer (second (buffers *application-frame*))))
+
+(define-named-command com-switch-to-buffer ()
+  (let ((buffer (accept 'buffer
+			:prompt "Switch to buffer")))
+    (switch-to-buffer buffer)))
+
+(defgeneric kill-buffer (buffer))
+
+(defmethod kill-buffer ((buffer climacs-buffer))
   (with-slots (buffers) *application-frame*
-    (let ((buffer (buffer (current-window))))
-      (when (and (needs-saving buffer)
-		 (handler-case (accept 'boolean :prompt "Save buffer first?")
-		   (error () (progn (beep)
-				    (display-message "Invalid answer")
-				    (return-from com-kill-buffer nil)))))
-        (com-save-buffer))
-      (setf buffers (remove buffer buffers))
-      ;; Always need one buffer.
-      (when (null buffers)
-	(push (make-instance 'climacs-buffer :name "*scratch*")
-	      buffers))
-      (setf (buffer (current-window)) (car buffers)))))
+     (when (and (needs-saving buffer)
+		(handler-case (accept 'boolean :prompt "Save buffer first?")
+		  (error () (progn (beep)
+				   (display-message "Invalid answer")
+				   (return-from kill-buffer nil)))))
+       (com-save-buffer))
+     (setf buffers (remove buffer buffers))
+     ;; Always need one buffer.
+     (when (null buffers)
+       (push (make-instance 'climacs-buffer :name "*scratch*")
+	     buffers))
+     (setf (buffer (current-window)) (car buffers))))
+
+(defmethod kill-buffer ((name string))
+  (let ((buffer (find name (buffers *application-frame*)
+		      :key #'name :test #'string=)))
+    (when buffer (kill-buffer buffer))))
+
+(defmethod kill-buffer ((symbol (eql 'nil)))
+  (kill-buffer (buffer (current-window))))
+
+(define-named-command com-kill-buffer ()
+  (kill-buffer (buffer (current-window))))
 
 (define-named-command com-full-redisplay ()
   (full-redisplay (current-window)))
 
+(defun load-file (file-name)
+  (cond ((directory-pathname-p file-name)
+	 (display-message "~A is a directory name." file-name)
+	 (beep))
+	(t
+	 (cond ((probe-file file-name)
+		(load file-name))
+	       (t
+		(display-message "No such file: ~A" file-name)
+		(beep))))))
+
 (define-named-command com-load-file ()
   (let ((filepath (accept 'completable-pathname
 			  :prompt "Load File")))
-    (load filepath)))
+    (load-file filepath)))
 
 (define-named-command com-beginning-of-buffer ()
   (beginning-of-buffer (point (current-window))))
@@ -777,65 +857,76 @@
   (beginning-of-buffer (point (current-window)))
   (end-of-buffer (mark (current-window))))
 
+(defun back-to-indentation (mark)
+  (beginning-of-line mark)
+  (loop until (end-of-line-p mark)
+	while (whitespacep (object-after mark))
+	do (forward-object mark)))
+
 (define-named-command com-back-to-indentation ()
-  (let ((point (point (current-window))))
-    (beginning-of-line point)
-    (loop until (end-of-line-p point)
-	  while (whitespacep (object-after point))
-	  do (incf (offset point)))))
+  (back-to-indentation (point (current-window))))
+
+(defun delete-horizontal-space (mark &optional (backward-only-p nil))
+  (let ((mark2 (clone-mark mark)))
+    (loop until (beginning-of-line-p mark)
+	  while (whitespacep (object-before mark))
+	  do (backward-object mark))
+    (unless backward-only-p
+      (loop until (end-of-line-p mark2)
+	    while (whitespacep (object-after mark2))
+	    do (forward-object mark2)))
+    (delete-region mark mark2)))
 
 (define-named-command com-delete-horizontal-space ((backward-only-p
 						    'boolean :prompt "Delete backwards only?"))
-  (let* ((point (point (current-window)))
-	 (mark (clone-mark point)))
-    (loop until (beginning-of-line-p point)
-	  while (whitespacep (object-before point))
-	  do (backward-object point))
-    (unless backward-only-p
-      (loop until (end-of-line-p mark)
-	    while (whitespacep (object-after mark))
-	    do (forward-object mark)))
-    (delete-region point mark)))
+  (delete-horizontal-space (point (current-window)) backward-only-p))
+
+(defun just-one-space (mark count)
+  (let (offset)
+    (loop until (beginning-of-line-p mark)
+	  while (whitespacep (object-before mark))
+	  do (backward-object mark))
+    (loop until (end-of-line-p mark)
+	  while (whitespacep (object-after mark))
+	  repeat count do (forward-object mark)
+	  finally (setf offset (offset mark)))
+    (loop until (end-of-line-p mark)
+	  while (whitespacep (object-after mark))
+	  do (forward-object mark))
+    (delete-region offset mark)))
 
 (define-named-command com-just-one-space ((count 'integer :prompt "Number of spaces"))
-  (let ((point (point (current-window)))
-	offset)
-    (loop until (beginning-of-line-p point)
-	  while (whitespacep (object-before point))
-	  do (backward-object point))
-    (loop until (end-of-line-p point)
-	  while (whitespacep (object-after point))
-	  repeat count do (forward-object point)
-	  finally (setf offset (offset point)))
-    (loop until (end-of-line-p point)
-	  while (whitespacep (object-after point))
-	  do (forward-object point))
-    (delete-region offset point)))
+  (just-one-space (point (current-window)) count))
+
+(defun goto-position (mark pos)
+  (setf (offset mark) pos))
 
 (define-named-command com-goto-position ()
-  (setf (offset (point (current-window)))
-	(handler-case (accept 'integer :prompt "Goto Position")
-	  (error () (progn (beep)
-			   (display-message "Not a valid position")
-			   (return-from com-goto-position nil))))))  
+  (goto-position
+   (point (current-window))
+   (handler-case (accept 'integer :prompt "Goto Position")
+     (error () (progn (beep)
+		      (display-message "Not a valid position")
+		      (return-from com-goto-position nil))))))  
+
+(defun goto-line (mark line-number)
+  (loop with m = (clone-mark (low-mark (buffer mark))
+		       :right)
+	initially (beginning-of-buffer m)
+	do (end-of-line m)
+	until (end-of-buffer-p m)
+	repeat (1- line-number)
+	do (incf (offset m))
+	   (end-of-line m)
+	finally (beginning-of-line m)
+		(setf (offset mark) (offset m))))
 
 (define-named-command com-goto-line ()
-  (loop with mark = (let ((m (clone-mark
-			      (low-mark (buffer (current-window)))
-			      :right)))
-		      (beginning-of-buffer m)
-		      m)
-	do (end-of-line mark)
-	until (end-of-buffer-p mark)
-	repeat (1- (handler-case (accept 'integer :prompt "Goto Line")
+  (goto-line (point (current-window))
+	     (handler-case (accept 'integer :prompt "Goto Line")
 		 (error () (progn (beep)
 				  (display-message "Not a valid line number")
-				  (return-from com-goto-line nil)))))
-	do (incf (offset mark))
-	   (end-of-line mark)
-	finally (beginning-of-line mark)
-		(setf (offset (point (current-window)))
-		      (offset mark))))
+				  (return-from com-goto-line nil))))))
 
 (define-named-command com-browse-url ()
   (let ((url (accept 'url :prompt "Browse URL")))
@@ -851,15 +942,28 @@
     (psetf (offset (mark pane)) (offset (point pane))
 	   (offset (point pane)) (offset (mark pane)))))
 
+(defgeneric set-syntax (buffer syntax))
+
+(defmethod set-syntax ((buffer climacs-buffer) (syntax syntax))
+  (setf (syntax buffer) syntax))
+
+;;FIXME - what should this specialise on?
+(defmethod set-syntax ((buffer climacs-buffer) syntax)
+  (set-syntax buffer (make-instance syntax :buffer buffer)))
+
+(defmethod set-syntax ((buffer climacs-buffer) (syntax string))
+  (let ((syntax-class (syntax-from-name syntax)))
+    (cond (syntax-class
+	   (set-syntax buffer (make-instance syntax-class
+				 :buffer buffer)))
+	  (t
+	   (beep)
+	   (display-message "No such syntax: ~A." syntax)))))
+
 (define-named-command com-set-syntax ()
   (let* ((pane (current-window))
 	 (buffer (buffer pane)))
-    (setf (syntax buffer)
-	  (make-instance (or (accept 'syntax :prompt "Set Syntax")
-			     (progn (beep)
-				    (display-message "No such syntax")
-				    (return-from com-set-syntax nil)))
-	     :buffer (buffer (point pane))))))
+    (set-syntax buffer (accept 'syntax :prompt "Set Syntax"))))		
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -897,7 +1001,7 @@
 info pane as its second child.  The scroller pane contains a viewport
 which contains an extended pane.  Return the vbox and the extended pane
 as two values.
-If *with-scrollbars nil, omit the scroller."
+If *with-scrollbars* nil, omit the scroller."
 
   (let* ((extended-pane
 	  (make-pane 'extended-pane
@@ -918,11 +1022,11 @@ If *with-scrollbars nil, omit the scroller."
 		       :width 900))))
     (values vbox extended-pane)))
 
-(define-named-command com-split-window-vertically ()
+(defun split-window-vertically (&optional (pane (current-window)))
   (with-look-and-feel-realization
       ((frame-manager *application-frame*) *application-frame*)
     (multiple-value-bind (vbox new-pane) (make-pane-constellation)
-      (let* ((current-window (current-window))
+      (let* ((current-window pane)
 	     (constellation-root (if *with-scrollbars*
 				     (parent3 current-window)
 				     (sheet-parent current-window))))
@@ -934,13 +1038,17 @@ If *with-scrollbars nil, omit the scroller."
 	(setf *standard-output* new-pane)
 	(replace-constellation constellation-root vbox t)
 	(full-redisplay current-window)
-	(full-redisplay new-pane)))))
+	(full-redisplay new-pane)
+	new-pane))))
 
-(define-named-command com-split-window-horizontally ()
+(define-named-command com-split-window-vertically ()
+  (split-window-vertically))
+
+(defun split-window-horizontally (&optional (pane (current-window)))
   (with-look-and-feel-realization
       ((frame-manager *application-frame*) *application-frame*)
     (multiple-value-bind (vbox new-pane) (make-pane-constellation)
-      (let* ((current-window (current-window))
+      (let* ((current-window pane)
 	     (constellation-root (if *with-scrollbars*
 				     (parent3 current-window)
 				     (sheet-parent current-window))))
@@ -952,20 +1060,30 @@ If *with-scrollbars nil, omit the scroller."
 	(setf *standard-output* new-pane)
 	(replace-constellation constellation-root vbox nil)
 	(full-redisplay current-window)
-	(full-redisplay new-pane)))))
+	(full-redisplay new-pane)
+	new-pane))))
 
-(define-named-command com-other-window ()
+(define-named-command com-split-window-horizontally ()
+  (split-window-horizontally))
+
+(defun other-window ()
   (setf (windows *application-frame*)
 	(append (cdr (windows *application-frame*))
 		(list (car (windows *application-frame*)))))
   (setf *standard-output* (car (windows *application-frame*))))
 
-(define-named-command com-single-window ()
+(define-named-command com-other-window ()
+  (other-window))
+
+(defun single-window ()
   (loop until (null (cdr (windows *application-frame*)))
 	do (rotatef (car (windows *application-frame*))
 		    (cadr (windows *application-frame*)))
 	   (com-delete-window))
   (setf *standard-output* (car (windows *application-frame*))))
+
+(define-named-command com-single-window ()
+  (single-window))
 
 (define-named-command com-scroll-other-window ()
   (let ((other-window (second (windows *application-frame*))))
@@ -977,11 +1095,11 @@ If *with-scrollbars nil, omit the scroller."
     (when other-window
       (page-up other-window))))
 
-(define-named-command com-delete-window ()
+(defun delete-window (&optional (window (current-window)))
   (unless (null (cdr (windows *application-frame*)))
     (let* ((constellation (if *with-scrollbars*
-			      (parent3 (current-window))
-			      (sheet-parent (current-window))))
+			      (parent3 window)
+			      (sheet-parent window)))
 	   (box (sheet-parent constellation))
 	   (box-children (sheet-children box))
 	   (other (if (eq constellation (first box-children))
@@ -992,7 +1110,8 @@ If *with-scrollbars nil, omit the scroller."
 	   (first (first children))
 	   (second (second children))
 	   (third (third children)))
-      (pop (windows *application-frame*))
+      (setf (windows *application-frame*)
+	    (remove window (windows *application-frame*)))
       (setf *standard-output* (car (windows *application-frame*)))
       (sheet-disown-child box other)
       (sheet-disown-child parent box)
@@ -1004,6 +1123,9 @@ If *with-scrollbars nil, omit the scroller."
 				 (if third
 				     (list first second other)
 				     (list first other)))))))
+
+(define-named-command com-delete-window ()
+  (delete-window))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
@@ -1019,7 +1141,7 @@ If *with-scrollbars nil, omit the scroller."
      *kill-ring* (region-to-sequence (mark pane) (point pane)))
     (delete-region (mark pane) (point pane))))
 
-;; Non destructively copies in buffer region to the kill ring
+;; Non destructively copies buffer region to the kill ring
 (define-named-command com-copy-region ()
   (let ((pane (current-window)))
     (kill-ring-standard-push *kill-ring* (region-to-sequence (point pane) (mark pane)))))
@@ -1048,6 +1170,8 @@ If *with-scrollbars nil, omit the scroller."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Incremental search
+
+(make-command-table 'isearch-climacs-table :errorp nil)
 
 (defun isearch-command-loop (pane forwardp)
   (let ((point (point pane)))
@@ -1092,15 +1216,15 @@ If *with-scrollbars nil, omit the scroller."
       (unless success
         (beep)))))
 
-(define-named-command com-isearch-mode-forward ()
+(define-named-command com-isearch-forward ()
   (display-message "Isearch: ")
   (isearch-command-loop (current-window) t))
 
-(define-named-command com-isearch-mode-backward ()
+(define-named-command com-isearch-backward ()
   (display-message "Isearch backward: ")
   (isearch-command-loop (current-window) nil))
 
-(define-named-command com-isearch-append-char ()
+(define-command (com-append-char :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
          (states (isearch-states pane))
          (string (concatenate 'string
@@ -1112,7 +1236,7 @@ If *with-scrollbars nil, omit the scroller."
       (incf (offset mark)))
     (isearch-from-mark pane mark string forwardp)))
 
-(define-named-command com-isearch-delete-char ()
+(define-command (com-delete-char :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window)))
     (cond ((null (second (isearch-states pane)))
 	   (display-message "Isearch: ")
@@ -1133,7 +1257,7 @@ If *with-scrollbars nil, omit the scroller."
 			      (search-forward-p state)
 			      (search-string state)))))))
 
-(define-named-command com-isearch-forward ()
+(define-command (com-forward :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
          (point (point pane))
          (states (isearch-states pane))
@@ -1143,7 +1267,7 @@ If *with-scrollbars nil, omit the scroller."
          (mark (clone-mark point)))
     (isearch-from-mark pane mark string t)))
 
-(define-named-command com-isearch-backward ()
+(define-command (com-backward :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
          (point (point pane))
          (states (isearch-states pane))
@@ -1153,12 +1277,26 @@ If *with-scrollbars nil, omit the scroller."
          (mark (clone-mark point)))
     (isearch-from-mark pane mark string nil)))
 
-(define-named-command com-isearch-exit ()
+(define-command (com-exit :name t :command-table isearch-climacs-table) ()
   (setf (isearch-mode (current-window)) nil))
+
+(defun isearch-set-key (gesture command)
+  (add-command-to-command-table command 'isearch-climacs-table
+                                :keystroke gesture :errorp nil))
+
+(loop for code from (char-code #\Space) to (char-code #\~)
+      do (isearch-set-key (code-char code) 'com-append-char))
+
+(isearch-set-key '(#\Newline) 'com-exit)
+(isearch-set-key '(#\Backspace) 'com-delete-char)
+(isearch-set-key '(#\s :control) 'com-forward)
+(isearch-set-key '(#\r :control) 'com-backward)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Query replace
+
+(make-command-table 'query-replace-climacs-table :errorp nil)
 
 (defun query-replace-find-next-match (mark string)
   (flet ((object-equal (x y)
@@ -1211,7 +1349,7 @@ If *with-scrollbars nil, omit the scroller."
 			   ((setf (query-replace-mode pane) nil))))
     (display-message "Replaced ~A occurrence~:P" occurrences)))
 
-(define-named-command com-query-replace-replace ()
+(define-command (com-replace :name t :command-table query-replace-climacs-table) ()
   (declare (special string1 string2 occurrences))
   (let* ((pane (current-window))
          (point (point pane))
@@ -1235,7 +1373,7 @@ If *with-scrollbars nil, omit the scroller."
 		       string1 string2)
 	(setf (query-replace-mode pane) nil))))
 
-(define-named-command com-query-replace-skip ()
+(define-command (com-skip :name t :command-table query-replace-climacs-table) ()
   (declare (special string1 string2))
   (let* ((pane (current-window))
          (point (point pane)))
@@ -1244,8 +1382,20 @@ If *with-scrollbars nil, omit the scroller."
 			 string1 string2)
 	(setf (query-replace-mode pane) nil))))
 
-(define-named-command com-query-replace-exit ()
+(define-command (com-exit :name t :command-table query-replace-climacs-table) ()
   (setf (query-replace-mode (current-window)) nil))
+
+(defun query-replace-set-key (gesture command)
+  (add-command-to-command-table command 'query-replace-climacs-table
+                                :keystroke gesture :errorp nil))
+
+(query-replace-set-key '(#\Newline) 'com-exit)
+(query-replace-set-key '(#\Space) 'com-replace)
+(query-replace-set-key '(#\Backspace) 'com-skip)
+(query-replace-set-key '(#\Rubout) 'com-skip)
+(query-replace-set-key '(#\q) 'com-exit)
+(query-replace-set-key '(#\y) 'com-replace)
+(query-replace-set-key '(#\n) 'com-skip)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -1301,7 +1451,8 @@ If *with-scrollbars nil, omit the scroller."
 						(region-to-sequence offset dabbrev-expansion-mark)
 						(setf (offset dabbrev-expansion-mark) offset))))
 		      (move))))))))
-	   
+
+
 (define-named-command com-backward-paragraph ((count 'integer :prompt "Number of paragraphs"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1448,11 +1599,12 @@ If *with-scrollbars nil, omit the scroller."
 		   (error () (progn (beep)
 				    (display-message "Empty string")
 				    (return-from com-eval-expression nil)))))
-	 (result (format nil "~a"
-			 (handler-case (eval (read-from-string string))
-			   (error (condition) (progn (beep)
-						     (display-message "~a" condition)
-						     (return-from com-eval-expression nil)))))))
+	 (values (multiple-value-list
+		  (handler-case (eval (read-from-string string))
+		    (error (condition) (progn (beep)
+					      (display-message "~a" condition)
+					      (return-from com-eval-expression nil))))))
+	 (result (format nil "~:[; No values~;~:*~{~S~^,~}~]" values)))
     (if insertp
 	(insert-sequence (point (current-window)) result)
 	(display-message result))))
@@ -1468,21 +1620,6 @@ If *with-scrollbars nil, omit the scroller."
 	 (mark (mark pane))
 	 (syntax (syntax (buffer pane))))
     (comment-region syntax point mark)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; For testing purposes
-
-(define-named-command com-reset-profile ()
-  #+sbcl (sb-profile:reset)
-  #-sbcl nil)
-
-(define-named-command com-report-profile ()
-  #+sbcl (sb-profile:report)
-  #-sbcl nil)
-
-(define-named-command com-recompile ()
-  (asdf:operate 'asdf:load-op :climacs))
 
 (define-named-command com-backward-expression ((count 'integer :prompt "Number of expressions"))
   (let* ((pane (current-window))
@@ -1620,6 +1757,22 @@ If *with-scrollbars nil, omit the scroller."
 	 (package (climacs-lisp-syntax::package-of syntax)))
     (display-message (format nil "~s" package))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; For testing purposes
+
+(define-named-command com-reset-profile ()
+  #+sbcl (sb-profile:reset)
+  #-sbcl nil)
+
+(define-named-command com-report-profile ()
+  #+sbcl (sb-profile:report)
+  #-sbcl nil)
+
+(define-named-command com-recompile ()
+  (asdf:operate 'asdf:load-op :climacs))
+
+
 (define-gesture-name :select-other :pointer-button-press (:left :meta) :unique nil)
 
 (define-presentation-translator lisp-string-to-string
@@ -1719,8 +1872,8 @@ If *with-scrollbars nil, omit the scroller."
 (global-set-key '(#\{ :meta :shift) `(com-backward-paragraph ,*numeric-argument-marker*))
 (global-set-key '(#\} :meta :shift) `(com-forward-paragraph ,*numeric-argument-marker*))
 (global-set-key '(#\h :meta) `(com-mark-paragraph ,*numeric-argument-marker*))
-(global-set-key '(#\s :control) 'com-isearch-mode-forward)
-(global-set-key '(#\r :control) 'com-isearch-mode-backward)
+(global-set-key '(#\s :control) 'com-isearch-forward)
+(global-set-key '(#\r :control) 'com-isearch-backward)
 (global-set-key '(#\_ :shift :meta) 'com-redo)
 (global-set-key '(#\_ :shift :control) 'com-undo)
 (global-set-key '(#\% :shift :meta) 'com-query-replace)
@@ -1952,41 +2105,6 @@ If *with-scrollbars nil, omit the scroller."
 (dead-circumflex-set-key '(#\u) '(com-insert-charcode 251))
 (dead-circumflex-set-key '(#\Space) '(com-insert-charcode 94))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Isearch command table
-
-(make-command-table 'isearch-climacs-table :errorp nil)
-
-(defun isearch-set-key (gesture command)
-  (add-command-to-command-table command 'isearch-climacs-table
-                                :keystroke gesture :errorp nil))
-
-(loop for code from (char-code #\Space) to (char-code #\~)
-      do (isearch-set-key (code-char code) 'com-isearch-append-char))
-
-(isearch-set-key '(#\Newline) 'com-isearch-exit)
-(isearch-set-key '(#\Backspace) 'com-isearch-delete-char)
-(isearch-set-key '(#\s :control) 'com-isearch-forward)
-(isearch-set-key '(#\r :control) 'com-isearch-backward)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Query replace command table
-
-(make-command-table 'query-replace-climacs-table :errorp nil)
-
-(defun query-replace-set-key (gesture command)
-  (add-command-to-command-table command 'query-replace-climacs-table
-                                :keystroke gesture :errorp nil))
-
-(query-replace-set-key '(#\Newline) 'com-query-replace-exit)
-(query-replace-set-key '(#\Space) 'com-query-replace-replace)
-(query-replace-set-key '(#\Backspace) 'com-query-replace-skip)
-(query-replace-set-key '(#\Rubout) 'com-query-replace-skip)
-(query-replace-set-key '(#\q) 'com-query-replace-exit)
-(query-replace-set-key '(#\y) 'com-query-replace-replace)
-(query-replace-set-key '(#\n) 'com-query-replace-skip)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -2002,3 +2120,4 @@ If *with-scrollbars nil, omit the scroller."
   (add-command-to-command-table command 'c-c-climacs-table
 				:keystroke gesture :errorp nil))
 
+(c-c-set-key '(#\l :control) 'com-load-file)

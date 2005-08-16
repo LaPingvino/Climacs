@@ -216,6 +216,13 @@ in the specific syntax.")
     (declare (ignore success string))
     object))
 
+(defun syntax-from-name (syntax)
+  (let ((description (find syntax *syntaxes*
+			   :key #'syntax-description-name
+			   :test #'string-equal)))
+    (when description
+      (find-class (syntax-description-class-name description)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Basic syntax
