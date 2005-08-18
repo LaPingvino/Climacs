@@ -622,12 +622,9 @@
       (complete-input stream
 		      #'filename-completer
 		      :allow-any-input t)
-;    (declare (ignore success))
-;    (or pathname string)))
     (if success
-	(values pathname 'pathname)
+	(values pathname 'completable-pathname)
 	(values string 'string))))
-
     
 (defun filepath-filename (pathname)
   (if (null (pathname-type pathname))
@@ -653,6 +650,12 @@
     (and (or (null name) (eql name :unspecific))
 	 (or (null type) (eql type :unspecific)))))
 
+(defun make-buffer (&optional name)
+  (let ((buffer (make-instance 'climacs-buffer)))
+    (when name (setf (name buffer) name))
+    (push buffer (buffers *application-frame*))
+    buffer))
+
 (define-named-command com-find-file ()
   (let ((filepath (accept 'completable-pathname
 			  :prompt "Find File")))
@@ -660,10 +663,9 @@
 	   (display-message "~A is a directory name." filepath)
 	   (beep))
 	  (t
-	   (let ((buffer (make-instance 'climacs-buffer))
+	   (let ((buffer (make-buffer))
 		 (pane (current-window)))
 	     (setf (offset (point (buffer pane))) (offset (point pane)))
-	     (push buffer (buffers *application-frame*))
 	     (setf (buffer (current-window)) buffer)
 	     (setf (syntax buffer)
 		   (make-instance (syntax-class-name-for-filepath filepath)
@@ -680,6 +682,15 @@
 	     ;; resets the low and high marks after redisplay
 	     (redisplay-frame-panes *application-frame*))))))
 
+(defun set-visited-file-name (filename buffer)
+  (setf (filepath buffer) filename
+	(name buffer) (filepath-filename filename)
+	(needs-saving buffer) t))
+
+(define-named-command com-set-visited-file-name ()
+  (let ((filename (accept 'completable-pathname :prompt "New file name")))
+    (set-visited-file-name filename (buffer (current-window)))))
+
 (define-named-command com-insert-file ()
   (let ((filename (accept 'completable-pathname
 			  :prompt "Insert File"))
@@ -694,6 +705,40 @@
 	     (offset (point pane)) (offset (mark pane))))
     (redisplay-frame-panes *application-frame*)))
 
+(defgeneric erase-buffer (buffer))
+
+(defmethod erase-buffer ((buffer string))
+  (let ((b (find buffer (buffers *application-frame*)
+		 :key #'name :test #'string=)))
+    (when b (erase-buffer b))))
+
+(defmethod erase-buffer ((buffer climacs-buffer))
+  (let* ((point (point buffer))
+	 (mark (clone-mark point)))
+    (beginning-of-buffer mark)
+    (end-of-buffer point)
+    (delete-region mark point)))
+
+(define-named-command com-revert-buffer ()
+  (let* ((pane (current-window))
+	 (buffer (buffer pane))
+	 (filepath (filepath buffer))
+	 (save (offset (point pane))))
+    (when (accept 'boolean :prompt (format nil "Revert buffer from file ~A?"
+					   (filepath buffer)))
+      (cond ((directory-pathname-p filepath)
+	   (display-message "~A is a directory name." filepath)
+	   (beep))
+	  ((probe-file filepath)
+	   (erase-buffer buffer)
+	   (with-open-file (stream filepath :direction :input)
+	     (input-from-stream stream buffer 0))
+	   (setf (offset (point pane))
+		 (min (size buffer) save)))
+	  (t
+	   (display-message "No file ~A" filepath)
+	   (beep))))))
+
 (defun save-buffer (buffer)
   (let ((filepath (or (filepath buffer)
 		      (accept 'completable-pathname
@@ -703,6 +748,11 @@
        (display-message "~A is a directory." filepath)
        (beep))
       (t
+       (when (probe-file filepath)
+	 (let ((backup-name (pathname-name filepath))
+	       (backup-type (concatenate 'string (pathname-type filepath) "~")))
+	   (rename-file filepath (make-pathname :name backup-name
+						:type backup-type))))
        (with-open-file (stream filepath :direction :output :if-exists :supersede)
 	 (output-to-stream stream buffer 0 (size buffer)))
        (setf (filepath buffer) filepath
@@ -772,7 +822,7 @@
 	 (pane (current-window)))
     (if position
 	(rotatef (car buffers) (nth position buffers))
-	(push buffer buffers))
+	(push buffer (buffers *application-frame*)))
     (setf (offset (point (buffer pane))) (offset (point pane)))
     (setf (buffer pane) buffer)
     (full-redisplay pane)))
@@ -781,7 +831,7 @@
   (let ((buffer (find name (buffers *application-frame*)
 		      :key #'name :test #'string=)))
     (switch-to-buffer (or buffer
-			  (make-instance 'climacs-buffer :name name)))))
+			  (make-buffer name)))))
 
 ;;placeholder
 (defmethod switch-to-buffer ((symbol (eql 'nil)))
@@ -805,8 +855,7 @@
      (setf buffers (remove buffer buffers))
      ;; Always need one buffer.
      (when (null buffers)
-       (push (make-instance 'climacs-buffer :name "*scratch*")
-	     buffers))
+       (make-buffer "*scratch*"))
      (setf (buffer (current-window)) (car buffers))))
 
 (defmethod kill-buffer ((name string))
@@ -1224,7 +1273,7 @@ If *with-scrollbars* nil, omit the scroller."
   (display-message "Isearch backward: ")
   (isearch-command-loop (current-window) nil))
 
-(define-command (com-append-char :name t :command-table isearch-climacs-table) ()
+(define-command (com-isearch-append-char :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
          (states (isearch-states pane))
          (string (concatenate 'string
@@ -1236,7 +1285,7 @@ If *with-scrollbars* nil, omit the scroller."
       (incf (offset mark)))
     (isearch-from-mark pane mark string forwardp)))
 
-(define-command (com-delete-char :name t :command-table isearch-climacs-table) ()
+(define-command (com-isearch-delete-char :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window)))
     (cond ((null (second (isearch-states pane)))
 	   (display-message "Isearch: ")
@@ -1257,7 +1306,7 @@ If *with-scrollbars* nil, omit the scroller."
 			      (search-forward-p state)
 			      (search-string state)))))))
 
-(define-command (com-forward :name t :command-table isearch-climacs-table) ()
+(define-command (com-isearch-search-forward :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
          (point (point pane))
          (states (isearch-states pane))
@@ -1267,7 +1316,7 @@ If *with-scrollbars* nil, omit the scroller."
          (mark (clone-mark point)))
     (isearch-from-mark pane mark string t)))
 
-(define-command (com-backward :name t :command-table isearch-climacs-table) ()
+(define-command (com-isearch-search-backward :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
          (point (point pane))
          (states (isearch-states pane))
@@ -1277,7 +1326,7 @@ If *with-scrollbars* nil, omit the scroller."
          (mark (clone-mark point)))
     (isearch-from-mark pane mark string nil)))
 
-(define-command (com-exit :name t :command-table isearch-climacs-table) ()
+(define-command (com-isearch-exit :name t :command-table isearch-climacs-table) ()
   (setf (isearch-mode (current-window)) nil))
 
 (defun isearch-set-key (gesture command)
@@ -1287,10 +1336,10 @@ If *with-scrollbars* nil, omit the scroller."
 (loop for code from (char-code #\Space) to (char-code #\~)
       do (isearch-set-key (code-char code) 'com-append-char))
 
-(isearch-set-key '(#\Newline) 'com-exit)
-(isearch-set-key '(#\Backspace) 'com-delete-char)
-(isearch-set-key '(#\s :control) 'com-forward)
-(isearch-set-key '(#\r :control) 'com-backward)
+(isearch-set-key '(#\Newline) 'com-isearch-exit)
+(isearch-set-key '(#\Backspace) 'com-isearch-delete-char)
+(isearch-set-key '(#\s :control) 'com-isearch-search-forward)
+(isearch-set-key '(#\r :control) 'com-isearch-search-backward)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -1349,7 +1398,7 @@ If *with-scrollbars* nil, omit the scroller."
 			   ((setf (query-replace-mode pane) nil))))
     (display-message "Replaced ~A occurrence~:P" occurrences)))
 
-(define-command (com-replace :name t :command-table query-replace-climacs-table) ()
+(define-command (com-query-replace-replace :name t :command-table query-replace-climacs-table) ()
   (declare (special string1 string2 occurrences))
   (let* ((pane (current-window))
          (point (point pane))
@@ -1373,7 +1422,7 @@ If *with-scrollbars* nil, omit the scroller."
 		       string1 string2)
 	(setf (query-replace-mode pane) nil))))
 
-(define-command (com-skip :name t :command-table query-replace-climacs-table) ()
+(define-command (com-query-replace-skip :name t :command-table query-replace-climacs-table) ()
   (declare (special string1 string2))
   (let* ((pane (current-window))
          (point (point pane)))
@@ -1382,20 +1431,20 @@ If *with-scrollbars* nil, omit the scroller."
 			 string1 string2)
 	(setf (query-replace-mode pane) nil))))
 
-(define-command (com-exit :name t :command-table query-replace-climacs-table) ()
+(define-command (com-query-replace-exit :name t :command-table query-replace-climacs-table) ()
   (setf (query-replace-mode (current-window)) nil))
 
 (defun query-replace-set-key (gesture command)
   (add-command-to-command-table command 'query-replace-climacs-table
                                 :keystroke gesture :errorp nil))
 
-(query-replace-set-key '(#\Newline) 'com-exit)
-(query-replace-set-key '(#\Space) 'com-replace)
-(query-replace-set-key '(#\Backspace) 'com-skip)
-(query-replace-set-key '(#\Rubout) 'com-skip)
-(query-replace-set-key '(#\q) 'com-exit)
-(query-replace-set-key '(#\y) 'com-replace)
-(query-replace-set-key '(#\n) 'com-skip)
+(query-replace-set-key '(#\Newline) 'com-query-replace-exit)
+(query-replace-set-key '(#\Space) 'com-query-replace-replace)
+(query-replace-set-key '(#\Backspace) 'com-query-replace-skip)
+(query-replace-set-key '(#\Rubout) 'com-query-replace-skip)
+(query-replace-set-key '(#\q) 'com-query-replace-exit)
+(query-replace-set-key '(#\y) 'com-query-replace-replace)
+(query-replace-set-key '(#\n) 'com-query-replace-skip)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -2121,3 +2170,4 @@ If *with-scrollbars* nil, omit the scroller."
 				:keystroke gesture :errorp nil))
 
 (c-c-set-key '(#\l :control) 'com-load-file)
+
