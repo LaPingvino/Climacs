@@ -979,9 +979,9 @@
 	 (find-first-potentially-valid-lexeme (cdr parse-trees) offset))
 	((not (typep (car parse-trees) 'lexeme))
 	 (find-first-potentially-valid-lexeme (children (car parse-trees)) offset))
-	((< (start-offset (car parse-trees)) offset)
+	((<= (start-offset (car parse-trees)) offset)
 	 (loop with tree = (next-tree (car parse-trees))
-	       until (or (null tree) (>= (start-offset tree) offset))
+	       until (or (null tree) (> (start-offset tree) offset))
 	       do (setf tree (next-tree tree))
 	       finally (return tree)))
 	(t (car parse-trees))))
@@ -990,7 +990,7 @@
   (and (eq (class-of tree1) (class-of tree2))
        (eq (parser-state tree1) (parser-state tree2))
        (= (end-offset tree1) (end-offset tree2))))
-
+  
 (defmethod print-object ((mark mark) stream)
   (print-unreadable-object (mark stream :type t :identity t)
     (format stream "~s" (offset mark))))
