@@ -176,6 +176,47 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; Readonly
+
+(defclass read-only-mixin ()
+     ((read-only-p :initform nil :accessor read-only-p)))
+
+(define-condition buffer-read-only (simple-error)
+  ((buffer :reader condition-buffer :initarg :buffer))
+  (:report (lambda (condition stream)
+	     (format stream "Attempt to change read only buffer: ~a"
+		     (condition-buffer condition))))
+  (:documentation "This condition is signalled whenever an attempt
+is made to alter a buffer which has been set read only."))
+
+(defmethod insert-buffer-object ((buffer read-only-mixin) offset object)
+  (if (read-only-p buffer)
+      (error 'buffer-read-only :buffer buffer)
+      (call-next-method)))
+
+(defmethod insert-buffer-sequence ((buffer read-only-mixin) offset sequence)
+  (if (read-only-p buffer)
+      (error 'buffer-read-only :buffer buffer)
+      (call-next-method)))
+
+(defmethod delete-buffer-range ((buffer read-only-mixin) offset n)
+  (if (read-only-p buffer)
+      (error 'buffer-read-only :buffer buffer)
+      (call-next-method)))
+
+(defmethod (setf buffer-object) (object (buffer read-only-mixin) offset)
+  (if (read-only-p buffer)
+      (error 'buffer-read-only :buffer buffer)
+      (call-next-method)))
+
+(defmethod read-only-p ((buffer delegating-buffer))
+  (read-only-p (implementation buffer)))
+
+(defmethod (setf read-only-p) (flag (buffer delegating-buffer))
+  (setf (read-only-p (implementation buffer)) flag))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; View
 
 (defclass climacs-textual-view (textual-view tabify-mixin)
@@ -186,10 +227,10 @@
 
 ;(defgeneric indent-tabs-mode (climacs-buffer))
 
-(defclass extended-standard-buffer (standard-buffer undo-mixin abbrev-mixin) ()
+(defclass extended-standard-buffer (read-only-mixin standard-buffer undo-mixin abbrev-mixin) ()
   (:documentation "Extensions accessible via marks."))
 
-(defclass extended-binseq2-buffer (binseq2-buffer p-undo-mixin abbrev-mixin) ()
+(defclass extended-binseq2-buffer (read-only-mixin binseq2-buffer p-undo-mixin abbrev-mixin) ()
   (:documentation "Extensions accessible via marks."))
 
 (defclass climacs-buffer (delegating-buffer filepath-mixin name-mixin)

@@ -112,7 +112,9 @@
 	 (top (top master-pane))
 	 (bot (bot master-pane))
 	 (name-info (format nil "   ~a  ~a~:[~30t~a~;~*~]   ~:[(~;Syntax: ~]~a~a~a~a~:[)~;~]    ~a"
-			    (if (needs-saving buf) "**" "--")
+			    (cond ((needs-saving buf) "**")
+				  ((read-only-p buf) "%%")
+				  (t "--"))
 			    (name buf)
 			    *with-scrollbars*
 			    (cond ((and (mark= size bot)
@@ -168,7 +170,9 @@
     (no-expression ()
       (beep) (display-message "No expression around point"))
     (no-such-operation ()
-      (beep) (display-message "Operation unavailable for syntax"))))  
+      (beep) (display-message "Operation unavailable for syntax"))
+    (buffer-read-only ()
+      (beep) (display-message "Buffer is read only"))))  
 
 (defmethod execute-frame-command :after ((frame climacs) command)
   (loop for buffer in (buffers frame)
@@ -656,31 +660,80 @@
     (push buffer (buffers *application-frame*))
     buffer))
 
+(defun find-file (filepath)
+  (cond ((directory-pathname-p filepath)
+	 (display-message "~A is a directory name." filepath)
+	 (beep))
+	(t
+	 (let ((existing-buffer (find filepath (buffers *application-frame*)
+			       :key #'filepath :test #'equal)))
+	   (if existing-buffer
+	       (switch-to-buffer existing-buffer)
+	       (let ((buffer (make-buffer))
+		     (pane (current-window)))
+		 (setf (offset (point (buffer pane))) (offset (point pane)))
+		 (setf (buffer (current-window)) buffer)
+		 (setf (syntax buffer)
+		       (make-instance (syntax-class-name-for-filepath filepath)
+			  :buffer (buffer (point pane))))
+		 ;; Don't want to create the file if it doesn't exist.
+		 (when (probe-file filepath)
+		   (with-open-file (stream filepath :direction :input)
+		     (input-from-stream stream buffer 0)))
+		 (setf (filepath buffer) filepath
+		       (name buffer) (filepath-filename filepath)
+		       (needs-saving buffer) nil)
+		 (beginning-of-buffer (point pane))
+		 ;; this one is needed so that the buffer modification protocol
+		 ;; resets the low and high marks after redisplay
+		 (redisplay-frame-panes *application-frame*)
+		 buffer))))))
+
 (define-named-command com-find-file ()
   (let ((filepath (accept 'completable-pathname
 			  :prompt "Find File")))
-    (cond ((directory-pathname-p filepath)
-	   (display-message "~A is a directory name." filepath)
-	   (beep))
-	  (t
-	   (let ((buffer (make-buffer))
-		 (pane (current-window)))
-	     (setf (offset (point (buffer pane))) (offset (point pane)))
-	     (setf (buffer (current-window)) buffer)
-	     (setf (syntax buffer)
-		   (make-instance (syntax-class-name-for-filepath filepath)
-		      :buffer (buffer (point pane))))
-	     ;; Don't want to create the file if it doesn't exist.
-	     (when (probe-file filepath)
-	       (with-open-file (stream filepath :direction :input)
-		 (input-from-stream stream buffer 0)))
-	     (setf (filepath buffer) filepath
-		   (name buffer) (filepath-filename filepath)
-		   (needs-saving buffer) nil)
-	     (beginning-of-buffer (point pane))
-	     ;; this one is needed so that the buffer modification protocol
-	     ;; resets the low and high marks after redisplay
-	     (redisplay-frame-panes *application-frame*))))))
+    (find-file filepath)))
+
+(defun find-file-read-only (filepath)
+  (cond ((directory-pathname-p filepath)
+	 (display-message "~A is a directory name." filepath)
+	 (beep))
+	(t
+	 (let ((existing-buffer (find filepath (buffers *application-frame*)
+			       :key #'filepath :test #'equal)))
+	   (if (and existing-buffer (read-only-p existing-buffer))
+	       (switch-to-buffer existing-buffer)
+	       (if (probe-file filepath)
+		   (let ((buffer (make-buffer))
+			 (pane (current-window)))
+		     (setf (offset (point (buffer pane))) (offset (point pane)))
+		     (setf (buffer (current-window)) buffer)
+		     (setf (syntax buffer)
+			   (make-instance (syntax-class-name-for-filepath filepath)
+			      :buffer (buffer (point pane))))
+		     (with-open-file (stream filepath :direction :input)
+		       (input-from-stream stream buffer 0))
+		     (setf (filepath buffer) filepath
+			   (name buffer) (filepath-filename filepath)
+			   (needs-saving buffer) nil
+			   (read-only-p buffer) t)
+		     (beginning-of-buffer (point pane))
+		     ;; this one is needed so that the buffer modification protocol
+		     ;; resets the low and high marks after redisplay
+		     (redisplay-frame-panes *application-frame*)
+		     buffer)
+		   (progn
+		     (display-message "No such file: ~A" filepath)
+		     (beep)
+		     nil)))))))
+
+(define-named-command com-find-file-read-only ()
+  (let ((filepath (accept 'completable-pathname :Prompt "Find file read only")))
+    (find-file-read-only filepath)))
+
+(define-named-command com-toggle-read-only ()
+  (let ((buffer (buffer (current-window))))
+    (setf (read-only-p buffer) (not (read-only-p buffer)))))
 
 (defun set-visited-file-name (filename buffer)
   (setf (filepath buffer) filename
@@ -825,7 +878,8 @@
 	(push buffer (buffers *application-frame*)))
     (setf (offset (point (buffer pane))) (offset (point pane)))
     (setf (buffer pane) buffer)
-    (full-redisplay pane)))
+    (full-redisplay pane)
+    buffer))
 
 (defmethod switch-to-buffer ((name string))
   (let ((buffer (find name (buffers *application-frame*)
@@ -1977,6 +2031,8 @@ If *with-scrollbars* nil, omit the scroller."
 (c-x-set-key '(#\3) 'com-split-window-horizontally)
 (c-x-set-key '(#\b) 'com-switch-to-buffer)
 (c-x-set-key '(#\f :control) 'com-find-file)
+(c-x-set-key '(#\r :control) 'com-find-file-read-only)
+(c-x-set-key '(#\q :control) 'com-toggle-read-only)
 (c-x-set-key '(#\f) `(com-set-fill-column ,*numeric-argument-marker*))
 (c-x-set-key '(#\h) 'com-mark-whole-buffer)
 (c-x-set-key '(#\i) 'com-insert-file)
