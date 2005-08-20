@@ -111,8 +111,18 @@
 	 (size (size buf))
 	 (top (top master-pane))
 	 (bot (bot master-pane))
-	 (name-info (format nil "   ~a  ~a~:[~30t~a~;~*~]   ~:[(~;Syntax: ~]~a~a~a~a~:[)~;~]    ~a"
-			    (cond ((needs-saving buf) "**")
+	 (name-info (format nil "~3T~A~
+                                 ~3@T~A~
+                                 ~:[~30T~A~;~*~]~
+                                 ~3@T~:[(~;Syntax: ~]~
+                                 ~A~
+                                 ~{~:[~*~; ~A~]~}~
+                                 ~:[)~;~]~
+                                 ~3@T~A"
+			    (cond ((and (needs-saving buf)
+					(read-only-p buf)
+					"%*"))
+				  ((needs-saving buf) "**")
 				  ((read-only-p buf) "%%")
 				  (t "--"))
 			    (name buf)
@@ -129,15 +139,13 @@
 							      size))))))
 			    *with-scrollbars*
 			    (name (syntax buf))
-			    (if (slot-value master-pane 'overwrite-mode)
-				" Ovwrt"
-				"")
-			    (if (auto-fill-mode master-pane)
-				" Fill"
-				"")
-			    (if (isearch-mode master-pane)
-				" Isearch"
-				"")
+			    (list
+			     (slot-value master-pane 'overwrite-mode)
+			     "Ovwrt"
+			     (auto-fill-mode master-pane)
+			     "Fill"
+			     (isearch-mode master-pane)
+			     "Isearch")
 			    *with-scrollbars*
 			    (if (recordingp *application-frame*)
 				"Def"
@@ -620,15 +628,25 @@
 		       collect (list (subseq (namestring name) length nil)
 				     name))))))))
 
+(define-presentation-method present (object (type completable-pathname)
+					    stream (view textual-view)
+					    &key acceptably for-context-type)
+  (declare (ignore acceptably for-context-type))
+  (princ (namestring object) stream))
+
 (define-presentation-method accept
-    ((type completable-pathname) stream (view textual-view) &key)
+    ((type completable-pathname) stream (view textual-view) &key (default nil defaultp)
+     (default-type type))
   (multiple-value-bind (pathname success string)
       (complete-input stream
 		      #'filename-completer
 		      :allow-any-input t)
-    (if success
-	(values pathname 'completable-pathname)
-	(values string 'string))))
+    (cond (success
+	   (values pathname type))
+	  ((and (zerop (length string))
+		defaultp)
+	   (values default default-type))
+	  (t (values string 'string)))))
     
 (defun filepath-filename (pathname)
   (if (null (pathname-type pathname))
@@ -661,7 +679,10 @@
     buffer))
 
 (defun find-file (filepath)
-  (cond ((directory-pathname-p filepath)
+  (cond ((null filepath)
+	 (display-message "No file name given.")
+	 (beep))
+	((directory-pathname-p filepath)
 	 (display-message "~A is a directory name." filepath)
 	 (beep))
 	(t
@@ -690,17 +711,20 @@
 		 buffer))))))
 
 (define-named-command com-find-file ()
-  (let ((filepath (accept 'completable-pathname
-			  :prompt "Find File")))
+  (let* ((filepath (accept 'completable-pathname
+			   :prompt "Find File")))
     (find-file filepath)))
 
 (defun find-file-read-only (filepath)
-  (cond ((directory-pathname-p filepath)
+  (cond ((null filepath)
+	 (display-message "No file name given.")
+	 (beep))
+	((directory-pathname-p filepath)
 	 (display-message "~A is a directory name." filepath)
 	 (beep))
 	(t
 	 (let ((existing-buffer (find filepath (buffers *application-frame*)
-			       :key #'filepath :test #'equal)))
+				      :key #'filepath :test #'equal)))
 	   (if (and existing-buffer (read-only-p existing-buffer))
 	       (switch-to-buffer existing-buffer)
 	       (if (probe-file filepath)
@@ -853,8 +877,16 @@
 	     (needs-saving buffer) nil)
        (display-message "Wrote: ~a" (filepath buffer))))))
 
+(define-presentation-method present (object (type buffer)
+					    stream
+					    (view textual-view)
+					    &key acceptably for-context-type)
+  (declare (ignore acceptably for-context-type))
+  (princ (name object) stream))
+
 (define-presentation-method accept
-    ((type buffer) stream (view textual-view) &key)
+    ((type buffer) stream (view textual-view) &key (default nil defaultp)
+     (default-type type))
   (multiple-value-bind (object success string)
       (complete-input stream
 		      (lambda (so-far action)
@@ -864,8 +896,11 @@
 			 :value-key #'identity))
 		      :partial-completers '(#\Space)
 		      :allow-any-input t)
-    (declare (ignore success))
-    (or	object string)))
+    (cond (success
+	   (values object type))
+	  ((and (zerop (length string)) defaultp)
+	    (values default default-type))
+	  (t (values string 'string)))))
 
 (defgeneric switch-to-buffer (buffer))
 
@@ -893,7 +928,9 @@
 
 (define-named-command com-switch-to-buffer ()
   (let ((buffer (accept 'buffer
-			:prompt "Switch to buffer")))
+			:prompt "Switch to buffer"
+			:default (second (buffers *application-frame*))
+			:default-type 'buffer)))
     (switch-to-buffer buffer)))
 
 (defgeneric kill-buffer (buffer))
@@ -921,7 +958,13 @@
   (kill-buffer (buffer (current-window))))
 
 (define-named-command com-kill-buffer ()
-  (kill-buffer (buffer (current-window))))
+  (let ((buffer (accept 'buffer
+			:prompt "Kill buffer"
+			:default (buffer (current-window))
+			:default-type 'buffer)))
+    (format *trace-output* "Here: ~a~%" buffer) (finish-output *trace-output*)
+    (kill-buffer buffer)))
+
 
 (define-named-command com-full-redisplay ()
   (full-redisplay (current-window)))
@@ -1388,7 +1431,7 @@ If *with-scrollbars* nil, omit the scroller."
                                 :keystroke gesture :errorp nil))
 
 (loop for code from (char-code #\Space) to (char-code #\~)
-      do (isearch-set-key (code-char code) 'com-append-char))
+      do (isearch-set-key (code-char code) 'com-isearch-append-char))
 
 (isearch-set-key '(#\Newline) 'com-isearch-exit)
 (isearch-set-key '(#\Backspace) 'com-isearch-delete-char)
