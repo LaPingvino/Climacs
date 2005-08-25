@@ -1956,6 +1956,8 @@ If *with-scrollbars* nil, omit the scroller."
   (add-command-to-command-table command 'dead-escape-climacs-table
 				:keystroke gesture :errorp nil))
 
+(dead-escape-set-key '(#\x) 'esa::com-extended-command)
+
 (defun global-set-key (gesture command)
   (add-command-to-command-table command 'global-climacs-table
 				:keystroke gesture :errorp nil)
@@ -2270,3 +2272,16 @@ If *with-scrollbars* nil, omit the scroller."
 
 (c-c-set-key '(#\l :control) 'com-load-file)
 
+(define-named-command com-regex-search-forward ()
+  (let ((string (accept 'string :prompt "RE search"
+			:delimiter-gestures nil
+			:activation-gestures
+			'(:newline :return))))
+    (re-search-forward (point (current-window)) string)))
+
+(define-named-command com-regex-search-backward ()
+  (let ((string (accept 'string :prompt "RE search backward"
+			:delimiter-gestures nil
+			:activation-gestures
+			'(:newline :return))))
+    (re-search-backward (point (current-window)) string)))
