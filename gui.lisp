@@ -962,9 +962,7 @@
 			:prompt "Kill buffer"
 			:default (buffer (current-window))
 			:default-type 'buffer)))
-    (format *trace-output* "Here: ~a~%" buffer) (finish-output *trace-output*)
     (kill-buffer buffer)))
-
 
 (define-named-command com-full-redisplay ()
   (full-redisplay (current-window)))
