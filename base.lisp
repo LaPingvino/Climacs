@@ -625,7 +625,8 @@ returns nil. If the first value is non-nil, the second value is the
 offset after the matched contents."
   (if (automaton::singleton a)
       (let ((result (buffer-search-forward buffer offset (automaton::singleton a))))
-	(values result (+ result (length (automaton::singleton a)))))
+	(when result
+	  (values result (+ result (length (automaton::singleton a))))))
       (loop for i from offset below (size buffer) do
 	(let ((j (non-greedy-match-forward a buffer i)))
 	  (when j (return (values i j))))
