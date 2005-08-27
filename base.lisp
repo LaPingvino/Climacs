@@ -624,13 +624,14 @@ with contents accepted by deterministic automaton A; otherwise,
 returns nil. If the first value is non-nil, the second value is the
 offset after the matched contents."
   (if (automaton::singleton a)
-      (let ((result (buffer-search-forward buffer offset (automaton::singleton a))))
+      (let ((result (buffer-search-forward
+		     buffer offset (automaton::singleton a))))
 	(when result
 	  (values result (+ result (length (automaton::singleton a))))))
       (loop for i from offset below (size buffer) do
 	(let ((j (non-greedy-match-forward a buffer i)))
 	  (when j (return (values i j))))
-	    finally (return nil))))
+	 finally (return nil))))
 
 (defun reversed-deterministic-automaton (a)
   "Reverses and determinizes A, then returns it."
@@ -659,13 +660,14 @@ with contents accepted by (reversed) deterministic automaton A;
 otherwise, returns nil. If the first value is non-nil, the second
 value is the offset after the matched contents."
   (if (automaton::singleton a)
-      (let ((result (buffer-search-backward buffer offset
-					    (nreverse (automaton::singleton a)))))
-	(values result result))
+      (let ((result (buffer-search-backward
+		     buffer offset (nreverse (automaton::singleton a)))))
+	(when result
+	  (values result (+ result (length (automaton::singleton a))))))
       (loop for i downfrom (min offset (1- (size buffer))) to 0 do
 	(let ((j (non-greedy-match-backward a buffer i)))
-	  (when j (return (values j i))))
-	    finally (return nil))))
+	  (when j (return (values j (1+ i)))))
+	 finally (return nil))))
 
 (defun search-forward (mark vector &key (test #'eql))
   "move MARK forward after the first occurence of VECTOR after MARK"
@@ -699,7 +701,7 @@ before MARK"
 	    (automaton::regexp-automaton
 	     (automaton::string-regexp re)))))
     (multiple-value-bind (i j)
-	(buffer-re-search-backward a (buffer mark) (offset mark))
+	(buffer-re-search-backward a (buffer mark) (1- (offset mark)))
       (declare (ignorable j))
     (when i
       (setf (offset mark) i)))))

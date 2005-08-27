@@ -1108,30 +1108,38 @@ climacs")
 	(a1 (automaton::determinize
 	     (regexp-automaton (string-regexp "i[mac]+s"))))
 	(a2 (automaton::determinize
-	     (regexp-automaton (string-regexp "[^aeiou][aeiou]")))))
+	     (regexp-automaton (string-regexp "[^aeiou][aeiou]"))))
+	(a3 (regexp-automaton (string-regexp "imacs"))))
     (insert-buffer-sequence buffer 0 "
 climacs")
-      (values
-       (buffer-re-search-forward a1 buffer 0)
-       (buffer-re-search-forward a2 buffer 1)
-       (buffer-re-search-forward a1 buffer 4)
-       (buffer-re-search-forward a2 buffer 6)))
-  3 2 nil nil)
+      (multiple-value-call
+	  #'list
+	(buffer-re-search-forward a1 buffer 0)
+	(buffer-re-search-forward a2 buffer 1)
+	(buffer-re-search-forward a3 buffer 1)
+	(buffer-re-search-forward a1 buffer 4)
+	(buffer-re-search-forward a2 buffer 6)
+	(buffer-re-search-forward a3 buffer 6)))
+  (3 8 2 4 3 8 nil nil nil))
 
 (defmultitest buffer-re-search-backward.test-1
   (let ((buffer (make-instance %%buffer))
 	(a1 (climacs-base::reversed-deterministic-automaton
 	     (regexp-automaton (string-regexp "i[ma]+c"))))
 	(a2 (climacs-base::reversed-deterministic-automaton
-	     (regexp-automaton (string-regexp "[^aeiou][aeiou]")))))
+	     (regexp-automaton (string-regexp "[^aeiou][aeiou]"))))
+	(a3 (regexp-automaton (string-regexp "cami"))))
     (insert-buffer-sequence buffer 0 "
 climacs")
-      (values
-       (buffer-re-search-backward a1 buffer 7)
-       (buffer-re-search-backward a2 buffer 7)
-       (buffer-re-search-backward a1 buffer 5)
-       (buffer-re-search-backward a2 buffer 2)))
-  3 4 nil nil)
+      (multiple-value-call
+	  #'list
+	(buffer-re-search-backward a1 buffer 7)
+	(buffer-re-search-backward a2 buffer 7)
+	(buffer-re-search-backward a3 buffer 7)
+	(buffer-re-search-backward a1 buffer 5)
+	(buffer-re-search-backward a2 buffer 2)
+	(buffer-re-search-backward a3 buffer 5)))
+  (3 7 4 6 3 7 nil nil nil))
 
 (defmultitest search-forward.test-1
   (let ((buffer (make-instance %%buffer)))
