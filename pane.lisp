@@ -571,7 +571,7 @@ is made to alter a buffer which has been set read only."))
 (defmethod display-mark ((pane climacs-pane) (syntax basic-syntax))
   (with-slots (top bot) pane
      (let ((mark (mark pane)))
-       (when (< (offset top) (offset mark) (offset bot))
+       (when (<= (offset top) (offset mark) (offset bot))
 	 (let* ((mark-line (number-of-lines-in-region top mark))
 		(style (medium-text-style pane))
 		(ascent (text-style-ascent style pane))
