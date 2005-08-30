@@ -301,7 +301,7 @@ In the absence of a prefix arg returns 1 (and nil)."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
-;;; comand table manipulation
+;;; command table manipulation
 
 (defun ensure-subtable (table gesture)
   (let* ((event (make-instance
@@ -319,15 +319,18 @@ In the absence of a prefix arg returns 1 (and nil)."
     (command-menu-item-value
      (find-keystroke-item event table :errorp nil))))
     
-      
 (defun set-key (command table gestures)
-  (if (null (cdr gestures))
-      (add-command-to-command-table
-       command table :keystroke (car gestures) :errorp nil)
-      (set-key command
-	       (ensure-subtable table (car gestures))
-	       (cdr gestures))))
-  
+  (let ((gesture (car gestures)))
+    (cond ((null (cdr gestures))
+	   (add-command-to-command-table
+	    command table :keystroke gesture :errorp nil)
+	   (when (and (listp gesture)
+		      (find :meta gesture))
+	     (set-key command table (list (list :escape) (remove :meta gesture)))))
+	  (t (set-key command
+		      (ensure-subtable table gesture)
+		      (cdr gestures))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; standard key bindings 

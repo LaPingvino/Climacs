@@ -543,13 +543,27 @@
        (setf (syntax buffer) (make-instance 'slidemacs-gui-syntax
                                             :buffer buffer))))))
 
-(climacs-gui::global-set-key '(#\= :control) 'com-next-talking-point)
-(climacs-gui::global-set-key '(#\- :control) 'com-previous-talking-point)
-(climacs-gui::global-set-key '(#\= :meta) 'com-increase-presentation-font-sizes)
-(climacs-gui::global-set-key '(#\- :meta) 'com-decrease-presentation-font-sizes)
-(climacs-gui::global-set-key '(#\= :control :meta) 'com-last-talking-point)
-(climacs-gui::global-set-key '(#\- :control :meta) 'com-first-talking-point)
-(climacs-gui::global-set-key '(#\s :control :meta) 'com-flip-slidemacs-syntax)
+(esa:set-key  'com-next-talking-point
+	      'climacs-gui::global-climacs-table
+	      '((#\= :control)))
+(esa:set-key  'com-previous-talking-point
+	      'climacs-gui::global-climacs-table
+	      '((#\- :control)))
+(esa:set-key  'com-increase-presentation-font-sizes
+	      'climacs-gui::global-climacs-table
+	      '((#\= :meta)))
+(esa:set-key  'com-decrease-presentation-font-sizes
+	      'climacs-gui::global-climacs-table
+	      '((#\- :meta)))
+(esa:set-key  'com-last-talking-point
+	      'climacs-gui::global-climacs-table
+	      '((#\= :control :meta)))
+(esa:set-key  'com-first-talking-point
+	      'climacs-gui::global-climacs-table
+	      '((#\- :control :meta)))
+(esa:set-key  'com-flip-slidemacs-syntax
+	      'climacs-gui::global-climacs-table
+	      '((#\s :control :meta)))
 
 (climacs-gui::define-named-command com-postscript-print-presentation ()
   (let ((pane (climacs-gui::current-window)))

@@ -197,11 +197,20 @@
   (with-slots (overwrite-mode) (current-window)
     (setf overwrite-mode (not overwrite-mode))))
 
+(set-key 'com-toggle-overwrite-mode 'global-climacs-table
+	 '((:insert)))
+
 (define-named-command com-not-modified ()
   (setf (needs-saving (buffer (current-window))) nil))
 
+(set-key 'com-not-modified 'global-climacs-table
+	 '((#\~ :meta :shift)))
+
 (define-named-command com-set-fill-column ((column 'integer :prompt "Column Number:"))
   (set-fill-column column))
+
+(set-key `(com-set-fill-column ,*numeric-argument-marker*) 'global-climacs-table
+	 '((#\x :control) (#\f)))
 
 (defun set-fill-column (column)
   (if (> column 1)
@@ -244,8 +253,20 @@
 (define-named-command com-beginning-of-line ()
   (beginning-of-line (point (current-window))))
 
+(set-key 'com-beginning-of-line 'global-climacs-table
+	 '((:home)))
+
+(set-key 'com-beginning-of-line 'global-climacs-table
+	 '((#\a :control)))
+
 (define-named-command com-end-of-line ()
   (end-of-line (point (current-window))))
+
+(set-key 'com-end-of-line 'global-climacs-table
+	 '((#\e :control)))
+
+(set-key 'com-end-of-line 'global-climacs-table
+	 '((:end)))
 
 (define-named-command com-delete-object ((count 'integer :prompt "Number of Objects")
 					 (killp 'boolean :prompt "Kill?"))
@@ -257,6 +278,16 @@
 			       (region-to-sequence point mark)))
     (delete-region point mark)))
 
+(set-key `(com-delete-object ,*numeric-argument-marker*
+			     ,*numeric-argument-p*)
+	 'global-climacs-table
+	 '(#\Rubout))
+
+(set-key `(com-delete-object ,*numeric-argument-marker*
+			     ,*numeric-argument-p*)
+	 'global-climacs-table
+	 '((#\d :control)))
+
 (define-named-command com-backward-delete-object ((count 'integer :prompt "Number of Objects")
 						  (killp 'boolean :prompt "Kill?"))
   (let* ((point (point (current-window)))
@@ -266,6 +297,11 @@
       (kill-ring-standard-push *kill-ring*
 			       (region-to-sequence mark point)))
   (delete-region mark point)))
+
+(set-key `(com-backward-delete-object ,*numeric-argument-marker*
+				      ,*numeric-argument-p*)
+	 'global-climacs-table
+	 '(#\Backspace))
 
 (define-named-command com-zap-to-object ()
   (let* ((item (handler-case (accept 't :prompt "Zap to Object")
@@ -293,27 +329,46 @@
   (search-forward item-mark item)
   (delete-range current-point (- (offset item-mark) current-offset))))
 
-(define-named-command com-transpose-objects ()
-  (transpose-objects (point (current-window))))
+(set-key 'com-zap-to-character 'global-climacs-table
+	 '((#\z :meta)))
 
 (defun transpose-objects (mark)
   (unless (beginning-of-buffer-p mark)
-      (when (end-of-line-p mark)
-       (backward-object mark))
-       (let ((object (object-after mark)))
-        (delete-range mark)
-       (backward-object mark)
-       (insert-object mark object)
-       (forward-object mark))))
+    (when (end-of-line-p mark)
+      (backward-object mark))
+    (let ((object (object-after mark)))
+      (delete-range mark)
+      (backward-object mark)
+      (insert-object mark object)
+      (forward-object mark))))
+
+(define-named-command com-transpose-objects ()
+  (transpose-objects (point (current-window))))
+
+(set-key 'com-transponse-objects 'global-climacs-table
+	 '((#\t :control)))
 
 (define-named-command com-backward-object ((count 'integer :prompt "Number of Objects"))
   (backward-object (point (current-window)) count))
 
+(set-key `(com-backward-object ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\b :control)))
+
+(set-key `(com-backward-object ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((:left)))
+
 (define-named-command com-forward-object ((count 'integer :prompt "Number of Objects"))
   (forward-object (point (current-window)) count))
 
-(define-named-command com-transpose-words ()
-  (transpose-words (point (current-window))))
+(set-key `(com-forward-object ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\f :control)))
+
+(set-key `(com-forward-object ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((:right)))
 
 (defun transpose-words (mark)
   (let (bw1 bw2 ew1 ew2)
@@ -338,8 +393,11 @@
       (insert-sequence mark w2)
       (forward-word mark))))
 
-(define-named-command com-transpose-lines ()
-  (transpose-lines (point (current-window))))
+(define-named-command com-transpose-words ()
+  (transpose-words (point (current-window))))
+
+(set-key 'com-transpose-words 'global-climacs-table
+	 '((#\t :meta)))
 
 (defun transpose-lines (mark)
   (beginning-of-line mark)
@@ -363,6 +421,12 @@
     (insert-sequence mark line)
     (insert-object mark #\Newline)))
 
+(define-named-command com-transpose-lines ()
+  (transpose-lines (point (current-window))))
+
+(set-key 'com-transpose-lines 'global-climacs-table
+	 '((#\x :control) (#\t :control)))
+
 (define-named-command com-previous-line ((numarg 'integer :prompt "How many lines?"))
   (let* ((win (current-window))
 	 (point (point win)))
@@ -372,6 +436,14 @@
     (if (plusp numarg)
 	(previous-line point (slot-value win 'goal-column) numarg)
 	(next-line point (slot-value win 'goal-column) (- numarg)))))
+
+(set-key `(com-previous-line ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\p :control)))
+
+(set-key `(com-previous-line ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((:up)))
 
 (define-named-command com-next-line ((numarg 'integer :prompt "How many lines?"))
   (let* ((win (current-window))
@@ -383,8 +455,20 @@
 	(next-line point (slot-value win 'goal-column) numarg)
 	(previous-line point (slot-value win 'goal-column) (- numarg)))))
 
+(set-key `(com-next-line ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\n :control)))
+
+(set-key `(com-next-line ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((:down)))
+
 (define-named-command com-open-line ((numarg 'integer :prompt "How many lines?"))
   (open-line (point (current-window)) numarg))
+
+(set-key `(com-open-line ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\o :control)))
 
 (defun kill-line (mark &optional (count 1) (whole-lines-p nil) (concatenate-p nil))
   (let ((start (offset mark)))
@@ -421,13 +505,33 @@
          (concatenate-p (eq (previous-command pane) 'com-kill-line)))
     (kill-line point numarg numargp concatenate-p)))	   
 
+(set-key `(com-kill-line ,*numeric-argument-marker* ,*numeric-argument-p*)
+	 'global-climacs-table
+	 '((#\k :control)))
+
 (define-named-command com-forward-word ((count 'integer :prompt "Number of words"))
   (if (plusp count)
       (forward-word (point (current-window)) count)
       (backward-word (point (current-window)) (- count))))
 
+(set-key `(com-forward-word ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\f :meta)))
+
+(set-key `(com-forward-word ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((:right :control)))
+
 (define-named-command com-backward-word ((count 'integer :prompt "Number of words"))
   (backward-word (point (current-window)) count))
+
+(set-key `(com-backward-word ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\b :meta)))
+
+(set-key `(com-backward-word ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((:left :control)))
 
 (define-named-command com-delete-word ((count 'integer :prompt "Number of words"))
   (delete-word (point (current-window)) count))
@@ -458,11 +562,19 @@
 	 (concatenate-p (eq (previous-command pane) 'com-kill-word)))
     (kill-word point count concatenate-p)))
 
+(set-key `(com-kill-word ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\d :meta)))
+
 (define-named-command com-backward-kill-word ((count 'integer :prompt "Number of words"))
   (let* ((pane (current-window))
 	 (point (point pane))
 	 (concatenate-p (eq (previous-command pane) 'com-backward-kill-word)))
     (kill-word point (- count) concatenate-p)))
+
+(set-key `(com-backward-kill-word ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\Backspace :meta)))
 
 (define-named-command com-mark-word ((count 'integer :prompt "Number of words"))
   (let* ((pane (current-window))
@@ -473,6 +585,10 @@
     (if (plusp count)
 	(forward-word mark count)
 	(backward-word mark (- count)))))
+
+(set-key `(com-mark-word ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\@ :meta :shift)))
 
 (define-named-command com-backward-delete-word ((count 'integer :prompt "Number of words"))
   (backward-delete-word (point (current-window)) count))
@@ -492,11 +608,20 @@
 (define-named-command com-upcase-word ()
   (upcase-word (point (current-window))))
 
+(set-key 'com-upcase-word 'global-climacs-table
+	 '((#\u :meta)))
+
 (define-named-command com-downcase-word ()
   (downcase-word (point (current-window))))
 
+(set-key 'com-downcase-word 'global-climacs-table
+	 '((#\l :meta)))
+
 (define-named-command com-capitalize-word ()
   (capitalize-word (point (current-window))))
+
+(set-key 'com-capitalize-word 'global-climacs-table
+	 '((#\c :meta)))
 
 (define-named-command com-tabify-region ()
   (let ((pane (current-window)))
@@ -523,14 +648,26 @@
          (point (point pane)))
     (indent-current-line pane point)))
 
+(set-key 'com-indent-line 'global-climacs-table
+	 '((#\Tab)))
+
+(set-key 'com-indent-line 'global-climacs-table
+	 '((#\i :control)))
+
 (define-named-command com-newline-and-indent ()
   (let* ((pane (current-window))
 	 (point (point pane)))
     (insert-object point #\Newline)
     (indent-current-line pane point)))
 
+(set-key 'com-newline-and-indent 'global-climacs-table
+	 '((#\j :control)))
+
 (define-named-command com-delete-indentation ()
   (delete-indentation (point (current-window))))
+
+(set-key 'com-delete-indentation 'global-climacs-table
+	 '((#\^ :shift :meta)))
 
 (define-named-command com-auto-fill-mode ()
   (let ((pane (current-window)))
@@ -555,6 +692,9 @@
       (setf (offset point) (offset end-mark))
       (possibly-fill-line)
       (setf (offset point) (offset point-backup)))))
+
+(set-key 'com-fill-paragraph 'global-climacs-table
+	 '((#\q :meta)))
 
 (eval-when (:compile-toplevel :load-toplevel)
   (define-presentation-type completable-pathname ()
@@ -715,6 +855,9 @@
 			   :prompt "Find File")))
     (find-file filepath)))
 
+(set-key 'com-find-file 'global-climacs-table
+	 '((#\x :control) (#\f :control)))
+
 (defun find-file-read-only (filepath)
   (cond ((null filepath)
 	 (display-message "No file name given.")
@@ -755,9 +898,15 @@
   (let ((filepath (accept 'completable-pathname :Prompt "Find file read only")))
     (find-file-read-only filepath)))
 
+(set-key 'com-find-file-read-only 'global-climacs-table
+	 '((#\x :control) (#\r :control)))
+
 (define-named-command com-toggle-read-only ()
   (let ((buffer (buffer (current-window))))
     (setf (read-only-p buffer) (not (read-only-p buffer)))))
+
+(set-key 'com-toggle-read-only 'global-climacs-table
+	 '((#\x :control) (#\q :control)))
 
 (defun set-visited-file-name (filename buffer)
   (setf (filepath buffer) filename
@@ -781,6 +930,9 @@
       (psetf (offset (mark pane)) (offset (point pane))
 	     (offset (point pane)) (offset (mark pane))))
     (redisplay-frame-panes *application-frame*)))
+
+(set-key 'com-insert-file 'global-climacs-table
+	 '((#\x :control) (#\i :control)))
 
 (defgeneric erase-buffer (buffer))
 
@@ -844,6 +996,9 @@
 	(save-buffer buffer)
 	(display-message "No changes need to be saved from ~a" (name buffer)))))
 
+(set-key 'com-save-buffer 'global-climacs-table
+	 '((#\x :control) (#\s :control)))
+
 (defmethod frame-exit :around ((frame climacs))
   (loop for buffer in (buffers frame)
 	when (and (needs-saving buffer)
@@ -876,6 +1031,9 @@
 	     (name buffer) (filepath-filename filepath)
 	     (needs-saving buffer) nil)
        (display-message "Wrote: ~a" (filepath buffer))))))
+
+(set-key 'com-write-buffer 'global-climacs-table
+	 '((#\x :control) (#\w :control)))
 
 (define-presentation-method present (object (type buffer)
 					    stream
@@ -933,6 +1091,9 @@
 			:default-type 'buffer)))
     (switch-to-buffer buffer)))
 
+(set-key 'com-switch-to-buffer 'global-climacs-table
+	 '((#\x :control) (#\b)))
+
 (defgeneric kill-buffer (buffer))
 
 (defmethod kill-buffer ((buffer climacs-buffer))
@@ -964,8 +1125,14 @@
 			:default-type 'buffer)))
     (kill-buffer buffer)))
 
+(set-key 'com-kill-buffer 'global-climacs-table
+	 '((#\x :control) (#\k)))
+
 (define-named-command com-full-redisplay ()
   (full-redisplay (current-window)))
+
+(set-key 'com-full-redisplay 'global-climacs-table
+	 '((#\l :control)))
 
 (defun load-file (file-name)
   (cond ((directory-pathname-p file-name)
@@ -983,23 +1150,53 @@
 			  :prompt "Load File")))
     (load-file filepath)))
 
+(set-key 'com-load-file 'global-climacs-table
+	 '((#\c :control) (#\l :control)))
+
 (define-named-command com-beginning-of-buffer ()
   (beginning-of-buffer (point (current-window))))
+
+(set-key 'com-beginning-of-buffer 'global-climacs-table
+	 '((#\< :shift :meta)))
+
+(set-key 'com-beginning-of-buffer 'global-climacs-table
+	 '((:home :control)))
 
 (define-named-command com-page-down ()
   (let ((pane (current-window)))
     (page-down pane)))
 
+(set-key 'com-page-down 'global-climacs-table
+	 '((#\v :control)))
+
+(set-key 'com-page-down 'global-climacs-table
+	 '((:next)))
+
 (define-named-command com-page-up ()
   (let ((pane (current-window)))
     (page-up pane)))
 
+(set-key 'com-page-up 'global-climacs-table
+	 '((#\v :meta)))
+
+(set-key 'com-page-up 'global-climacs-table
+	 '((:prior)))
+
 (define-named-command com-end-of-buffer ()
   (end-of-buffer (point (current-window))))
+
+(set-key 'com-end-of-buffer 'global-climacs-table
+	 '((#\> :shift :meta)))
+
+(set-key 'com-end-of-buffer 'global-climacs-table
+	 '((:end :control)))
 
 (define-named-command com-mark-whole-buffer ()
   (beginning-of-buffer (point (current-window)))
   (end-of-buffer (mark (current-window))))
+
+(set-key 'com-mark-whole-buffer 'global-climacs-table
+	 '((#\x :control) (#\h)))
 
 (defun back-to-indentation (mark)
   (beginning-of-line mark)
@@ -1009,6 +1206,9 @@
 
 (define-named-command com-back-to-indentation ()
   (back-to-indentation (point (current-window))))
+
+(set-key 'com-back-to-indentation 'global-climacs-table
+	 '((#\m :meta)))
 
 (defun delete-horizontal-space (mark &optional (backward-only-p nil))
   (let ((mark2 (clone-mark mark)))
@@ -1024,6 +1224,10 @@
 (define-named-command com-delete-horizontal-space ((backward-only-p
 						    'boolean :prompt "Delete backwards only?"))
   (delete-horizontal-space (point (current-window)) backward-only-p))
+
+(set-key `(com-delete-horizontal-space ,*numeric-argument-p*)
+	 'global-climacs-table
+	 '((#\\ :meta)))
 
 (defun just-one-space (mark count)
   (let (offset)
@@ -1041,6 +1245,10 @@
 
 (define-named-command com-just-one-space ((count 'integer :prompt "Number of spaces"))
   (just-one-space (point (current-window)) count))
+
+(set-key `(com-just-one-space ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\Space :meta)))
 
 (defun goto-position (mark pos)
   (setf (offset mark) pos))
@@ -1081,10 +1289,16 @@
   (let ((pane (current-window)))
     (setf (mark pane) (clone-mark (point pane)))))
 
+(set-key 'com-set-mark 'global-climacs-table
+	 '((#\Space :control)))
+
 (define-named-command com-exchange-point-and-mark ()
   (let ((pane (current-window)))
     (psetf (offset (mark pane)) (offset (point pane))
 	   (offset (point pane)) (offset (mark pane)))))
+
+(set-key 'com-exchange-point-and-mark 'global-climacs-table
+	 '((#\x :control) (#\x :control)))
 
 (defgeneric set-syntax (buffer syntax))
 
@@ -1188,6 +1402,9 @@ If *with-scrollbars* nil, omit the scroller."
 (define-named-command com-split-window-vertically ()
   (split-window-vertically))
 
+(set-key 'com-split-window-vertically 'global-climacs-table
+	 '((#\x :control) (#\2)))
+
 (defun split-window-horizontally (&optional (pane (current-window)))
   (with-look-and-feel-realization
       ((frame-manager *application-frame*) *application-frame*)
@@ -1210,6 +1427,9 @@ If *with-scrollbars* nil, omit the scroller."
 (define-named-command com-split-window-horizontally ()
   (split-window-horizontally))
 
+(set-key 'com-split-window-horizontally 'global-climacs-table
+	 '((#\x :control) (#\3)))
+
 (defun other-window ()
   (setf (windows *application-frame*)
 	(append (cdr (windows *application-frame*))
@@ -1218,6 +1438,9 @@ If *with-scrollbars* nil, omit the scroller."
 
 (define-named-command com-other-window ()
   (other-window))
+
+(set-key 'com-other-window 'global-climacs-table
+	 '((#\x :control) (#\o)))
 
 (defun single-window ()
   (loop until (null (cdr (windows *application-frame*)))
@@ -1229,15 +1452,24 @@ If *with-scrollbars* nil, omit the scroller."
 (define-named-command com-single-window ()
   (single-window))
 
+(set-key 'com-single-window 'global-climacs-table
+	 '((#\x :control) (#\1)))
+
 (define-named-command com-scroll-other-window ()
   (let ((other-window (second (windows *application-frame*))))
     (when other-window
       (page-down other-window))))
 
+(set-key 'com-scroll-other-window 'global-climacs-table
+	 '((#\v :control :meta)))
+
 (define-named-command com-scroll-other-window-up ()
   (let ((other-window (second (windows *application-frame*))))
     (when other-window
       (page-up other-window))))
+
+(set-key 'com-scroll-other-window-up 'global-climacs-table
+	 '((#\V :control :meta :shift)))
 
 (defun delete-window (&optional (window (current-window)))
   (unless (null (cdr (windows *application-frame*)))
@@ -1271,12 +1503,18 @@ If *with-scrollbars* nil, omit the scroller."
 (define-named-command com-delete-window ()
   (delete-window))
 
+(set-key 'com-delete-window 'global-climacs-table
+	 '((#\x :control) (#\0)))
+
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
 
 ;; Copies an element from a kill-ring to a buffer at the given offset
 (define-named-command com-yank ()
   (insert-sequence (point (current-window)) (kill-ring-yank *kill-ring*)))
+
+(set-key 'com-yank 'global-climacs-table
+	 '((#\y :control)))
 
 ;; Destructively cut a given buffer region into the kill-ring
 (define-named-command com-kill-region ()
@@ -1285,10 +1523,16 @@ If *with-scrollbars* nil, omit the scroller."
      *kill-ring* (region-to-sequence (mark pane) (point pane)))
     (delete-region (mark pane) (point pane))))
 
+(set-key 'com-kill-region 'global-climacs-table
+	 '((#\w :control)))
+
 ;; Non destructively copies buffer region to the kill ring
 (define-named-command com-copy-region ()
   (let ((pane (current-window)))
     (kill-ring-standard-push *kill-ring* (region-to-sequence (point pane) (mark pane)))))
+
+(set-key 'com-copy-region 'global-climacs-table
+	 '((#\w :control)))
 
 (define-named-command com-rotate-yank ()
   (let* ((pane (current-window))
@@ -1301,6 +1545,9 @@ If *with-scrollbars* nil, omit the scroller."
 	  (rotate-yank-position *kill-ring*)))
     (insert-sequence point (kill-ring-yank *kill-ring*))))
 
+(set-key 'com-rotate-yank 'global-climacs-table
+	 '((#\y :meta)))
+
 (define-named-command com-resize-kill-ring ()
   (let ((size (handler-case (accept 'integer :prompt "New kill ring size")
 		(error () (progn (beep)
@@ -1310,6 +1557,9 @@ If *with-scrollbars* nil, omit the scroller."
 
 (define-named-command com-append-next-kill ()
   (setf (append-next-p *kill-ring*) t))
+
+(set-key 'com-append-next-kill 'global-climacs-table
+	 '((#\w :control :meta)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -1364,9 +1614,15 @@ If *with-scrollbars* nil, omit the scroller."
   (display-message "Isearch: ")
   (isearch-command-loop (current-window) t))
 
+(set-key 'com-isearch-forward 'global-climacs-table
+	 '((#\s :control)))
+
 (define-named-command com-isearch-backward ()
   (display-message "Isearch backward: ")
   (isearch-command-loop (current-window) nil))
+
+(set-key 'com-isearch-backward 'global-climacs-table
+	 '((#\r :control)))
 
 (define-command (com-isearch-append-char :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
@@ -1493,6 +1749,9 @@ If *with-scrollbars* nil, omit the scroller."
 			   ((setf (query-replace-mode pane) nil))))
     (display-message "Replaced ~A occurrence~:P" occurrences)))
 
+(set-key 'com-query-replace 'global-climacs-table
+	 '((#\% :shift :meta)))
+
 (define-command (com-query-replace-replace :name t :command-table query-replace-climacs-table) ()
   (declare (special string1 string2 occurrences))
   (let* ((pane (current-window))
@@ -1550,10 +1809,22 @@ If *with-scrollbars* nil, omit the scroller."
     (no-more-undo () (beep) (display-message "No more undo")))
   (full-redisplay (current-window)))
 
+(set-key 'com-undo 'global-climacs-table
+	 '((#\_ :shift :control)))
+
+(set-key 'com-undo 'global-climacs-table
+	 '((#\x :control) (#\u)))
+
 (define-named-command com-redo ()
   (handler-case (redo (undo-tree (buffer (current-window))))
     (no-more-undo () (beep) (display-message "No more redo")))
   (full-redisplay (current-window)))
+
+(set-key 'com-redo 'global-climacs-table
+	 '((#\_ :shift :meta)))
+
+(set-key 'com-redo 'global-climacs-table
+	 '((#\x :control) (#\r :control)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -1596,6 +1867,8 @@ If *with-scrollbars* nil, omit the scroller."
 						(setf (offset dabbrev-expansion-mark) offset))))
 		      (move))))))))
 
+(set-key 'com-dabbrev-expand 'global-climacs-table
+	 '((#\/ :meta)))
 
 (define-named-command com-backward-paragraph ((count 'integer :prompt "Number of paragraphs"))
   (let* ((pane (current-window))
@@ -1605,6 +1878,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat count do (backward-paragraph point syntax))
 	(loop repeat (- count) do (forward-paragraph point syntax)))))
 
+(set-key `(com-backward-paragraph ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\{ :shift :meta)))
+
 (define-named-command com-forward-paragraph ((count 'integer :prompt "Number of paragraphs"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1612,6 +1889,10 @@ If *with-scrollbars* nil, omit the scroller."
     (if (plusp count)
 	(loop repeat count do (forward-paragraph point syntax))
 	(loop repeat (- count) do (backward-paragraph point syntax)))))
+
+(set-key `(com-forward-paragraph ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\} :shift :meta)))
 
 (define-named-command com-mark-paragraph ((count 'integer :prompt "Number of paragraphs"))
   (let* ((pane (current-window))
@@ -1627,6 +1908,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat count do (forward-paragraph mark syntax))
 	(loop repeat (- count) do (backward-paragraph mark syntax)))))
 
+(set-key `(com-mark-paragraph ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\h :meta)))
+
 (define-named-command com-backward-sentence ((count 'integer :prompt "Number of sentences"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1635,6 +1920,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat count do (backward-sentence point syntax))
 	(loop repeat (- count) do (forward-sentence point syntax)))))
 
+(set-key `(com-backward-sentence ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\a :meta)))
+
 (define-named-command com-forward-sentence ((count 'integer :prompt "Number of sentences"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1642,6 +1931,10 @@ If *with-scrollbars* nil, omit the scroller."
     (if (plusp count)
 	(loop repeat count do (forward-sentence point syntax))
 	(loop repeat (- count) do (backward-sentence point syntax)))))
+
+(set-key `(com-forward-sentence ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\e :meta)))
 
 (define-named-command com-kill-sentence ((count 'integer :prompt "Number of sentences"))
   (let* ((pane (current-window))
@@ -1654,6 +1947,10 @@ If *with-scrollbars* nil, omit the scroller."
     (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
     (delete-region point mark)))
 
+(set-key `(com-kill-sentence *numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\k :meta)))
+
 (define-named-command com-backward-kill-sentence ((count 'integer :prompt "Number of sentences"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1664,6 +1961,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat (- count) do (forward-sentence point syntax)))
     (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
     (delete-region point mark)))
+
+(set-key `(com-backward-kill-sentence ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\x :control) (#\Backspace)))
 
 (defun forward-page (mark &optional (count 1))
   (loop repeat count
@@ -1677,6 +1978,10 @@ If *with-scrollbars* nil, omit the scroller."
     (if (plusp count)
 	(forward-page point count)
 	(backward-page point count))))
+
+(set-key `(com-forward-page ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\x :control) (#\])))
 
 (defun backward-page (mark &optional (count 1))
   (loop repeat count
@@ -1692,6 +1997,9 @@ If *with-scrollbars* nil, omit the scroller."
 	(backward-page point count)
 	(forward-page point count))))
 
+(set-key 'com-backward-page 'global-climacs-table
+	 '((#\x :control) (#\[)))
+
 (define-named-command com-mark-page ((count 'integer :prompt "Move how many pages")
 				     (numargp 'boolean :prompt "Move to another page?"))
   (let* ((pane (current-window))
@@ -1705,6 +2013,10 @@ If *with-scrollbars* nil, omit the scroller."
     (setf (offset mark) (offset point))
 	   (forward-page mark 1)))
 
+(set-key `(com-mark-page ,*numeric-argument-marker* ,*numeric-argument-p*)
+	 'global-climacs-table
+	 '((#\x :control) (#\p :control)))
+
 (define-named-command com-count-lines-page ()
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1717,6 +2029,9 @@ If *with-scrollbars* nil, omit the scroller."
 	  (after (number-of-lines-in-region point end)))
       (display-message "Page has ~A lines (~A + ~A)" total before after))))
 
+(set-key 'com-count-lines-page 'global-climacs-table
+	 '((#\x :control) (#\l)))
+
 (define-named-command com-count-lines-region ()
   (let*  ((pane (current-window))
 	  (point (point pane))
@@ -1724,6 +2039,9 @@ If *with-scrollbars* nil, omit the scroller."
 	  (lines (number-of-lines-in-region point mark))
 	  (chars (abs (- (offset point) (offset mark)))))
     (display-message "Region has ~D line~:P, ~D character~:P." lines chars)))
+
+(set-key 'com-count-lines-region 'global-climacs-table
+	 '((#\= :meta)))
 
 (define-named-command com-what-cursor-position ()
   (let* ((pane (current-window))
@@ -1736,6 +2054,9 @@ If *with-scrollbars* nil, omit the scroller."
     (display-message "Char: ~:C (#o~O ~:*~D ~:*#x~X) point=~D of ~D (~D%) column ~D"
 		     char (char-code char) offset size
 		     (round (* 100 (/ offset size))) column)))
+
+(set-key 'com-what-cursor-position 'global-climacs-table
+	 '((#\x :control) (#\=)))
 
 (define-named-command com-eval-expression ((insertp 'boolean :prompt "Insert?"))
   (let* ((*package* (find-package :climacs-gui))
@@ -1752,6 +2073,10 @@ If *with-scrollbars* nil, omit the scroller."
     (if insertp
 	(insert-sequence (point (current-window)) result)
 	(display-message result))))
+
+(set-key `(com-eval-expression ,*numeric-argument-p*)
+	 'global-climacs-table
+	 '((#\: :shift :meta)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -1773,6 +2098,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat count do (backward-expression point syntax))
 	(loop repeat (- count) do (forward-expression point syntax)))))
 
+(set-key `(com-backward-expression ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\b :control :meta)))
+
 (define-named-command com-forward-expression ((count 'integer :prompt "Number of expresssions"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1780,6 +2109,10 @@ If *with-scrollbars* nil, omit the scroller."
     (if (plusp count)
 	(loop repeat count do (forward-expression point syntax))
 	(loop repeat (- count) do (backward-expression point syntax)))))
+
+(set-key `(com-forward-expression ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\f :control :meta)))
 
 (define-named-command com-mark-expression ((count 'integer :prompt "Number of expressions"))
   (let* ((pane (current-window))
@@ -1792,6 +2125,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat count do (forward-expression mark syntax))
 	(loop repeat (- count) do (backward-expression mark syntax)))))
 
+(set-key `(com-mark-expression ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\@ :shift :control :meta)))
+
 (define-named-command com-kill-expression ((count 'integer :prompt "Number of expressions"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1802,6 +2139,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat (- count) do (backward-expression mark syntax)))
     (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
     (delete-region mark point)))
+
+(set-key `(com-kill-expression ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\k :control :meta)))
 
 (define-named-command com-backward-kill-expression
     ((count 'integer :prompt "Number of expressions"))
@@ -1815,6 +2156,10 @@ If *with-scrollbars* nil, omit the scroller."
     (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
     (delete-region mark point)))
 
+(set-key `(com-backward-kill-expression ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\Backspace :control :meta)))
+
 (define-named-command com-forward-list ((count 'integer :prompt "Number of lists"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1822,6 +2167,10 @@ If *with-scrollbars* nil, omit the scroller."
     (if (plusp count)
 	 (loop repeat count do (forward-list point syntax))
 	 (loop repeat (- count) do (backward-list point syntax)))))
+
+(set-key `(com-forward-list ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\n :control :meta)))
 
 (define-named-command com-backward-list ((count 'integer :prompt "Number of lists"))
   (let* ((pane (current-window))
@@ -1831,6 +2180,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat count do (backward-list point syntax))
 	(loop repeat (- count) do (forward-list point syntax)))))
 
+(set-key `(com-backward-list ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\p :control :meta)))
+
 (define-named-command com-down-list ((count 'integer :prompt "Number of lists"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1838,6 +2191,10 @@ If *with-scrollbars* nil, omit the scroller."
     (if (plusp count)
 	(loop repeat count do (down-list point syntax))
 	(loop repeat (- count) do (backward-down-list point syntax)))))
+
+(set-key `(com-down-list ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\d :control :meta)))
 
 (define-named-command com-backward-down-list ((count 'integer :prompt "Number of lists"))
   (let* ((pane (current-window))
@@ -1855,6 +2212,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat count do (backward-up-list point syntax))
 	(loop repeat (- count) do (up-list point syntax)))))
 
+(set-key `(com-backward-up-list ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\u :control :meta)))
+
 (define-named-command com-up-list ((count 'integer :prompt "Number of lists"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1869,6 +2230,9 @@ If *with-scrollbars* nil, omit the scroller."
 	 (syntax (syntax (buffer pane))))
     (eval-defun point syntax)))
 
+(set-key 'com-eval-defun 'global-climacs-table
+	 '((#\x :control :meta)))
+
 (define-named-command com-beginning-of-definition ((count 'integer :prompt "Number of definitions"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1877,6 +2241,10 @@ If *with-scrollbars* nil, omit the scroller."
 	(loop repeat count do (beginning-of-definition point syntax))
 	(loop repeat (- count) do (end-of-definition point syntax)))))
 
+(set-key `(com-beginning-of-definition ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\a :control :meta)))
+
 (define-named-command com-end-of-definition ((count 'integer :prompt "Number of definitions"))
   (let* ((pane (current-window))
 	 (point (point pane))
@@ -1884,6 +2252,10 @@ If *with-scrollbars* nil, omit the scroller."
     (if (plusp count)
 	(loop repeat count do (end-of-definition point syntax))
 	(loop repeat (- count) do (beginning-of-definition point syntax)))))
+
+(set-key `(com-end-of-definition ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\e :control :meta)))
 
 (define-named-command com-mark-definition ()
   (let* ((pane (current-window))
@@ -1894,6 +2266,9 @@ If *with-scrollbars* nil, omit the scroller."
       (beginning-of-definition point syntax)
       (setf (offset mark) (offset point)))
     (end-of-definition mark syntax)))
+
+(set-key 'com-mark-definition 'global-climacs-table
+	 '((#\h :control :meta)))
 
 (define-named-command com-package ()
   (let* ((pane (current-window))
@@ -1940,159 +2315,14 @@ If *with-scrollbars* nil, omit the scroller."
 (define-named-command com-toggle-visible-mark ()
   (setf (mark-visible-p (current-window)) (not (mark-visible-p (current-window)))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Dead-escape command tables
-
-(make-command-table 'dead-escape-climacs-table :errorp nil)
-
-(add-menu-item-to-command-table 'global-climacs-table "dead-escape"
-				:menu 'dead-escape-climacs-table
-				:keystroke '(:escape))
-
-(defun dead-escape-set-key (gesture command)
-  (add-command-to-command-table command 'dead-escape-climacs-table
-				:keystroke gesture :errorp nil))
-
-(dead-escape-set-key '(#\x) 'esa::com-extended-command)
-
-(defun global-set-key (gesture command)
-  (add-command-to-command-table command 'global-climacs-table
-				:keystroke gesture :errorp nil)
-  (when (and 
-	 (listp gesture)
-	 (find :meta gesture))
-    (dead-escape-set-key (remove :meta gesture)  command)))
-
 (loop for code from (char-code #\Space) to (char-code #\~)
-      do (global-set-key (code-char code) `(com-self-insert ,*numeric-argument-marker*)))
+      do (set-key `(com-self-insert ,*numeric-argument-marker*)
+	     'global-climacs-table
+	     (list (list (code-char code)))))
 
-(global-set-key #\Newline `(com-self-insert ,*numeric-argument-marker*))
-(global-set-key #\Tab 'com-indent-line)
-(global-set-key '(#\i :control) 'com-indent-line)
-(global-set-key '(#\: :shift :meta) `(com-eval-expression ,*numeric-argument-p*))
-(global-set-key '(#\j :control) 'com-newline-and-indent)
-(global-set-key '(#\f :control) `(com-forward-object ,*numeric-argument-marker*))
-(global-set-key '(#\b :control) `(com-backward-object ,*numeric-argument-marker*))
-(global-set-key '(#\a :control) 'com-beginning-of-line)
-(global-set-key '(#\e :control) 'com-end-of-line)
-(global-set-key '(#\d :control) `(com-delete-object ,*numeric-argument-marker* ,*numeric-argument-p*))
-(global-set-key '(#\p :control) `(com-previous-line ,*numeric-argument-marker*))
-(global-set-key '(#\l :control) 'com-full-redisplay)
-(global-set-key '(#\n :control) `(com-next-line ,*numeric-argument-marker*))
-(global-set-key '(#\o :control) `(com-open-line ,*numeric-argument-marker*))
-(global-set-key '(#\k :control) `(com-kill-line ,*numeric-argument-marker* ,*numeric-argument-p*))
-(global-set-key '(#\t :control) 'com-transpose-objects)
-(global-set-key '(#\Space :control) 'com-set-mark)
-(global-set-key '(#\y :control) 'com-yank)
-(global-set-key '(#\w :control) 'com-kill-region)
-(global-set-key '(#\w :control :meta) 'com-append-next-kill)
-(global-set-key '(#\e :meta) `(com-forward-sentence ,*numeric-argument-marker*))
-(global-set-key '(#\a :meta) `(com-backward-sentence ,*numeric-argument-marker*))
-(global-set-key '(#\k :meta) `(com-kill-sentence ,*numeric-argument-marker*))
-(global-set-key '(#\@ :meta :control :shift) `(com-mark-expression ,*numeric-argument-marker*))
-(global-set-key '(#\f :meta) `(com-forward-word ,*numeric-argument-marker*))
-(global-set-key '(#\b :meta) `(com-backward-word ,*numeric-argument-marker*))
-(global-set-key '(#\t :meta) 'com-transpose-words)
-(global-set-key '(#\u :meta) 'com-upcase-word)
-(global-set-key '(#\l :meta) 'com-downcase-word)
-(global-set-key '(#\c :meta) 'com-capitalize-word)
-(global-set-key '(#\y :meta) 'com-rotate-yank) 
-(global-set-key '(#\z :meta) 'com-zap-to-character)
-(global-set-key '(#\w :meta) 'com-copy-region)
-(global-set-key '(#\v :control) 'com-page-down)
-(global-set-key '(#\v :meta) 'com-page-up)
-(global-set-key '(#\v :control :meta) 'com-scroll-other-window)
-(global-set-key '(#\V :control :meta :shift) 'com-scroll-other-window-up)
-(global-set-key '(#\< :shift :meta) 'com-beginning-of-buffer)
-(global-set-key '(#\> :shift :meta) 'com-end-of-buffer)
-(global-set-key '(#\m :meta) 'com-back-to-indentation)
-(global-set-key '(#\\ :meta) `(com-delete-horizontal-space ,*numeric-argument-p*))
-(global-set-key '(#\Space :meta) `(com-just-one-space ,*numeric-argument-marker*))
-(global-set-key '(#\^ :shift :meta) 'com-delete-indentation)
-(global-set-key '(#\q :meta) 'com-fill-paragraph)
-(global-set-key '(#\d :meta) `(com-kill-word ,*numeric-argument-marker*))
-(global-set-key '(#\Backspace :meta) `(com-backward-kill-word ,*numeric-argument-marker*))
-(global-set-key '(#\@ :meta :shift) `(com-mark-word ,*numeric-argument-marker*))
-(global-set-key '(#\/ :meta) 'com-dabbrev-expand)
-(global-set-key '(#\{ :meta :shift) `(com-backward-paragraph ,*numeric-argument-marker*))
-(global-set-key '(#\} :meta :shift) `(com-forward-paragraph ,*numeric-argument-marker*))
-(global-set-key '(#\h :meta) `(com-mark-paragraph ,*numeric-argument-marker*))
-(global-set-key '(#\s :control) 'com-isearch-forward)
-(global-set-key '(#\r :control) 'com-isearch-backward)
-(global-set-key '(#\_ :shift :meta) 'com-redo)
-(global-set-key '(#\_ :shift :control) 'com-undo)
-(global-set-key '(#\% :shift :meta) 'com-query-replace)
-(global-set-key '(#\= :meta) 'com-count-lines-region)
-(global-set-key '(:up) `(com-previous-line ,*numeric-argument-marker*))
-(global-set-key '(:down) `(com-next-line ,*numeric-argument-marker*))
-(global-set-key '(:left) `(com-backward-object ,*numeric-argument-marker*))
-(global-set-key '(:right) `(com-forward-object ,*numeric-argument-marker*))
-(global-set-key '(:left :control) `(com-backward-word ,*numeric-argument-marker*))
-(global-set-key '(:right :control) `(com-forward-word ,*numeric-argument-marker*))
-(global-set-key '(:home) 'com-beginning-of-line)
-(global-set-key '(:end) 'com-end-of-line)
-(global-set-key '(:prior) 'com-page-up)
-(global-set-key '(:next) 'com-page-down)
-(global-set-key '(:home :control) 'com-beginning-of-buffer)
-(global-set-key '(:end :control) 'com-end-of-buffer)
-(global-set-key #\Rubout `(com-delete-object ,*numeric-argument-marker* ,*numeric-argument-p*))
-(global-set-key #\Backspace `(com-backward-delete-object ,*numeric-argument-marker* ,*numeric-argument-p*))
-
-(global-set-key '(:insert) 'com-toggle-overwrite-mode)
-(global-set-key '(#\~ :meta :shift) 'com-not-modified)
-
-(global-set-key '(#\b :control :meta) `(com-backward-expression ,*numeric-argument-marker*))
-(global-set-key '(#\f :control :meta) `(com-forward-expression ,*numeric-argument-marker*))
-(global-set-key '(#\Backspace :control :meta) `(com-backward-kill-expression ,*numeric-argument-marker*))
-(global-set-key '(#\k :control :meta) `(com-kill-expression ,*numeric-argument-marker*))
-(global-set-key '(#\n :control :meta) `(com-forward-list ,*numeric-argument-marker*))
-(global-set-key '(#\p :control :meta) `(com-backward-list ,*numeric-argument-marker*))
-(global-set-key '(#\d :control :meta) `(com-down-list ,*numeric-argument-marker*))
-(global-set-key '(#\u :control :meta) `(com-backward-up-list ,*numeric-argument-marker*))
-(global-set-key '(#\x :control :meta) 'com-eval-defun)
-(global-set-key '(#\a :control :meta) `(com-beginning-of-definition ,*numeric-argument-marker*))
-(global-set-key '(#\e :control :meta) `(com-end-of-definition ,*numeric-argument-marker*))
-(global-set-key '(#\h :control :meta) 'com-mark-definition)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; C-x command table
-
-(make-command-table 'c-x-climacs-table :errorp nil)
-
-(add-menu-item-to-command-table 'global-climacs-table "C-x"
-				:menu 'c-x-climacs-table
-				:keystroke '(#\x :control))
-
-(defun c-x-set-key (gesture command)
-  (add-command-to-command-table command 'c-x-climacs-table
-				:keystroke gesture :errorp nil))
-
-(c-x-set-key '(#\0) 'com-delete-window)
-(c-x-set-key '(#\1) 'com-single-window)
-(c-x-set-key '(#\2) 'com-split-window-vertically)
-(c-x-set-key '(#\3) 'com-split-window-horizontally)
-(c-x-set-key '(#\b) 'com-switch-to-buffer)
-(c-x-set-key '(#\f :control) 'com-find-file)
-(c-x-set-key '(#\r :control) 'com-find-file-read-only)
-(c-x-set-key '(#\q :control) 'com-toggle-read-only)
-(c-x-set-key '(#\f) `(com-set-fill-column ,*numeric-argument-marker*))
-(c-x-set-key '(#\h) 'com-mark-whole-buffer)
-(c-x-set-key '(#\i) 'com-insert-file)
-(c-x-set-key '(#\k) 'com-kill-buffer)
-(c-x-set-key '(#\o) 'com-other-window)
-(c-x-set-key '(#\r) 'com-redo)
-(c-x-set-key '(#\u) 'com-undo)
-(c-x-set-key '(#\]) `(com-forward-page ,*numeric-argument-marker*))
-(c-x-set-key '(#\[) `(com-backward-page ,*numeric-argument-marker*))
-(c-x-set-key '(#\p :control) `(com-mark-page ,*numeric-argument-marker* ,*numeric-argument-p*))
-(c-x-set-key '(#\l) 'com-count-lines-page)
-(c-x-set-key '(#\s :control) 'com-save-buffer)
-(c-x-set-key '(#\t :control) 'com-transpose-lines)
-(c-x-set-key '(#\w :control) 'com-write-buffer)
-(c-x-set-key '(#\x :control) 'com-exchange-point-and-mark)
-(c-x-set-key '(#\=) 'com-what-cursor-position)
-(c-x-set-key '(#\Backspace) `(com-backward-kill-sentence ,*numeric-argument-marker*))
+(set-key `(com-self-insert ,*numeric-argument-marker*)
+	 'global-climacs-table
+	 '((#\Newline)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -2101,174 +2331,78 @@ If *with-scrollbars* nil, omit the scroller."
 (define-named-command com-insert-charcode ((code 'integer :prompt "Code point"))
   (insert-object (point (current-window)) (code-char code)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Dead-acute command table
+(set-key '(com-insert-charcode 193) 'global-climacs-table '((:dead--acute)(#\A)))
+(set-key '(com-insert-charcode 201) 'global-climacs-table '((:dead--acute)(#\E)))
+(set-key '(com-insert-charcode 205) 'global-climacs-table '((:dead--acute)(#\I)))
+(set-key '(com-insert-charcode 211) 'global-climacs-table '((:dead--acute)(#\O)))
+(set-key '(com-insert-charcode 218) 'global-climacs-table '((:dead--acute)(#\U)))
+(set-key '(com-insert-charcode 221) 'global-climacs-table '((:dead--acute)(#\Y)))
+(set-key '(com-insert-charcode 225) 'global-climacs-table '((:dead--acute)(#\a)))
+(set-key '(com-insert-charcode 233) 'global-climacs-table '((:dead--acute)(#\e)))
+(set-key '(com-insert-charcode 237) 'global-climacs-table '((:dead--acute)(#\i)))
+(set-key '(com-insert-charcode 243) 'global-climacs-table '((:dead--acute)(#\o)))
+(set-key '(com-insert-charcode 250) 'global-climacs-table '((:dead--acute)(#\u)))
+(set-key '(com-insert-charcode 253) 'global-climacs-table '((:dead--acute)(#\y)))
+(set-key '(com-insert-charcode 199) 'global-climacs-table '((:dead--acute)(#\C)))
+(set-key '(com-insert-charcode 231) 'global-climacs-table '((:dead--acute)(#\c)))
+(set-key '(com-insert-charcode 215) 'global-climacs-table '((:dead--acute)(#\x)))
+(set-key '(com-insert-charcode 247) 'global-climacs-table '((:dead--acute)(#\-)))
+(set-key '(com-insert-charcode 222) 'global-climacs-table '((:dead--acute)(#\T)))
+(set-key '(com-insert-charcode 254) 'global-climacs-table '((:dead--acute)(#\t)))
+(set-key '(com-insert-charcode 223) 'global-climacs-table '((:dead--acute)(#\s)))
+(set-key '(com-insert-charcode 39) 'global-climacs-table '((:dead--acute)(#\Space)))
 
-(make-command-table 'dead-acute-climacs-table :errorp nil)
+(set-key '(com-insert-charcode 197) 'global-climacs-table '((:dead--acute)(:dead--acute)(#\A)))
+(set-key '(com-insert-charcode 229) 'global-climacs-table '((:dead--acute)(:dead--acute)(#\a)))
 
-(add-menu-item-to-command-table 'global-climacs-table "dead-acute"
-				:menu 'dead-acute-climacs-table
-				:keystroke '(:dead--acute))
+(set-key '(com-insert-charcode 192) 'global-climacs-table '((:dead--grave)(#\A)))
+(set-key '(com-insert-charcode 200) 'global-climacs-table '((:dead--grave)(#\E)))
+(set-key '(com-insert-charcode 204) 'global-climacs-table '((:dead--grave)(#\I)))
+(set-key '(com-insert-charcode 210) 'global-climacs-table '((:dead--grave)(#\O)))
+(set-key '(com-insert-charcode 217) 'global-climacs-table '((:dead--grave)(#\U)))
+(set-key '(com-insert-charcode 224) 'global-climacs-table '((:dead--grave)(#\a)))
+(set-key '(com-insert-charcode 232) 'global-climacs-table '((:dead--grave)(#\e)))
+(set-key '(com-insert-charcode 236) 'global-climacs-table '((:dead--grave)(#\i)))
+(set-key '(com-insert-charcode 242) 'global-climacs-table '((:dead--grave)(#\o)))
+(set-key '(com-insert-charcode 249) 'global-climacs-table '((:dead--grave)(#\u)))
+(set-key '(com-insert-charcode 96) 'global-climacs-table '((:dead--grave)(#\Space)))
 
-(defun dead-acute-set-key (gesture command)
-  (add-command-to-command-table command 'dead-acute-climacs-table
-				:keystroke gesture :errorp nil))
+(set-key '(com-insert-charcode 196) 'global-climacs-table '((:dead--diaeresis :shift)(#\A)))
+(set-key '(com-insert-charcode 203) 'global-climacs-table '((:dead--diaeresis :shift)(#\E)))
+(set-key '(com-insert-charcode 207) 'global-climacs-table '((:dead--diaeresis :shift)(#\I)))
+(set-key '(com-insert-charcode 214) 'global-climacs-table '((:dead--diaeresis :shift)(#\O)))
+(set-key '(com-insert-charcode 220) 'global-climacs-table '((:dead--diaeresis :shift)(#\U)))
+(set-key '(com-insert-charcode 228) 'global-climacs-table '((:dead--diaeresis :shift)(#\a)))
+(set-key '(com-insert-charcode 235) 'global-climacs-table '((:dead--diaeresis :shift)(#\e)))
+(set-key '(com-insert-charcode 239) 'global-climacs-table '((:dead--diaeresis :shift)(#\i)))
+(set-key '(com-insert-charcode 246) 'global-climacs-table '((:dead--diaeresis :shift)(#\o)))
+(set-key '(com-insert-charcode 252) 'global-climacs-table '((:dead--diaeresis :shift)(#\u)))
+(set-key '(com-insert-charcode 255) 'global-climacs-table '((:dead--diaeresis :shift)(#\y)))
+(set-key '(com-insert-charcode 34) 'global-climacs-table '((:dead--diaeresis :shift)(#\Space)))
 
-(dead-acute-set-key '(#\A) '(com-insert-charcode 193))
-(dead-acute-set-key '(#\E) '(com-insert-charcode 201))
-(dead-acute-set-key '(#\I) '(com-insert-charcode 205))
-(dead-acute-set-key '(#\O) '(com-insert-charcode 211))
-(dead-acute-set-key '(#\U) '(com-insert-charcode 218))
-(dead-acute-set-key '(#\Y) '(com-insert-charcode 221))
-(dead-acute-set-key '(#\a) '(com-insert-charcode 225))
-(dead-acute-set-key '(#\e) '(com-insert-charcode 233))
-(dead-acute-set-key '(#\i) '(com-insert-charcode 237))
-(dead-acute-set-key '(#\o) '(com-insert-charcode 243))
-(dead-acute-set-key '(#\u) '(com-insert-charcode 250))
-(dead-acute-set-key '(#\y) '(com-insert-charcode 253))
-(dead-acute-set-key '(#\C) '(com-insert-charcode 199))
-(dead-acute-set-key '(#\c) '(com-insert-charcode 231))
-(dead-acute-set-key '(#\x) '(com-insert-charcode 215))
-(dead-acute-set-key '(#\-) '(com-insert-charcode 247))
-(dead-acute-set-key '(#\T) '(com-insert-charcode 222))
-(dead-acute-set-key '(#\t) '(com-insert-charcode 254))
-(dead-acute-set-key '(#\s) '(com-insert-charcode 223))
-(dead-acute-set-key '(#\Space) '(com-insert-charcode 39))
+(set-key '(com-insert-charcode 195) 'global-climacs-table '((:dead--tilde :shift)(#\A)))
+(set-key '(com-insert-charcode 209) 'global-climacs-table '((:dead--tilde :shift)(#\N)))
+(set-key '(com-insert-charcode 227) 'global-climacs-table '((:dead--tilde :shift)(#\a)))
+(set-key '(com-insert-charcode 241) 'global-climacs-table '((:dead--tilde :shift)(#\n)))
+(set-key '(com-insert-charcode 198) 'global-climacs-table '((:dead--tilde :shift)(#\E)))
+(set-key '(com-insert-charcode 230) 'global-climacs-table '((:dead--tilde :shift)(#\e)))
+(set-key '(com-insert-charcode 208) 'global-climacs-table '((:dead--tilde :shift)(#\D)))
+(set-key '(com-insert-charcode 240) 'global-climacs-table '((:dead--tilde :shift)(#\d)))
+(set-key '(com-insert-charcode 216) 'global-climacs-table '((:dead--tilde :shift)(#\O)))
+(set-key '(com-insert-charcode 248) 'global-climacs-table '((:dead--tilde :shift)(#\o)))
+(set-key '(com-insert-charcode 126) 'global-climacs-table '((:dead--tilde :shift)(#\Space)))
 
-(make-command-table 'dead-acute-dead-accute-climacs-table :errorp nil)
-
-(add-menu-item-to-command-table 'dead-acute-climacs-table "dead-acute-dead-accute"
-				:menu 'dead-acute-dead-accute-climacs-table
-				:keystroke '(:dead--acute))
-
-(defun dead-acute-dead-accute-set-key (gesture command)
-  (add-command-to-command-table command 'dead-acute-dead-accute-climacs-table
-				:keystroke gesture :errorp nil))
-
-(dead-acute-dead-accute-set-key '(#\A) '(com-insert-charcode 197))
-(dead-acute-dead-accute-set-key '(#\a) '(com-insert-charcode 229))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Dead-grave command table
-
-(make-command-table 'dead-grave-climacs-table :errorp nil)
-
-(add-menu-item-to-command-table 'global-climacs-table "dead-grave"
-				:menu 'dead-grave-climacs-table
-				:keystroke '(:dead--grave))
-
-(defun dead-grave-set-key (gesture command)
-  (add-command-to-command-table command 'dead-grave-climacs-table
-				:keystroke gesture :errorp nil))
-
-(dead-grave-set-key '(#\A) '(com-insert-charcode 192))
-(dead-grave-set-key '(#\E) '(com-insert-charcode 200))
-(dead-grave-set-key '(#\I) '(com-insert-charcode 204))
-(dead-grave-set-key '(#\O) '(com-insert-charcode 210))
-(dead-grave-set-key '(#\U) '(com-insert-charcode 217))
-(dead-grave-set-key '(#\a) '(com-insert-charcode 224))
-(dead-grave-set-key '(#\e) '(com-insert-charcode 232))
-(dead-grave-set-key '(#\i) '(com-insert-charcode 236))
-(dead-grave-set-key '(#\o) '(com-insert-charcode 242))
-(dead-grave-set-key '(#\u) '(com-insert-charcode 249))
-(dead-grave-set-key '(#\Space) '(com-insert-charcode 96))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Dead-diaeresis command table
-
-(make-command-table 'dead-diaeresis-climacs-table :errorp nil)
-
-(add-menu-item-to-command-table 'global-climacs-table "dead-diaeresis"
-				:menu 'dead-diaeresis-climacs-table
-				:keystroke '(:dead--diaeresis :shift))
-
-(defun dead-diaeresis-set-key (gesture command)
-  (add-command-to-command-table command 'dead-diaeresis-climacs-table
-				:keystroke gesture :errorp nil))
-
-(dead-diaeresis-set-key '(#\A) '(com-insert-charcode 196))
-(dead-diaeresis-set-key '(#\E) '(com-insert-charcode 203))
-(dead-diaeresis-set-key '(#\I) '(com-insert-charcode 207))
-(dead-diaeresis-set-key '(#\O) '(com-insert-charcode 214))
-(dead-diaeresis-set-key '(#\U) '(com-insert-charcode 220))
-(dead-diaeresis-set-key '(#\a) '(com-insert-charcode 228))
-(dead-diaeresis-set-key '(#\e) '(com-insert-charcode 235))
-(dead-diaeresis-set-key '(#\i) '(com-insert-charcode 239))
-(dead-diaeresis-set-key '(#\o) '(com-insert-charcode 246))
-(dead-diaeresis-set-key '(#\u) '(com-insert-charcode 252))
-(dead-diaeresis-set-key '(#\y) '(com-insert-charcode 255))
-(dead-diaeresis-set-key '(#\Space) '(com-insert-charcode 34))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Dead-tilde command table
-
-(make-command-table 'dead-tilde-climacs-table :errorp nil)
-
-(add-menu-item-to-command-table 'global-climacs-table "dead-tilde"
-				:menu 'dead-tilde-climacs-table
-				:keystroke '(:dead--tilde :shift))
-
-(defun dead-tilde-set-key (gesture command)
-  (add-command-to-command-table command 'dead-tilde-climacs-table
-				:keystroke gesture :errorp nil))
-
-(dead-tilde-set-key '(#\A) '(com-insert-charcode 195))
-(dead-tilde-set-key '(#\N) '(com-insert-charcode 209))
-(dead-tilde-set-key '(#\a) '(com-insert-charcode 227))
-(dead-tilde-set-key '(#\n) '(com-insert-charcode 241))
-(dead-tilde-set-key '(#\E) '(com-insert-charcode 198))
-(dead-tilde-set-key '(#\e) '(com-insert-charcode 230))
-(dead-tilde-set-key '(#\D) '(com-insert-charcode 208))
-(dead-tilde-set-key '(#\d) '(com-insert-charcode 240))
-(dead-tilde-set-key '(#\O) '(com-insert-charcode 216))
-(dead-tilde-set-key '(#\o) '(com-insert-charcode 248))
-(dead-tilde-set-key '(#\Space) '(com-insert-charcode 126))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Dead-circumflex command table
-
-(make-command-table 'dead-circumflex-climacs-table :errorp nil)
-
-(add-menu-item-to-command-table 'global-climacs-table "dead-circumflex"
-				:menu 'dead-circumflex-climacs-table
-				:keystroke '(:dead--circumflex :shift))
-
-(defun dead-circumflex-set-key (gesture command)
-  (add-command-to-command-table command 'dead-circumflex-climacs-table
-				:keystroke gesture :errorp nil))
-
-(dead-circumflex-set-key '(#\A) '(com-insert-charcode 194))
-(dead-circumflex-set-key '(#\E) '(com-insert-charcode 202))
-(dead-circumflex-set-key '(#\I) '(com-insert-charcode 206))
-(dead-circumflex-set-key '(#\O) '(com-insert-charcode 212))
-(dead-circumflex-set-key '(#\U) '(com-insert-charcode 219))
-(dead-circumflex-set-key '(#\a) '(com-insert-charcode 226))
-(dead-circumflex-set-key '(#\e) '(com-insert-charcode 234))
-(dead-circumflex-set-key '(#\i) '(com-insert-charcode 238))
-(dead-circumflex-set-key '(#\o) '(com-insert-charcode 244))
-(dead-circumflex-set-key '(#\u) '(com-insert-charcode 251))
-(dead-circumflex-set-key '(#\Space) '(com-insert-charcode 94))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; C-c command table
-
-(make-command-table 'c-c-climacs-table :errorp nil)
-
-(add-menu-item-to-command-table 'global-climacs-table "C-c"
-				:menu 'c-c-climacs-table
-				:keystroke '(#\c :control))
-
-(defun c-c-set-key (gesture command)
-  (add-command-to-command-table command 'c-c-climacs-table
-				:keystroke gesture :errorp nil))
-
-(c-c-set-key '(#\l :control) 'com-load-file)
+(set-key '(com-insert-charcode 194) 'global-climacs-table '((:dead--circumflex :shift)(#\A)))
+(set-key '(com-insert-charcode 202) 'global-climacs-table '((:dead--circumflex :shift)(#\E)))
+(set-key '(com-insert-charcode 206) 'global-climacs-table '((:dead--circumflex :shift)(#\I)))
+(set-key '(com-insert-charcode 212) 'global-climacs-table '((:dead--circumflex :shift)(#\O)))
+(set-key '(com-insert-charcode 219) 'global-climacs-table '((:dead--circumflex :shift)(#\U)))
+(set-key '(com-insert-charcode 226) 'global-climacs-table '((:dead--circumflex :shift)(#\a)))
+(set-key '(com-insert-charcode 234) 'global-climacs-table '((:dead--circumflex :shift)(#\e)))
+(set-key '(com-insert-charcode 238) 'global-climacs-table '((:dead--circumflex :shift)(#\i)))
+(set-key '(com-insert-charcode 244) 'global-climacs-table '((:dead--circumflex :shift)(#\o)))
+(set-key '(com-insert-charcode 251) 'global-climacs-table '((:dead--circumflex :shift)(#\u)))
+(set-key '(com-insert-charcode 94) 'global-climacs-table '((:dead--circumflex :shift)(#\Space)))
 
 (define-named-command com-regex-search-forward ()
   (let ((string (accept 'string :prompt "RE search"
