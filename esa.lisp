@@ -423,7 +423,7 @@ In the absence of a prefix arg returns 1 (and nil)."
 				   esa-frame-mixin)
   ()
   (:panes
-   (win (let* ((my-pane 
+   (window (let* ((my-pane 
 		(make-pane 'example-pane
 			   :width 900 :height 400
 			   :display-function 'display-my-pane
@@ -437,12 +437,12 @@ In the absence of a prefix arg returns 1 (and nil)."
 	    (scrolling ()
 	      my-pane)
 	    my-info-pane)))
-   (int (make-pane 'example-minibuffer-pane :width 900)))
+   (minibuffer (make-pane 'example-minibuffer-pane :width 900)))
   (:layouts
    (default
        (vertically (:scroll-bars nil)
-	 win
-	 int)))
+	 window
+	 minibuffer)))
   (:top-level (esa-top-level)))
 
 (defun display-my-pane (frame pane)

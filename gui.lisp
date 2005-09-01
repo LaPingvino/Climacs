@@ -59,12 +59,12 @@
   (:command-table (global-climacs-table :inherit-from (global-esa-table)))
   (:menu-bar nil)
   (:panes
-   (win (let* ((extended-pane 
+   (window (let* ((extended-pane 
 		(make-pane 'extended-pane
 			   :width 900 :height 400
 			   :end-of-line-action :scroll
 			   :incremental-redisplay t
-			   :display-function 'display-win
+			   :display-function 'display-window
 			   :command-table 'global-climacs-table))
 	       (info-pane
 		(make-pane 'climacs-info-pane
@@ -79,12 +79,12 @@
 		  extended-pane)
 		extended-pane)
 	    info-pane)))
-   (int (make-pane 'climacs-minibuffer-pane :width 900)))
+   (minibuffer (make-pane 'climacs-minibuffer-pane :width 900)))
   (:layouts
    (default
        (vertically (:scroll-bars nil)
-	 win
-	 int)))
+	 window
+	 minibuffer)))
   (:top-level (esa-top-level)))
 
 (defun current-window ()
@@ -112,8 +112,8 @@
 (defun display-info (frame pane)
   (declare (ignore frame))
   (let* ((master-pane (master-pane pane))
-	 (buf (buffer master-pane))
-	 (size (size buf))
+	 (buffer (buffer master-pane))
+	 (size (size buffer))
 	 (top (top master-pane))
 	 (bot (bot master-pane))
 	 (name-info (format nil "~3T~A~
@@ -124,13 +124,13 @@
                                  ~{~:[~*~; ~A~]~}~
                                  ~:[)~;~]~
                                  ~3@T~A"
-			    (cond ((and (needs-saving buf)
-					(read-only-p buf)
+			    (cond ((and (needs-saving buffer)
+					(read-only-p buffer)
 					"%*"))
-				  ((needs-saving buf) "**")
-				  ((read-only-p buf) "%%")
+				  ((needs-saving buffer) "**")
+				  ((read-only-p buffer) "%%")
 				  (t "--"))
-			    (name buf)
+			    (name buffer)
 			    *with-scrollbars*
 			    (cond ((and (mark= size bot)
 					(mark= 0 top))
@@ -143,7 +143,7 @@
 					     (round (* 100 (/ (offset top)
 							      size))))))
 			    *with-scrollbars*
-			    (name (syntax buf))
+			    (name (syntax buffer))
 			    (list
 			     (slot-value master-pane 'overwrite-mode)
 			     "Ovwrt"
@@ -157,7 +157,7 @@
 				""))))
     (princ name-info pane)))
 
-(defun display-win (frame pane)
+(defun display-window (frame pane)
   "The display function used by the climacs application frame."
   (declare (ignore frame))
   (redisplay-pane pane (eq pane (current-window))))
@@ -240,13 +240,13 @@
                      tab-width))))))
 
 (defun insert-character (char)
-  (let* ((win (current-window))
-	 (point (point win)))
+  (let* ((window (current-window))
+	 (point (point window)))
     (unless (constituentp char)
       (possibly-expand-abbrev point))
     (when (whitespacep char)
       (possibly-fill-line))
-    (if (and (slot-value win 'overwrite-mode) (not (end-of-line-p point)))
+    (if (and (slot-value window 'overwrite-mode) (not (end-of-line-p point)))
 	(progn
 	  (delete-range point)
 	  (insert-object point char))
@@ -433,14 +433,14 @@
 	 '((#\x :control) (#\t :control)))
 
 (define-named-command com-previous-line ((numarg 'integer :prompt "How many lines?"))
-  (let* ((win (current-window))
-	 (point (point win)))
-    (unless (or (eq (previous-command win) 'com-previous-line)
-		(eq (previous-command win) 'com-next-line))
-      (setf (slot-value win 'goal-column) (column-number point)))
+  (let* ((window (current-window))
+	 (point (point window)))
+    (unless (or (eq (previous-command window) 'com-previous-line)
+		(eq (previous-command window) 'com-next-line))
+      (setf (slot-value window 'goal-column) (column-number point)))
     (if (plusp numarg)
-	(previous-line point (slot-value win 'goal-column) numarg)
-	(next-line point (slot-value win 'goal-column) (- numarg)))))
+	(previous-line point (slot-value window 'goal-column) numarg)
+	(next-line point (slot-value window 'goal-column) (- numarg)))))
 
 (set-key `(com-previous-line ,*numeric-argument-marker*)
 	 'global-climacs-table
@@ -451,14 +451,14 @@
 	 '((:up)))
 
 (define-named-command com-next-line ((numarg 'integer :prompt "How many lines?"))
-  (let* ((win (current-window))
-	 (point (point win)))
-    (unless (or (eq (previous-command win) 'com-previous-line)
-		(eq (previous-command win) 'com-next-line))
-      (setf (slot-value win 'goal-column) (column-number point)))
+  (let* ((window (current-window))
+	 (point (point window)))
+    (unless (or (eq (previous-command window) 'com-previous-line)
+		(eq (previous-command window) 'com-next-line))
+      (setf (slot-value window 'goal-column) (column-number point)))
     (if (plusp numarg)
-	(next-line point (slot-value win 'goal-column) numarg)
-	(previous-line point (slot-value win 'goal-column) (- numarg)))))
+	(next-line point (slot-value window 'goal-column) numarg)
+	(previous-line point (slot-value window 'goal-column) (- numarg)))))
 
 (set-key `(com-next-line ,*numeric-argument-marker*)
 	 'global-climacs-table
@@ -1357,10 +1357,10 @@ If *with-scrollbars* nil, omit the scroller."
   (let* ((extended-pane
 	  (make-pane 'extended-pane
 		     :width 900 :height 400
-		     :name 'win
+		     :name 'window
 		     :end-of-line-action :scroll
 		     :incremental-redisplay t
-		     :display-function 'display-win
+		     :display-function 'display-window
 		     :command-table 'global-climacs-table))
 	 (vbox
 	  (vertically ()
@@ -1824,9 +1824,9 @@ If *with-scrollbars* nil, omit the scroller."
 ;;; Dynamic abbrevs
 
 (define-named-command com-dabbrev-expand ()
-  (let* ((win (current-window))
-	 (point (point win)))
-    (with-slots (original-prefix prefix-start-offset dabbrev-expansion-mark) win
+  (let* ((window (current-window))
+	 (point (point window)))
+    (with-slots (original-prefix prefix-start-offset dabbrev-expansion-mark) window
        (flet ((move () (cond ((beginning-of-buffer-p dabbrev-expansion-mark)
 			      (setf (offset dabbrev-expansion-mark)
 				    (offset point))
@@ -1836,7 +1836,7 @@ If *with-scrollbars* nil, omit the scroller."
 			     (t (forward-object dabbrev-expansion-mark)))))
 	 (unless (or (beginning-of-buffer-p point)
 		     (not (constituentp (object-before point))))
-	   (unless (and (eq (previous-command win) 'com-dabbrev-expand)
+	   (unless (and (eq (previous-command window) 'com-dabbrev-expand)
 			(not (null prefix-start-offset)))
 	     (setf dabbrev-expansion-mark (clone-mark point))
 	     (backward-word dabbrev-expansion-mark)
