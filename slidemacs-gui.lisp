@@ -570,5 +570,5 @@
     (if (not (and (typep pane 'climacs-pane)
                   (typep (syntax (buffer pane)) 'slidemacs-gui-syntax)))
         (beep)
-        (let ((file (accept 'climacs-gui::completable-pathname :prompt "Output to")))
+        (let ((file (accept 'pathname :prompt "Output to")))
           (postscript-print-pane pane file)))))

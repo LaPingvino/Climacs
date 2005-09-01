@@ -47,7 +47,8 @@
 (defclass climacs-minibuffer-pane (minibuffer-pane)
   ()
   (:default-initargs
-      :height 20 :max-height 20 :min-height 20))
+      :height 20 :max-height 20 :min-height 20
+      :default-view +climacs-textual-view+))
 
 (defparameter *with-scrollbars* t
   "If T, classic look and feel. If NIL, stripped-down look (:")
@@ -98,11 +99,15 @@
     (loop for buffer in buffers
 	  do (clear-modify buffer))))
 
-(defun climacs (&key (width 900) (height 400))
+(defun climacs (&key new-process (process-name "Climacs")
+                (width 900) (height 400))
   "Starts up a climacs session"
-  (let ((frame (make-application-frame
-		'climacs :width width :height height)))
-    (run-frame-top-level frame)))
+  (let ((frame (make-application-frame 'climacs :width width :height height)))
+    (flet ((run ()
+	     (run-frame-top-level frame)))
+      (if new-process
+	  (clim-sys:make-process #'run :name process-name)
+	  (run)))))
 
 (defun display-info (frame pane)
   (declare (ignore frame))
@@ -696,10 +701,6 @@
 (set-key 'com-fill-paragraph 'global-climacs-table
 	 '((#\q :meta)))
 
-(eval-when (:compile-toplevel :load-toplevel)
-  (define-presentation-type completable-pathname ()
-  :inherit-from 'pathname))
-
 (defun filename-completer (so-far mode)
   (flet ((remove-trail (s)
 	   (subseq s 0 (let ((pos (position #\/ s :from-end t)))
@@ -768,15 +769,12 @@
 		       collect (list (subseq (namestring name) length nil)
 				     name))))))))
 
-(define-presentation-method present (object (type completable-pathname)
-					    stream (view textual-view)
-					    &key acceptably for-context-type)
-  (declare (ignore acceptably for-context-type))
+(define-presentation-method present (object (type pathname)
+                                            stream (view climacs-textual-view) &key)
   (princ (namestring object) stream))
 
-(define-presentation-method accept
-    ((type completable-pathname) stream (view textual-view) &key (default nil defaultp)
-     (default-type type))
+(define-presentation-method accept ((type pathname) stream (view climacs-textual-view)
+                                    &key (default nil defaultp) (default-type type))
   (multiple-value-bind (pathname success string)
       (complete-input stream
 		      #'filename-completer
@@ -851,8 +849,7 @@
 		 buffer))))))
 
 (define-named-command com-find-file ()
-  (let* ((filepath (accept 'completable-pathname
-			   :prompt "Find File")))
+  (let* ((filepath (accept 'pathname :prompt "Find File")))
     (find-file filepath)))
 
 (set-key 'com-find-file 'global-climacs-table
@@ -895,7 +892,7 @@
 		     nil)))))))
 
 (define-named-command com-find-file-read-only ()
-  (let ((filepath (accept 'completable-pathname :Prompt "Find file read only")))
+  (let ((filepath (accept 'pathname :Prompt "Find file read only")))
     (find-file-read-only filepath)))
 
 (set-key 'com-find-file-read-only 'global-climacs-table
@@ -914,12 +911,11 @@
 	(needs-saving buffer) t))
 
 (define-named-command com-set-visited-file-name ()
-  (let ((filename (accept 'completable-pathname :prompt "New file name")))
+  (let ((filename (accept 'pathname :prompt "New file name")))
     (set-visited-file-name filename (buffer (current-window)))))
 
 (define-named-command com-insert-file ()
-  (let ((filename (accept 'completable-pathname
-			  :prompt "Insert File"))
+  (let ((filename (accept 'pathname :prompt "Insert File"))
 	(pane (current-window)))
     (when (probe-file filename)
       (setf (mark pane) (clone-mark (point pane) :left))
@@ -970,8 +966,7 @@
 
 (defun save-buffer (buffer)
   (let ((filepath (or (filepath buffer)
-		      (accept 'completable-pathname
-			      :prompt "Save Buffer to File"))))
+		      (accept 'pathname :prompt "Save Buffer to File"))))
     (cond
       ((directory-pathname-p filepath)
        (display-message "~A is a directory." filepath)
@@ -1018,8 +1013,7 @@
     (call-next-method)))
 
 (define-named-command com-write-buffer ()
-  (let ((filepath (accept 'completable-pathname
-			  :prompt "Write Buffer to File"))
+  (let ((filepath (accept 'pathname :prompt "Write Buffer to File"))
 	(buffer (buffer (current-window))))
     (cond
       ((directory-pathname-p filepath)
@@ -1146,8 +1140,7 @@
 		(beep))))))
 
 (define-named-command com-load-file ()
-  (let ((filepath (accept 'completable-pathname
-			  :prompt "Load File")))
+  (let ((filepath (accept 'pathname :prompt "Load File")))
     (load-file filepath)))
 
 (set-key 'com-load-file 'global-climacs-table

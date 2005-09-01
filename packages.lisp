@@ -157,7 +157,8 @@
            #:query-replace-mode
 	   #:mark-visible-p
 	   #:with-undo
-	   #:url))
+	   #:url
+	   #:climacs-textual-view #:+climacs-textual-view+))
 
 (defpackage :climacs-fundamental-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
@@ -197,5 +198,5 @@
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
 	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa)
-  (:import-from :climacs-lisp-syntax :lisp-string))
-
+  (:import-from :climacs-lisp-syntax :lisp-string)
+  (:export :climacs))

@@ -222,6 +222,8 @@ is made to alter a buffer which has been set read only."))
 (defclass climacs-textual-view (textual-view tabify-mixin)
   ())
 
+(defparameter +climacs-textual-view+ (make-instance 'climacs-textual-view))
+
 (defclass filepath-mixin ()
   ((filepath :initform nil :accessor filepath)))
 
@@ -276,7 +278,10 @@ is made to alter a buffer which has been set read only."))
    (full-redisplay-p :initform nil :accessor full-redisplay-p)
    (cache :initform (let ((cache (make-instance 'standard-flexichain)))
 		      (insert* cache 0 nil)
-		      cache))))
+		      cache)))
+  (:default-initargs
+   :default-view +climacs-textual-view+))
+
 
 (defmethod tab-width ((pane climacs-pane))
   (tab-width (stream-default-view pane)))
@@ -295,7 +300,6 @@ is made to alter a buffer which has been set read only."))
   (with-slots (buffer top bot scan) pane
      (setf top (clone-mark (low-mark buffer) :left)
 	   bot (clone-mark (high-mark buffer) :right)))
-  (setf (stream-default-view pane) (make-instance 'climacs-textual-view)) 
   (with-slots (space-width tab-width) (stream-default-view pane)
      (let* ((medium (sheet-medium pane))
 	    (style (medium-text-style medium)))
