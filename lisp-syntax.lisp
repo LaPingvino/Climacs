@@ -199,6 +199,8 @@
 (defclass complete-token-lexeme (token-mixin form-lexeme) ())
 (defclass multiple-escape-start-lexeme (lisp-lexeme) ())
 (defclass multiple-escape-end-lexeme (lisp-lexeme) ())
+(defclass incomplete-lexeme (lisp-lexeme) ())
+(defclass unmatched-right-parenthesis-lexeme (lisp-lexeme) ())
 
 (defmethod skip-inter ((syntax lisp-syntax) state scan)
   (macrolet ((fo () `(forward-object scan)))
@@ -224,7 +226,7 @@
     (let ((object (object-after scan)))
       (case object
 	(#\( (fo) (make-instance 'left-parenthesis-lexeme))
-	;#\) is an error
+	(#\) (fo) (make-instance 'unmatched-right-parenthesis-lexeme))
 	(#\' (fo) (make-instance 'quote-lexeme))
 	(#\; (fo)
 	     (loop until (or (end-of-buffer-p scan)
@@ -236,7 +238,7 @@
 	(#\` (fo) (make-instance 'backquote-lexeme))
 	(#\, (fo)
 	     (cond ((end-of-buffer-p scan)
-		    (make-instance 'error-lexeme))
+		    (make-instance 'incomplete-lexeme))
 		   (t
 		    (case (object-after scan)
 		      (#\@ (fo) (make-instance 'comma-at-lexeme))
@@ -244,13 +246,13 @@
 		      (t (make-instance 'comma-lexeme))))))
 	(#\# (fo)
 	     (cond ((end-of-buffer-p scan)
-		    (make-instance 'error-lexeme))
+		    (make-instance 'incomplete-lexeme))
 		   (t 
 		    (loop until (end-of-buffer-p scan)
 		          while (digit-char-p (object-after scan))
 		          do (fo))
 		    (if (end-of-buffer-p scan)
-			(make-instance 'error-lexeme)
+			(make-instance 'incomplete-lexeme)
 			(case (object-after scan)
 			  ((#\Backspace #\Tab #\Newline #\Linefeed 
 			    #\Page #\Return #\Space #\))
@@ -258,7 +260,7 @@
 			   (make-instance 'error-lexeme))
 			  (#\\ (fo)
 			       (cond ((end-of-buffer-p scan)
-				      (make-instance 'error-lexeme))
+				      (make-instance 'incomplete-lexeme))
 				     ((not (constituentp (object-after scan)))
 				      (fo) (make-instance 'character-lexeme))
 				     (t (loop until (end-of-buffer-p scan)
@@ -294,6 +296,8 @@
 				       (eql (object-after scan) #\())
 				  (fo)
 				  (make-instance 'structure-start-lexeme))
+				 ((end-of-buffer-p scan)
+				  (make-instance 'incomplete-lexeme))
 				 (t (make-instance 'error-lexeme))))
 			  ((#\P #\p) (fo)
 			   (make-instance 'pathname-start-lexeme))
@@ -391,7 +395,7 @@
        (when (eql (object-after scan) #\\)
 	 (fo)
 	 (when (end-of-buffer-p scan)
-	   (return-from lex-token (make-instance 'error-lexeme)))
+	   (return-from lex-token (make-instance 'incomplete-lexeme)))
 	 (fo)
 	 (go start))
        (when (eql (object-after scan) #\|)
@@ -409,7 +413,7 @@
 	 (when (eql (object-after scan) #\\)
 	   (fo)
 	   (when (end-of-buffer-p scan)
-	     (return-from lex (make-instance 'error-lexeme)))
+	     (return-from lex (make-instance 'incomplete-lexeme)))
 	   (fo)
 	   (go start))
 	 (when (eql (object-after scan) #\|)
@@ -547,6 +551,8 @@
 
 (define-new-lisp-state (|initial-state | form) |initial-state |)
 (define-new-lisp-state (|initial-state | comment) |initial-state |)
+;; skip over unmatched right parentheses
+(define-new-lisp-state (|initial-state | unmatched-right-parenthesis-lexeme) |initial-state |)
 
 (define-lisp-action (|initial-state | (eql nil))
   (reduce-all form*))
@@ -1198,6 +1204,11 @@ stripping leading comments."
   (with-face (:error)
     (call-next-method)))
 
+(defmethod display-parse-tree ((parse-symbol unmatched-right-parenthesis-lexeme)
+			       (syntax lisp-syntax) pane)
+  (with-face (:error)
+    (call-next-method)))
+
 (define-presentation-type unknown-symbol () :inherit-from 'symbol
                           :description "unknown symbol")
 
@@ -1365,7 +1376,6 @@ stripping leading comments."
 	  do (display-parse-tree child syntax pane))))
     
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax lisp-syntax) current-p)
-  (declare (ignore current-p))
   (with-slots (top bot) pane
      (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
 	   *current-line* 0
