@@ -234,6 +234,49 @@ In the absence of a prefix arg returns 1 (and nil)."
 	     (t nil)))))
    do (redisplay-frame-panes frame)))
 
+(defun read-gestures-for-help (command-table)
+  (loop for gestures = (list (esa-read-gesture))
+	  then (nconc gestures (list (esa-read-gesture)))
+	for item = (find-gestures-with-inheritance gestures command-table)
+	unless item
+	  do (return (values nil gestures))
+	when (eq (command-menu-item-type item) :command)
+	  do (return (values (command-menu-item-value item)
+			     gestures))))
+
+(defun describe-key (pane)
+  (let ((command-table (command-table pane)))
+    (multiple-value-bind (command gestures)
+	(read-gestures-for-help command-table)
+      (when (consp command)
+	(setf command (car command)))
+      (display-message "~{~A ~}~:[is not bound~;runs the command ~:*~A~]"
+		       (mapcar #'gesture-name gestures)
+		       (or (command-line-name-for-command
+			    command command-table :errorp nil)
+			   command)))))
+
+(defgeneric gesture-name (gesture))
+
+(defmethod gesture-name ((char character))
+  (or (char-name char)
+      char))
+
+(defmethod gesture-name ((ev keyboard-event))
+  (let ((key-name (keyboard-event-key-name ev))
+	(modifiers (event-modifier-state ev)))
+    (with-output-to-string (s)
+      (loop for (modifier name) on (list
+					;(+alt-key+ "A-")
+					+hyper-key+ "H-"
+					+super-key+ "s-"
+					+meta-key+ "M-"
+					+control-key+ "C-")
+	      by #'cddr
+	    when (plusp (logand modifier modifiers))
+	      do (princ name s))
+      (princ key-name s))))
+
 (defmethod redisplay-frame-panes :around ((frame esa-frame-mixin) &key force-p)
   (declare (ignore force-p))
   (when (null (remaining-keys *application-frame*))
@@ -359,6 +402,13 @@ In the absence of a prefix arg returns 1 (and nil)."
     (execute-frame-command *application-frame* item)))
 
 (set-key 'com-extended-command 'global-esa-table '((#\x :meta)))
+
+(define-command (com-describe-key :name t :command-table global-esa-table) ()
+  (display-message "Describe key:")
+  (redisplay-frame-panes *application-frame*)
+  (describe-key (car (windows *application-frame*))))
+
+(set-key 'com-describe-key 'global-esa-table '((#\h :control) (#\k)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
