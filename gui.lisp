@@ -56,7 +56,8 @@
 (define-application-frame climacs (standard-application-frame
 				   esa-frame-mixin)
   ((buffers :initform '() :accessor buffers))
-  (:command-table (global-climacs-table :inherit-from (global-esa-table)))
+  (:command-table (global-climacs-table :inherit-from (global-esa-table keyboard-macro-table
+									help-table)))
   (:menu-bar nil)
   (:panes
    (window (let* ((extended-pane 
@@ -350,7 +351,7 @@
 (define-named-command com-transpose-objects ()
   (transpose-objects (point (current-window))))
 
-(set-key 'com-transponse-objects 'global-climacs-table
+(set-key 'com-transpose-objects 'global-climacs-table
 	 '((#\t :control)))
 
 (define-named-command com-backward-object ((count 'integer :prompt "Number of Objects"))
@@ -1276,7 +1277,9 @@
 (define-named-command com-browse-url ()
   (let ((url (accept 'url :prompt "Browse URL")))
     #+ (and sbcl darwin)
-    (sb-ext:run-program "/usr/bin/open" `(,url) :wait nil)))
+    (sb-ext:run-program "/usr/bin/open" `(,url) :wait nil)
+    #+ (and openmcl darwin)
+    (ccl:run-program "/usr/bin/open" `(,url) :wait nil)))
 
 (define-named-command com-set-mark ()
   (let ((pane (current-window)))
@@ -1525,7 +1528,7 @@ If *with-scrollbars* nil, omit the scroller."
     (kill-ring-standard-push *kill-ring* (region-to-sequence (point pane) (mark pane)))))
 
 (set-key 'com-copy-region 'global-climacs-table
-	 '((#\w :control)))
+	 '((#\w :meta)))
 
 (define-named-command com-rotate-yank ()
   (let* ((pane (current-window))
@@ -1940,7 +1943,7 @@ If *with-scrollbars* nil, omit the scroller."
     (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
     (delete-region point mark)))
 
-(set-key `(com-kill-sentence *numeric-argument-marker*)
+(set-key `(com-kill-sentence ,*numeric-argument-marker*)
 	 'global-climacs-table
 	 '((#\k :meta)))
 
@@ -1990,7 +1993,7 @@ If *with-scrollbars* nil, omit the scroller."
 	(backward-page point count)
 	(forward-page point count))))
 
-(set-key 'com-backward-page 'global-climacs-table
+(set-key `(com-backward-page ,*numeric-argument-marker*) 'global-climacs-table
 	 '((#\x :control) (#\[)))
 
 (define-named-command com-mark-page ((count 'integer :prompt "Move how many pages")

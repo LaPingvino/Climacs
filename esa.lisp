@@ -234,49 +234,6 @@ In the absence of a prefix arg returns 1 (and nil)."
 	     (t nil)))))
    do (redisplay-frame-panes frame)))
 
-(defun read-gestures-for-help (command-table)
-  (loop for gestures = (list (esa-read-gesture))
-	  then (nconc gestures (list (esa-read-gesture)))
-	for item = (find-gestures-with-inheritance gestures command-table)
-	unless item
-	  do (return (values nil gestures))
-	when (eq (command-menu-item-type item) :command)
-	  do (return (values (command-menu-item-value item)
-			     gestures))))
-
-(defun describe-key (pane)
-  (let ((command-table (command-table pane)))
-    (multiple-value-bind (command gestures)
-	(read-gestures-for-help command-table)
-      (when (consp command)
-	(setf command (car command)))
-      (display-message "~{~A ~}~:[is not bound~;runs the command ~:*~A~]"
-		       (mapcar #'gesture-name gestures)
-		       (or (command-line-name-for-command
-			    command command-table :errorp nil)
-			   command)))))
-
-(defgeneric gesture-name (gesture))
-
-(defmethod gesture-name ((char character))
-  (or (char-name char)
-      char))
-
-(defmethod gesture-name ((ev keyboard-event))
-  (let ((key-name (keyboard-event-key-name ev))
-	(modifiers (event-modifier-state ev)))
-    (with-output-to-string (s)
-      (loop for (modifier name) on (list
-					;(+alt-key+ "A-")
-					+hyper-key+ "H-"
-					+super-key+ "s-"
-					+meta-key+ "M-"
-					+control-key+ "C-")
-	      by #'cddr
-	    when (plusp (logand modifier modifiers))
-	      do (princ name s))
-      (princ key-name s))))
-
 (defmethod redisplay-frame-panes :around ((frame esa-frame-mixin) &key force-p)
   (declare (ignore force-p))
   (when (null (remaining-keys *application-frame*))
@@ -363,6 +320,8 @@ In the absence of a prefix arg returns 1 (and nil)."
      (find-keystroke-item event table :errorp nil))))
     
 (defun set-key (command table gestures)
+  (unless (consp command)
+    (setf command (list command)))
   (let ((gesture (car gestures)))
     (cond ((null (cdr gestures))
 	   (add-command-to-command-table
@@ -403,12 +362,196 @@ In the absence of a prefix arg returns 1 (and nil)."
 
 (set-key 'com-extended-command 'global-esa-table '((#\x :meta)))
 
-(define-command (com-describe-key :name t :command-table global-esa-table) ()
-  (display-message "Describe key:")
-  (redisplay-frame-panes *application-frame*)
-  (describe-key (car (windows *application-frame*))))
 
-(set-key 'com-describe-key 'global-esa-table '((#\h :control) (#\k)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Help
+
+(defun read-gestures-for-help (command-table)
+  (loop for gestures = (list (esa-read-gesture))
+	  then (nconc gestures (list (esa-read-gesture)))
+	for item = (find-gestures-with-inheritance gestures command-table)
+	unless item
+	  do (return (values nil gestures))
+	when (eq (command-menu-item-type item) :command)
+	  do (return (values (command-menu-item-value item)
+			     gestures))))
+
+(defun describe-key-briefly (pane)
+  (let ((command-table (command-table pane)))
+    (multiple-value-bind (command gestures)
+	(read-gestures-for-help command-table)
+      (when (consp command)
+	(setf command (car command)))
+      (display-message "~{~A ~}~:[is not bound~;runs the command ~:*~A~]"
+		       (mapcar #'gesture-name gestures)
+		       (or (command-line-name-for-command
+			    command command-table :errorp nil)
+			   command)))))
+
+(defgeneric gesture-name (gesture))
+
+(defmethod gesture-name ((char character))
+  (or (char-name char)
+      char))
+
+(defun translate-name-and-modifiers (key-name modifiers)
+  (with-output-to-string (s)
+      (loop for (modifier name) on (list
+					;(+alt-key+ "A-")
+					+hyper-key+ "H-"
+					+super-key+ "s-"
+					+meta-key+ "M-"
+					+control-key+ "C-")
+	      by #'cddr
+	    when (plusp (logand modifier modifiers))
+	      do (princ name s))
+      (princ (if (typep key-name 'character)
+		 (or (char-name key-name)
+		     key-name)
+		 key-name) s)))
+
+(defmethod gesture-name ((ev keyboard-event))
+  (let ((key-name (keyboard-event-key-name ev))
+	(modifiers (event-modifier-state ev)))
+    (translate-name-and-modifiers key-name modifiers)))
+
+(defmethod gesture-name ((gesture list))
+  (cond ((eq (car gesture) :keyboard)
+	 (translate-name-and-modifiers (second gesture) (third gesture)))
+	;; punt on this for now
+	(t nil)))
+
+(defun find-keystrokes-for-command (command command-table)
+  (let ((keystrokes '()))
+    (labels ((helper (command command-table prefix)
+	       (map-over-command-table-keystrokes
+		#'(lambda (menu-name keystroke item)
+		    (declare (ignore menu-name))
+		    (cond ((and (eq (command-menu-item-type item) :command)
+				(eq (car (command-menu-item-value item)) command))
+			   (push (cons keystroke prefix) keystrokes))
+			  ((eq (command-menu-item-type item) :menu)
+			   (helper command (command-menu-item-value item) (cons keystroke prefix)))
+			  (t nil)))
+		command-table)))
+      (helper command command-table nil)
+      keystrokes)))
+
+(defun find-keystrokes-for-command-with-inheritance (command start-table)
+  (let ((keystrokes '()))
+    (labels  ((helper (table)
+		(let ((keys (find-keystrokes-for-command command table)))
+		  (when keys (push keys keystrokes))
+		  (dolist (subtable (command-table-inherit-from
+				     (find-command-table table)))
+		    (helper subtable)))))
+      (helper start-table))
+    keystrokes))
+
+(defun find-all-keystrokes-and-commands (command-table)
+  (let ((results '()))
+    (labels ((helper (command-table prefix)
+	       (map-over-command-table-keystrokes
+		#'(lambda (menu-name keystroke item)
+		    (declare (ignore menu-name))
+		    (cond ((eq (command-menu-item-type item) :command) 
+			   (push (cons (cons keystroke prefix)
+				       (command-menu-item-value item))
+				 results))
+			  ((eq (command-menu-item-type item) :menu)
+			   (helper (command-menu-item-value item) (cons keystroke prefix)))
+			  (t nil)))
+		command-table)))
+      (helper command-table nil)
+      results)))
+
+(defun sort-by-name (list)
+  (sort list #'string< :key (lambda (item) (symbol-name (second item)))))
+
+(defun sort-by-keystrokes (list)
+  (sort list (lambda (a b)
+	       (cond ((and (characterp a)
+			   (characterp b))
+		      (char< a b))
+		     ((characterp a)
+		      t)
+		     ((characterp b)
+		      nil)
+		     (t (string< (symbol-name a)
+				 (symbol-name b)))))
+	:key (lambda (item) (second (first (first item))))))
+
+(defun describe-bindings (stream command-table
+			  &optional (sort-function #'sort-by-name))
+  (formatting-table (stream)
+    (loop for (keys command)
+	  in (funcall sort-function (find-all-keystrokes-and-commands
+					 command-table))
+	  do (formatting-row (stream) 
+	       (formatting-cell (stream :align-x :right)
+		 (with-text-style (stream '(:sans-serif nil nil))
+		   (format stream "~A"
+			   (or (command-line-name-for-command command
+							      command-table
+							      :errorp nil)
+			       command))))
+	       (formatting-cell (stream)
+		 (with-drawing-options (stream :ink +dark-blue+
+					       :text-style '(:fix nil nil))
+		   (format stream "~&~{~A~^ ~}"
+			   (mapcar #'gesture-name (reverse keys))))))
+	  count command into length
+	  finally (change-space-requirements stream
+			 :height (* length (stream-line-height stream)))
+		  (scroll-extent stream 0 0))))
+
+;;; help commands
+
+(define-command-table help-table)
+
+(define-command (com-describe-key-briefly :name t :command-table help-table) ()
+  (display-message "Describe key briefly:")
+  (redisplay-frame-panes *application-frame*)
+  (describe-key-briefly (car (windows *application-frame*))))
+
+(set-key 'com-describe-key-briefly 'help-table '((#\h :control) (#\c)))
+
+(define-command (com-where-is :name t :command-table help-table) ()
+  (let* ((command-table (command-table (car (windows *application-frame*))))
+	 (command
+	  (handler-case
+	      (accept
+	       `(command-name :command-table
+			      ,command-table)
+	       :prompt "Where is command")
+	    (error () (progn (beep)
+			     (display-message "No such command")
+			     (return-from com-where-is nil)))))
+	 (keystrokes (find-keystrokes-for-command-with-inheritance command command-table)))
+    (display-message "~A is ~:[not on any key~;~:*on ~{~A~^, ~}~]"
+		     (command-line-name-for-command command command-table)
+		     (mapcar (lambda (keys)
+			       (format nil "~{~A~^ ~}"
+				       (mapcar #'gesture-name (reverse keys))))
+			     (car keystrokes)))))
+
+(set-key 'com-where-is 'help-table '((#\h :control) (#\w)))
+
+(define-command (com-describe-bindings :name t :command-table help-table)
+    ((sort-by-keystrokes 'boolean :prompt "Sort by keystrokes?"))
+  (let* ((window (car (windows *application-frame*))) 
+	 (stream (open-window-stream
+		  :label (format nil "Help: Describe Bindings")
+		  :input-buffer (climi::frame-event-queue *application-frame*)
+		  :width 400))
+	 (command-table (command-table window)))
+    (describe-bindings stream command-table
+		       (if sort-by-keystrokes
+			   #'sort-by-keystrokes
+			   #'sort-by-name))))
+
+(set-key `(com-describe-bindings ,*numeric-argument-p*) 'help-table '((#\h :control) (#\b)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
