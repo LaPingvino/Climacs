@@ -1,0 +1,444 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename climacs-user
+@settitle Climacs User Manual
+@c %**end of header
+
+@copying
+The Climacs User manual
+
+Copyright @copyright{} 2005 Robert Strandh.
+
+@end copying
+
+@titlepage
+@title Climacs User Manual
+@sp 2
+@author Robert Strandh
+
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+
+@end titlepage
+
+@contents
+
+@macro climacs{}
+Climacs
+@end macro
+
+@macro cl{}
+Common Lisp
+@end macro
+
+@node Top
+@top
+
+@menu
+* Introduction::
+* Conventions::
+* Concepts::
+* Basic editing commands::
+* Different editing modes::
+* Kill ring::
+* Key Index::
+* Concept Index::
+@end menu
+
+
+@node Introduction
+@chapter Introduction
+
+@climacs{} is a text editor in the Emacs family.  However, @climacs{}
+differs from Emacs in various ways.  
+
+For one thing, @climacs{} is written in Common Lisp rather than Emacs
+Lisp.  Common Lisp is a much more complete language than Emacs Lisp
+with essential features such as packages, classes, etc.
+
+Moreover, @climacs{} uses the Common-Lisp Interface Manager (CLIM) as its
+substrate for managing everything that has to do with user
+interaction, including event handling, text rendering, and
+multi-windowing (called panes in CLIM terminology). 
+
+Also, since @climacs{} uses CLIM, there is no need for @climacs{} itself to
+serve as the basis for other applications such as news readers, mail
+readers, directory editors, web browsers, etc. the way it is done with
+Emacs.  Instead, such applications are better written as stand-alone
+CLIM applications that can then communicate with @climacs{} using CLIM
+and Common Lisp as the common substrate. 
+
+The main purpose of @climacs{} is not to replace Emacs.  Instead, it is
+primarily intended as a text editor for Common Lisp developers.
+Notice that this is not the same as a text editor for Common Lisp
+@emph{development}, since Common Lisp developers might need other
+features such as editing HTML or spell checking, etc., not directly
+related to Common Lisp development. 
+
+@node Conventions
+@chapter Conventions
+
+Many @climacs{} commands are invoked by typing a sequence of
+keystrokes.  A complete sequence of keystrokes invokes a
+@climacs{} @emph{command} which has a @emph{name}.  Sometimes it is
+useful to know that name, even though the command is usually invoked
+by typing the key sequence.  For that reason, in this manual we often
+give the corresponding command name together with the key sequence to
+invoke it. 
+
+@node Concepts
+@chapter Concepts
+
+In order to use @climacs{} effectively, you need to know some concepts
+that are used by it, and referred to in this manual.
+
+@menu
+* Buffer::
+* Window and pane::
+* Mark and point::
+* Key sequence::
+@end menu
+
+@node Buffer
+@section Buffer
+
+A @climacs{} @emph{buffer}
+@cindex buffer
+is an editable sequence of arbitrary @cl{} objects.  If the buffer
+contains text, most of those objects will be @emph{Unicode
+characters}.
+@cindex character
+@cindex Unicode
+
+@node Window and pane
+@section Window and pane
+
+A @climacs{} buffer may or may not be on display.  If it is, it is on
+display in a @emph{pane} 
+@cindex pane
+or a @emph{window}.
+@cindex window
+
+@node Mark and point
+@section Mark and point
+
+Positions into a @climacs{} buffer are determined by @emph{marks}
+@cindex mark
+which can be either @emph{left sticky},
+@cindex left sticky
+meaning that if an object is inserted where such a mark is, it ends up
+@emph{to the left} of the newly inserted object, or @emph{right
+sticky},
+@cindex right sticky
+meaning that if an object is inserted where such a mark is, it ends up
+@emph{to the right} of the newly inserted object.
+
+A distinguished mark that is associated with each @climacs{} pane is
+called the @emph{point}.
+@cindex point
+There is a point associated with each window.  Each of several windows
+that display the same buffer has its own point.  In addition, a buffer
+that is not on display has a point that is taken over by the first
+window that displays the buffer.  Points are right-sticky marks, even
+when a language such as Arabic is edited, simply because by
+convention, the @climacs{} buffer is considered as being organized
+from left to right.  It is question of @emph{rendering} as to whether
+the objects in the buffer are actually displayed from left to right,
+from right to left, or in any other appropriate order. 
+
+@node Key sequence
+@section Key sequence
+
+Typically, @climacs{} is operated by @emph{key sequences}
+@cindex key sequence
+issued by the user.  A key sequence is a sequence of key strokes,
+where a key stroke can be a simple character such as @kbd{f} or
+@kbd{&}, or a key with one or more @emph{modifiers}
+@cindex modifier
+such as @key{Control}, @key{Shift}, @key{Meta}, etc.
+
+Some key sequences result in the execution of a @climacs{}
+@emph{command}.
+@cindex command
+Such a key sequence is called a @emph{complete key sequence}
+@cindex complete key sequence or an @emph{order}.
+@cindex order
+
+@node Basic editing commands
+@chapter Basic editing commands
+
+The basic editing commands of @climacs{} are identical or at least
+similar to the corresponding Emacs commands.  This is deliberate.  We
+do not believe in introducing gratuitous differences where such
+differences have little or no importance.  A typical Emacs user
+should therefore feel quite comfortable with the basic editing
+commands of @climacs{}.
+
+@menu
+* Entering and exiting @climacs{}::
+* Numeric arguments::
+* Entering and deleting text::
+* Moving around::
+* Extended commands::
+@end menu
+
+@node Entering and exiting @climacs{}
+@section Entering and exiting @climacs{}
+
+The typical way of entering @climacs{} is to type a @cl{}
+@emph{expression} at the prompt of a @cl{} @emph{listener} such as:
+
+@lisp
+CL-USER> (climacs:climacs)
+@end lisp
+
+You exit from @climacs{} by typing @kbd{C-x C-c} (@command{Quit}).
+@kindex C-x C-c
+If you have buffers
+associated with files that have not been saved to their respective
+files, @climacs{} will ask whether you would like those buffers
+saved.  In addition, if you answer no to any of those questions, you
+will be asked to confirm that you want to quit @climacs{} anyway.  The
+reason for this pestering on the part of @climacs{} is that currently
+when you quit @climacs{}, the buffer contents is lost.
+
+@node Numeric arguments
+@section Numeric arguments
+
+Many @climacs{} commands allow the use of a @emph{numeric argument}.
+@cindex numeric argument
+A numeric argument is used as a prefix to a @climacs{} command, and
+modifies the behavior of that command in some useful way which varies
+from command to command.
+
+Typically, a numeric argument prefix makes the command repeat its
+action a number of times indicated by the numeric argument prefix.
+For instance, the command @command{Delete Object}, usually associated
+with the order @kbd{C-d}, normally deletes a single object from the
+buffer.  However, if given a numeric argument, it deletes that many
+objects. 
+
+Other commands modify their behavior according to whether a numeric
+argument has been given, but do not take into account the specific
+numeric value indicated.  For instance, the command @command{Delete
+Horizontal Space}, when given no numeric argument, deletes whitespace
+both before and after point.  With a numeric argument, it deletes only
+whitespace @emph{before} point.
+
+Yet other commands may both modify what they do and repeat according
+to the numeric value of the argument.  For instance, the command
+@command{Kill Line}, when given no numeric argument, kills to the end
+of the line if point is not already at the end of the line, but does
+not kill the newline character at the end of the line and kills the
+newline character if point is at the end of a line.  However, if given
+a numeric argument, @command{Kill Line} kills that many lines.
+
+There are two ways of giving a numeric argument to a @climacs{}
+command.  One way is to first type @kbd{C-u}, 
+@kindex C-u
+then a sequence of
+decimal digits, and finally the order that invokes the command.  For
+instance, to delete the next 15 objects after point, you could type
+@kbd{C-u 1 5 C-d}.  The other way is to hold down the @key{Meta} key
+(usually the one marked @key{Alt}) while typing the decimal digits, as
+in @kbd{M-1 M-5 C-d}.
+
+Some commands accept negative numeric arguments.  In that case, start
+the sequence with the minus sign as in @kbd{C-u - 1 5 C-d}, which in
+this case will delete buffer objects @emph{before} the point rather
+than after. 
+
+@node Entering and deleting text
+@section Entering and deleting text
+
+@menu
+* Entering text::
+* Deleting by objects::
+* Deleting by words::
+* Deleting by lines::
+@end menu
+
+@node Entering text
+@subsection Entering text
+
+In contrast to other text editors such as VI, @climacs{} does not have
+a specific @emph{insert mode}.  Instead, @climacs{} is always in
+insert mode, in that characters that are typed on the keyboard
+immediately get inserted at the @emph{point}.
+
+@node Deleting by objects
+@subsection Deleting by objects
+
+To erase objects that have been inserted, you can use the
+@key{Backspace} (@command{Backward Delete Object}
+key, which deletes the object immediately to the left of the point.
+To delete an object @emph{to the right} of the point, use the
+@kbd{C-d} 
+@kindex C-d
+(@command{Delete Object}) order.  When used with a numeric
+argument, these commands delete that many objects. 
+
+@node Deleting by words
+@subsection Deleting by words
+
+It is also possible to delete larger chunks of buffer contents.  The
+order @kbd{M-d} 
+@kindex M-d
+(@command{Kill Word}) is used to delete the word
+@emph{following} point.  If point is not at the beginning of a word,
+then the part of the word that follows point is deleted.  The order
+@kbd{M-@key{Backspace}} 
+@kindex M-@key{Backspace}
+(@command{Backward Kill Word}) is used to
+delete the word @emph{preceding} point.  If point is not at the end of
+a word, then the part of the word that precedes point is deleted.
+When used with a numeric argument, these commands delete that many
+words.  Since these command names contain the word @emph{kill}, they
+use the kill-ring (@pxref{kill-ring}).
+
+@node Deleting by lines
+@subsection Deleting by lines
+
+@climacs{} allows you to delete buffer objects one or more lines at a
+time.  The order @kbd{C-k}
+@kindex C-k
+(@command{Kill Line}) lets you do this.  When point is @emph{not} at
+the end of a line, then this command kills the buffer contents from
+point up to, but not including the following newline object.  When
+instead point @emph{is} at the end of a line, only the following
+newline object is removed. 
+
+When used with a numeric argument, this command is not simply repeated
+that many times.  Instead, the number of lines indicated by the
+numerid argument are removed.  
+
+Because this command name contains the word @emph{kill} it saves the
+deleted objects on the @emph{kill ring} (@pxref{kill-ring}).
+
+@node Moving around
+@section Moving around
+
+@menu
+* Moving by objects::
+* Moving by words::
+* Moving by lines::
+@end menu
+
+@node Moving by objects
+@subsection Moving by objects
+
+@climacs{} allows you to move around in the buffer in various ways. 
+The most frequent way of moving around is by one buffer position at a
+time.  
+
+The order @kbd{C-f}
+@kindex C-f
+(@command{Forward Object}) allows you to
+advance the position of point by one position.  If given a numeric
+argument, it advances by that many positions.  The @command{Forward
+Object} command is also associated with the @emph{right-arrow key}. 
+
+The order @kbd{C-b} 
+@kindex C-b
+(@command{Backward Object}) allows you to move the
+position of point backward by one position.  If given a numeric
+argument, it moves back by that many positions.  The @command{Backward
+Object} command is also associated with the @emph{left-arrow key}.
+
+@node Moving by words
+@subsection Moving by words
+
+@node Moving by lines
+@subsection Moving by lines
+
+@climacs{} has commands to move by one or several @emph{lines} at a
+time.  
+
+The order @kbd{C-p}
+@kindex C-p
+(@command{Previous Line}) allows you to
+move point @emph{up} to the previous line.  If given a numeric
+argument, it moves up by that many lines.  The command
+@command{Previous Line} is also associated with the @emph{up-arrow
+key}.  
+
+The order @kbd{C-n}
+@kindex C-n
+(@command{Next Line}) allows you to
+move point @emph{down} to the next line.  If given a numeric
+argument, it moves down by that many lines.  The command
+@command{Next Line} is also associated with the @emph{down-arrow
+key}.  
+
+When you move by lines, @climacs{} tries to be smart about what
+@emph{column} point ends up in, in the following way: when a sequence
+of commands that move by lines is given, the initial column of point
+is remembered (this is called the @emph{goal column}).  @climacs{}
+then tries to position point in that column of the target line.  If
+the target line has fewer than that many columns, point is positioned
+at the end of the target line.  The goal column is discarded when the
+sequence of commands is interrupted by some unrelated command. 
+
+@node Extended commands
+@section Extended commands
+
+In order to make editing as efficient as possible, many @climacs{}
+commands can be invoked by key sequences.  It is, however, possible to
+invoke most @climacs{} commands by using the order @kbd{M-x} which
+invokes the command @command{Extended Command} which lets you type the
+@emph{name} of the command in the minibuffer at the prompt.
+In general, you do not have to type the full name of the command,
+because @climacs{} uses CLIM's completion mechanism so that you can
+complete the name by typing some prefix and then use the @key{TAB} key
+to complete. 
+
+Some @climacs{} commands @emph{must} be invoked through the use of
+@command{Extended Command}.  The reason for this is that key sequences
+are a precious resource, and for rarely-used commands, it is better
+not to waste a key sequence. 
+
+@node Different editing modes
+@chapter Different editing modes
+
+@menu
+* Overwrite mode::
+@end menu
+
+@node Overwrite mode
+@section Overwrite mode
+
+Normally, typing ordinary characters to @climacs{} results in these
+characters being @emph{inserted} at point.  Sometimes, however, it is
+useful to treat a line of objects as being of @emph{fixed length}, and
+have @climacs{} @emph{replace} objects as new ones are begin typed.  
+
+This is exactly the purpose of @climacs{} @emph{overwrite mode}.  This
+mode alters the insert commands so that the object after point is
+first deleted. 
+
+You can toggle between the normal mode of operation and overwrite mode
+by using the @key{Insert} 
+@kindex @key{Insert}
+(@command{Toggle Overwrite Mode}) key.  
+
+@node Kill ring
+@chapter Kill ring
+@anchor{kill-ring}
+
+Many @climacs{} commands that remove objects from a buffer save these
+objects on a global @emph{kill ring}.
+@cindex kill ring
+
+
+@node Key Index
+@unnumbered Key Index
+
+@printindex ky
+
+@node Concept Index
+@unnumbered Concept Index
+
+@printindex cp
+
+@bye
