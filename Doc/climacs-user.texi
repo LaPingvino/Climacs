@@ -42,6 +42,7 @@ Common Lisp
 * Basic editing commands::
 * Different editing modes::
 * Kill ring::
+* Advanced editing commands::
 * Key Index::
 * Concept Index::
 @end menu
@@ -511,6 +512,46 @@ Many @climacs{} commands that remove objects from a buffer save these
 objects on a global @emph{kill ring}.
 @cindex kill ring
 
+@node Advanced editing commands
+@chapter Advanced editing commands
+
+@menu 
+* Keyboard macros::
+* Searching and replacing::
+@end menu
+
+@node Keyboard macros
+@section Keyboard macros
+
+Sometimes, it is useful to be able to repeat a sequence of keystrokes
+several times.  @climacs{} allows you to do this through a features
+called @emph{keyboard macros}.
+@cindex keyboard macro
+@climacs{} does this by @emph{recording} whatever the user types on
+the keyboard, and then making it possibly to @emph{replaying} the
+recorded sequence.
+
+To start recording a sequence of keystrokes, use the order @kbd{C-x (}
+@kindex C-x (
+(@command{Start Kbd Macro}).  You will see the word @samp{Def}
+appearing on the mode line, indicating that a keyboard macro is being
+defined.  As long as recording is in effect, every keystroke will be
+saved for later use.  
+
+To stop recording a sequence of keystrokes, use the order @kbd{C-x )}
+@kindex C-x )
+(@command{End Kbd Macro}).  The word @samp{Def} will disappear from
+the mode line, indicating that keystrokes are no longer being
+recorded. 
+
+To replay a previously recorded sequence of keystrokes, use the order
+@kbd{C-x e}
+@kindex C-x e
+(@command{Call Last Kbd Macro}).  When used with a numeric argument,
+this command will repeat the sequence of keystrokes that many times. 
+
+@node Searching and replacing
+@section Searching and replacing
 
 @node Key Index
 @unnumbered Key Index
