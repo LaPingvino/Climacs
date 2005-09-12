@@ -181,6 +181,7 @@ commands of @climacs{}.
 * Entering and deleting text::
 * Moving around::
 * Extended commands::
+* Editing the contents of a file::
 @end menu
 
 @node Entering and exiting @climacs{}
@@ -285,7 +286,8 @@ argument, these commands delete that many objects.
 It is also possible to delete larger chunks of buffer contents.  The
 order @kbd{M-d} 
 @kindex M-d
-(@command{Kill Word}) is used to delete the word
+(@command{Kill Word}) is used to delete the @emph{word}
+@cindex word
 @emph{following} point.  If point is not at the beginning of a word,
 then the part of the word that follows point is deleted.  The order
 @kbd{M-@key{Backspace}} 
@@ -349,6 +351,27 @@ Object} command is also associated with the @emph{left-arrow key}.
 @node Moving by words
 @subsection Moving by words
 
+@climacs{} will allow you to move around by larger unites than
+objects.
+
+The order @kbd{M-f}
+@kindex M-f
+(@command{Forward Word}) lets you move forward over the @emph{word}
+@cindex word
+following point. With a numeric argument, this command moves point
+forward that many words. 
+
+The order @kbd{M-b}
+@kindex M-b
+(@command{Backward Word}) lets you move backward over the @emph{word}
+@cindex word
+preceding point. With a numeric argument, this command moves point
+backward that many words. 
+
+Notice the analogy between the commands for moving by objects
+(@kbd{C-f}, @kbd{C-b}) and those for moving by words (@kbd{M-f},
+@kbd{M-b}). 
+
 @node Moving by lines
 @subsection Moving by lines
 
@@ -397,6 +420,64 @@ Some @climacs{} commands @emph{must} be invoked through the use of
 @command{Extended Command}.  The reason for this is that key sequences
 are a precious resource, and for rarely-used commands, it is better
 not to waste a key sequence. 
+
+@node Editing the contents of a file
+@section Editing the contents of a file
+
+Transfering the contents of a text file into a @climacs{} buffer is
+referred to as @emph{finding} the file.
+@cindex finding a file
+
+There are two ways of transfering the contents of a buffer to a file.
+One is to @emph{save} the buffer, which means to transfer the contents
+to the file that is already associated with the buffer.  The other is
+to @emph{write} the buffer, which means to transfer the contents to a
+different file than that associated with the buffer, or to write the
+contents of a buffer that has no associated file to some file.
+
+@menu 
+* Finding a file::	Moving text from a file to a @climacs{} buffer
+* Saving a buffer::	Moving text from a buffer to the associated file
+* Writing a buffer::	Moving text from a buffer to a different file  
+@end menu
+
+@node Finding a file
+@subsection Finding a file
+
+To find a file, use the order @kbd{C-x C-f}
+@kindex C-x C-f
+(@command{Find File}).
+
+@climacs{} will prompt for the name of a file.  For typing the file
+name, you can use @emph{completion} (using the @key{TAB} key), or you
+can use the right mouse button to get a list of all the files that
+match the prefix you typed.
+
+The result of finding a file is that a @emph{buffer} will be created
+that has the name of the file, and the file will be associated with
+that buffer when the contents is saved.
+
+@node Saving a buffer
+@subsection Saving a buffer
+
+To save a buffer, use the order @kbd{C-x C-s}
+@kindex C-x C-s
+(@command{Save Buffer}).
+The contents of the buffer will be transfered to the file associated
+with the buffer if there is one.  If the buffer has no file name
+associated with it, then this command behaves just like @command{Write
+Buffer} (@pxref{write-buffer}).
+
+@node Writing a buffer
+@subsection Writing a buffer
+@anchor{write-buffer}
+
+To write a buffer to a file, use the order @kbd{C-x C-w}
+@kindex C-x C-w
+(@command{Write Buffer}).  @climacs{} will prompt for the name of a
+file to save the buffer contents in.  Completion (by using the
+@key{TAB} key, or by using the right mouse button) can be used if the
+name is that of an existing file.
 
 @node Different editing modes
 @chapter Different editing modes
