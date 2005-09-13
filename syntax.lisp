@@ -148,6 +148,12 @@ in the specific syntax.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; Name for info-pane
+
+(defgeneric name-for-info-pane (syntax))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Syntax completion
 
 (defparameter *syntaxes* '())
@@ -240,6 +246,9 @@ in the specific syntax.")
 (defmethod update-syntax-for-display (buffer (syntax basic-syntax) from to)
   (declare (ignore buffer from to))
   nil)
+
+(defmethod name-for-info-pane ((syntax basic-syntax))
+  (name syntax))
 
 (defmethod syntax-line-indentation (mark tab-width (syntax basic-syntax))
   (declare (ignore mark tab-width))

@@ -35,6 +35,8 @@
 (defvar *current-slideset*)
 (defvar *did-display-a-slide*)
 
+(make-command-table 'slidemacs-table)
+
 (defun slidemacs-entity-string (entity)
   (coerce (buffer-sequence (buffer entity)
                            (1+ (start-offset entity))
@@ -357,7 +359,7 @@
                                             (- y2 y1)))))))
 
 (define-command (com-reveal-text :name "Reveal Text In Window"
-                                   :command-table global-command-table
+                                   :command-table slidemacs-table
                                    :menu t
                                    :provide-output-destination-keyword t)
     ((text 'string :prompt "text"))
@@ -366,7 +368,7 @@
       (write-string text stream))))
 
 (define-presentation-to-command-translator reveal-text-translator
-    (reveal-button com-reveal-text global-command-table
+    (reveal-button com-reveal-text slidemacs-table
                    :gesture :select
                    :documentation "Reveal Text In Window"
                    :pointer-documentation "Reveal Text In Window")
@@ -478,7 +480,7 @@
            (or (word-is lexeme "info")
                (word-is lexeme "graph")))))
 
-(climacs-gui::define-named-command com-next-talking-point ()
+(define-command (com-next-talking-point :name t :command-table slidemacs-table) ()
   (let* ((pane (climacs-gui::current-window))
          (buffer (buffer pane))
          (syntax (syntax buffer)))
@@ -493,7 +495,7 @@
                (return (setf (offset point) (start-offset lexeme)))))
           (full-redisplay pane))))))
 
-(climacs-gui::define-named-command com-previous-talking-point ()
+(define-command (com-previous-talking-point :name t :command-table slidemacs-table) ()
   (let* ((pane (climacs-gui::current-window))
          (buffer (buffer pane))
          (syntax (syntax buffer)))
@@ -516,23 +518,23 @@
               collect thing
               else collect (if decrease-p (- thing 8) (+ thing 8)))))
 
-(climacs-gui::define-named-command com-decrease-presentation-font-sizes ()
+(define-command (com-decrease-presentation-font-sizes :name t :command-table slidemacs-table) ()
   (adjust-font-sizes t)
   (full-redisplay (climacs-gui::current-window)))
 
-(climacs-gui::define-named-command com-increase-presentation-font-sizes ()
+(define-command (com-increase-presentation-font-sizes :name t :command-table slidemacs-table) ()
   (adjust-font-sizes nil)
   (full-redisplay (climacs-gui::current-window)))
 
-(climacs-gui::define-named-command com-first-talking-point ()
+(define-command (com-first-talking-point :name t :command-table slidemacs-table) ()
   (climacs-gui::com-beginning-of-buffer)
   (com-next-talking-point))
 
-(climacs-gui::define-named-command com-last-talking-point ()
+(define-command (com-last-talking-point :name t :command-table slidemacs-table) ()
   (climacs-gui::com-end-of-buffer)
   (com-previous-talking-point))
 
-(climacs-gui::define-named-command com-flip-slidemacs-syntax ()
+(define-command (com-flip-slidemacs-syntax :name t :command-table slidemacs-table) ()
   (let* ((buffer (buffer (climacs-gui::current-window)))
          (syntax (syntax buffer)))
     (typecase syntax
@@ -544,28 +546,28 @@
                                             :buffer buffer))))))
 
 (esa:set-key  'com-next-talking-point
-	      'climacs-gui::global-climacs-table
+	      'slidemacs-table
 	      '((#\= :control)))
 (esa:set-key  'com-previous-talking-point
-	      'climacs-gui::global-climacs-table
+	      'slidemacs-table
 	      '((#\- :control)))
 (esa:set-key  'com-increase-presentation-font-sizes
-	      'climacs-gui::global-climacs-table
+	      'slidemacs-table
 	      '((#\= :meta)))
 (esa:set-key  'com-decrease-presentation-font-sizes
-	      'climacs-gui::global-climacs-table
+	      'slidemacs-table
 	      '((#\- :meta)))
 (esa:set-key  'com-last-talking-point
-	      'climacs-gui::global-climacs-table
+	      'slidemacs-table
 	      '((#\= :control :meta)))
 (esa:set-key  'com-first-talking-point
-	      'climacs-gui::global-climacs-table
+	      'slidemacs-table
 	      '((#\- :control :meta)))
 (esa:set-key  'com-flip-slidemacs-syntax
-	      'climacs-gui::global-climacs-table
+	      'slidemacs-table
 	      '((#\s :control :meta)))
 
-(climacs-gui::define-named-command com-postscript-print-presentation ()
+(define-command (com-postscript-print-presentation :name t :command-table slidemacs-table) ()
   (let ((pane (climacs-gui::current-window)))
     (if (not (and (typep pane 'climacs-pane)
                   (typep (syntax (buffer pane)) 'slidemacs-gui-syntax)))

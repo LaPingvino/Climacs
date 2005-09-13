@@ -43,6 +43,11 @@
   (with-slots (buffer scan) syntax
      (setf scan (clone-mark (low-mark buffer) :left))))
 
+(defmethod name-for-info-pane ((syntax lisp-syntax))
+  (format nil "Lisp~@[:~(~A~)~]"
+	  (when (slot-value syntax 'package)
+	    (package-name (slot-value syntax 'package)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; lexer
@@ -1571,6 +1576,31 @@ stripping leading comments."
 		    (mark< mark (end-offset form)))
 	  do (setf (offset mark) (end-offset form))
 	     (loop-finish))))
+
+(defun in-type-p-in-children (children offset type)
+  (loop for child in children
+	do (cond ((< (start-offset child) offset (end-offset child))
+		  (return (if (typep child type)
+			      child
+			      (in-type-p-in-children (children child) offset type))))
+		 ((<= offset (start-offset child))
+		  (return nil))
+		 (t nil))))
+
+(defun in-type-p (mark syntax type)
+  (let ((offset (offset mark)))
+    (with-slots (stack-top) syntax
+       (if (or (null (start-offset stack-top))
+	       (>= offset (end-offset stack-top))
+	       (<= offset (start-offset stack-top)))
+	   nil)
+       (in-type-p-in-children (children stack-top) offset type))))
+
+(defun in-string-p (mark syntax)
+  (in-type-p mark syntax 'string-form))
+
+(defun in-comment-p (mark syntax)
+  (in-type-p mark syntax 'comment))
 
 ;;; shamelessly replacing SWANK code
 ;; We first work through the string removing the characters and noting

@@ -466,6 +466,17 @@ In the absence of a prefix arg returns 1 (and nil)."
       (helper command-table nil)
       results)))
 
+(defun find-all-keystrokes-and-commands-with-inheritance (start-table)
+  (let ((results '()))
+    (labels  ((helper (table)
+		(let ((res (find-all-keystrokes-and-commands table)))
+		  (when res  (setf results (nconc res results)))
+		  (dolist (subtable (command-table-inherit-from
+				     (find-command-table table)))
+		    (helper subtable)))))
+      (helper start-table))
+    results))
+
 (defun sort-by-name (list)
   (sort list #'string< :key (lambda (item) (symbol-name (second item)))))
 
@@ -486,8 +497,9 @@ In the absence of a prefix arg returns 1 (and nil)."
 			  &optional (sort-function #'sort-by-name))
   (formatting-table (stream)
     (loop for (keys command)
-	  in (funcall sort-function (find-all-keystrokes-and-commands
-					 command-table))
+	  in (funcall sort-function
+		      (find-all-keystrokes-and-commands-with-inheritance
+			   command-table))
 	  do (formatting-row (stream) 
 	       (formatting-cell (stream :align-x :right)
 		 (with-text-style (stream '(:sans-serif nil nil))
