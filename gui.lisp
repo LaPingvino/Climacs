@@ -217,12 +217,12 @@
 	    (princ (if (recordingp *application-frame*)
 		       "Def"
 		       "")
-		   pane))))))
+		   pane)))))))
 
-  (defun display-window (frame pane)
-    "The display function used by the climacs application frame."
-    (declare (ignore frame))
-    (redisplay-pane pane (eq pane (current-window)))))
+(defun display-window (frame pane)
+  "The display function used by the climacs application frame."
+  (declare (ignore frame))
+  (redisplay-pane pane (eq pane (current-window))))
 
 (defmethod handle-repaint :before ((pane extended-pane) region)
   (declare (ignore region))
