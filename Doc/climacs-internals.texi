@@ -1833,11 +1833,12 @@ application.
 @section Suggested CLIM gadget
 
 Undo might be presented in a CLIM gadget in the form of a tree where
-branches are added to the right over time, in @xref{figundo}.
+branches are added to the right over time, in 
+@c @xref{figundo}.
 
 
-@image{undo}
-@anchor{figundo} 
+@c @image{undo}
+@c @anchor{figundo} 
 
 where the bigger black circle indicates the current state.  The tree
 will be fairly tall and skinny, so the gadget should probably be a

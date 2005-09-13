@@ -43,6 +43,7 @@ Common Lisp
 * Different editing modes::
 * Kill ring::
 * Advanced editing commands::
+* Getting help::
 * Key Index::
 * Concept Index::
 @end menu
@@ -552,6 +553,56 @@ this command will repeat the sequence of keystrokes that many times.
 
 @node Searching and replacing
 @section Searching and replacing
+
+@node Getting help
+@chapter Getting help
+
+In addition to this manual, @climacs{} contains an online help
+facility.  There are several different topics that you can get help
+with.  Most of these topics are obtained by some order using the
+@kbd{C-h}
+@kindex C-h
+prefex key.  The key following @kbd{C-h} determines what kind of help
+information is displayed. 
+
+@menu 
+* Help with a key binding::
+* Help with a particular key sequence::
+* Help finding an order for a command::
+@end menu
+
+@node Help with a key binding
+@section Help with a key binding
+
+To obtain a list of all orders and the associated commands that are
+valid in a particular context, use the order @kbd{C-h b}
+@kindex C-h b
+(@command{Describe Bindings}).  A table with each command name and
+associated order (if any) is displayed in a new window. 
+
+@node Help with a particular key sequence
+@section Help with a particular key sequence
+
+To obtain a description of what some putative order will do, use the
+order @kbd{C-h c}
+@kindex C-h c
+(@command{Describe Key Briefly}.  You will be prompted for a key
+sequence.  If the key sequence you type is bound to a command, the
+command name will be displayed in the minibuffer.  Otherwise a message
+indicating that the key is not bound to a command will be displayed.
+
+@node Help finding an order for a command
+@section Help finding an order for a command
+
+Sometimes, you know the name of a command, and would like to find out
+whether it is bound to any order, and if so, which one(s).  For that,
+you can use the order @kbd{C-h w}
+@kindex C-h w
+(@command{Where Is}).  You will be prompted for a command name
+(completion can be used as usual), and if the command name given is
+bound to an order, that order will displayed in the minibuffer.
+Otherwise, a message indicating that the command is not bound to any
+order will be displayed. 
 
 @node Key Index
 @unnumbered Key Index
