@@ -178,7 +178,7 @@ should therefore feel quite comfortable with the basic editing
 commands of @climacs{}.
 
 @menu
-* Entering and exiting @climacs{}::
+* Entering and exiting Climacs::
 * Numeric arguments::
 * Entering and deleting text::
 * Moving around::
@@ -186,8 +186,8 @@ commands of @climacs{}.
 * Editing the contents of a file::
 @end menu
 
-@node Entering and exiting @climacs{}
-@section Entering and exiting @climacs{}
+@node Entering and exiting Climacs
+@section Entering and exiting Climacs
 
 The typical way of entering @climacs{} is to type a @cl{}
 @emph{expression} at the prompt of a @cl{} @emph{listener} such as:
