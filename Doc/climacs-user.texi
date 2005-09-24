@@ -145,7 +145,7 @@ that is not on display has a point that is taken over by the first
 window that displays the buffer.  Points are right-sticky marks, even
 when a language such as Arabic is edited, simply because by
 convention, the @climacs{} buffer is considered as being organized
-from left to right.  It is question of @emph{rendering} as to whether
+from left to right.  It is a question of @emph{rendering} as to whether
 the objects in the buffer are actually displayed from left to right,
 from right to left, or in any other appropriate order. 
 
@@ -164,7 +164,8 @@ Some key sequences result in the execution of a @climacs{}
 @emph{command}.
 @cindex command
 Such a key sequence is called a @emph{complete key sequence}
-@cindex complete key sequence or an @emph{order}.
+@cindex complete key sequence
+or an @emph{order}.
 @cindex order
 
 @node Basic editing commands
@@ -204,7 +205,7 @@ files, @climacs{} will ask whether you would like those buffers
 saved.  In addition, if you answer no to any of those questions, you
 will be asked to confirm that you want to quit @climacs{} anyway.  The
 reason for this pestering on the part of @climacs{} is that currently
-when you quit @climacs{}, the buffer contents is lost.
+when you quit @climacs{}, the buffer contents are lost.
 
 @node Numeric arguments
 @section Numeric arguments
@@ -315,7 +316,7 @@ newline object is removed.
 
 When used with a numeric argument, this command is not simply repeated
 that many times.  Instead, the number of lines indicated by the
-numerid argument are removed.  
+numeric argument are removed.  
 
 Because this command name contains the word @emph{kill} it saves the
 deleted objects on the @emph{kill ring} (@pxref{kill-ring}).
@@ -353,7 +354,7 @@ Object} command is also associated with the @emph{left-arrow key}.
 @node Moving by words
 @subsection Moving by words
 
-@climacs{} will allow you to move around by larger unites than
+@climacs{} will allow you to move around by larger units than
 objects.
 
 The order @kbd{M-f}
@@ -396,7 +397,7 @@ argument, it moves down by that many lines.  The command
 @command{Next Line} is also associated with the @emph{down-arrow
 key}.  
 
-When you move by lines, @climacs{} tries to be smart about what
+When you move by lines, @climacs{} tries to be smart about which
 @emph{column} point ends up in, in the following way: when a sequence
 of commands that move by lines is given, the initial column of point
 is remembered (this is called the @emph{goal column}).  @climacs{}
@@ -457,7 +458,7 @@ match the prefix you typed.
 
 The result of finding a file is that a @emph{buffer} will be created
 that has the name of the file, and the file will be associated with
-that buffer when the contents is saved.
+that buffer when the content is saved.
 
 @node Saving a buffer
 @subsection Saving a buffer
@@ -494,7 +495,7 @@ name is that of an existing file.
 Normally, typing ordinary characters to @climacs{} results in these
 characters being @emph{inserted} at point.  Sometimes, however, it is
 useful to treat a line of objects as being of @emph{fixed length}, and
-have @climacs{} @emph{replace} objects as new ones are begin typed.  
+have @climacs{} @emph{replace} objects as new ones are being typed.  
 
 This is exactly the purpose of @climacs{} @emph{overwrite mode}.  This
 mode alters the insert commands so that the object after point is
@@ -525,11 +526,11 @@ objects on a global @emph{kill ring}.
 @section Keyboard macros
 
 Sometimes, it is useful to be able to repeat a sequence of keystrokes
-several times.  @climacs{} allows you to do this through a features
+several times.  @climacs{} allows you to do this through a feature
 called @emph{keyboard macros}.
 @cindex keyboard macro
 @climacs{} does this by @emph{recording} whatever the user types on
-the keyboard, and then making it possibly to @emph{replaying} the
+the keyboard, and then making it possibly to @emph{replay} the
 recorded sequence.
 
 To start recording a sequence of keystrokes, use the order @kbd{C-x (}
@@ -586,9 +587,9 @@ associated order (if any) is displayed in a new window.
 To obtain a description of what some putative order will do, use the
 order @kbd{C-h c}
 @kindex C-h c
-(@command{Describe Key Briefly}.  You will be prompted for a key
+(@command{Describe Key Briefly}).  You will be prompted for a key
 sequence.  If the key sequence you type is bound to a command, the
-command name will be displayed in the minibuffer.  Otherwise a message
+command name will be displayed in the minibuffer.  Otherwise, a message
 indicating that the key is not bound to a command will be displayed.
 
 @node Help finding an order for a command
