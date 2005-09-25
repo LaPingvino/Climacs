@@ -45,6 +45,6 @@ useful to us.
 
 For that reason, Climacs often depends on very fresh CVS versions of
 McCLIM.  If you discover a bug, please try to install a new version of
-McCLIM before looking to hard for any other reasons.
+McCLIM before looking too hard for any other reasons.
 
 

@@ -81,21 +81,15 @@
   ((:file "rt" :pathname #p"testing/rt.lisp")
    (:file "buffer-test" :depends-on ("rt"))
    (:file "base-test" :depends-on ("rt"))
-   (:file "automaton-test-package"
-	  :pathname #P"cl-automaton/automaton-test-package.lisp"
-	  :depends-on ("rt"))
-   (:file "eqv-hash-test"
-	  :pathname #P"cl-automaton/eqv-hash-test.lisp"
-	  :depends-on ("rt" "automaton-test-package"))
-   (:file "state-and-transition-test"
-	  :pathname #P"cl-automaton/state-and-transition-test.lisp"
-	  :depends-on ("rt" "automaton-test-package"))
-   (:file "automaton-test"
-	  :pathname #P"cl-automaton/automaton-test.lisp"
-	  :depends-on ("rt" "automaton-test-package"))
-   (:file "regexp-test"
-	  :pathname #P"cl-automaton/regexp-test.lisp"
-	  :depends-on ("rt" "automaton-test-package"))))
+   (:module
+    "cl-automaton"
+    :depends-on ("rt")
+    :components
+    ((:file "automaton-test-package")
+     (:file "eqv-hash-test" :depends-on ("automaton-test-package"))
+     (:file "state-and-transition-test" :depends-on ("automaton-test-package"))
+     (:file "automaton-test" :depends-on ("automaton-test-package"))
+     (:file "regexp-test" :depends-on ("automaton-test-package"))))))
 
 #+asdf
 (defmethod asdf:perform :around ((o asdf:compile-op)

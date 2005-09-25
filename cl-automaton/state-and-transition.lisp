@@ -118,10 +118,11 @@ state objects."
 	    sum (sxhash st))
 	 most-positive-fixnum)))
 
-(defvar *do-not-escape* t) ; nil may be useful in Slime
+(defvar *escape-unicode-chars* nil) ; true may be useful in Slime
 
 (defun escaped-char (c)
-  (if (or *do-not-escape* (and (<= #x21 c #x7e) (/= c (char-code #\\))))
+  (if (or (not *escape-unicode-chars*)
+	  (and (<= #x21 c #x7e) (/= c (char-code #\\))))
       (code-char c)
       (format nil "\\u~4,'0O" c)))
 
