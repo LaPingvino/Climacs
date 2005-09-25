@@ -1,3 +1,9 @@
+*Note*: Climacs depends on McCLIM, a graphic toolkit for Common Lisp
+(http://www.cliki.net/McCLIM) and CLX, a low level, Xlib-like library
+on top of which McCLIM is built (http://www.cliki.net/CLX). Make sure
+these are properly installed on your system before attempting to install
+Climacs.
+
 Install instructions for Climacs.  We assume that if you have gotten
 this far, it means that you have either extracted a tar file with
 everything in it, or checked out the files from some CVS repository.
