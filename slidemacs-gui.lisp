@@ -35,7 +35,7 @@
 (defvar *current-slideset*)
 (defvar *did-display-a-slide*)
 
-(make-command-table 'slidemacs-table)
+(make-command-table 'slidemacs-table :errorp nil)
 
 (defun slidemacs-entity-string (entity)
   (coerce (buffer-sequence (buffer entity)

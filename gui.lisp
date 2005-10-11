@@ -54,39 +54,39 @@
   "If T, classic look and feel. If NIL, stripped-down look (:")
 
 ;;; Basic functionality
-(make-command-table 'base-table)
+(make-command-table 'base-table :errorp nil)
 ;;; buffers
-(make-command-table 'buffer-table)
+(make-command-table 'buffer-table :errorp nil)
 ;;; case
-(make-command-table 'case-table)
+(make-command-table 'case-table :errorp nil)
 ;;; comments
-(make-command-table 'comment-table)
+(make-command-table 'comment-table :errorp nil)
 ;;; deleting
-(make-command-table 'deletion-table)
+(make-command-table 'deletion-table :errorp nil)
 ;;; commands used for climacs development
-(make-command-table 'development-table)
+(make-command-table 'development-table :errorp nil)
 ;;; editing - making changes to a buffer
-(make-command-table 'editing-table)
+(make-command-table 'editing-table :errorp nil)
 ;;; filling
-(make-command-table 'fill-table)
+(make-command-table 'fill-table :errorp nil)
 ;;; indentation
-(make-command-table 'indent-table)
+(make-command-table 'indent-table :errorp nil)
 ;;; information about the buffer
-(make-command-table 'info-table)
+(make-command-table 'info-table :errorp nil)
 ;;; lisp-related commands
-(make-command-table 'lisp-table)
+(make-command-table 'lisp-table :errorp nil)
 ;;; marking things
-(make-command-table 'marking-table)
+(make-command-table 'marking-table :errorp nil)
 ;;; moving around
-(make-command-table 'movement-table)
+(make-command-table 'movement-table :errorp nil)
 ;;; panes
-(make-command-table 'pane-table)
+(make-command-table 'pane-table :errorp nil)
 ;;; searching
-(make-command-table 'search-table)
+(make-command-table 'search-table :errorp nil)
 ;;; self-insertion
-(make-command-table 'self-insert-table)
+(make-command-table 'self-insert-table :errorp nil)
 ;;; windows
-(make-command-table 'window-table)
+(make-command-table 'window-table :errorp nil)
 
 (define-application-frame climacs (standard-application-frame
 				   esa-frame-mixin)
@@ -618,7 +618,8 @@
 	 'movement-table
 	 '((:left :control)))
 
-(define-command (com-delete-word :name t :command-table deletion-table) ((count 'integer :prompt "Number of words"))
+(define-command (com-delete-word :name t :command-table deletion-table)
+    ((count 'integer :prompt "Number of words"))
   (delete-word (point (current-window)) count))
 
 (defun kill-word (mark &optional (count 1) (concatenate-p nil))
@@ -1579,29 +1580,65 @@ If with-scrollbars nil, omit the scroller."
 	 'window-table
 	 '((#\x :control) (#\o)))
 
+(defun click-to-offset (window x y)
+  (with-slots (top bot) window
+       (let ((new-x (floor x (stream-character-width window #\m)))
+	     (new-y (floor y (stream-line-height window)))
+	     (buffer (buffer window)))
+	 (loop for scan from (offset top)
+	       with lines = 0
+	       until (= scan (offset bot))
+	       until (= lines new-y)
+	       when (eql (buffer-object buffer scan) #\Newline)
+		 do (incf lines)
+	       finally (loop for columns from 0
+			     until (= scan (offset bot))
+			     until (eql (buffer-object buffer scan) #\Newline)
+			     until (= columns new-x)
+			     do (incf scan))
+		       (return scan)))))
+
 (define-command (com-switch-to-this-window :name nil :command-table window-table)
     ((window 'pane) (x 'integer) (y 'integer))
   (other-window window)
-  (with-slots (top bot) window
-     (let ((new-x (floor x (stream-character-width window #\m)))
-	   (new-y (floor y (stream-line-height window)))
-	   (buffer (buffer window)))
-       (loop for scan from (offset top)
-	     with lines = 0
-	     until (= scan (offset bot))
-	     until (= lines new-y)
-	     when (eql (buffer-object buffer scan) #\Newline)
-	       do (incf lines)
-	     finally (loop for columns from 0
-			   until (= scan (offset bot))
-			   until (eql (buffer-object buffer scan) #\Newline)
-			   until (= columns new-x)
-			   do (incf scan))
-		     (setf (offset (point window)) scan)))))
+  (when (typep window 'extended-pane)
+    (setf (offset (point window))
+	  (click-to-offset window x y))))
 
 (define-presentation-to-command-translator blank-area-to-switch-to-this-window
     (blank-area com-switch-to-this-window window-table :echo nil)
-    (object window x y)
+    (window x y)
+  (list window x y))
+
+(define-gesture-name :select-other :pointer-button (:right) :unique nil)
+
+(define-command (com-mouse-save :name nil :command-table window-table)
+    ((window 'pane) (x 'integer) (y 'integer))
+  (when (and (typep window 'extended-pane)
+	     (eq window (current-window)))
+    (setf (offset (mark window))
+	  (click-to-offset window x y))
+    (com-exchange-point-and-mark)
+    (com-copy-region)))
+
+(define-presentation-to-command-translator blank-area-to-mouse-save
+    (blank-area com-mouse-save window-table :echo nil :gesture :select-other)
+    (window x y)
+  (list window x y))
+
+(define-gesture-name :middle-button :pointer-button (:middle) :unique nil)
+
+(define-command (com-yank-here :name nil :command-table window-table)
+    ((window 'pane) (x 'integer) (y 'integer))
+  (when (typep window 'extended-pane)
+    (other-window window)
+    (setf (offset (point window))
+	  (click-to-offset window x y))
+    (com-yank)))
+
+(define-presentation-to-command-translator blank-area-to-yank-here
+    (blank-area com-yank-here window-table :echo nil :gesture :middle-button)
+    (window x y)
   (list window x y))
 
 (defun single-window ()
