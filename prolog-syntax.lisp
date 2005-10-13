@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: CLIMACS-HTML-SYNTAX -*-
+;;; -*- Mode: Lisp; Package: CLIMACS-PROLOG-SYNTAX -*-
 
 ;;;  (c) copyright 2005 by
 ;;;           Christophe Rhodes (c.rhodes@gold.ac.uk)
