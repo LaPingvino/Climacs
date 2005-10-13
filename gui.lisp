@@ -1975,10 +1975,11 @@ If with-scrollbars nil, omit the scroller."
       (insert-sequence point string2)
       (setf offset2 (+ offset1 (length string2)))
       (finish-output *error-output*)
-      (case region-case
-        (:upper-case (upcase-buffer-region buffer offset1 offset2))
-        (:lower-case (downcase-buffer-region buffer offset1 offset2))
-        (:capitalized (capitalize-buffer-region buffer offset1 offset2))))
+      (unless (find-if #'upper-case-p string1)
+        (case region-case
+          (:upper-case (upcase-buffer-region buffer offset1 offset2))
+          (:lower-case (downcase-buffer-region buffer offset1 offset2))
+          (:capitalized (capitalize-buffer-region buffer offset1 offset2)))))
     (incf occurrences)
     (if (query-replace-find-next-match point string1)
 	(display-message "Query Replace ~A with ~A:"
