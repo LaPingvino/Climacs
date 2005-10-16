@@ -328,7 +328,13 @@ In the absence of a prefix arg returns 1 (and nil)."
 	    command table :keystroke gesture :errorp nil)
 	   (when (and (listp gesture)
 		      (find :meta gesture))
-	     (set-key command table (list (list :escape) (remove :meta gesture)))))
+	     (set-key command table
+		      (list (list :escape)
+			    (let ((esc-list (remove :meta gesture)))
+			      (if (and (= (length esc-list) 2)
+				       (find :shift esc-list))
+				  (remove :shift esc-list)
+				  esc-list))))))
 	  (t (set-key command
 		      (ensure-subtable table gesture)
 		      (cdr gestures))))))
