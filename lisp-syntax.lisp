@@ -45,8 +45,10 @@
 
 (defmethod name-for-info-pane ((syntax lisp-syntax))
   (format nil "Lisp~@[:~(~A~)~]"
-	  (when (slot-value syntax 'package)
-	    (package-name (slot-value syntax 'package)))))
+	  (let ((package (slot-value syntax 'package)))
+	    (typecase package
+	      (package (package-name package))
+	      (t package)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -200,6 +202,7 @@
 (defclass pathname-start-lexeme (lisp-lexeme) ())
 (defclass undefined-reader-macro-lexeme (lisp-lexeme) ())
 (defclass bit-vector-lexeme (form-lexeme) ())
+(defclass number-lexeme (form-lexeme) ())
 (defclass token-mixin () ())
 (defclass complete-token-lexeme (token-mixin form-lexeme) ())
 (defclass multiple-escape-start-lexeme (lisp-lexeme) ())
@@ -253,9 +256,13 @@
 	     (cond ((end-of-buffer-p scan)
 		    (make-instance 'incomplete-lexeme))
 		   (t 
-		    (loop until (end-of-buffer-p scan)
-		          while (digit-char-p (object-after scan))
-		          do (fo))
+		    (let ((prefix 0))
+		      (loop until (end-of-buffer-p scan)
+			    while (digit-char-p (object-after scan))
+			    do (setf prefix
+				     (+ (* 10 prefix)
+					(digit-char-p (object-after scan))))
+			       (fo))
 		    (if (end-of-buffer-p scan)
 			(make-instance 'incomplete-lexeme)
 			(case (object-after scan)
@@ -289,10 +296,32 @@
 			       (make-instance 'uninterned-symbol-lexeme))
 			  (#\. (fo)
 			       (make-instance 'readtime-evaluation-lexeme))
-			  ;((#\B #\b) )
-			  ;((#\O #\o) )
-			  ;((#\X #\x) )
-			  ;((#\R #\r) )
+			  ((#\B #\b #\O #\o #\X #\x)
+			   (let ((radix
+				  (case (object-after scan)
+				    ((#\B #\b) 2)
+				    ((#\O #\o) 8)
+				    ((#\X #\x) 16))))
+			     (fo)
+			     (loop until (end-of-buffer-p scan)
+				   while (digit-char-p (object-after scan) radix)
+				   do (fo)))
+			   (if (and (not (end-of-buffer-p scan))
+				    (constituentp (object-after scan)))
+			       (make-instance 'error-lexeme)
+			       (make-instance 'number-lexeme)))
+			  ((#\R #\r)
+			   (fo)
+			   (cond
+			     ((<= 2 prefix 36)
+			      (loop until (end-of-buffer-p scan)
+				    while (digit-char-p (object-after scan) prefix)
+				    do (fo))
+			      (if (and (not (end-of-buffer-p scan))
+				       (constituentp (object-after scan)))
+				  (make-instance 'error-lexeme)
+				  (make-instance 'number-lexeme)))
+			     (t (make-instance 'error-lexeme))))
 			  ;((#\C #\c) )
 			  ((#\A #\a) (fo)
 			   (make-instance 'array-start-lexeme))
@@ -318,7 +347,7 @@
 			       (make-instance 'long-comment-start-lexeme))
 			  (#\< (fo)
 			       (make-instance 'error-lexeme))
-			  (t (fo) (make-instance 'undefined-reader-macro-lexeme)))))))
+			  (t (fo) (make-instance 'undefined-reader-macro-lexeme))))))))
 	(#\| (fo) (make-instance 'multiple-escape-start-lexeme))
 	(t (cond ((or (constituentp object)
 		      (eql object #\\))
@@ -1041,27 +1070,48 @@
 (defun package-of (syntax)
   (let ((buffer (buffer syntax)))
     (flet ((test (x)
-	     (and (typep x 'list-form)
-		  (not (null (cdr (children x))))
-		  (buffer-looking-at buffer
-				     (start-offset (cadr (children x)))
-				     "in-package"
-				     :test #'char-equal))))
+	     (when (typep x 'complete-list-form)
+	       (let ((candidate (second-form (children x))))
+		 (buffer-looking-at buffer
+				    (start-offset candidate)
+				    "in-package"
+				    :test #'char-equal)))))
       (with-slots (stack-top) syntax
 	(let ((form (find-if #'test (children stack-top))))
-	  (and form
-	       (not (null (cddr (children form))))
-	       (let* ((package-form (caddr (children form)))
-		      (package-name (coerce (buffer-sequence
-					     buffer
-					     (start-offset package-form)
-					     (end-offset package-form))
-					    'string))
-		      (package-symbol
-		       (let ((*package* (find-package :common-lisp)))
-			 (ignore-errors
-			   (read-from-string package-name nil nil)))))
-		 (find-package package-symbol))))))))
+	  (when form
+	    (let ((package-form (third-form (children form))))
+	      (when package-form 
+		(let ((package-name
+		       (typecase package-form
+			 (token-mixin
+			  (coerce (buffer-sequence
+				   buffer
+				   (start-offset package-form)
+				   (end-offset package-form))
+				  'string))
+			 (complete-string-form
+			  (coerce (buffer-sequence
+				   buffer
+				   (1+ (start-offset package-form))
+				   (1- (end-offset package-form)))
+				  'string))
+			 (quote-form 
+			  (coerce (buffer-sequence
+				   buffer
+				   (start-offset (second-form (children package-form)))
+				   (end-offset (second-form (children package-form))))
+				  'string))
+			 (uninterned-symbol-form
+			  (coerce (buffer-sequence
+				   buffer
+				   (start-offset (second-form (children package-form)))
+				   (end-offset (second-form (children package-form))))
+				  'string))
+			 (t 'nil))))
+		  (when package-name
+		    (let ((package-symbol (parse-token package-name)))
+		      (or (find-package package-symbol)
+			  package-symbol))))))))))))
 
 (defmethod update-syntax (buffer (syntax lisp-syntax))
   (let* ((low-mark (low-mark buffer))
@@ -1738,7 +1788,9 @@ Return the symbol and a flag indicating whether the symbol was found."
           (values nil nil)))))
 
 (defun token-to-symbol (syntax token)
-  (let ((package (or (slot-value syntax 'package)
+  (let ((package (if (and (slot-value syntax 'package)
+			  (typep (slot-value syntax 'package) 'package))
+		     (slot-value syntax 'package)
 		     (find-package :common-lisp)))
 	(token-string (coerce (buffer-sequence (buffer syntax)
 					       (start-offset token)
