@@ -1072,10 +1072,12 @@
     (flet ((test (x)
 	     (when (typep x 'complete-list-form)
 	       (let ((candidate (second-form (children x))))
-		 (buffer-looking-at buffer
-				    (start-offset candidate)
-				    "in-package"
-				    :test #'char-equal)))))
+		 (and (typep candidate 'token-mixin)
+		      (eq (parse-symbol (coerce (buffer-sequence (buffer syntax)
+								 (start-offset candidate)
+								 (end-offset candidate))
+						'string))
+			  'cl:in-package))))))
       (with-slots (stack-top) syntax
 	(let ((form (find-if #'test (children stack-top))))
 	  (when form
