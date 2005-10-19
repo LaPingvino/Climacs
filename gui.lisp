@@ -174,50 +174,44 @@
 	 (size (size buffer))
 	 (top (top master-pane))
 	 (bot (bot master-pane)))
-    (formatting-table (pane)
-      (formatting-row (pane)
-	(formatting-cell (pane :align-x :right :min-width '(5 :character))
-	  (princ (cond ((and (needs-saving buffer)
-			     (read-only-p buffer)
-			     "%*"))
-		       ((needs-saving buffer) "**")
-		       ((read-only-p buffer) "%%")
-		       (t "--"))
-		 pane))
-	(formatting-cell (pane :min-width '(25 :character))
-	  (princ "  " pane)
-	  (with-text-face (pane :bold)
-	    (princ (name buffer) pane)))
-	(formatting-cell (pane :min-width '(5 :character))
-	  (princ (cond ((and (mark= size bot)
-			     (mark= 0 top))
-			"")
-		       ((mark= size bot)
-			"Bot")
-		       ((mark= 0 top)
-			"Top")
-		       (t (format nil "~a%"
-				  (round (* 100 (/ (offset top)
-						   size))))))
-		 pane))
-	(formatting-cell (pane)
-	  (with-text-family (pane :sans-serif)
-	    (princ #\( pane)
-	    (princ (name-for-info-pane (syntax buffer)) pane)
-	    (format pane "~{~:[~*~; ~A~]~}" (list
-					 (slot-value master-pane 'overwrite-mode)
-					 "Ovwrt"
-					 (auto-fill-mode master-pane)
-					 "Fill"
-					 (isearch-mode master-pane)
-					 "Isearch"))
-	    (princ #\) pane)))
-	(formatting-cell (pane)
-	  (with-text-family (pane :sans-serif)
-	    (princ (if (recordingp *application-frame*)
-		       "Def"
-		       "")
-		   pane)))))))
+    (princ "   " pane)
+    (princ (cond ((and (needs-saving buffer)
+		       (read-only-p buffer)
+		       "%*"))
+		 ((needs-saving buffer) "**")
+		 ((read-only-p buffer) "%%")
+		 (t "--"))
+	   pane)
+    (princ "  " pane)
+    (with-text-face (pane :bold)
+      (format pane "~25A" (name buffer)))
+    (format pane "  ~A  "
+	    (cond ((and (mark= size bot)
+			(mark= 0 top))
+		   "")
+		  ((mark= size bot)
+		   "Bot")
+		  ((mark= 0 top)
+		   "Top")
+		  (t (format nil "~a%"
+			     (round (* 100 (/ (offset top)
+					      size)))))))
+    (with-text-family (pane :sans-serif)
+      (princ #\( pane)
+      (princ (name-for-info-pane (syntax buffer)) pane)
+      (format pane "~{~:[~*~; ~A~]~}" (list
+				       (slot-value master-pane 'overwrite-mode)
+				       "Ovwrt"
+				       (auto-fill-mode master-pane)
+				       "Fill"
+				       (isearch-mode master-pane)
+				       "Isearch"))
+      (princ #\) pane))
+    (with-text-family (pane :sans-serif)
+      (princ (if (recordingp *application-frame*)
+		 "Def"
+		 "")
+	     pane))))
 
 (defun display-window (frame pane)
   "The display function used by the climacs application frame."
@@ -1174,14 +1168,19 @@
 			  (make-buffer name)))))
 
 ;;placeholder
-(defmethod switch-to-buffer ((symbol (eql 'nil)))
-  (switch-to-buffer (second (buffers *application-frame*))))
+(defmethod switch-to-buffer ((symbol (eql 'nil)))  
+  (let ((default (second (buffers *application-frame*))))
+    (when default
+      (switch-to-buffer default))))
 
 (define-command (com-switch-to-buffer :name t :command-table pane-table) ()
-  (let ((buffer (accept 'buffer
-			:prompt "Switch to buffer"
-			:default (second (buffers *application-frame*))
-			:default-type 'buffer)))
+  (let* ((default (second (buffers *application-frame*)))
+	 (buffer (if default
+		     (accept 'buffer
+			     :prompt "Switch to buffer"
+			     :default default)
+		     (accept 'buffer
+			     :prompt "Switch to buffer"))))
     (switch-to-buffer buffer)))
 
 (set-key 'com-switch-to-buffer
