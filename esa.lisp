@@ -210,29 +210,32 @@ In the absence of a prefix arg returns 1 (and nil)."
 (defun substitute-numeric-argument-p (command numargp)
   (substitute numargp *numeric-argument-p* command :test #'eq))
 
-(defun process-gestures (frame command-table)
-  (loop
-   for gestures = '()
-   do (multiple-value-bind (numarg numargp)
-	  (read-numeric-argument :stream *standard-input*)
-	(loop 
-	 (setf *current-gesture* (esa-read-gesture))
-	 (setf gestures 
-	       (nconc gestures (list *current-gesture*)))
-	 (let ((item (find-gestures-with-inheritance gestures command-table)))
-	   (cond 
-	     ((not item)
-	      (beep) (return))
-	     ((eq (command-menu-item-type item) :command)
-	      (let ((command (command-menu-item-value item)))
-		(unless (consp command)
-		  (setf command (list command)))
-		(setf command (substitute-numeric-argument-marker command numarg))
-		(setf command (substitute-numeric-argument-p command numargp))
-		(execute-frame-command frame command)
-		(return)))
-	     (t nil)))))
-   do (redisplay-frame-panes frame)))
+(defun process-gestures-or-command (frame command-table)
+  (with-input-context 
+      (`(command :command-table ,(command-table (car (windows frame)))))
+      (object)
+      (let ((gestures '()))
+        (multiple-value-bind (numarg numargp)
+            (read-numeric-argument :stream *standard-input*)
+          (loop 
+           (setf *current-gesture* (esa-read-gesture))
+           (setf gestures 
+                 (nconc gestures (list *current-gesture*)))
+           (let ((item (find-gestures-with-inheritance gestures command-table)))
+             (cond 
+               ((not item)
+                (beep) (return))
+               ((eq (command-menu-item-type item) :command)
+                (let ((command (command-menu-item-value item)))
+                  (unless (consp command)
+                    (setf command (list command)))
+                  (setf command (substitute-numeric-argument-marker command numarg))
+                  (setf command (substitute-numeric-argument-p command numargp))
+                  (execute-frame-command frame command)
+                  (return)))
+               (t nil))))))
+      (t
+       (execute-frame-command frame object))))
 
 (defmethod redisplay-frame-panes :around ((frame esa-frame-mixin) &key force-p)
   (declare (ignore force-p))
@@ -261,22 +264,13 @@ In the absence of a prefix arg returns 1 (and nil)."
 	  (*abort-gestures* `((:keyboard #\g ,(make-modifier-state :control)))))
       (redisplay-frame-panes frame :force-p t)
       (loop
-       for maybe-error = t
        do (restart-case
-	   (progn
-	     (handler-case
-	      (with-input-context 
-		  (`(command :command-table ,(command-table (car (windows frame)))))
-		  (object)
-		  (process-gestures frame (command-table (car (windows frame))))
-		(t
-		 (execute-frame-command frame object)
-		 (setq maybe-error nil)))
-	      (abort-gesture () (display-message "Quit")))
-	     (when maybe-error
-	       (beep))
-	     (redisplay-frame-panes frame))
-	   (return-to-climacs () nil))))))
+              (progn
+                (handler-case
+                    (process-gestures-or-command frame (command-table (car (windows frame))))
+                  (abort-gesture () (display-message "Quit")))
+                (redisplay-frame-panes frame))
+	   (return-to-esa () nil))))))
 
 (defmacro simple-command-loop (command-table loop-condition end-clauses)
   (let ((gesture (gensym))
@@ -328,13 +322,7 @@ In the absence of a prefix arg returns 1 (and nil)."
 	    command table :keystroke gesture :errorp nil)
 	   (when (and (listp gesture)
 		      (find :meta gesture))
-	     (set-key command table
-		      (list (list :escape)
-			    (let ((esc-list (remove :meta gesture)))
-			      (if (and (= (length esc-list) 2)
-				       (find :shift esc-list))
-				  (remove :shift esc-list)
-				  esc-list))))))
+	     (set-key command table (list (list :escape) (remove :meta gesture)))))
 	  (t (set-key command
 		      (ensure-subtable table gesture)
 		      (cdr gestures))))))
