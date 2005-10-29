@@ -298,7 +298,7 @@
 			       (make-instance 'readtime-evaluation-lexeme))
 			  ((#\B #\b #\O #\o #\X #\x)
 			   (let ((radix
-				  (case (object-after scan)
+				  (ecase (object-after scan)
 				    ((#\B #\b) 2)
 				    ((#\O #\o) 8)
 				    ((#\X #\x) 16))))
