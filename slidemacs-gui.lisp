@@ -28,14 +28,17 @@
   ((lexer :reader lexer)
    (valid-parse :initform 1) (parser))
   (:name "Slidemacs-GUI")
-  (:pathname-types))
+  (:pathname-types)
+  (:command-table slidemacs-table))
 
 (defvar *slidemacs-display* nil)
 
 (defvar *current-slideset*)
 (defvar *did-display-a-slide*)
 
-(make-command-table 'slidemacs-table :errorp nil)
+(make-command-table 'slidemacs-table 
+                    :errorp nil
+                    :inherit-from '(climacs-gui::global-climacs-table))
 
 (defun slidemacs-entity-string (entity)
   (coerce (buffer-sequence (buffer entity)
@@ -307,7 +310,7 @@
       (display-text-with-wrap-for-pane object stream))))
 
 (define-command (com-browse-to-url :name "Browse To URL"
-                                   :command-table global-command-table
+                                   :command-table slidemacs-table
                                    :menu t
                                    :provide-output-destination-keyword t)
     ((url 'slidemacs-url :prompt "url"))
@@ -315,7 +318,7 @@
   (sb-ext:run-program "/usr/bin/open" (list url)))
 
 (define-presentation-to-command-translator browse-url-translator
-    (slidemacs-url com-browse-to-url global-command-table
+    (slidemacs-url com-browse-to-url slidemacs-table
                    :gesture :select
                    :documentation "Browse To URL"
                    :pointer-documentation "Browse To URL")

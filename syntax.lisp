@@ -167,6 +167,7 @@ in the specific syntax.")
   (let ((defclass-options nil)
 	(default-initargs nil)
 	(name nil)
+        (command-table nil)
 	(pathname-types nil))
     (dolist (option options)
       (case (car option)
@@ -180,6 +181,11 @@ in the specific syntax.")
 	     (error "More than one ~S option provided to ~S"
 		    ':pathname-types 'define-syntax)
 	     (setf pathname-types (cdr option))))
+        ((:command-table)
+         (if command-table
+             (error "More than one ~S option provided to ~S"
+                    ':command-table 'define-syntax)
+             (setf command-table (cadr option))))
 	((:default-initargs)
 	 (if default-initargs
 	     (error "More than one ~S option provided to ~S"
@@ -199,7 +205,19 @@ in the specific syntax.")
        *syntaxes*)
       (defclass ,class-name ,superclasses ,slots
 	(:default-initargs ,@default-initargs)
-	,@defclass-options))))
+	,@defclass-options)
+      ,@(when command-table
+          ;; FIXME: double colons?  Looks ugly to me.  More
+          ;; importantly, we can't use EXTENDED-PANE as a specializer
+          ;; here, because that hasn't been defined yet.
+          `((defmethod climacs-gui::note-pane-syntax-changed 
+                (pane (syntax ,class-name))
+              (setf (command-table pane) ',command-table)))))))
+
+;;; FIXME: see comment in DEFINE-SYNTAX
+(defgeneric climacs-gui::note-pane-syntax-changed (pane syntax)
+  (:method (pane syntax)
+    (setf (command-table pane) 'climacs-gui::global-climacs-table)))
 
 #+nil
 (defmacro define-syntax (class-name (name superclasses) &body body)

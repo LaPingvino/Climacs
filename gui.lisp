@@ -1173,6 +1173,12 @@
     (when default
       (switch-to-buffer default))))
 
+;;; FIXME: see the comment by (SETF SYNTAX) :AROUND.  -- CSR,
+;;; 2005-10-31.
+(defmethod (setf buffer) :around (buffer (pane extended-pane))
+  (call-next-method)
+  (note-pane-syntax-changed pane (syntax buffer)))
+
 (define-command (com-switch-to-buffer :name t :command-table pane-table) ()
   (let* ((default (second (buffers *application-frame*)))
 	 (buffer (if default
@@ -1416,7 +1422,16 @@
 (defmethod set-syntax ((buffer climacs-buffer) (syntax syntax))
   (setf (syntax buffer) syntax))
 
-;;FIXME - what should this specialise on?
+;;; FIXME: This :around method is probably not going to remain here
+;;; for ever; it is a symptom of level mixing, I think.  See also the
+;;; similar method on (SETF BUFFER).  -- CSR, 2005-10-31.
+(defmethod (setf syntax) :around (syntax (buffer climacs-buffer))
+  (call-next-method)
+  (let ((pane (current-window)))
+    (assert (eq (buffer pane) buffer))
+    (note-pane-syntax-changed pane syntax)))
+
+;;; FIXME - what should this specialise on?
 (defmethod set-syntax ((buffer climacs-buffer) syntax)
   (set-syntax buffer (make-instance syntax :buffer buffer)))
 
