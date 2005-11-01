@@ -212,7 +212,7 @@ In the absence of a prefix arg returns 1 (and nil)."
 
 (defun process-gestures-or-command (frame command-table)
   (with-input-context 
-      (`(command :command-table ,(command-table (car (windows frame)))))
+      (`(or menu-item (command :command-table ,(command-table (car (windows frame))))))
       (object)
       (let ((gestures '()))
         (multiple-value-bind (numarg numargp)
@@ -234,7 +234,18 @@ In the absence of a prefix arg returns 1 (and nil)."
                   (execute-frame-command frame command)
                   (return)))
                (t nil))))))
-      (t
+      (menu-item
+       (let ((command (command-menu-item-value object)))
+         (unless (listp command)
+           (setq command (list command)))       
+         (when (and (typep (frame-standard-input frame) 'interactor-pane)
+                    (member *unsupplied-argument-marker* command :test #'eq))
+           (setq command
+                 (command-line-read-remaining-arguments-for-partial-command
+                  (frame-command-table frame) (frame-standard-input frame) 
+                  command 0)))
+         (execute-frame-command frame command)))
+      (command
        (execute-frame-command frame object))))
 
 (defmethod redisplay-frame-panes :around ((frame esa-frame-mixin) &key force-p)
