@@ -513,7 +513,12 @@
 
 (defmethod display-parse-tree
     ((entity constant-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (value entity) syntax pane))
+  ;; FIXME: this is so not the right thing.
+  (cond
+    ((consp (value entity))
+     (display-parse-tree (first (value entity)) syntax pane)
+     (display-parse-tree (second (value entity)) syntax pane))
+    (t (display-parse-tree (value entity) syntax pane))))
 (defmethod display-parse-tree 
     ((entity variable-term) (syntax prolog-syntax) pane)
   (with-drawing-options (pane :ink (make-rgb-color 0.7 0.7 0.0))
@@ -1072,10 +1077,16 @@
     'string)))
 
 (defun first-lexeme (thing)
-  ;; FIXME: we'll need to implement this.
-  (declare (ignore thing))
-  nil)
-  
+  ;; KLUDGE: it might be "cleaner" to walk the various parsing
+  ;; structures, but this will do.
+  (let* ((syntax *this-syntax*)
+         (lexer (slot-value syntax 'lexer)))
+    (do ((i 0 (+ i 1)))
+        ((= i (nb-lexemes lexer)) (error "foo"))
+      (let ((lexeme (lexeme lexer i)))
+        (when (= (start-offset thing) (start-offset lexeme))
+          (return lexeme))))))
+
 ;;; update syntax
 
 (defmethod update-syntax-for-display (buffer (syntax prolog-syntax) top bot)
