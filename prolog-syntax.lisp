@@ -163,7 +163,6 @@
     (flet ((fo ()
 	     (vector-push-extend (object-after scan) string)
 	     (forward-object scan))
-           #+nil ; we might need this later for float-number tokens
 	   (bo ()
 	     (vector-pop string)
 	     (backward-object scan)))
@@ -302,7 +301,9 @@
 		  (t (return (make-instance 'graphic-lexeme)))))
 	       (t
 		(cond
-		  ((and (string= string ".") (whitespacep (object-after scan)))
+		  ((and (string= string ".") 
+                        (or (whitespacep (object-after scan))
+                            (eql (object-after scan) #\%)))
 		   (return (make-instance 'end-lexeme)))
 		  (t (return (make-instance 'graphic-lexeme))))))
 	   QUOTED-TOKEN
@@ -334,7 +335,7 @@
 		     ((eql object #\o) (fo) (go OCTAL-CONSTANT))
 		     ((eql object #\x) (fo) (go HEXADECIMAL-CONSTANT))
 		     ((digit-char-p object) (fo) (go NUMBER))
-		     ;; FIXME: floats
+                     ((eql object #\.) (fo) (go INTEGER-AND-END-OR-FLOAT))
 		     (t (return (make-instance 'integer-lexeme))))))
 	   CHARACTER-CODE-CONSTANT
 	     (if (read-quoted-char #\')
@@ -357,6 +358,8 @@
 	     (return (make-instance 'hexadecimal-constant-lexeme))
 	   NUMBER
 	     (loop until (end-of-buffer-p scan)
+                   when (eql (object-after scan) #\.) 
+                     do (fo) and do (go INTEGER-AND-END-OR-FLOAT)
 		   while (digit-char-p (object-after scan))
 		   do (fo))
 	     (return (make-instance 'integer-constant-lexeme))
@@ -364,7 +367,31 @@
 	     (loop named #:mu
 		   until (end-of-buffer-p scan)
 		   while (read-quoted-char #\"))
-	     (return (make-instance 'char-code-list-lexeme)))))))))
+	     (return (make-instance 'char-code-list-lexeme))
+           INTEGER-AND-END-OR-FLOAT
+             (when (or (end-of-buffer-p scan)
+                       (let ((object (object-after scan)))
+                         (or (eql object #\%)
+                             (whitespacep object))))
+               (bo)
+               (return (make-instance 'integer-lexeme)))
+             (loop until (end-of-buffer-p scan)
+                   while (digit-char-p (object-after scan))
+                   do (fo))
+             (when (or (end-of-buffer-p scan)
+                       (not (member (object-after scan) '(#\e #\E))))
+               (return (make-instance 'float-number-lexeme)))
+             (fo)
+             (when (end-of-buffer-p scan)
+               (return (make-instance 'error-lexeme)))
+             (when (member (object-after scan) '(#\+ #\-))
+               (fo)
+               (when (end-of-buffer-p scan)
+                 (return (make-instance 'error-lexeme))))
+             (loop until (end-of-buffer-p scan)
+                   while (digit-char-p (object-after scan))
+                   do (fo))
+             (return (make-instance 'float-number-lexeme)))))))))
 
 ;;; parser
 
@@ -789,6 +816,8 @@
 ;;; 6.3.1.1
 (define-prolog-rule (term -> (integer))
   (make-instance 'constant-term :priority 0 :value integer))
+(define-prolog-rule (term -> (float-number))
+  (make-instance 'constant-term :priority 0 :value float-number))
 
 ;;; 6.3.1.2
 (define-prolog-rule (term -> ((atom
@@ -796,6 +825,11 @@
                               integer))
   ;; FIXME: this doesn't really look right.
   (make-instance 'constant-term :priority 0 :value (list atom integer)))
+(define-prolog-rule (term -> ((atom
+                               (string= (canonical-name atom) "-"))
+                              float-number))
+  ;; FIXME: this doesn't really look right.
+  (make-instance 'constant-term :priority 0 :value (list atom float-number)))
 
 ;;; 6.3.1.3
 (define-prolog-rule (term -> ((atom (not (operatorp atom)))))
