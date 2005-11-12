@@ -734,22 +734,6 @@
 (defmethod set-syntax ((buffer climacs-buffer) (syntax syntax))
   (setf (syntax buffer) syntax))
 
-;;; FIXME: This :around method is probably not going to remain here
-;;; for ever; it is a symptom of level mixing, I think.  See also the
-;;; similar method on (SETF BUFFER).  -- CSR, 2005-10-31.
-(defmethod (setf syntax) :around (syntax (buffer climacs-buffer))
-  (call-next-method)
-  ;; FIXME: we need this because some clients (e.g. the tablature
-  ;; editor) use climacs buffers without a gui, for off-line (e.g. Web
-  ;; backend) processing.  The problem here is that (setf syntax)
-  ;; /should/ have no GUI effects whatsoever.  So maybe the right
-  ;; answer would instead be to find the active pane's buffer in the
-  ;; top-level loop?  That might need to be pushed into ESA.
-  (when clim:*application-frame*
-    (let ((pane (current-window)))
-      (assert (eq (buffer pane) buffer))
-      (note-pane-syntax-changed pane syntax))))
-
 ;;FIXME - what should this specialise on?
 (defmethod set-syntax ((buffer climacs-buffer) syntax)
   (set-syntax buffer (make-instance syntax :buffer buffer)))

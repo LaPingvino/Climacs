@@ -215,7 +215,7 @@ In the absence of a prefix arg returns 1 (and nil)."
       ('menu-item)
       (object)
     (with-input-context 
-        (`(command :command-table ,(command-table (car (windows frame)))))
+        (`(command :command-table ,command-table))
         (object)
       (let ((gestures '()))
         (multiple-value-bind (numarg numargp)
@@ -263,6 +263,11 @@ In the absence of a prefix arg returns 1 (and nil)."
 	    (car command)
 	    command)))
 
+(defgeneric find-applicable-command-table (frame))
+
+(defmethod find-applicable-command-table ((frame esa-frame-mixin))
+  (command-table (car (windows frame))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Top level
@@ -281,12 +286,12 @@ In the absence of a prefix arg returns 1 (and nil)."
        do (restart-case
               (progn
                 (handler-case
-                    (progn
+                    (let ((command-table (find-applicable-command-table frame)))
                       ;; for presentation-to-command-translators,
                       ;; which are searched for in
                       ;; (frame-command-table *application-frame*)
-                      (setf (frame-command-table frame) (command-table (car (windows frame))))
-                      (process-gestures-or-command frame (command-table (car (windows frame)))))
+                      (setf (frame-command-table frame) command-table)
+                      (process-gestures-or-command frame command-table))
                   (abort-gesture () (display-message "Quit")))
                 (redisplay-frame-panes frame))
 	   (return-to-esa () nil))))))

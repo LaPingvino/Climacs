@@ -195,7 +195,8 @@
 	   #:esa-top-level #:simple-command-loop
 	   #:global-esa-table #:keyboard-macro-table
 	   #:help-table
-	   #:set-key))
+	   #:set-key
+	   #:find-applicable-command-table))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax

@@ -205,19 +205,7 @@ in the specific syntax.")
        *syntaxes*)
       (defclass ,class-name ,superclasses ,slots
 	(:default-initargs ,@default-initargs)
-	,@defclass-options)
-      ,@(when command-table
-          ;; FIXME: double colons?  Looks ugly to me.  More
-          ;; importantly, we can't use EXTENDED-PANE as a specializer
-          ;; here, because that hasn't been defined yet.
-          `((defmethod climacs-gui::note-pane-syntax-changed 
-                (pane (syntax ,class-name))
-              (setf (command-table pane) ',command-table)))))))
-
-;;; FIXME: see comment in DEFINE-SYNTAX
-(defgeneric climacs-gui::note-pane-syntax-changed (pane syntax)
-  (:method (pane syntax)
-    (setf (command-table pane) 'climacs-gui::global-climacs-table)))
+	,@defclass-options))))
 
 #+nil
 (defmacro define-syntax (class-name (name superclasses) &body body)

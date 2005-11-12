@@ -250,6 +250,14 @@
 	do (when (modified-p buffer)
 	     (setf (needs-saving buffer) t))))	
 
+(defmethod find-applicable-command-table ((frame climacs))
+  (or
+   (let ((syntax (syntax (buffer (current-window)))))
+      (and (slot-exists-p syntax 'command-table)
+	   (slot-boundp syntax 'command-table)
+	   (slot-value syntax 'command-table)))
+   (find-command-table 'global-climacs-table)))
+
 (define-command (com-full-redisplay :name t :command-table base-table) ()
   (full-redisplay (current-window)))
 
@@ -359,11 +367,11 @@
     (when default
       (switch-to-buffer default))))
 
-;;; FIXME: see the comment by (SETF SYNTAX) :AROUND.  -- CSR,
-;;; 2005-10-31.
-(defmethod (setf buffer) :around (buffer (pane extended-pane))
-  (call-next-method)
-  (note-pane-syntax-changed pane (syntax buffer)))
+;; ;;; FIXME: see the comment by (SETF SYNTAX) :AROUND.  -- CSR,
+;; ;;; 2005-10-31.
+;; (defmethod (setf buffer) :around (buffer (pane extended-pane))
+;;   (call-next-method)
+;;   (note-pane-syntax-changed pane (syntax buffer)))
 
 (define-command (com-switch-to-buffer :name t :command-table pane-table) ()
   (let* ((default (second (buffers *application-frame*)))
