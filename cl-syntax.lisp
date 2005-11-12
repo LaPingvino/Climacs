@@ -116,7 +116,7 @@
    (valid-parse :initform 1)
    (parser))
   (:name "Common Lisp")
-  (:pathname-types "lisp" "lsp" "cl"))
+  (:pathname-types "lsp" "cl"))
 
 (defun neutralcharp (var)
   (and (characterp var)

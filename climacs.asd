@@ -72,6 +72,13 @@
    (:file "esa" :depends-on ("packages"))
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
                                         "esa" "kill-ring" "io" "text-syntax" "abbrev"))
+;;    (:file "buffer-commands" :depends-on ("gui"))
+   (:file "developer-commands" :depends-on ("gui" "lisp-syntax"))
+   (:file "file-commands" :depends-on ("gui"))
+   (:file "misc-commands" :depends-on ("gui"))
+   (:file "search-commands" :depends-on ("gui"))
+   (:file "window-commands" :depends-on ("gui"))
+   (:file "unicode-commands" :depends-on ("gui"))
    (:file "slidemacs" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
    (:file "slidemacs-gui" :depends-on ("packages" "slidemacs" "pane" "buffer" "syntax" "gui"))))
 
