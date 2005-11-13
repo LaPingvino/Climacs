@@ -194,7 +194,7 @@ If with-scrollbars nil, omit the scroller."
 (define-command (com-switch-to-this-window :name nil :command-table window-table)
     ((window 'pane) (x 'integer) (y 'integer))
   (other-window window)
-  (when (typep window 'extended-pane)
+  (when (buffer-pane-p window)
     (setf (offset (point window))
 	  (click-to-offset window x y))))
 
@@ -207,7 +207,7 @@ If with-scrollbars nil, omit the scroller."
 
 (define-command (com-mouse-save :name nil :command-table window-table)
     ((window 'pane) (x 'integer) (y 'integer))
-  (when (and (typep window 'extended-pane)
+  (when (and (buffer-pane-p window)
 	     (eq window (current-window)))
     (setf (offset (mark window))
 	  (click-to-offset window x y))
@@ -223,7 +223,7 @@ If with-scrollbars nil, omit the scroller."
 
 (define-command (com-yank-here :name nil :command-table window-table)
     ((window 'pane) (x 'integer) (y 'integer))
-  (when (typep window 'extended-pane)
+  (when (buffer-pane-p window)
     (other-window window)
     (setf (offset (point window))
 	  (click-to-offset window x y))

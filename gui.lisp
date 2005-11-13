@@ -37,6 +37,16 @@
    (dabbrev-expansion-mark :initform nil)
    (overwrite-mode :initform nil)))
 
+(defgeneric buffer-pane-p (pane)
+  (:documentation "Returns T when a pane contains a buffer."))
+
+(defmethod buffer-pane-p (pane)
+  (declare (ignore pane))
+  nil)
+
+(defmethod buffer-pane-p ((pane extended-pane))
+  T)
+
 (defclass climacs-info-pane (info-pane)
   ()
   (:default-initargs
@@ -149,7 +159,7 @@
 (defmethod redisplay-frame-panes :around ((frame climacs) &rest args)
   (declare (ignore args))
   (let ((buffers (remove-duplicates (loop for pane in (windows frame)
-					  when (typep pane 'extended-pane)
+					  when (buffer-pane-p pane)
 					    collect (buffer pane)))))
     (loop for buffer in buffers
 	  do (update-syntax buffer (syntax buffer)))
@@ -226,7 +236,7 @@
 
 (defmethod execute-frame-command :around ((frame climacs) command)
   (handler-case
-      (if (typep (current-window) 'extended-pane)
+      (if (buffer-pane-p (current-window))
 	  (with-undo ((buffer (current-window)))
 	    (call-next-method))
 	  (call-next-method))
@@ -252,8 +262,10 @@
 
 (defmethod find-applicable-command-table ((frame climacs))
   (or
-   (let ((syntax (syntax (buffer (current-window)))))
-      (and (slot-exists-p syntax 'command-table)
+   (let ((syntax (and (buffer-pane-p (current-window))
+		      (syntax (buffer (current-window))))))
+      (and syntax
+	   (slot-exists-p syntax 'command-table)
 	   (slot-boundp syntax 'command-table)
 	   (slot-value syntax 'command-table)))
    (find-command-table 'global-climacs-table)))
