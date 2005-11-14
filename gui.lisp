@@ -267,7 +267,8 @@
       (and syntax
 	   (slot-exists-p syntax 'command-table)
 	   (slot-boundp syntax 'command-table)
-	   (slot-value syntax 'command-table)))
+	   (slot-value syntax 'command-table)
+	   (find-command-table (slot-value syntax 'command-table))))
    (find-command-table 'global-climacs-table)))
 
 (define-command (com-full-redisplay :name t :command-table base-table) ()

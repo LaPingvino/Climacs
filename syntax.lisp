@@ -23,7 +23,8 @@
 (in-package :climacs-syntax)
 
 (defclass syntax (name-mixin)
-  ((buffer :initarg :buffer :reader buffer)))
+  ((buffer :initarg :buffer :reader buffer)
+   (command-table :initarg :command-table)))
 
 (define-condition no-such-operation (simple-error)
   ()
@@ -204,7 +205,7 @@ in the specific syntax.")
 	     :pathname-types ',pathname-types)
        *syntaxes*)
       (defclass ,class-name ,superclasses ,slots
-	(:default-initargs ,@default-initargs)
+	(:default-initargs :command-table ',command-table ,@default-initargs)
 	,@defclass-options))))
 
 #+nil

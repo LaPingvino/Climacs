@@ -379,8 +379,7 @@ In the absence of a prefix arg returns 1 (and nil)."
     ()
   (let ((item (handler-case
 	       (accept
-		`(command :command-table
-			  ,(command-table (car (windows *application-frame*))))
+		`(command :command-table ,(find-applicable-command-table *application-frame*))
 		:prompt "Extended Command")
 	       (error () (progn (beep)
 				(display-message "No such command")
