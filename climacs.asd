@@ -67,6 +67,7 @@
    (:file "cl-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
    (:file "html-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
    (:file "prolog-syntax" :depends-on ("packages" "base" "syntax" "pane" "buffer"))
+   (:file "prolog2paiprolog" :depends-on ("prolog-syntax"))
    (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
    (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"))
    (:file "esa" :depends-on ("packages"))
