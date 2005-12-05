@@ -38,15 +38,31 @@
 	 (first (first children))
 	 (second (second children))
 	 (third (third children))
+	 (first-split-p (= (length (sheet-children parent)) 2))
+	 (parent-region (sheet-region parent))
+	 (parent-height (rectangle-height parent-region))
+	 (parent-width (rectangle-width parent-region))
+	 (filler (when first-split-p (make-pane 'basic-pane))) ;Prevents resizing.
          (adjust (make-pane 'clim-extensions:box-adjuster-gadget)))
     (assert (member constellation children))
+    
+    (when first-split-p (setf (sheet-region filler) (sheet-region parent)) 
+      (sheet-adopt-child parent filler))
+
     (sheet-disown-child parent constellation)
+
+    (if vertical-p
+	(resize-sheet constellation parent-width (/ parent-height 2))
+	(resize-sheet constellation  (/ parent-width 2) parent-height))
+    
     (let ((new (if vertical-p
 		   (vertically ()
 		     constellation adjust additional-constellation)
 		   (horizontally ()
 		     constellation adjust additional-constellation))))
       (sheet-adopt-child parent new)
+
+      (when first-split-p (sheet-disown-child parent filler))
       (reorder-sheets parent 
 		      (if (eq constellation first)
 			  (if third
@@ -283,8 +299,8 @@ If with-scrollbars nil, omit the scroller."
 	    (remove window (windows *application-frame*)))
       (setf *standard-output* (car (windows *application-frame*)))
       (sheet-disown-child box other)
+      (sheet-adopt-child parent other)
       (sheet-disown-child parent box)
-	 (sheet-adopt-child parent other)
       (reorder-sheets parent (if (eq box first)
 				 (if third
 				     (list other second third)
