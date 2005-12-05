@@ -527,6 +527,16 @@ is made to alter a buffer which has been set read only."))
 	 (setf cursor-x x
 	       cursor-y y)))))  
 
+(defgeneric fix-pane-viewport (pane))
+
+(defmethod fix-pane-viewport ((pane climacs-pane))
+  (let* ((v (window-viewport pane))
+	(x (rectangle-width v))
+	(y (rectangle-height v)))
+    (resize-sheet pane x y)
+    (setf (window-viewport-position pane) (values 0 0))))
+
+
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax basic-syntax) current-p)
   (display-cache pane)
   (when (mark-visible-p pane) (display-mark pane syntax))
@@ -541,8 +551,10 @@ is made to alter a buffer which has been set read only."))
 	     (setf (full-redisplay-p pane) nil))
       (adjust-cache pane))
   (fill-cache pane)
+  (fix-pane-viewport pane)
   (update-syntax-for-display (buffer pane) (syntax (buffer pane)) (top pane) (bot pane))
   (redisplay-pane-with-syntax pane (syntax (buffer pane)) current-p))
+
 
 (defgeneric full-redisplay (pane))
 
