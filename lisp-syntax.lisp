@@ -905,7 +905,7 @@
 
 ;;; reduce according to the rule form -> #A form
 (define-lisp-action (|#A form | t)
-  (reduce-until-type array-start-form array-start-lexeme))
+  (reduce-until-type array-form array-start-lexeme))
 
 ;;;;;;;;;;;;;;;; structure
 
