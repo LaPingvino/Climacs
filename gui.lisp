@@ -98,9 +98,18 @@
 ;;; windows
 (make-command-table 'window-table :errorp nil)
 
+(defvar *bg-color* +white+)
+(defvar *fg-color* +black+)
+(defvar *info-bg-color* +white+)
+(defvar *info-fg-color* +black+)
+(defvar *mini-bg-color* +white+)
+(defvar *mini-fg-color* +black+)
+
+
 (define-application-frame climacs (standard-application-frame
 				   esa-frame-mixin)
   ((buffers :initform '() :accessor buffers))
+  
   (:command-table (global-climacs-table
 		   :inherit-from (global-esa-table
 				  keyboard-macro-table
@@ -130,11 +139,15 @@
 		       :width 900 :height 400
 		       :end-of-line-action :scroll
 		       :incremental-redisplay t
+		       :background *bg-color*
+		       :foreground *fg-color*
 		       :display-function 'display-window
 		       :command-table 'global-climacs-table))
 	   (info-pane
 	    (make-pane 'climacs-info-pane
 		       :master-pane extended-pane
+		       :background *info-bg-color*
+		       :foreground *info-fg-color*
 		       :width 900)))
       (setf (windows *application-frame*) (list extended-pane)
 	    (buffers *application-frame*) (list (buffer extended-pane)))
@@ -145,7 +158,7 @@
 	      extended-pane)
 	    extended-pane)
 	info-pane)))
-   (minibuffer (make-pane 'climacs-minibuffer-pane :width 900)))
+   (minibuffer (make-pane 'climacs-minibuffer-pane :background *mini-bg-color* :foreground *mini-fg-color* :width 900)))
   (:layouts
    (default
        (vertically (:scroll-bars nil)
@@ -176,6 +189,17 @@
       (if new-process
 	  (clim-sys:make-process #'run :name process-name)
 	  (run)))))
+
+(defun climacs-rv (&key new-process (process-name "Climacs")
+                (width 900) (height 400))
+  "Starts up a climacs session"
+   (let ((*bg-color* +black+)
+	 (*fg-color* +white+)
+	 (*info-bg-color* +blue+)
+	 (*info-fg-color* +yellow+)
+	 (*mini-bg-color* +black+)
+	 (*mini-fg-color* +white+))
+     (climacs :new-process new-process :process-name process-name :width width :height height)))
 
 (defun display-info (frame pane)
   (declare (ignore frame))
