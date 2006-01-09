@@ -82,7 +82,8 @@
 
 (defun make-typeout-constellation (&optional label)
   (let* ((typeout-pane
-	  (make-pane 'typeout-pane :width 900 :height 400 :display-time nil))
+	  (make-pane 'typeout-pane :foreground *fg-color* :background *bg-color*
+		     :width 900 :height 400 :display-time nil))
 	 (label
 	  (make-pane 'label-pane :label label))
 	 (vbox
@@ -128,6 +129,8 @@ If with-scrollbars nil, omit the scroller."
 		     :name 'window
 		     :end-of-line-action :scroll
 		     :incremental-redisplay t
+		     :background *bg-color*
+		     :foreground *fg-color*
 		     :display-function 'display-window
 		     :command-table 'global-climacs-table))
 	 (vbox
@@ -137,6 +140,8 @@ If with-scrollbars nil, omit the scroller."
 		  extended-pane)
 		extended-pane)
 	    (make-pane 'climacs-info-pane
+		       :background *info-bg-color*
+		       :foreground *info-fg-color*
 		       :master-pane extended-pane
 		       :width 900))))
     (values vbox extended-pane)))
