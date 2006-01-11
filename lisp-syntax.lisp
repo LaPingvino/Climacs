@@ -2066,6 +2066,18 @@ Return the symbol and a flag indicating whether the symbol was found."
 
 (define-simple-indentor (flet indent-local-function-definitions))
 (define-simple-indentor (labels indent-local-function-definitions))
+(define-simple-indentor (with-open-file indent-list))
+
+;;; CLIM indentation 
+
+(define-simple-indentor (clim:with-output-as-presentation indent-list))
+(define-simple-indentor (clim:vertically indent-list))
+(define-simple-indentor (clim:horizontally indent-list))
+(define-simple-indentor (clim:scrolling indent-list))
+(define-simple-indentor (clim:with-drawing-options indent-list))
+(define-simple-indentor (clim:define-command-table indent-list))
+(define-simple-indentor (clim:define-command indent-list indent-list))
+(define-simple-indentor (clim:define-application-frame indent-list indent-list))
 
 (defun compute-path-in-trees (trees n offset)
   (cond ((or (null trees)
