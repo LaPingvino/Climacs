@@ -1937,6 +1937,7 @@ Return the symbol and a flag indicating whether the symbol was found."
 (define-simple-indentor (defvar indent-form))
 (define-simple-indentor (defparameter indent-form))
 (define-simple-indentor (defconstant indent-form))
+(define-simple-indentor (lambda indent-ordinary-lambda-list))
 
 ;;; non-simple-cases: LOOP, MACROLET, FLET, LABELS
 
@@ -2043,6 +2044,28 @@ Return the symbol and a flag indicating whether the symbol was found."
           (values tree 2)
           (values tree 4))
       (indent-form syntax (elt-form (children tree) (car path)) (cdr path))))
+
+(defmethod indent-local-function-definition ((syntax lisp-syntax) tree path)
+  (cond ((null (cdr path))
+	 ;; top level
+	 (cond ((= (car path) 1)
+		;; before name, indent 1
+		(values tree 1))
+	       ((= (car path) 2)
+		;; between name and lambda list, indent 4
+		(values (elt-form (children tree) 1) 4))
+	       (t
+		;; after lambda list, indent 2
+		(values (elt-form (children tree) 1) 2))))
+	((= (car path) 1)
+	 ;; inside lambda list
+	 (indent-ordinary-lambda-list syntax (elt-form (children tree) 1) (cdr path)))
+	(t (indent-form syntax (elt-form (children tree) (car path)) (cdr path)))))
+
+(define-list-indentor indent-local-function-definitions indent-local-function-definition)
+
+(define-simple-indentor (flet indent-local-function-definitions))
+(define-simple-indentor (labels indent-local-function-definitions))
 
 (defun compute-path-in-trees (trees n offset)
   (cond ((or (null trees)
