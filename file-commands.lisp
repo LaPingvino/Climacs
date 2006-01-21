@@ -169,8 +169,21 @@
 		 (redisplay-frame-panes *application-frame*)
 		 buffer))))))
 
+(defun directory-of-buffer (buffer)
+  "Extract the directory part of the filepath to the file in BUFFER.
+   If BUFFER does not have a filepath, the path to the users home 
+   directory will be returned."
+  (make-pathname
+   :directory
+   (pathname-directory
+    (or (filepath buffer)
+	(user-homedir-pathname)))))
+
 (define-command (com-find-file :name t :command-table buffer-table) ()
-  (let* ((filepath (accept 'pathname :prompt "Find File")))
+  (let* ((filepath (accept 'pathname :prompt "Find File"
+			   :default (directory-of-buffer (buffer (current-window)))
+			   :default-type 'pathname
+			   :insert-default t)))
     (find-file filepath)))
 
 (set-key 'com-find-file
@@ -214,7 +227,10 @@
 		     nil)))))))
 
 (define-command (com-find-file-read-only :name t :command-table buffer-table) ()
-  (let ((filepath (accept 'pathname :Prompt "Find file read only")))
+  (let ((filepath (accept 'pathname :Prompt "Find file read only"
+			  :default (directory-of-buffer (buffer (current-window)))
+			  :default-type 'pathname
+			  :insert-default t)))
     (find-file-read-only filepath)))
 
 (set-key 'com-find-file-read-only
@@ -235,11 +251,17 @@
 	(needs-saving buffer) t))
 
 (define-command (com-set-visited-file-name :name t :command-table buffer-table) ()
-  (let ((filename (accept 'pathname :prompt "New file name")))
+  (let ((filename (accept 'pathname :prompt "New file name"
+			  :default (directory-of-buffer (buffer (current-window)))
+			  :default-type 'pathname
+			  :insert-default t)))
     (set-visited-file-name filename (buffer (current-window)))))
 
 (define-command (com-insert-file :name t :command-table buffer-table) ()
-  (let ((filename (accept 'pathname :prompt "Insert File"))
+  (let ((filename (accept 'pathname :prompt "Insert File"
+			  :default (directory-of-buffer (buffer (current-window)))
+			  :default-type 'pathname
+			  :insert-default t))
 	(pane (current-window)))
     (when (probe-file filename)
       (setf (mark pane) (clone-mark (point pane) :left))
@@ -325,7 +347,10 @@
     (call-next-method)))
 
 (define-command (com-write-buffer :name t :command-table buffer-table) ()
-  (let ((filepath (accept 'pathname :prompt "Write Buffer to File"))
+  (let ((filepath (accept 'pathname :prompt "Write Buffer to File"
+			  :default (directory-of-buffer (buffer (current-window)))
+			  :default-type 'pathname
+			  :insert-default t))
 	(buffer (buffer (current-window))))
     (cond
       ((directory-pathname-p filepath)
