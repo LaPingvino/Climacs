@@ -100,7 +100,7 @@
 
 (defvar *bg-color* +white+)
 (defvar *fg-color* +black+)
-(defvar *info-bg-color* +white+)
+(defvar *info-bg-color* +gray85+)
 (defvar *info-fg-color* +black+)
 (defvar *mini-bg-color* +white+)
 (defvar *mini-fg-color* +black+)
