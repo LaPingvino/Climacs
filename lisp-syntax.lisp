@@ -1457,7 +1457,11 @@ stripping leading comments."
 			      (form-before-in-children (children first) offset))))
 		 ((and (>= offset (end-offset first))
 		       (or (null rest)
-			   (<= offset (start-offset (first-form rest)))))
+			   ;; `first-form' may return NIL if there are nothing but 
+			   ;; comments left; in that case, just take a comment 
+			   ;; with `first'.
+			   (<= offset (start-offset (or (first-form rest)
+							(first rest))))))
 		  (return (let ((potential-form
 				 (when (typep first 'list-form)
 				   (form-before-in-children (children first) offset))))
