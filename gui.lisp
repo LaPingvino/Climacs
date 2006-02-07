@@ -63,6 +63,14 @@
 (defparameter *with-scrollbars* t
   "If T, classic look and feel. If NIL, stripped-down look (:")
 
+;;; Basic command tables follow. The global command table,
+;;; `global-climacs-table', inherits from these, so they should not
+;;; contain any overly syntax-specific commands. The idea is that it
+;;; should be safe for any syntax to inherit its command-table from
+;;; `global-climacs-table' (so the usual movement, search and
+;;; navigation-commands are available), without risking adding alien
+;;; commands that require the buffer to be in a specific syntax.
+
 ;;; Basic functionality
 (make-command-table 'base-table :errorp nil)
 ;;; buffers
@@ -83,8 +91,6 @@
 (make-command-table 'indent-table :errorp nil)
 ;;; information about the buffer
 (make-command-table 'info-table :errorp nil)
-;;; lisp-related commands
-(make-command-table 'lisp-table :errorp nil)
 ;;; marking things
 (make-command-table 'marking-table :errorp nil)
 ;;; moving around
@@ -124,7 +130,6 @@
 				  fill-table
 				  indent-table
 				  info-table
-				  lisp-table
 				  marking-table
 				  movement-table
 				  pane-table

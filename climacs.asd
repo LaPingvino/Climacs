@@ -69,7 +69,8 @@
    (:file "prolog-syntax" :depends-on ("packages" "base" "syntax" "pane" "buffer"))
    (:file "prolog2paiprolog" :depends-on ("prolog-syntax"))
    (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
-   (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"))
+   (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane" "gui"))
+   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax"))
    (:file "esa" :depends-on ("packages"))
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
                                         "esa" "kill-ring" "io" "text-syntax" "abbrev"))

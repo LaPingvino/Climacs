@@ -1304,16 +1304,6 @@
 	(loop repeat count do (up-list point syntax))
 	(loop repeat (- count) do (backward-up-list point syntax)))))
 
-(define-command (com-eval-defun :name t :command-table lisp-table) ()
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (eval-defun point syntax)))
-
-(set-key 'com-eval-defun
-	 'lisp-table
-	 '((#\x :control :meta)))
-
 (define-command (com-beginning-of-definition :name t :command-table movement-table)
     ((count 'integer :prompt "Number of definitions"))
   (let* ((pane (current-window))
@@ -1353,12 +1343,6 @@
 (set-key 'com-mark-definition
 	 'marking-table
 	 '((#\h :control :meta)))
-
-(define-command (com-package :name t :command-table lisp-table) ()
-  (let* ((pane (current-window))
-	 (syntax (syntax (buffer pane)))
-	 (package (climacs-lisp-syntax::package-of syntax)))
-    (display-message (format nil "~s" package))))
 
 (define-command (com-visible-mark :name t :command-table marking-table) ()
   (setf (mark-visible-p (current-window)) (not (mark-visible-p (current-window)))))

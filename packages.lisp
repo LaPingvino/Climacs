@@ -161,6 +161,31 @@
 	   #:url
 	   #:climacs-textual-view #:+climacs-textual-view+))
 
+(defpackage :esa
+  (:use :clim-lisp :clim)
+  (:export #:minibuffer-pane #:display-message
+	   #:esa-pane-mixin #:previous-command
+	   #:info-pane #:master-pane
+	   #:esa-frame-mixin #:windows #:recordingp #:executingp
+	   #:*numeric-argument-p* #:*current-gesture*
+	   #:esa-top-level #:simple-command-loop
+	   #:global-esa-table #:keyboard-macro-table
+	   #:help-table
+	   #:set-key
+	   #:find-applicable-command-table))
+
+(defpackage :climacs-gui
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
+	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa)
+  ;;(:import-from :lisp-string)
+  (:export :climacs ; Main entry point.
+           ;; GUI functions follow.
+           :current-window
+           :point
+           :syntax
+           :mark
+           :insert-character))
+
 (defpackage :climacs-fundamental-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
 	:climacs-syntax :flexichain :climacs-pane)
@@ -182,24 +207,7 @@
 
 (defpackage :climacs-lisp-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane)
+	:climacs-syntax :flexichain :climacs-pane :climacs-gui)
   (:export :lisp-string))
 
-(defpackage :esa
-  (:use :clim-lisp :clim)
-  (:export #:minibuffer-pane #:display-message
-	   #:esa-pane-mixin #:previous-command
-	   #:info-pane #:master-pane
-	   #:esa-frame-mixin #:windows #:recordingp #:executingp
-	   #:*numeric-argument-p* #:*current-gesture*
-	   #:esa-top-level #:simple-command-loop
-	   #:global-esa-table #:keyboard-macro-table
-	   #:help-table
-	   #:set-key
-	   #:find-applicable-command-table))
 
-(defpackage :climacs-gui
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
-	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa)
-  (:import-from :climacs-lisp-syntax :lisp-string)
-  (:export :climacs))

@@ -24,6 +24,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; The command table.
+
+(make-command-table 'lisp-table
+                    :errorp nil
+                    :inherit-from '(climacs-gui::global-climacs-table))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; the syntax object
 
 (define-syntax lisp-syntax (basic-syntax)
@@ -36,7 +44,8 @@
    (scan)
    (package))
   (:name "Lisp")
-  (:pathname-types "lisp" "lsp" "cl"))
+  (:pathname-types "lisp" "lsp" "cl")
+  (:command-table lisp-table))
 
 (defmethod initialize-instance :after ((syntax lisp-syntax) &rest args)
   (declare (ignore args))
