@@ -1951,6 +1951,7 @@ Return the symbol and a flag indicating whether the symbol was found."
 (define-simple-indentor (defparameter indent-form))
 (define-simple-indentor (defconstant indent-form))
 (define-simple-indentor (lambda indent-ordinary-lambda-list))
+(define-simple-indentor (pprint-logical-block indent-list))
 
 ;;; non-simple-cases: LOOP, MACROLET, FLET, LABELS
 
