@@ -1825,6 +1825,25 @@ Return the symbol and a flag indicating whether the symbol was found."
 	 (values (elt-form (children tree) (1- (car path))) 0))
 	(t (indent-form syntax (elt-form (children tree) (car path)) (cdr path)))))
 
+;; FIXME: The next two methods are basically identical to the above definition, 
+;; something should be done about this duplication.
+
+(defmethod indent-form ((syntax lisp-syntax) (tree reader-conditional-positive-form) path)
+  (cond ((or (null path)
+	     (and (null (cdr path)) (zerop (car path))))
+	 (values tree 0))
+	((null (cdr path))
+	 (values (elt-form (children tree) (1- (car path))) 0))
+	(t (indent-form syntax (elt-form (children tree) (car path)) (cdr path)))))
+
+(defmethod indent-form ((syntax lisp-syntax) (tree reader-conditional-negative-form) path)
+  (cond ((or (null path)
+	     (and (null (cdr path)) (zerop (car path))))
+	 (values tree 0))
+	((null (cdr path))
+	 (values (elt-form (children tree) (1- (car path))) 0))
+	(t (indent-form syntax (elt-form (children tree) (car path)) (cdr path)))))
+
 (defmethod indent-form ((syntax lisp-syntax) (tree list-form) path)
   (if (= (car path) 1)
       ;; before first element
