@@ -198,6 +198,8 @@
 (defun climacs-rv (&key new-process (process-name "Climacs")
                 (width 900) (height 400))
   "Starts up a climacs session"
+  ;; SBCL doesn't inherit dynamic bindings when starting new
+  ;; processes, so start a new processes and THEN setup the colors.
   (if new-process
       (clim-sys:make-process (lambda ()
 			       (let ((*bg-color* +black+)
