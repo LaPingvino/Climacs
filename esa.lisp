@@ -294,7 +294,13 @@ In the absence of a prefix arg returns 1 (and nil)."
                       (process-gestures-or-command frame command-table))
                   (abort-gesture () (display-message "Quit")))
                 (redisplay-frame-panes frame))
-	   (return-to-esa () nil))))))
+	   (return-to-esa () nil)
+           (reset-esa ()
+             ;; This restart is used to jump out of deadlocks where
+             ;; ESA will otherwise run an error-inducing gesture again
+             ;; and again.
+             (setf (remaining-keys *application-frame*) nil)
+             nil))))))
 
 (defmacro simple-command-loop (command-table loop-condition end-clauses)
   (let ((gesture (gensym))
