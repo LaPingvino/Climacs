@@ -1388,8 +1388,6 @@ stripping leading comments."
 	    (call-next-method)))
 	(call-next-method))))
 
-(defparameter climacs-gui::*climacs-features* (copy-list *features*))
-
 (defgeneric eval-feature-conditional (conditional-form syntax))
 
 (defmethod eval-feature-conditional (conditional-form (syntax lisp-syntax))
@@ -1397,7 +1395,7 @@ stripping leading comments."
 
 ;; Adapted from slime.el
 
-(defconstant keyword-package (find-package :keyword)
+(defconstant +keyword-package+ (find-package :keyword)
   "The KEYWORD package.")
 
 (defmethod eval-feature-conditional ((conditional token-mixin) (syntax lisp-syntax))
@@ -1405,8 +1403,8 @@ stripping leading comments."
 					 (start-offset conditional)
 					 (end-offset conditional))
 		  'string))
-	 (symbol (parse-symbol string keyword-package)))
-    (member symbol climacs-gui::*climacs-features*)))
+	 (symbol (parse-symbol string +keyword-package+)))
+    (member symbol *features*)))
 
 (defmethod eval-feature-conditional ((conditional list-form) (syntax lisp-syntax))
   (let ((children (children conditional)))
@@ -1424,7 +1422,7 @@ stripping leading comments."
 						     (start-offset type)
 						     (end-offset type))
 				    'string))
-	       (type-symbol (parse-symbol type-string keyword-package)))
+	       (type-symbol (parse-symbol type-string +keyword-package+)))
 	  (case type-symbol
 	    (:and (funcall #'every #'eval-fc conditionals))
 	    (:or (funcall #'some #'eval-fc conditionals))
@@ -1795,7 +1793,7 @@ and whether the symbol-name was separated from the package by a double colon."
   "Find the symbol named STRING.
 Return the symbol and a flag indicating whether the symbol was found."
   (multiple-value-bind (symbol-name package-name) (parse-token string)
-    (let ((package (cond ((string= package-name "") keyword-package)
+    (let ((package (cond ((string= package-name "") +keyword-package+)
                          (package-name              (find-package package-name))
                          (t                         package))))
       (if package
