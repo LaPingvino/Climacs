@@ -21,7 +21,7 @@
 
 ;;; Syntax for analysing ISO Prolog
 
-(in-package "CLIMACS-PROLOG-SYNTAX")
+(in-package #:climacs-prolog-syntax)
 
 (defclass prolog-parse-tree (parse-tree)
   ())
@@ -94,7 +94,7 @@
 (defmethod syntactic-lexeme ((lexeme prolog-lexeme))
   lexeme)
 (macrolet ((def ((name &optional tokenp) &rest subs)
-	     (flet ((f (x) (intern (format nil "~A-LEXEME" x))))
+	     (flet ((f (x) (intern (format nil "~A-~A" x '#:lexeme))))
 	       `(progn
 		  (defclass ,(f name) (prolog-lexeme) ())
 

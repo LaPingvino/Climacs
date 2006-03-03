@@ -161,8 +161,21 @@
 	   #:url
 	   #:climacs-textual-view #:+climacs-textual-view+))
 
-(defpackage :esa
+#-mcclim
+(defpackage :clim-extensions
   (:use :clim-lisp :clim)
+  (:export
+   #:+blue-violet+
+   #:+dark-blue+
+   #:+dark-green+
+   #:+dark-violet+
+   #:+gray50+
+   #:+gray85+
+   #:+maroon+
+   #:+purple+))
+
+(defpackage :esa
+  (:use :clim-lisp :clim :clim-extensions)
   (:export #:minibuffer-pane #:display-message
 	   #:esa-pane-mixin #:previous-command
 	   #:info-pane #:master-pane
@@ -175,7 +188,8 @@
 	   #:find-applicable-command-table))
 
 (defpackage :climacs-gui
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev :climacs-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base
+	:climacs-abbrev :climacs-syntax 
 	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa)
   ;;(:import-from :lisp-string)
   (:export :climacs ; Main entry point.
@@ -198,7 +212,7 @@
 (defpackage :climacs-prolog-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
 	:climacs-syntax :flexichain :climacs-pane)
-  (:shadow "ATOM" "CLOSE" "EXP" "INTEGER" "OPEN" "VARIABLE"))
+  (:shadow #:atom #:close #:exp #:integer #:open #:variable))
 
 (defpackage :climacs-cl-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
@@ -206,7 +220,7 @@
   (:export))
 
 (defpackage :climacs-lisp-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
+  (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
 	:climacs-syntax :flexichain :climacs-pane :climacs-gui)
   (:export :lisp-string))
 

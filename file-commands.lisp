@@ -107,7 +107,7 @@
 		      #'filename-completer
 		      :allow-any-input t)
     (cond (success
-	   (values pathname type))
+	   (values (or pathname (parse-namestring string)) type))
 	  ((and (zerop (length string))
 		defaultp)
 	   (values default default-type))
@@ -328,7 +328,7 @@
 	 'buffer-table
 	 '((#\x :control) (#\s :control)))
 
-(defmethod frame-exit :around ((frame climacs))
+(defmethod frame-exit :around ((frame climacs) #-mcclim &key)
   (loop for buffer in (buffers frame)
 	when (and (needs-saving buffer)
 		  (filepath buffer)

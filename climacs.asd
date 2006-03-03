@@ -68,12 +68,16 @@
    (:file "html-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
    (:file "prolog-syntax" :depends-on ("packages" "base" "syntax" "pane" "buffer"))
    (:file "prolog2paiprolog" :depends-on ("prolog-syntax"))
-   (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
-   (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane" "gui"))
+   (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base"
+						 "pane"))
+   (:file "colors" :depends-on ("packages"))
+   (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"
+						"gui" "colors"))
    (:file "lisp-syntax-commands" :depends-on ("lisp-syntax"))
-   (:file "esa" :depends-on ("packages"))
+   (:file "esa" :depends-on ("packages" "colors"))
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
-                                        "esa" "kill-ring" "io" "text-syntax" "abbrev"))
+                                        "esa" "kill-ring" "io" "text-syntax"
+					"abbrev" "colors"))
 ;;    (:file "buffer-commands" :depends-on ("gui"))
    (:file "developer-commands" :depends-on ("gui" "lisp-syntax"))
    (:file "file-commands" :depends-on ("gui"))
@@ -81,7 +85,7 @@
    (:file "search-commands" :depends-on ("gui"))
    (:file "window-commands" :depends-on ("gui"))
    (:file "unicode-commands" :depends-on ("gui"))
-   (:file "slidemacs" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
+   (:file "slidemacs" :depends-on ("packages" "buffer" "syntax" "base" "pane" "colors"))
    (:file "slidemacs-gui" :depends-on ("packages" "slidemacs" "pane" "buffer" "syntax" "gui"))))
 
 (defsystem :climacs.tests

@@ -45,7 +45,7 @@
   nil)
 
 (defmethod buffer-pane-p ((pane extended-pane))
-  T)
+  t)
 
 (defclass climacs-info-pane (info-pane)
   ()
@@ -163,13 +163,19 @@
 	      extended-pane)
 	    extended-pane)
 	info-pane)))
-   (minibuffer (make-pane 'climacs-minibuffer-pane :background *mini-bg-color* :foreground *mini-fg-color* :width 900)))
+   (minibuffer (make-pane 'climacs-minibuffer-pane
+			  :background *mini-bg-color*
+			  :foreground *mini-fg-color*
+			  :width 900)))
   (:layouts
    (default
        (vertically (:scroll-bars nil)
 	 climacs-window
 	 minibuffer)))
   (:top-level (esa-top-level)))
+
+(defmethod frame-standard-input ((frame climacs))
+  (get-frame-pane frame 'minibuffer))
 
 (defun current-window ()
   (car (windows *application-frame*)))

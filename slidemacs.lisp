@@ -21,7 +21,7 @@
 ;;; Boston, MA  02111-1307  USA.
 
 (defpackage :climacs-slidemacs-editor
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
+  (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
 	:climacs-syntax :flexichain :climacs-pane)
   (:export))
 
@@ -168,6 +168,23 @@
   (string-equal (coerce (buffer-sequence (buffer word) (start-offset word) (end-offset word)) 'string)
 		string))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun sort-definitions (forms)
+    (loop for form in forms
+	  for name = (and (consp form) (car form))
+	  if (eq name 'defclass)
+	  collect form into defclasses
+	  else if (eq name 'define-simple-list)
+	  collect form into simple-lists
+	  else if (eq name 'define-simple-nonempty-list)
+	  collect form into nonempty-lists
+	  else collect form into others
+	  end
+	  finally (return `(,@defclasses
+			    ,@simple-lists
+			    ,@nonempty-lists
+			    ,@others)))))
+
 (defmacro define-parsing-rules ((grammar entry terminal syntax) &body rules)
   (let (already-processed-rules)
     (flet
@@ -220,17 +237,10 @@
                     entity
 		    ,@(loop for component in rule-body collect
                             `(display-parse-tree ,component syntax pane))))))
-	     (t (error "Unrecognized rule body ~S for rule ~S~%" rule-body name))))
-	 (shake-up-defclasses (forms)
-	   (append
-	    (remove-if #'(lambda (e)
-			   (and (consp e)
-				(not (eq (car e) 'defclass)))) forms)
-	    (remove-if #'(lambda (e)
-			   (and (consp e)
-				(eq (car e) 'defclass))) forms))))
+	     (t (error "Unrecognized rule body ~S for rule ~S~%" rule-body
+		       name)))))
       `(progn
-        ,@(shake-up-defclasses
+        ,@(sort-definitions
            (loop for rule in rules
                  appending (destructuring-bind (=-thingy rule-name &body rule-body)
                                rule

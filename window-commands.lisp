@@ -43,7 +43,7 @@
 	 (parent-height (rectangle-height parent-region))
 	 (parent-width (rectangle-width parent-region))
 	 (filler (when first-split-p (make-pane 'basic-pane))) ;Prevents resizing.
-         (adjust (make-pane 'clim-extensions:box-adjuster-gadget)))
+         (adjust #+mcclim (make-pane 'clim-extensions:box-adjuster-gadget)))
     (assert (member constellation children))
     
     (when first-split-p (setf (sheet-region filler) (sheet-region parent)) 

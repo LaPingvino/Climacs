@@ -300,11 +300,22 @@ is made to alter a buffer which has been set read only."))
   (with-slots (buffer top bot scan) pane
      (setf top (clone-mark (low-mark buffer) :left)
 	   bot (clone-mark (high-mark buffer) :right)))
+  #-(and)
   (with-slots (space-width tab-width) (stream-default-view pane)
      (let* ((medium (sheet-medium pane))
 	    (style (medium-text-style medium)))
        (setf space-width (text-style-width style medium)
 	     tab-width (* 8 space-width)))))
+
+(defmethod note-sheet-grafted :around ((pane climacs-pane))
+  (call-next-method)
+  (with-slots (space-width tab-width) (stream-default-view pane)
+     (let ((medium (sheet-medium pane)))
+       (setf (medium-text-style medium) (medium-default-text-style medium))
+       (let ((style (medium-text-style medium)))
+	 (setf space-width (text-style-width style medium)
+	       tab-width (* 8 space-width))))))
+
 
 (defmethod (setf buffer) :after (buffer (pane climacs-pane))
   (with-slots (point mark top bot) pane

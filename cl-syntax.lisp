@@ -401,6 +401,17 @@
 						    item) 2))))
 			  :start start :item item))
 
+(defclass simple-number (cl-item) ())
+
+(add-cl-rule (simple-number -> ((item default-item (radix-is
+						      (coerce
+						       (item-sequence  item) 'string) 10)))
+			    :item item))
+
+(defmethod display-parse-tree ((entity simple-number) (syntax cl-syntax) pane)
+  (with-slots (item) entity
+    (display-parse-tree item syntax pane)))
+
 (defclass radix-n-expr (cl-entry)
   ((start :initarg :start)
    (radix :initarg :radix)
@@ -425,18 +436,6 @@
     (display-parse-tree start syntax pane)
     (display-parse-tree radix syntax pane)
     (display-parse-tree item syntax pane)))
-
-(defclass simple-number (cl-item) ())
-
-(add-cl-rule (simple-number -> ((item default-item (radix-is
-						      (coerce
-						       (item-sequence  item) 'string) 10)))
-			    :item item))
-
-(defmethod display-parse-tree ((entity simple-number) (syntax cl-syntax) pane)
-  (with-slots (item) entity
-    (display-parse-tree item syntax pane)))
-
 
 (defclass real-number (cl-entry)
   ((primary :initarg :primary)
@@ -587,6 +586,10 @@
       (display-parse-tree item syntax pane))))
 
 
+
+(define-list cl-terminals empty-cl-terminals
+  nonempty-cl-terminals cl-terminal)
+
 ;;;;;;;;;;;;; list-expression
 
 (defclass list-expr (cl-entry)
@@ -716,6 +719,11 @@
 					      (expr cl-terminal (/= (end-offset test) (start-offset expr))))
 					  :start start :test test :expr expr))
 
+;;; Avoid forward definition
+
+(defclass quoted-expr (cl-entry)
+  ((start :initarg :start)
+   (item :initarg :item)))
 
 ;;;;;;;;;;;;; function-expression
 
@@ -774,10 +782,6 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Quoted expr
-
-(defclass quoted-expr (cl-entry)
-  ((start :initarg :start)
-   (item :initarg :item)))
 
 (add-cl-rule (quoted-expr -> ((start quote-symbol) 
 			      (item cl-terminal))
@@ -884,6 +888,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Backquoted expr
 
+;;; Avoid forward definition
+(defclass unquoted-expr (cl-entry)
+  ((start :initarg :start)
+   (item :initarg :item)))
+
 (defclass backquoted-expr (cl-entry)
   ((start :initarg :start)
    (item :initarg :item)))
@@ -916,10 +925,6 @@
   (with-slots (start end) entity
     (display-parse-tree start syntax pane)
     (display-parse-tree end syntax pane))) 
-
-(defclass unquoted-expr (cl-entry)
-  ((start :initarg :start)
-   (item :initarg :item)))
 
 (add-cl-rule (unquoted-expr -> ((start comma)
 				(item identifier))
@@ -964,9 +969,6 @@
 (add-cl-rule (cl-terminal -> (read-time-conditional-minus) :item read-time-conditional-minus))
 (add-cl-rule (cl-terminal -> (read-time-evaluation) :item read-time-evaluation))
 (add-cl-rule (cl-terminal -> (line-comment) :item line-comment))
-
-(define-list cl-terminals empty-cl-terminals
-  nonempty-cl-terminals cl-terminal)
 
 (defmethod display-parse-tree ((entity cl-terminal) (syntax cl-syntax) pane)
   (with-slots (item) entity
@@ -1048,11 +1050,25 @@
     (when (and (end-offset entity) (mark> (end-offset entity) top))
       (call-next-method))))
 
+(defun color-equal (c1 c2)
+  (when (eq c1 c2)
+    (return-from color-equal t))
+  (when (or (eq c1 +foreground-ink+)
+	    (eq c2 +foreground-ink+)
+	    (eq c1 +background-ink+)
+	    (eq c2 +background-ink+))
+    (return-from color-equal nil))
+  (multiple-value-bind (r1 g1 b1)
+      (color-rgb c1)
+    (multiple-value-bind (r2 g2 b2)
+	(color-rgb c2)
+      (and (= r1 r2) (= g1 g2) (= b1 b2)))))
+
 (defmethod display-parse-tree ((entity cl-entry) (syntax cl-syntax) pane)
   (flet ((cache-test (t1 t2)
 	   (and (eq t1 t2)
-		(eq (slot-value t1 'ink)
-		    (medium-ink (sheet-medium pane)))
+		(color-equal (slot-value t1 'ink)
+			     (medium-ink (sheet-medium pane)))
 		(eq (slot-value t1 'face)
 		    (text-style-face (medium-text-style (sheet-medium pane)))))))
     (updating-output (pane :unique-id entity

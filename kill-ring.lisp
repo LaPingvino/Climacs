@@ -148,6 +148,6 @@ is empty a new entry is pushed."))
 				 vector
 				 (pop-start chain))))))
 
-(defmethod kill-ring-yank ((kr kill-ring) &optional (reset NIL))
+(defmethod kill-ring-yank ((kr kill-ring) &optional (reset nil))
   (if reset (reset-yank-position kr))
   (element> (kill-ring-cursor kr)))

@@ -103,6 +103,19 @@
 	    (command-table-inherit-from
 	     (find-command-table start-table)))))
 
+;;; In Classic CLIM event-matches-gesture-name-p doesn't accept characters.
+#+mcclim
+(defun gesture-matches-gesture-name-p (gesture gesture-name)
+  (event-matches-gesture-name-p gesture gesture-name))
+
+#-mcclim
+(defun gesture-matches-gesture-name-p (gesture gesture-name)
+  (etypecase gesture
+    (event
+     (event-matches-gesture-name-p gesture gesture-name))
+    (character
+     (clim-internals::keyboard-event-matches-gesture-name-p gesture
+							    gesture-name))))
 (defparameter *current-gesture* nil)
 
 (defparameter *meta-digit-table*
@@ -111,7 +124,7 @@
 
 (defun meta-digit (gesture)
   (position gesture *meta-digit-table*
-	    :test #'event-matches-gesture-name-p))
+	    :test #'gesture-matches-gesture-name-p))
 
 (defun esa-read-gesture ()
   (unless (null (remaining-keys *application-frame*))
@@ -159,11 +172,11 @@ a plus) sign. C-u 3 4 = 34, C-u - 3 4 = -34. Note that C-u 3 - prints 3 '-'s.
 M-1 M-2 = 12. M-- M-1 M-2 = -12. As a special case, C-u - and M-- = -1.
 In the absence of a prefix arg returns 1 (and nil)."
   (let ((gesture (esa-read-gesture)))
-    (cond ((event-matches-gesture-name-p
+    (cond ((gesture-matches-gesture-name-p
 	    gesture 'universal-argument)
 	   (let ((numarg 4))
 	     (loop for gesture = (esa-read-gesture)
-		   while (event-matches-gesture-name-p
+		   while (gesture-matches-gesture-name-p
 			  gesture 'universal-argument)
 		   do (setf numarg (* 4 numarg))
 		   finally (esa-unread-gesture gesture stream))
@@ -187,7 +200,7 @@ In the absence of a prefix arg returns 1 (and nil)."
 		      (esa-unread-gesture gesture stream)
 		      (values (if (minusp sign) -1 numarg) t))))))
 	  ((or (meta-digit gesture)
-	       (event-matches-gesture-name-p
+	       (gesture-matches-gesture-name-p
 		gesture 'meta-minus))
 	   (let ((numarg 0)
 		 (sign +1))
@@ -281,6 +294,8 @@ In the absence of a prefix arg returns 1 (and nil)."
 	  (*standard-input* (frame-standard-input frame))
 	  (*print-pretty* nil)
 	  (*abort-gestures* `((:keyboard #\g ,(make-modifier-state :control)))))
+      (unless (eq (frame-state frame) :enabled)
+	(enable-frame frame))
       (redisplay-frame-panes frame :force-p t)
       (loop
        do (restart-case
@@ -327,6 +342,35 @@ In the absence of a prefix arg returns 1 (and nil)."
 ;;; 
 ;;; command table manipulation
 
+;;; Helper to avoid calling find-keystroke-item at load time. In Classic CLIM
+;;; that function doesn't work if not connected to a port.
+
+(defun compare-gestures (g1 g2)
+  (and (eql (car g1) (car g2))
+       (eql (apply #'make-modifier-state (cdr g1))
+	    (apply #'make-modifier-state (cdr g2)))))
+
+(defun find-gesture-item (table gesture)
+  (map-over-command-table-keystrokes
+     (lambda (name gest item)
+       (declare (ignore name))
+       (when (compare-gestures gesture gest)
+	 (return-from find-gesture-item item)))
+     table)
+  nil)
+
+#-mcclim
+(defun ensure-subtable (table gesture)
+  (let ((item (find-gesture-item table gesture)))
+    (when (or (null item) (not (eq (command-menu-item-type item) :menu)))
+      (let ((name (gensym)))
+	(make-command-table name :errorp nil)
+	(add-menu-item-to-command-table table (symbol-name name)
+					:menu name
+					:keystroke gesture)))
+    (command-menu-item-value (find-gesture-item table gesture))))
+
+#+mcclim
 (defun ensure-subtable (table gesture)
   (let* ((event (make-instance
 		'key-press-event
@@ -342,14 +386,16 @@ In the absence of a prefix arg returns 1 (and nil)."
 					:keystroke gesture)))
     (command-menu-item-value
      (find-keystroke-item event table :errorp nil))))
-    
+
 (defun set-key (command table gestures)
+  ;; WTF?
+  #-(and)
   (unless (consp command)
     (setf command (list command)))
   (let ((gesture (car gestures)))
     (cond ((null (cdr gestures))
-	   (add-command-to-command-table
-	    command table :keystroke gesture :errorp nil)
+	   (add-keystroke-to-command-table
+	    table gesture :command command :errorp nil)
 	   (when (and (listp gesture)
 		      (find :meta gesture))
              ;; KLUDGE: this is a workaround for poor McCLIM
@@ -587,7 +633,9 @@ In the absence of a prefix arg returns 1 (and nil)."
   (let* ((window (car (windows *application-frame*))) 
 	 (stream (open-window-stream
 		  :label (format nil "Help: Describe Bindings")
-		  :input-buffer (climi::frame-event-queue *application-frame*)
+		  :input-buffer (#+mcclim climi::frame-event-queue
+				 #-mcclim silica:frame-input-buffer
+				 *application-frame*)
 		  :width 400))
 	 (command-table (command-table window)))
     (describe-bindings stream command-table
@@ -699,4 +747,5 @@ In the absence of a prefix arg returns 1 (and nil)."
 
 (define-command-table global-example-table
     :inherit-from (global-esa-table keyboard-macro-table))
+
 

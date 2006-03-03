@@ -205,7 +205,7 @@
 
 (set-key `(com-backward-object ,*numeric-argument-marker*)
 	 'movement-table
-	 '((:left)))
+	 '((#+mcclim :left #-mcclim :left-arrow)))
 
 (define-command (com-forward-object :name t :command-table movement-table)
     ((count 'integer :prompt "Number of Objects"))
@@ -217,7 +217,7 @@
 
 (set-key `(com-forward-object ,*numeric-argument-marker*)
 	 'movement-table
-	 '((:right)))
+	 '((#+mcclim :right #-mcclim :right-arrow)))
 
 (defun transpose-words (mark)
   (let (bw1 bw2 ew1 ew2)
@@ -295,7 +295,7 @@
 
 (set-key `(com-previous-line ,*numeric-argument-marker*)
 	 'movement-table
-	 '((:up)))
+	 '((#+mcclim :up #-mcclim :up-arrow)))
 
 (define-command (com-next-line :name t :command-table movement-table)
     ((numarg 'integer :prompt "How many lines?"))
@@ -314,7 +314,7 @@
 
 (set-key `(com-next-line ,*numeric-argument-marker*)
 	 'movement-table
-	 '((:down)))
+	 '((#+mcclim :down #-mcclim :down-arrow)))
 
 (define-command (com-open-line :name t :command-table editing-table)
     ((numarg 'integer :prompt "How many lines?"))
@@ -376,7 +376,7 @@
 
 (set-key `(com-forward-word ,*numeric-argument-marker*)
 	 'movement-table
-	 '((:right :control)))
+	 '((#+mcclim :right #-mcclim :right-arrow :control)))
 
 (define-command (com-backward-word :name t :command-table movement-table)
     ((count 'integer :prompt "Number of words"))
@@ -388,7 +388,7 @@
 
 (set-key `(com-backward-word ,*numeric-argument-marker*)
 	 'movement-table
-	 '((:left :control)))
+	 '((#+mcclim :left #-mcclim :left-arrow :control)))
 
 (define-command (com-delete-word :name t :command-table deletion-table)
     ((count 'integer :prompt "Number of words"))

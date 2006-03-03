@@ -40,7 +40,7 @@
   (asdf:operate 'asdf:load-op :climacs))
 
 
-(define-gesture-name :select-other :pointer-button-press (:left :meta) :unique nil)
+(define-gesture-name :select-other #+mcclim :pointer-button-press #-mcclim :pointer-button (:left :meta) :unique nil)
 
 (define-presentation-translator lisp-string-to-string
     (climacs-lisp-syntax::lisp-string string development-table

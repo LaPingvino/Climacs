@@ -24,7 +24,8 @@
 
 (defun input-from-stream (stream buffer offset)
   (loop with vec = (make-array 10000 :element-type 'character)
-	for count = (read-sequence vec stream)
+	for count = (#+mcclim read-sequence #-mcclim cl:read-sequence
+			      vec stream)
 	while (plusp count)
 	do (if (= count (length vec))
 	       (insert-buffer-sequence buffer offset vec)

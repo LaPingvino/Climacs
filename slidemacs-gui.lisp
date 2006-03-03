@@ -403,7 +403,7 @@
 (defparameter *picture-cache*
   (make-hash-table :test #'equal))
 
-#+(or)
+#+mcclim
 (defun load-and-cache-xpm (pathname)
   nil
   (let ((hash-key (cons pathname (file-write-date pathname))))
@@ -412,7 +412,7 @@
           (setf (gethash hash-key *picture-cache*)
                 (climi::xpm-parse-file pathname))))))
 
-#+(or)
+#+mcclim
 (defmethod display-parse-tree ((entity picture-node) (syntax slidemacs-gui-syntax) pane)
   (with-slots (picture-pathname) entity
     (let ((real-pathname (slidemacs-entity-string picture-pathname)))
