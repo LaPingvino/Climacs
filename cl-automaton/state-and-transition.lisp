@@ -9,7 +9,9 @@
 
 (defconstant +min-char-code+ 0)
 (defconstant +max-char-code+ (1- char-code-limit))
-(deftype char-code-type () `(integer ,+min-char-code+ ,+max-char-code+))
+;;; In Allegro (for one), defconstants aren't available as values at compile
+;;; time. 
+(deftype char-code-type () `(integer 0 ,(1- char-code-limit)))
 
 (defclass state ()
   ((accept :initform nil :accessor accept :type boolean)
