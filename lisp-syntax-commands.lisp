@@ -44,7 +44,7 @@
   (let* ((pane (current-window))
 	 (syntax (syntax (buffer pane)))
 	 (package (climacs-lisp-syntax::package-of syntax)))
-    (display-message (format nil "~s" package))))
+    (esa:display-message (format nil "~A" (package-name package)))))
 
 (define-command (com-fill-paragraph :name t :command-table lisp-table) ()
   )
