@@ -155,7 +155,7 @@
 		 (setf (buffer (current-window)) buffer)
 		 (setf (syntax buffer)
 		       (make-instance (syntax-class-name-for-filepath filepath)
-			  :buffer (buffer (point pane))))
+			  :buffer buffer))
 		 ;; Don't want to create the file if it doesn't exist.
 		 (when (probe-file filepath)
 		   (with-open-file (stream filepath :direction :input)
