@@ -28,7 +28,7 @@
 (defparameter *climacs-directory* (directory-namestring *load-truename*))
 
 (defsystem :climacs
-  :depends-on (:mcclim :flexichain)
+  :depends-on (:mcclim :flexichain :esa)
   :components
   ((:module "cl-automaton"
 	    :components ((:file "automaton-package")
@@ -70,14 +70,12 @@
    (:file "prolog2paiprolog" :depends-on ("prolog-syntax"))
    (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base"
 						 "pane"))
-   (:file "colors" :depends-on ("packages"))
    (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"
-						"gui" "colors"))
+						"gui"))
    (:file "lisp-syntax-commands" :depends-on ("lisp-syntax"))
-   (:file "esa" :depends-on ("packages" "colors"))
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
-                                        "esa" "kill-ring" "io" "text-syntax"
-					"abbrev" "colors"))
+                                        "kill-ring" "io" "text-syntax"
+					"abbrev" ))
 ;;    (:file "buffer-commands" :depends-on ("gui"))
    (:file "developer-commands" :depends-on ("gui" "lisp-syntax"))
    (:file "file-commands" :depends-on ("gui"))
@@ -85,7 +83,7 @@
    (:file "search-commands" :depends-on ("gui"))
    (:file "window-commands" :depends-on ("gui"))
    (:file "unicode-commands" :depends-on ("gui"))
-   (:file "slidemacs" :depends-on ("packages" "buffer" "syntax" "base" "pane" "colors"))
+   (:file "slidemacs" :depends-on ("packages" "buffer" "syntax" "base" "pane" ))
    (:file "slidemacs-gui" :depends-on ("packages" "slidemacs" "pane" "buffer" "syntax" "gui"))))
 
 (defsystem :climacs.tests

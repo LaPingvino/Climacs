@@ -161,32 +161,6 @@
 	   #:url
 	   #:climacs-textual-view #:+climacs-textual-view+))
 
-#-mcclim
-(defpackage :clim-extensions
-  (:use :clim-lisp :clim)
-  (:export
-   #:+blue-violet+
-   #:+dark-blue+
-   #:+dark-green+
-   #:+dark-violet+
-   #:+gray50+
-   #:+gray85+
-   #:+maroon+
-   #:+purple+))
-
-(defpackage :esa
-  (:use :clim-lisp :clim :clim-extensions)
-  (:export #:minibuffer-pane #:display-message
-	   #:esa-pane-mixin #:previous-command
-	   #:info-pane #:master-pane
-	   #:esa-frame-mixin #:windows #:recordingp #:executingp
-	   #:*numeric-argument-p* #:*current-gesture*
-	   #:esa-top-level #:simple-command-loop
-	   #:global-esa-table #:keyboard-macro-table
-	   #:help-table
-	   #:set-key
-	   #:find-applicable-command-table))
-
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
 	:climacs-abbrev :climacs-syntax 
