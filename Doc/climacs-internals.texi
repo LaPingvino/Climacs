@@ -703,7 +703,7 @@ The second case is handled by the following generic function:
 
 Inform the syntax module that it must update its syntactic analysis to
 cover the region between the two marks from and to.  It is acceptable
-to pass and offset instead of a mark for either or both of the last
+to pass an offset instead of a mark for either or both of the last
 two arguments. 
 @end deffn
 
