@@ -180,6 +180,14 @@
 (defun current-window ()
   (car (windows *application-frame*)))
 
+(defun current-point ()
+  "Return the current panes point."
+  (point (current-window)))
+
+(defun current-buffer ()
+  "Return the current buffer."
+  (buffer (current-window)))
+
 (defmethod redisplay-frame-panes :around ((frame climacs) &rest args)
   (declare (ignore args))
   (let ((buffers (remove-duplicates (loop for pane in (windows frame)
