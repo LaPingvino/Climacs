@@ -531,6 +531,30 @@
 	 'indent-table
 	 '((#\j :control)))
 
+(defun indent-region (pane mark1 mark2)
+  "Indent all lines in the region delimited by `mark1' and `mark2'
+   according to the rules of the active syntax in `pane'."
+  (let* ((buffer (buffer pane))
+         (view (stream-default-view pane))
+         (tab-space-count (tab-space-count view))
+         (tab-width (and (climacs-pane:indent-tabs-mode buffer)
+                         tab-space-count))
+         (syntax (climacs-syntax:syntax buffer)))
+    (do-buffer-region-lines (line mark1 mark2)
+      (let ((indentation (climacs-syntax:syntax-line-indentation  
+                          line
+                          tab-space-count
+                          syntax)))
+        (indent-line line indentation tab-width)))))
+
+(define-command (com-indent-region :name t :command-table indent-table) ()
+  "Indent every line of the current region as specified by the
+syntax for the buffer."
+  (let* ((pane (current-window))
+         (point (point pane))
+         (mark (mark pane)))
+    (indent-region pane point mark)))
+
 (define-command (com-delete-indentation :name t :command-table indent-table) ()
   (delete-indentation (point (current-window))))
 

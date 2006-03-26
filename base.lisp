@@ -41,6 +41,27 @@ The body is executed for each element, with object being the current object
      (loop for ,offset from ,offset1 below ,offset2
            do ,@body)))
 
+(defmacro do-buffer-region-lines ((line-var mark1 mark2) &body body)
+  "Iterate over the lines in the region delimited by `mark1' and `mark2'.
+   For each line, `line-var' will be bound to a mark positioned
+   at the beginning of the line and `body' will be executed. Note
+   that the iteration will always start from the mark specifying
+   the earliest position in the buffer."
+  (let ((mark-sym (gensym))
+        (mark2-sym (gensym)))
+    `(progn
+       (when (mark< ,mark2 ,mark1)
+         (rotatef ,mark1 ,mark2))
+       (let ((,mark-sym (clone-mark ,mark1))
+             (,mark2-sym (clone-mark ,mark2)))
+         (loop while (mark<= ,mark-sym ,mark2-sym)
+            do
+            (let ((,line-var (clone-mark ,mark-sym)))
+              ,@body)
+            (end-of-line ,mark-sym)
+            (unless (end-of-buffer-p ,mark-sym)
+              (forward-object ,mark-sym)))))))
+
 (defmethod previous-line (mark &optional column (count 1))
   "Move a mark up COUNT lines conserving horizontal position."
   (unless column

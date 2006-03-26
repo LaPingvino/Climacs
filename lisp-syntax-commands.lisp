@@ -32,25 +32,42 @@
 
 (define-command (com-eval-defun :name t :command-table lisp-table) ()
   (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
+         (point (point pane))
+         (syntax (syntax (buffer pane))))
     (eval-defun point syntax)))
 
 (esa:set-key 'com-eval-defun
-	 'lisp-table
-	 '((#\x :control :meta)))
+             'lisp-table
+             '((#\x :control :meta)))
 
 (define-command (com-package :name t :command-table lisp-table) ()
   (let* ((pane (current-window))
-	 (syntax (syntax (buffer pane)))
-	 (package (climacs-lisp-syntax::package-of syntax)))
+         (syntax (syntax (buffer pane)))
+         (package (climacs-lisp-syntax::package-of syntax)))
     (esa:display-message (format nil "~A" (if (packagep package)
-					      (package-name package)
-					      package)))))
+                                              (package-name package)
+                                              package)))))
 
 (define-command (com-fill-paragraph :name t :command-table lisp-table) ()
   )
 
 (esa:set-key 'com-fill-paragraph
-	     'lisp-table
-	     '((#\q :meta)))
+             'lisp-table
+             '((#\q :meta)))
+
+(define-command (com-indent-expression :name t :command-table lisp-table)
+    ((count 'integer :prompt "Number of expressions"))
+  (let* ((pane (current-window))
+         (point (point pane))
+         (mark (clone-mark point))
+         (syntax (syntax (buffer pane)))
+         (view (stream-default-view pane))
+         (tab-space-count (tab-space-count view)))
+    (if (plusp count)
+        (loop repeat count do (forward-expression mark syntax))
+        (loop repeat (- count) do (backward-expression mark syntax)))
+    (indent-region pane (clone-mark point) mark)))
+
+(esa:set-key `(com-indent-expression ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\q :meta :control)))

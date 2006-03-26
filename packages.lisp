@@ -57,6 +57,7 @@
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer)
   (:export #:do-buffer-region
+           #:do-buffer-region-lines
 	   #:previous-line #:next-line
 	   #:open-line #:kill-line
            #:empty-line-p
@@ -73,6 +74,7 @@
            #:upcase-word #:downcase-word #:capitalize-word
            #:tabify-region #:untabify-region
            #:indent-line
+           #:indent-region
            #:delete-indentation
            #:fill-line
 	   #:input-from-stream #:output-to-stream
