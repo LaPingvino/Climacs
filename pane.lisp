@@ -30,6 +30,9 @@
 ;;;
 ;;; Tabify
 
+(defvar *use-tabs-for-indentation* nil
+  "If non-NIL, use tabs when indenting lines. Otherwise, use spaces.")
+
 (defgeneric space-width (tabify))
 (defgeneric tab-width (tabify))
 (defgeneric tab-space-count (tabify))
@@ -239,7 +242,8 @@ is made to alter a buffer which has been set read only."))
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :accessor syntax)
    (point :initform nil :initarg :point :accessor point)
-   (indent-tabs-mode :initarg indent-tabs-mode :initform t
+   (indent-tabs-mode :initarg indent-tabs-mode
+                     :initform *use-tabs-for-indentation*
                      :accessor indent-tabs-mode))
   (:default-initargs
    :name "*scratch*"
