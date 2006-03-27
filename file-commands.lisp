@@ -164,9 +164,8 @@
 		       (name buffer) (filepath-filename filepath)
 		       (needs-saving buffer) nil)
 		 (beginning-of-buffer (point pane))
-		 ;; this one is needed so that the buffer modification protocol
-		 ;; resets the low and high marks after redisplay
-		 (redisplay-frame-panes *application-frame*)
+                 (update-syntax buffer (syntax buffer))
+                 (clear-modify buffer)
 		 buffer))))))
 
 (defun directory-of-buffer (buffer)

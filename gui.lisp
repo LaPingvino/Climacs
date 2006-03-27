@@ -188,15 +188,6 @@
   "Return the current buffer."
   (buffer (current-window)))
 
-(defmethod redisplay-frame-panes :around ((frame climacs) &rest args)
-  (declare (ignore args))
-  (let ((buffers (remove-duplicates (loop for pane in (windows frame)
-					  when (buffer-pane-p pane)
-					    collect (buffer pane)))))
-    (loop for buffer in buffers
-	  do (update-syntax buffer (syntax buffer)))
-    (call-next-method)))
-
 (defun climacs (&key new-process (process-name "Climacs")
                 (width 900) (height 400))
   "Starts up a climacs session"
@@ -288,10 +279,14 @@
 (defmethod execute-frame-command :around ((frame climacs) command)
   (let ((current-window (car (windows frame))))
     (handler-case
-        (if (buffer-pane-p current-window)
-            (with-undo ((buffer current-window))
+        (progn
+          (if (buffer-pane-p current-window)
+              (with-undo ((buffer current-window))
+                (call-next-method))
               (call-next-method))
-            (call-next-method))
+          (loop for buffer in (buffers frame)
+                do (when (modified-p buffer)
+                     (clear-modify buffer))))
       (offset-before-beginning ()
         (beep) (display-message "Beginning of buffer"))
       (offset-after-end ()
@@ -309,9 +304,9 @@
 
 (defmethod execute-frame-command :after ((frame climacs) command)
   (loop for buffer in (buffers frame)
+        do (update-syntax buffer (syntax buffer))
 	do (when (modified-p buffer)
-	     (setf (needs-saving buffer) t)
-             (clear-modify buffer))))
+	     (setf (needs-saving buffer) t))))
 
 (defmethod find-applicable-command-table ((frame climacs))
   (or
