@@ -195,9 +195,7 @@
 					    collect (buffer pane)))))
     (loop for buffer in buffers
 	  do (update-syntax buffer (syntax buffer)))
-    (call-next-method)
-    (loop for buffer in buffers
-	  do (clear-modify buffer))))
+    (call-next-method)))
 
 (defun climacs (&key new-process (process-name "Climacs")
                 (width 900) (height 400))
@@ -312,7 +310,8 @@
 (defmethod execute-frame-command :after ((frame climacs) command)
   (loop for buffer in (buffers frame)
 	do (when (modified-p buffer)
-	     (setf (needs-saving buffer) t))))	
+	     (setf (needs-saving buffer) t)
+             (clear-modify buffer))))
 
 (defmethod find-applicable-command-table ((frame climacs))
   (or
