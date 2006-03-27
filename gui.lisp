@@ -462,7 +462,9 @@
      ;; Always need one buffer.
      (when (null buffers)
        (make-buffer "*scratch*"))
-     (setf (buffer (current-window)) (car buffers))))
+     (setf (buffer (current-window)) (car buffers))
+     (full-redisplay (current-window))
+     (buffer (current-window))))
 
 (defmethod kill-buffer ((name string))
   (let ((buffer (find name (buffers *application-frame*)
