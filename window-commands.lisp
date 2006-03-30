@@ -180,12 +180,16 @@ If with-scrollbars nil, omit the scroller."
 (defun other-window (&optional pane)
   (if (and pane (find pane (windows *application-frame*)))
       (setf (windows *application-frame*)
-	    (append (list pane)
-		    (remove pane (windows *application-frame*))))
+            (append (list pane)
+                    (remove pane (windows *application-frame*))))
       (setf (windows *application-frame*)
-	    (append (cdr (windows *application-frame*))
-		    (list (car (windows *application-frame*))))))
-  (setf *standard-output* (car (windows *application-frame*))))
+            (append (cdr (windows *application-frame*))
+                    (list (car (windows *application-frame*))))))
+  ;; Try to avoid setting the point in a typeout pane. FIXME: This is a kludge.
+  (if (and (subtypep 'typeout-pane (type-of (car (windows *application-frame*))))
+           (> (length (windows *application-frame*)) 1))
+      (other-window)
+      (setf *standard-output* (car (windows *application-frame*)))))
   
 (define-command (com-other-window :name t :command-table window-table) ()
   (other-window))
@@ -220,7 +224,12 @@ If with-scrollbars nil, omit the scroller."
 	  (click-to-offset window x y))))
 
 (define-presentation-to-command-translator blank-area-to-switch-to-this-window
-    (blank-area com-switch-to-this-window window-table :echo nil)
+    (blank-area com-switch-to-this-window window-table
+                :echo nil
+                ;; Putting the point in typeout-panes can cause errors.
+                :tester ((object presentation)
+                         (declare (ignore presentation))
+                         (not (typep object 'typeout-pane))))
     (window x y)
   (list window x y))
 
