@@ -1080,17 +1080,14 @@
   (let ((buffer (buffer syntax)))
     (flet ((test (x)
 	     (when (typep x 'complete-list-form)
-	       (let ((candidate (second-noncomment (children x))))
+	       (let ((candidate (first-form (children x))))
 		 (and (typep candidate 'token-mixin)
-		      (eq (parse-symbol (coerce (buffer-sequence (buffer syntax)
-								 (start-offset candidate)
-								 (end-offset candidate))
-						'string))
+		      (eq (token-to-symbol syntax candidate)
 			  'cl:in-package))))))
       (with-slots (stack-top) syntax
 	(let ((form (find-if #'test (children stack-top))))
 	  (when form
-	    (let ((package-form (third-noncomment (children form))))
+	    (let ((package-form (second-form (children form))))
 	      (when package-form 
 		(let ((package-name
 		       (typecase package-form
@@ -1182,6 +1179,39 @@ stripping leading comments."
 (defun third-noncomment (list)
   "Returns the third non-comment in list."
   (nth-noncomment 2 list))
+
+(defun rest-forms (list)
+  "Returns the remainder of the list after the first form,
+stripping leading non-forms."
+  (loop for rest on list
+     count (typep (car rest) 'form)
+       into forms
+     until (= forms 2)
+     finally (return rest)))
+
+(defun nth-form (n list)
+  "Returns the nth form in list."
+  (loop for item in list
+     count (typep item 'form)
+       into forms
+     until (> forms n)
+     finally (return item)))
+
+(defun elt-form (list n)
+  "Returns the nth form in list."
+  (nth-form n list))
+
+(defun first-form (list)
+  "Returns the first form in list."
+  (nth-form 0 list))
+
+(defun second-form (list)
+  "Returns the second form in list."
+  (nth-form 1 list))
+
+(defun third-form (list)
+  "Returns the third formw in list."
+  (nth-form 2 list))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -2165,7 +2195,6 @@ Return the symbol and a flag indicating whether the symbol was found."
   (beginning-of-line mark)
   (with-slots (stack-top) syntax
     (let ((path (compute-path syntax (offset mark))))
-      (clouseau:inspector path)
       (multiple-value-bind (tree offset)
 	  (indent-form syntax stack-top path)
 	(setf (offset mark) (start-offset tree))
