@@ -636,8 +636,8 @@
 
 ;;; parse trees
 (defclass simple-vector-form (list-form) ())
-(defclass complete-simple-vector-form (complete-list-form) ())
-(defclass incomplete-simple-vector-form (incomplete-list-form) ())
+(defclass complete-simple-vector-form (complete-list-form simple-vector-form) ())
+(defclass incomplete-simple-vector-form (incomplete-list-form simple-vector-form) ())
 
 (define-parser-state |#( form* | (lexer-list-state form-may-follow) ())
 (define-parser-state |#( form* ) | (lexer-toplevel-state parser-state) ())
@@ -1190,12 +1190,13 @@ stripping leading non-forms."
      finally (return rest)))
 
 (defun nth-form (n list)
-  "Returns the nth form in list."
+  "Returns the nth form in list or `nil'."
   (loop for item in list
      count (typep item 'form)
        into forms
      until (> forms n)
-     finally (return item)))
+     finally (when (> forms n)
+               (return item))))
 
 (defun elt-form (list n)
   "Returns the nth form in list."
