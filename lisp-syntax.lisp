@@ -1851,7 +1851,8 @@ Return the symbol and a flag indicating whether the symbol was found."
           (values nil nil)))))
 
 (defun token-to-symbol (syntax token)
-  (let ((package (if (and (slot-value syntax 'package)
+  (let ((package (if (and (slot-boundp syntax 'package)
+                          (slot-value syntax 'package)
 			  (typep (slot-value syntax 'package) 'package))
 		     (slot-value syntax 'package)
 		     (find-package :common-lisp)))
