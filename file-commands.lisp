@@ -212,6 +212,7 @@
 	       (switch-to-buffer existing-buffer)
 	       (let ((buffer (make-buffer))
 		     (pane (current-window)))
+                 (setf (syntax buffer) nil)
 		 (setf (offset (point (buffer pane))) (offset (point pane)))
 		 (setf (buffer (current-window)) buffer)
 		 ;; Don't want to create the file if it doesn't exist.
