@@ -132,12 +132,26 @@ made to move a mark after the end of the buffer."))
 	  (make-condition 'motion-after-end :offset new-offset))
   (setf (cursor-pos (cursor mark)) new-offset))
 
-(defgeneric backward-object (mark &optional count))
+(defgeneric backward-object (mark &optional count)
+  (:documentation "Move `mark' `count' objects backwards. Returns
+  `mark'."))
+
+(defmethod backward-object :around (mark &optional count)
+  (declare (ignore count))
+  (call-next-method)
+  mark)
 
 (defmethod backward-object ((mark mark-mixin) &optional (count 1))
   (decf (offset mark) count))
 
-(defgeneric forward-object (mark &optional count))
+(defgeneric forward-object (mark &optional count)
+  (:documentation "Move `mark' `count' objects forwards. Returns
+  `mark'"))
+
+(defmethod forward-object :around (mark &optional count)
+  (declare (ignore count))
+  (call-next-method)
+  mark)
 
 (defmethod forward-object ((mark mark-mixin) &optional (count 1))
   (incf (offset mark) count))
@@ -297,21 +311,32 @@ of the marks."))
   (>= mark1 (offset mark2)))
 
 (defgeneric beginning-of-buffer (mark)
-  (:documentation "Move the mark to the beginning of the buffer.  This is equivalent to
- (setf (offset mark) 0)"))
+  (:documentation "Move the mark to the beginning of the buffer.
+  This is equivalent to (setf (offset mark) 0), but returns
+  mark."))
+
+;; Easy way to make sure mark is always returned.
+(defmethod beginning-of-buffer :around (mark)
+  (call-next-method)
+  mark)
 
 (defmethod beginning-of-buffer ((mark mark-mixin))
   (setf (offset mark) 0))
 
 (defgeneric end-of-buffer (mark)
-  (:documentation "Move the mark to the end of the buffer."))
+  (:documentation "Move the mark to the end of the buffer and
+  return mark."))
+
+(defmethod end-of-buffer :around (mark)
+  (call-next-method)
+  mark)
 
 (defmethod end-of-buffer ((mark mark-mixin))
   (setf (offset mark) (size (buffer mark))))
 
 (defgeneric beginning-of-buffer-p (mark)
-  (:documentation "Return t if the mark is at the beginning of the buffer, nil
- otherwise."))
+  (:documentation "Return t if the mark is at the beginning of
+ the buffer, nil otherwise."))
 
 (defmethod beginning-of-buffer-p ((mark mark-mixin))
   (zerop (offset mark)))
@@ -344,7 +369,11 @@ end of the buffer), nil otherwise."))
   (:documentation "Move the mark to the beginning of the line.  The mark will be
  positioned either immediately after the closest preceding newline
  character, or at the beginning of the buffer if no preceding newline
- character exists."))
+ character exists. Returns mark."))
+
+(defmethod beginning-of-line :around (mark)
+  (call-next-method)
+  mark)
 
 (defmethod beginning-of-line ((mark mark-mixin))
   (loop until (beginning-of-line-p mark)
@@ -353,7 +382,11 @@ end of the buffer), nil otherwise."))
 (defgeneric end-of-line (mark)
   (:documentation "Move the mark to the end of the line. The mark will be positioned
 either immediately before the closest following newline character, or
-at the end of the buffer if no following newline character exists."))
+at the end of the buffer if no following newline character exists. Returns mark."))
+
+(defmethod end-of-line :around (mark)
+  (call-next-method)
+  mark)
 
 (defmethod end-of-line ((mark mark-mixin))
   (let* ((offset (offset mark))
