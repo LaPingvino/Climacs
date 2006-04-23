@@ -380,7 +380,7 @@
 	(#\| (fo) (make-instance 'multiple-escape-start-lexeme))
 	(t (cond ((or (constituentp object)
 		      (eql object #\\))
-		  (lex-token syntax scan))
+                  (lex-token syntax scan))
 		 (t (fo) (make-instance 'error-lexeme))))))))
 
 (defmethod lex ((syntax lisp-syntax) (state lexer-list-state) scan)
@@ -1249,7 +1249,7 @@ stripping leading non-forms."
                (return item))))
 
 (defun elt-form (list n)
-  "Returns the nth form in list."
+  "Returns the nth form in list or `nil'."
   (nth-form n list))
 
 (defun first-form (list)
@@ -1897,28 +1897,108 @@ and whether the symbol-name was separated from the package by a double colon."
 		(parse-token input readtable-case))))))
 |#
 
+(defun token-string (syntax token)
+  "Return the string that specifies `token' in the buffer of
+  `syntax'."
+  (coerce (buffer-sequence (buffer syntax)
+                           (start-offset token)
+                           (end-offset token))
+          'string))
+
 (defun parse-symbol (string &optional (package *package*))
   "Find the symbol named STRING.
-Return the symbol and a flag indicating whether the symbol was found."
+Return the symbol and a flag indicating whether the symbol was
+found in the package. Note that a symbol may be returned even if
+it was not found in a package."
   (multiple-value-bind (symbol-name package-name) (parse-token string)
     (let ((package (cond ((string= package-name "") +keyword-package+)
                          (package-name              (find-package package-name))
                          (t                         package))))
-      (if package
-          (find-symbol symbol-name package)
-          (values nil nil)))))
+      (or (and package
+               (find-symbol symbol-name package))
+          (values (make-symbol symbol-name) nil)))))
 
 (defun token-to-symbol (syntax token)
-  (let ((package (if (and (slot-boundp syntax 'package)
-                          (slot-value syntax 'package)
-			  (typep (slot-value syntax 'package) 'package))
-		     (slot-value syntax 'package)
-		     (find-package :common-lisp)))
-	(token-string (coerce (buffer-sequence (buffer syntax)
-					       (start-offset token)
-					       (end-offset token))
-			      'string)))
-    (parse-symbol token-string package)))
+  "Return the symbol `token' represents. If `token' represents
+anything else than a symbol, or it cannot be correctly converted
+to a symbol, return nil. If the symbol cannot be found in a
+package, an uninterned symbol will be returned."
+  (let ((result (token-to-object syntax token t)))
+    (when (symbolp result)
+      result)))
+
+;; FIXME? This generic function often errors on erroneous input. Since
+;; we are an editor, we might consider being a bit more lenient. Also,
+;; it will never intern symbols itself, but return NIL for uninterned
+;; symbols.
+(defgeneric token-to-object (syntax token &optional no-error)
+  (:documentation "Return the Lisp object `token' would evaluate
+  to if read. An attempt will be made to construct objects from
+  incomplete tokens. This function may signal an error if
+  `no-error' is nil and `token' cannot be converted to a Lisp
+  object. Otherwise, nil will be returned.")
+  (:method :around (syntax token &optional no-error)
+           ;; Ensure that every symbol that is READ will be looked up
+           ;; in the correct package.
+           (handler-case (let ((*package* (if (and (slot-boundp syntax 'package)
+                                                   (slot-value syntax 'package)
+                                                   (typep (slot-value syntax 'package) 'package))
+                                              (slot-value syntax 'package)
+                                              (find-package :common-lisp))))
+                           (call-next-method))
+             (t ()
+               (unless no-error
+                 (error "Cannot convert token to Lisp object: ~A" token)))))
+  (:method (syntax (token t) &optional no-error)
+    (declare (ignore no-error))
+    ;; We ignore `no-error' as it is truly a bug in Climacs if no
+    ;; handler method is specialized on this form.
+    (error "Cannot convert token to Lisp object: ~A"
+            token))
+  (:method (syntax (token incomplete-form-mixin) &optional no-error)
+    (unless no-error
+      (error "Cannot convert incomplete form to Lisp object: ~A"
+             token))))
+
+(defmethod token-to-object (syntax (token complete-token-lexeme) &optional no-error)
+  (declare (ignore no-error))
+  (parse-symbol (token-string syntax token)))
+
+(defmethod token-to-object (syntax (token number-lexeme) &optional no-error)
+  (declare (ignore no-error))
+  (let ((*read-base* (base syntax)))
+    (read-from-string (token-string syntax token))))
+
+(defmethod token-to-object (syntax (token list-form) &optional no-error)
+  (declare (ignore no-error))
+  (mapcar #'(lambda (form)
+              (token-to-object syntax form))
+          (remove-if-not #'(lambda (form)
+                             (typep form 'form))
+                         (children token))))
+
+(defmethod token-to-object (syntax (token simple-vector-form) &optional no-error)
+  (declare (ignore no-error))
+  (apply #'vector
+         (mapcar #'(lambda (form)
+                     (token-to-object syntax form))
+                 (remove-if-not #'(lambda (form)
+                                    (typep form 'form))
+                                (children token)))))
+
+(defmethod token-to-object (syntax (token incomplete-string-form) &optional no-error)
+  (declare (ignore no-error))
+  (read-from-string (concatenate 'string
+                                 (token-string syntax token)
+                                 "\"")))
+
+(defmethod token-to-object (syntax (token complete-string-form) &optional no-error)
+  (declare (ignore no-error))
+  (read-from-string (token-string syntax token)))
+
+(defmethod token-to-object (syntax (token quote-form) &optional no-error)
+  (list 'cl:quote
+        (token-to-object syntax (second (children token)) no-error)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
