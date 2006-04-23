@@ -380,7 +380,7 @@
 	(#\| (fo) (make-instance 'multiple-escape-start-lexeme))
 	(t (cond ((or (constituentp object)
 		      (eql object #\\))
-		  (lex-token scan))
+		  (lex-token syntax scan))
 		 (t (fo) (make-instance 'error-lexeme))))))))
 
 (defmethod lex ((syntax lisp-syntax) (state lexer-list-state) scan)
@@ -446,25 +446,54 @@
 	   (make-instance 'word-lexeme))
 	  (t (fo) (make-instance 'delimiter-lexeme)))))
 
-(defun lex-token (scan)
-  (macrolet ((fo () `(forward-object scan)))
-    (tagbody
-       start
-       (when (end-of-buffer-p scan)
-	 (return-from lex-token (make-instance 'complete-token-lexeme)))
-       (when (constituentp (object-after scan))
-	 (fo)
-	 (go start))
-       (when (eql (object-after scan) #\\)
-	 (fo)
-	 (when (end-of-buffer-p scan)
-	   (return-from lex-token (make-instance 'incomplete-lexeme)))
-	 (fo)
-	 (go start))
-       (when (eql (object-after scan) #\|)
-	 (fo)
-	 (return-from lex-token (make-instance 'multiple-escape-start-lexeme)))
-       (return-from lex-token (make-instance 'complete-token-lexeme)))))
+(defun lex-token (syntax scan)
+  ;; May need more work. Can recognize symbols and numbers.
+  (flet ((fo () (forward-object scan)))
+    (let ((could-be-number t)
+          sign-seen dot-seen slash-seen)
+      (flet ((return-token-or-number-lexeme ()
+               (return-from lex-token
+                 (if could-be-number
+                     (make-instance 'number-lexeme)
+                     (make-instance 'complete-token-lexeme))))
+             (this-object ()
+               (object-after scan)))
+        (tagbody
+         START
+           (when (end-of-buffer-p scan)
+             (return-token-or-number-lexeme))
+           (when (constituentp (object-after scan))
+             (cond ((or (eql (this-object) #\+)
+                        (eql (this-object) #\-))
+                    (when sign-seen
+                      (setf could-be-number nil))
+                    (setf sign-seen t))
+                   ((eql (this-object) #\.)
+                    (when dot-seen
+                      (setf could-be-number nil))
+                    (setf dot-seen t))
+                   ((eql (this-object) #\/)
+                    (when slash-seen
+                      (setf could-be-number nil))
+                    (setf slash-seen t))
+                   ;; We obey the base specified in the file when
+                   ;; determining whether or not this character is an
+                   ;; integer.
+                   ((not (digit-char-p (this-object)
+                                       (base syntax)))
+                    (setf could-be-number nil)))
+             (fo)
+             (go START))
+           (when (eql (object-after scan) #\\)
+             (fo)
+             (when (end-of-buffer-p scan)
+               (return-from lex-token (make-instance 'incomplete-lexeme)))
+             (fo)
+             (go START))
+           (when (eql (object-after scan) #\|)
+             (fo)
+             (return-from lex-token (make-instance 'multiple-escape-start-lexeme)))
+           (return-token-or-number-lexeme))))))
 
 (defmethod lex ((syntax lisp-syntax) (state lexer-escaped-token-state) scan)
   (let ((bars-seen 0))
@@ -1106,40 +1135,41 @@
 			  'cl:in-package))))))
       (with-slots (stack-top) syntax
 	(let ((form (find-if #'test (children stack-top))))
-	  (when form
-	    (let ((package-form (second-form (children form))))
-	      (when package-form 
-		(let ((package-name
-		       (typecase package-form
-			 (token-mixin
-			  (coerce (buffer-sequence
-				   buffer
-				   (start-offset package-form)
-				   (end-offset package-form))
-				  'string))
-			 (complete-string-form
-			  (coerce (buffer-sequence
-				   buffer
-				   (1+ (start-offset package-form))
-				   (1- (end-offset package-form)))
-				  'string))
-			 (quote-form 
-			  (coerce (buffer-sequence
-				   buffer
-				   (start-offset (second-noncomment (children package-form)))
-				   (end-offset (second-noncomment (children package-form))))
-				  'string))
-			 (uninterned-symbol-form
-			  (coerce (buffer-sequence
-				   buffer
-				   (start-offset (second-noncomment (children package-form)))
-				   (end-offset (second-noncomment (children package-form))))
-				  'string))
-			 (t 'nil))))
-		  (when package-name
-		    (let ((package-symbol (parse-token package-name)))
-		      (or (find-package package-symbol)
-			  package-symbol))))))))))))
+	  (or (when form
+                (let ((package-form (second-form (children form))))
+                  (when package-form 
+                    (let ((package-name
+                           (typecase package-form
+                             (token-mixin
+                              (coerce (buffer-sequence
+                                       buffer
+                                       (start-offset package-form)
+                                       (end-offset package-form))
+                                      'string))
+                             (complete-string-form
+                              (coerce (buffer-sequence
+                                       buffer
+                                       (1+ (start-offset package-form))
+                                       (1- (end-offset package-form)))
+                                      'string))
+                             (quote-form 
+                              (coerce (buffer-sequence
+                                       buffer
+                                       (start-offset (second-noncomment (children package-form)))
+                                       (end-offset (second-noncomment (children package-form))))
+                                      'string))
+                             (uninterned-symbol-form
+                              (coerce (buffer-sequence
+                                       buffer
+                                       (start-offset (second-noncomment (children package-form)))
+                                       (end-offset (second-noncomment (children package-form))))
+                                      'string))
+                             (t 'nil))))
+                      (when package-name
+                        (let ((package-symbol (parse-token package-name)))
+                          (or (find-package package-symbol)
+                              package-symbol)))))))
+              (option-specified-package syntax)))))))
 
 (defmethod update-syntax (buffer (syntax lisp-syntax))
   (let* ((low-mark (low-mark buffer))
