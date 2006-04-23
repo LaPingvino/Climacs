@@ -1547,25 +1547,26 @@ stripping leading non-forms."
 
 (defun form-before-in-children (children offset)
   (loop for (first . rest) on children
-	unless (typep first 'comment)
-	do (cond ((< (start-offset first) offset (end-offset first))
-		  (return (if (null (children first))
-			      nil
-			      (form-before-in-children (children first) offset))))
-		 ((and (>= offset (end-offset first))
-		       (or (null rest)
-			   ;; `first-noncomment' may return NIL if there are nothing but 
-			   ;; comments left; in that case, just take a comment 
-			   ;; with `first'.
-			   (<= offset (start-offset (or (first-noncomment rest)
-							(first rest))))))
-		  (return (let ((potential-form
-				 (when (typep first 'list-form)
-				   (form-before-in-children (children first) offset))))
-			    (or potential-form
-				(when (typep first 'form)
-				  first)))))
-		 (t nil))))
+     if (typep first 'form)
+     do
+       (cond ((< (start-offset first) offset (end-offset first))
+              (return (if (null (children first))
+                          nil
+                          (form-before-in-children (children first) offset))))
+             ((and (>= offset (end-offset first))
+                   (or (null (first-form rest))
+                       (<= offset (start-offset (first-form rest)))))
+              (return (let ((potential-form
+                             (when (typep first 'list-form)
+                               (form-before-in-children (children first) offset))))
+                        (if (not (null potential-form))
+                            (if (<= (end-offset first)
+                                    (end-offset potential-form))
+                                potential-form
+                                first)
+                            (when (typep first 'form)
+                              first)))))
+             (t nil))))
 		 
 (defun form-before (syntax offset)
   (with-slots (stack-top) syntax
@@ -1576,17 +1577,21 @@ stripping leading non-forms."
 
 (defun form-after-in-children (children offset)
   (loop for child in children
-	unless (typep child 'comment)
-	  do (cond ((< (start-offset child) offset (end-offset child))
-		    (return (if (null (children child))
-				nil
-				(form-after-in-children (children child) offset))))
-		   ((<= offset (start-offset child))
-		    (return (let ((potential-form (form-after-in-children (children child) offset)))
-			      (or potential-form
-				  (when (typep child 'form)
-				    child)))))
-		   (t nil))))
+     if (typep child 'form)
+     do (cond ((< (start-offset child) offset (end-offset child))
+               (return (if (null (children child))
+                           nil
+                           (form-after-in-children (children child) offset))))
+              ((<= offset (start-offset child))
+               (return (let ((potential-form (form-after-in-children (children child) offset)))
+                         (if (not (null potential-form))
+                             (if (<= (start-offset child)
+                                     (start-offset potential-form))
+                                 child
+                                 potential-form)
+                             (when (typep child 'form)
+                               child)))))
+              (t nil))))
 		 
 (defun form-after (syntax offset)
   (with-slots (stack-top) syntax
@@ -1597,13 +1602,15 @@ stripping leading non-forms."
 	     
 (defun form-around-in-children (children offset)
   (loop for child in children
-	unless (typep child 'comment)
-	do (cond ((< (start-offset child) offset (end-offset child))
-		  (return (if (null (children child))
+	if (typep child 'form)
+	do (cond ((<= (start-offset child) offset (end-offset child))
+		  (return (if (null (first-form (children child)))
 			      (when (typep child 'form)
 				child)
-			      (form-around-in-children (children child) offset))))
-		 ((<= offset (start-offset child))
+			      (or (form-around-in-children (children child) offset)
+                                  (when (typep child 'form)
+                                    child)))))
+		 ((< offset (start-offset child))
 		  (return nil))
 		 (t nil))))
 
