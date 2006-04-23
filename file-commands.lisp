@@ -212,6 +212,10 @@
 	       (switch-to-buffer existing-buffer)
 	       (let ((buffer (make-buffer))
 		     (pane (current-window)))
+                 ;; Clear the pane, otherwise residue from the
+                 ;; previously displayed buffer may under certain
+                 ;; circumstances be displayed.
+                 (window-clear pane)
                  (setf (syntax buffer) nil)
 		 (setf (offset (point (buffer pane))) (offset (point pane)))
 		 (setf (buffer (current-window)) buffer)
