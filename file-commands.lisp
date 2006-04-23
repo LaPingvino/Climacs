@@ -129,6 +129,67 @@
 	     :key #'climacs-syntax::syntax-description-pathname-types))
       'basic-syntax))
 
+(defun parse-local-options-line (line)
+  "Parse the local options line `line' and return an alist
+  mapping options to values. All option names will be coerced to
+  uppercase. `Line' must be stripped of the leading and
+  terminating -*- tokens."
+  (loop for pair in (split-sequence:split-sequence #\; line)
+     when (find #\: pair)
+     collect (destructuring-bind (key value)
+                 (loop for elem in (split-sequence:split-sequence #\: pair)
+                    collecting (string-trim " " elem))
+               (list (string-upcase key) value))))
+
+(defun evaluate-local-options (buffer options)
+  "Evaluate the local options `options' and modify `buffer' as
+  appropriate. `Options' should be an alist mapping option names
+  to their values."
+  ;; First, check whether we need to change the syntax (via the SYNTAX
+  ;; option). MODE is an alias for SYNTAX for compatibility with
+  ;; Emacs. If there is more than one option with one of these names,
+  ;; only the first will be acted upon.
+  (let ((specified-syntax
+         (syntax-from-name
+          (second (find-if #'(lambda (name)
+                               (or (string= name "SYNTAX")
+                                   (string= name "MODE")))
+                           options
+                           :key #'first)))))
+    (when specified-syntax
+      (setf (syntax buffer)
+            (make-instance specified-syntax
+                           :buffer buffer))))
+  ;; Now we iterate through the options (discarding SYNTAX and MODE
+  ;; options).
+  (loop for (name value) in options
+     unless (or (string= name "SYNTAX")
+                (string= name "MODE"))
+     do (eval-option (syntax buffer) name value)))
+
+(defun evaluate-local-options-line (buffer)
+  "Evaluate the local options line of `buffer'. If `buffer' does
+  not have a local options line, this function is a no-op."
+  ;; This could be simplified a bit by using regexps.
+  (let* ((beginning-mark (beginning-of-buffer
+                          (clone-mark (point buffer))))
+         (end-mark (end-of-line (clone-mark beginning-mark)))
+         (line (buffer-sequence buffer (offset beginning-mark) (offset end-mark)))
+         (first-occurence (search "-*-" line))
+         (second-occurence
+          (when first-occurence
+            (search "-*-" line :start2 (1+ first-occurence)))))
+    (when (and first-occurence
+               second-occurence)
+      ;; Strip away the -*-s.
+      (let ((cleaned-options-line (coerce (subseq line
+                                                  (+ first-occurence 3)
+                                                  second-occurence)
+                                          'string)))
+        (evaluate-local-options
+         buffer
+         (parse-local-options-line cleaned-options-line))))))
+
 ;; Adapted from cl-fad/PCL
 (defun directory-pathname-p (pathspec)
   "Returns NIL if PATHSPEC does not designate a directory."
@@ -153,13 +214,19 @@
 		     (pane (current-window)))
 		 (setf (offset (point (buffer pane))) (offset (point pane)))
 		 (setf (buffer (current-window)) buffer)
-		 (setf (syntax buffer)
-		       (make-instance (syntax-class-name-for-filepath filepath)
-			  :buffer buffer))
 		 ;; Don't want to create the file if it doesn't exist.
 		 (when (probe-file filepath)
 		   (with-open-file (stream filepath :direction :input)
-		     (input-from-stream stream buffer 0)))
+		     (input-from-stream stream buffer 0))
+                   ;; A file! That means we may have a local options
+                   ;; line to parse.
+                   (evaluate-local-options-line buffer))
+                 ;; If the local options line didn't set a syntax, do
+                 ;; it now.
+                 (when (null (syntax buffer))
+                   (setf (syntax buffer)
+                         (make-instance (syntax-class-name-for-filepath filepath)
+                                        :buffer buffer)))
 		 (setf (filepath buffer) filepath
 		       (name buffer) (filepath-filename filepath)
 		       (needs-saving buffer) nil)

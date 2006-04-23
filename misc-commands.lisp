@@ -28,6 +28,13 @@
 
 (in-package :climacs-gui)
 
+(define-command (com-reload-local-options-line
+                 :name t
+                 :command-table buffer-table)
+    ()
+  "Reload the local options line."
+  (evaluate-local-options-line (current-buffer)))
+
 (define-command (com-overwrite-mode :name t :command-table editing-table) ()
   (with-slots (overwrite-mode) (current-window)
     (setf overwrite-mode (not overwrite-mode))))

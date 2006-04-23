@@ -42,10 +42,30 @@
    (current-start-mark)
    (current-size)
    (scan)
-   (package))
+   (package)
+   (base :accessor base
+         :initform 10
+         :documentation "The base which numbers in the buffer are
+         expected to be in.")
+   (option-specified-package :accessor option-specified-package
+                             :initform nil
+                             :documentation "The package
+                             specified in the local options
+                             line (may be overridden
+                             by (in-package) forms)."))
   (:name "Lisp")
   (:pathname-types "lisp" "lsp" "cl")
   (:command-table lisp-table))
+
+(define-option-for-syntax lisp-syntax "Package" (syntax package-name)
+  (let ((specified-package (find-package package-name)))
+    (when specified-package
+      (setf (option-specified-package syntax) specified-package))))
+
+(define-option-for-syntax lisp-syntax "Base" (syntax base)
+  (let ((integer-base (parse-integer base :junk-allowed t)))
+    (when integer-base
+      (setf (base syntax) integer-base))))
 
 (defmethod initialize-instance :after ((syntax lisp-syntax) &rest args)
   (declare (ignore args))

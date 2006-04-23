@@ -28,7 +28,7 @@
 (defparameter *climacs-directory* (directory-namestring *load-truename*))
 
 (defsystem :climacs
-  :depends-on (:mcclim :flexichain :esa)
+  :depends-on (:mcclim :flexichain :esa :split-sequence)
   :components
   ((:module "cl-automaton"
 	    :components ((:file "automaton-package")

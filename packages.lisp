@@ -94,6 +94,8 @@
 (defpackage :climacs-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
   (:export #:syntax #:define-syntax
+           #:eval-option
+           #:define-option-for-syntax
 	   #:syntax-from-name
 	   #:basic-syntax
 	   #:update-syntax #:update-syntax-for-display

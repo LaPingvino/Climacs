@@ -208,6 +208,38 @@ in the specific syntax.")
 	(:default-initargs :command-table ',command-table ,@default-initargs)
 	,@defclass-options))))
 
+(defgeneric eval-option (syntax name value)
+  (:documentation "Evaluate the option `name' with the specified
+  `value' for `syntax'.")
+  (:method (syntax name value)
+    ;; We do not want to error out if an invalid option is
+    ;; specified. Signal a condition? For now, silently ignore.
+    (declare (ignore syntax name value))))
+
+(defmethod eval-option :around (syntax (name string) value)
+  ;; Convert the name to a keyword symbol...
+  (eval-option syntax (intern name (find-package :keyword))
+               value))
+
+(defmacro define-option-for-syntax
+    (syntax option-name (syntax-symbol value-symbol) &body body)
+  "Define an option for the syntax specified by the symbol
+  `syntax'. `Option-name' should be a string that will be the
+  name of the option. The name will automatically be converted to
+  uppercase. When the option is being evaluated, `body' will be
+  run, with `syntax-symbol' bound to the syntax object the option
+  is being evaluated for, and `value-symbol' bound to the value
+  of the option."
+  ;; The name is converted to a keyword symbol which is used for all
+  ;; further identification.
+  (let ((name-symbol (gensym))
+        (symbol (intern (string-upcase option-name)
+                        (find-package :keyword))))
+   `(defmethod eval-option ((,syntax-symbol ,syntax)
+                            (,name-symbol (eql ,symbol))
+                            ,value-symbol)
+      ,@body)))
+
 #+nil
 (defmacro define-syntax (class-name (name superclasses) &body body)
   `(progn (push '(,name . ,class-name) *syntaxes*)
