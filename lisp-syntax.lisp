@@ -1944,18 +1944,19 @@ it was not found in a package."
     (let ((package (cond ((string= package-name "") +keyword-package+)
                          (package-name              (find-package package-name))
                          (t                         package))))
-      (or (and package
-               (find-symbol symbol-name package))
-          (values (make-symbol symbol-name) nil)))))
+      (multiple-value-bind (symbol status)
+          (when package
+            (find-symbol symbol-name package))
+        (if symbol
+            (values symbol status)
+            (values (make-symbol symbol-name) nil))))))
 
 (defun token-to-symbol (syntax token)
   "Return the symbol `token' represents. If `token' represents
 anything else than a symbol, or it cannot be correctly converted
 to a symbol, return nil. If the symbol cannot be found in a
 package, an uninterned symbol will be returned."
-  (let ((result (token-to-object syntax token t)))
-    (when (symbolp result)
-      result)))
+  (token-to-object syntax token t))
 
 ;; FIXME? This generic function often errors on erroneous input. Since
 ;; we are an editor, we might consider being a bit more lenient. Also,
