@@ -286,6 +286,14 @@ is made to alter a buffer which has been set read only."))
   (:default-initargs
    :default-view +climacs-textual-view+))
 
+(defgeneric clear-cache (pane)
+  (:documentation "Clear the cache for `pane.'"))
+
+(defmethod clear-cache ((pane climacs-pane))
+  (with-slots (cache) pane
+    (setf cache (let ((cache (make-instance 'standard-flexichain)))
+                  (insert* cache 0 nil)
+                  cache))))
 
 (defmethod tab-width ((pane climacs-pane))
   (tab-width (stream-default-view pane)))

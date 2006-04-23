@@ -147,6 +147,7 @@
   (:export #:climacs-buffer #:needs-saving #:filepath
 	   #:read-only-p #:buffer-read-only
 	   #:climacs-pane #:point #:mark
+           #:clear-cache
 	   #:redisplay-pane #:full-redisplay
 	   #:display-cursor
 	   #:display-mark
