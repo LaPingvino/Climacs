@@ -1264,6 +1264,36 @@ stripping leading non-forms."
   "Returns the third formw in list."
   (nth-form 2 list))
 
+(defgeneric form-operator (form syntax)
+  (:documentation "Return the operator of `form' as a Lisp
+object. Returns nil if none can be found.")
+  (:method (form syntax) nil))
+
+(defmethod form-operator ((form list-form) syntax)
+  (let* ((operator-token (first-form (rest (children form))))
+         (operator-symbol (when operator-token
+                            (token-to-object syntax operator-token t))))
+    operator-symbol))
+
+(defgeneric form-operands (form syntax)
+  (:documentation "Returns the operands of `form' as a list of
+  Lisp objects. Returns nil if none can be found.")
+  (:method (form syntax) nil))
+
+(defmethod form-operands ((form list-form) syntax)
+  ;; If *anything' goes wrong, just assume that we could not find any
+  ;; operands and return nil.
+  (mapcar #'(lambda (operand)
+              (if (typep operand 'form)
+                  (token-to-object syntax operand t)))
+          (rest-forms (children form))))
+
+(defun form-toplevel (form syntax)
+  "Return the top-level form of `form'."
+  (if (null (parent (parent form)))
+      form
+      (form-toplevel (parent form) syntax)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; display
