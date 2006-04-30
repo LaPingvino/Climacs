@@ -552,7 +552,12 @@
                           line
                           tab-space-count
                           syntax)))
-        (indent-line line indentation tab-width)))))
+        (indent-line line indentation tab-width))
+      ;; We need to update the syntax every time we perform an
+      ;; indentation, so that subsequent indentations will be
+      ;; correctly indented (this matters in list forms). FIXME: This
+      ;; should probably happen automatically.
+      (update-syntax buffer syntax))))
 
 (define-command (com-indent-region :name t :command-table indent-table) ()
   "Indent every line of the current region as specified by the

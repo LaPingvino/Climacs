@@ -50,12 +50,13 @@ The body is executed for each element, with object being the current object
   (let ((mark-sym (gensym))
         (mark2-sym (gensym)))
     `(progn
-       (when (mark< ,mark2 ,mark1)
-         (rotatef ,mark1 ,mark2))
-       (let ((,mark-sym (clone-mark ,mark1))
-             (,mark2-sym (clone-mark ,mark2)))
-         (loop while (mark<= ,mark-sym ,mark2-sym)
-            do
+       (let* ((,mark-sym (clone-mark ,mark1))
+              (,mark2-sym (clone-mark ,mark2)))
+         (when (mark< ,mark2-sym ,mark-sym)
+           (rotatef ,mark-sym ,mark2-sym))
+         (loop while (and (mark<= ,mark-sym ,mark2-sym)
+                          (not (end-of-buffer-p ,mark-sym)))
+            do              
             (let ((,line-var (clone-mark ,mark-sym)))
               ,@body)
             (end-of-line ,mark-sym)
