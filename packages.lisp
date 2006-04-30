@@ -40,6 +40,7 @@
 	   #:buffer-line-number #:buffer-column-number
 	   #:line-number #:column-number
 	   #:insert-buffer-object #:insert-buffer-sequence
+           #:buffer-substring
 	   #:insert-object #:insert-sequence
 	   #:delete-buffer-range #:delete-range
 	   #:delete-region

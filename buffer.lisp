@@ -562,7 +562,12 @@ offset1, an empty sequence will be returned."))
 	    for i upfrom 0
 	    do (setf (aref result i) (buffer-object buffer offset))
 	    finally (return result))
-      (make-array 0)))  
+      (make-array 0)))
+
+(defun buffer-substring (buffer start end)
+  "Return a string of the contents of buffer from `start' to
+`end', which must be offsets."
+  (coerce (buffer-sequence buffer start end) 'string))
 
 (defgeneric object-before (mark)
   (:documentation "Return the object that is immediately before the mark.  If mark is at
