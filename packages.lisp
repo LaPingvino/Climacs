@@ -174,6 +174,7 @@
   ;;(:import-from :lisp-string)
   (:export :climacs ; Main entry point.
            ;; GUI functions follow.
+           :climacs-rv ; Entry point with alternate colors.
            :current-window
            :point
            :syntax

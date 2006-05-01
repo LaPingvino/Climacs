@@ -203,23 +203,17 @@
   "Starts up a climacs session"
   ;; SBCL doesn't inherit dynamic bindings when starting new
   ;; processes, so start a new processes and THEN setup the colors.
-  (if new-process
-      (clim-sys:make-process (lambda ()
-			       (let ((*bg-color* +black+)
-				     (*fg-color* +white+)
-				     (*info-bg-color* +blue+)
-				     (*info-fg-color* +yellow+)
-				     (*mini-bg-color* +black+)
-				     (*mini-fg-color* +white+))
-				 (climacs :new-process nil :width width :height height)))
-			     :name process-name)
-      (let ((*bg-color* +black+)
-	    (*fg-color* +white+)
-	    (*info-bg-color* +blue+)
-	    (*info-fg-color* +yellow+)
-	    (*mini-bg-color* +black+)
-	    (*mini-fg-color* +white+))
-	(climacs :new-process new-process :process-name process-name :width width :height height))))
+  (flet ((run ()
+           (let ((*bg-color* +black+)
+                 (*fg-color* +gray+)
+                 (*info-bg-color* +darkslategray+)
+                 (*info-fg-color* +gray+)
+                 (*mini-bg-color* +black+)
+                 (*mini-fg-color* +white+))
+             (climacs :new-process nil :width width :height height))))
+    (if new-process
+      (clim-sys:make-process #'run :name process-name)
+      (run))))
 
 (defun display-info (frame pane)
   (let* ((master-pane (master-pane pane))
