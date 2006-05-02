@@ -1131,7 +1131,7 @@
 	     (when (typep x 'complete-list-form)
 	       (let ((candidate (first-form (children x))))
 		 (and (typep candidate 'token-mixin)
-		      (eq (token-to-symbol syntax candidate)
+		      (eq (token-to-object syntax candidate)
 			  'cl:in-package))))))
       (with-slots (stack-top) syntax
 	(let ((form (find-if #'test (children stack-top))))
@@ -1285,7 +1285,7 @@ object. Returns nil if none can be found.")
   ;; operands and return nil.
   (mapcar #'(lambda (operand)
               (if (typep operand 'form)
-                  (token-to-object syntax operand t)))
+                  (token-to-object syntax operand :no-error t)))
           (rest-forms (children form))))
 
 (defun form-toplevel (form syntax)
@@ -1557,7 +1557,7 @@ returned."
 					 (start-offset conditional)
 					 (end-offset conditional))
 		  'string))
-	 (symbol (parse-symbol string +keyword-package+)))
+	 (symbol (parse-symbol string :package +keyword-package+)))
     (member symbol *features*)))
 
 (defmethod eval-feature-conditional ((conditional list-form) (syntax lisp-syntax))
@@ -1576,7 +1576,7 @@ returned."
 						     (start-offset type)
 						     (end-offset type))
 				    'string))
-	       (type-symbol (parse-symbol type-string +keyword-package+)))
+	       (type-symbol (parse-symbol type-string :package +keyword-package+)))
 	  (case type-symbol
 	    (:and (funcall #'every #'eval-fc conditionals))
 	    (:or (funcall #'some #'eval-fc conditionals))
@@ -1843,7 +1843,7 @@ symbol. Returns nil if none can be found.")
 (defmethod form-operator ((form list-form) syntax)
   (let* ((operator-token (first-noncomment (rest (children form))))
          (operator-symbol (when operator-token
-                            (token-to-symbol syntax operator-token))))
+                            (token-to-object syntax operator-token))))
     operator-symbol))
 
 ;;; shamelessly replacing SWANK code
@@ -1978,12 +1978,13 @@ and whether the symbol-name was separated from the package by a double colon."
                            (end-offset token))
           'string))
 
-(defun parse-symbol (string &optional (package *package*))
+(defun parse-symbol (string &key (package *package*) (case (readtable-case *readtable*)))
   "Find the symbol named STRING.
 Return the symbol and a flag indicating whether the symbol was
 found in the package. Note that a symbol may be returned even if
 it was not found in a package."
-  (multiple-value-bind (symbol-name package-name) (parse-token string)
+  (multiple-value-bind (symbol-name package-name)
+      (parse-token string case)
     (let ((package (cond ((string= package-name "") +keyword-package+)
                          (package-name              (find-package package-name))
                          (t                         package))))
@@ -1994,56 +1995,58 @@ it was not found in a package."
             (values symbol status)
             (values (make-symbol symbol-name) nil))))))
 
-(defun token-to-symbol (syntax token)
-  "Return the symbol `token' represents. If `token' represents
-anything else than a symbol, or it cannot be correctly converted
-to a symbol, return nil. If the symbol cannot be found in a
-package, an uninterned symbol will be returned."
-  (token-to-object syntax token t))
+(defun token-to-symbol (syntax token &optional (case (readtable-case *readtable*)))
+  "Return the symbol `token' represents. If the symbol cannot be
+found in a package, an uninterned symbol will be returned."
+  (token-to-object syntax token
+                   :case case
+                   :no-error t))
 
-;; FIXME? This generic function often errors on erroneous input. Since
-;; we are an editor, we might consider being a bit more lenient. Also,
-;; it will never intern symbols itself, but return NIL for uninterned
-;; symbols.
-(defgeneric token-to-object (syntax token &optional no-error)
+(defgeneric token-to-object (syntax token &key no-error &allow-other-keys)
   (:documentation "Return the Lisp object `token' would evaluate
   to if read. An attempt will be made to construct objects from
   incomplete tokens. This function may signal an error if
   `no-error' is nil and `token' cannot be converted to a Lisp
   object. Otherwise, nil will be returned.")
-  (:method :around (syntax token &optional no-error)
+  (:method :around (syntax token &key no-error package)
            ;; Ensure that every symbol that is READ will be looked up
            ;; in the correct package.
            (handler-case (let ((*package* (if (and (slot-boundp syntax 'package)
                                                    (slot-value syntax 'package)
                                                    (typep (slot-value syntax 'package) 'package))
                                               (slot-value syntax 'package)
-                                              (find-package :common-lisp))))
+                                              (or (when package
+                                                    (if (packagep package)
+                                                        package
+                                                        (find-package package)))
+                                                  (find-package :common-lisp)))))
                            (call-next-method))
              (t ()
                (unless no-error
                  (error "Cannot convert token to Lisp object: ~A" token)))))
-  (:method (syntax (token t) &optional no-error)
+  (:method (syntax (token t) &key no-error)
     (declare (ignore no-error))
     ;; We ignore `no-error' as it is truly a bug in Climacs if no
     ;; handler method is specialized on this form.
     (error "Cannot convert token to Lisp object: ~A"
             token))
-  (:method (syntax (token incomplete-form-mixin) &optional no-error)
+  (:method (syntax (token incomplete-form-mixin) &key no-error)
     (unless no-error
       (error "Cannot convert incomplete form to Lisp object: ~A"
              token))))
 
-(defmethod token-to-object (syntax (token complete-token-lexeme) &optional no-error)
+(defmethod token-to-object (syntax (token complete-token-lexeme)
+                            &key no-error
+                            (case (readtable-case *readtable*)))
   (declare (ignore no-error))
-  (parse-symbol (token-string syntax token)))
+  (parse-symbol (token-string syntax token) :case case))
 
-(defmethod token-to-object (syntax (token number-lexeme) &optional no-error)
+(defmethod token-to-object (syntax (token number-lexeme) &key no-error)
   (declare (ignore no-error))
   (let ((*read-base* (base syntax)))
     (read-from-string (token-string syntax token))))
 
-(defmethod token-to-object (syntax (token list-form) &optional no-error)
+(defmethod token-to-object (syntax (token list-form) &key no-error)
   (declare (ignore no-error))
   (mapcar #'(lambda (form)
               (token-to-object syntax form))
@@ -2051,7 +2054,7 @@ package, an uninterned symbol will be returned."
                              (typep form 'form))
                          (children token))))
 
-(defmethod token-to-object (syntax (token simple-vector-form) &optional no-error)
+(defmethod token-to-object (syntax (token simple-vector-form) &key no-error)
   (declare (ignore no-error))
   (apply #'vector
          (mapcar #'(lambda (form)
@@ -2060,19 +2063,19 @@ package, an uninterned symbol will be returned."
                                     (typep form 'form))
                                 (children token)))))
 
-(defmethod token-to-object (syntax (token incomplete-string-form) &optional no-error)
+(defmethod token-to-object (syntax (token incomplete-string-form) &key no-error)
   (declare (ignore no-error))
   (read-from-string (concatenate 'string
                                  (token-string syntax token)
                                  "\"")))
 
-(defmethod token-to-object (syntax (token complete-string-form) &optional no-error)
+(defmethod token-to-object (syntax (token complete-string-form) &key no-error)
   (declare (ignore no-error))
   (read-from-string (token-string syntax token)))
 
-(defmethod token-to-object (syntax (token quote-form) &optional no-error)
+(defmethod token-to-object (syntax (token quote-form) &key no-error)
   (list 'cl:quote
-        (token-to-object syntax (second (children token)) no-error)))
+        (token-to-object syntax (second (children token)) :no-error no-error)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -2111,8 +2114,8 @@ package, an uninterned symbol will be returned."
       (values tree 1)
       (let ((first-child (elt-noncomment (children tree) 1)))
 	(cond ((and (typep first-child 'token-mixin)
-		    (token-to-symbol syntax first-child))
-	       (compute-list-indentation syntax (token-to-symbol syntax first-child) tree path))
+		    (token-to-object syntax first-child))
+	       (compute-list-indentation syntax (token-to-object syntax first-child) tree path))
 	      ((null (cdr path))
 	       ;; top level
 	       (if (= (car path) 2)
