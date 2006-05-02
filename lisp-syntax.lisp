@@ -2089,6 +2089,9 @@ found in a package, an uninterned symbol will be returned."
 	 (values (elt-noncomment (children tree) (1- (car path))) 0))
 	(t (indent-form syntax (elt-noncomment (children tree) (car path)) (cdr path)))))
 
+(defmethod indent-form ((syntax lisp-syntax) (tree string-form) path)
+  (values (form-toplevel tree syntax) 0))
+
 ;; FIXME: The next two methods are basically identical to the above definition, 
 ;; something should be done about this duplication.
 
