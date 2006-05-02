@@ -1307,6 +1307,27 @@ object. Returns nil if none can be found.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; Useful functions for selecting forms based on the mark.
+
+(defun expression-at-mark (mark syntax)
+  "Return the form at `mark'. If `mark' is just after,
+or inside, a top-level-form, or if there are no forms after
+`mark', the form preceding `mark' is returned. Otherwise, the
+form following `mark' is returned."
+  (or (form-around syntax (offset mark))
+      (form-after syntax (offset mark))
+      (form-before syntax (offset mark))))
+
+(defun definition-at-mark (mark syntax)
+  "Return the top-level form at `mark'. If `mark' is just after,
+or inside, a top-level-form, or if there are no forms after
+`mark', the top-level-form preceding `mark' is
+returned. Otherwise, the top-level-form following `mark' is
+returned."
+  (form-toplevel (expression-at-mark mark syntax) syntax))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; display
 
 (defvar *white-space-start* nil)
