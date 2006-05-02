@@ -1272,7 +1272,7 @@ object. Returns nil if none can be found.")
 (defmethod form-operator ((form list-form) syntax)
   (let* ((operator-token (first-form (rest (children form))))
          (operator-symbol (when operator-token
-                            (token-to-object syntax operator-token t))))
+                            (token-to-object syntax operator-token :no-error t))))
     operator-symbol))
 
 (defgeneric form-operands (form syntax)
