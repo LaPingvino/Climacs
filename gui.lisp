@@ -478,3 +478,49 @@
 (set-key 'com-kill-buffer
 	 'pane-table
 	 '((#\x :control) (#\k)))
+
+;;; Commands for calling the ESA help functions.
+
+(define-command (com-describe-binding :name t :command-table help-table)
+    ()
+  "Display documentation for the command invoked by a giving gesture sequence. 
+When invoked, this command will wait for user input. If the user inputs a gesture 
+sequence bound to a command available in the syntax of the current buffer,
+documentation and other details will be displayed in a typeout pane."
+  (let ((command-table (esa:find-applicable-command-table *application-frame*)))
+    (multiple-value-bind (command gestures)
+        (esa::read-gestures-for-help command-table)
+      (let ((gesture-name (format nil "~{~A~#[~; ~; ~]~}"
+                                  (mapcar #'esa:gesture-name gestures))))
+        (if command
+            (let ((out-stream (typeout-window (format nil "~10THelp: Describe Binding for ~A" gesture-name))))
+              (describe-command-binding-to-stream gesture-name command
+                                                  :command-table command-table
+                                                  :stream out-stream))
+            (display-message "Unbound gesture: ~A" gesture-name))))))
+
+(define-command (com-describe-command :name t :command-table help-table)
+    ((command 'command-name))
+  "Display documentation for the given command."
+  (unless command
+    (setf command (accept 'command-name)))
+  (let ((command-table (esa::find-applicable-command-table *application-frame*))
+        (out-stream (typeout-window (format nil "~10THelp: Describe Command for ~A" command))))
+    (describe-command-to-stream command
+                                :command-table command-table
+                                :stream out-stream)))
+
+(set-key 'com-describe-binding
+         'help-table
+         '((#\h :control) (#\k)))
+
+(set-key '(com-describe-command nil)
+         'help-table
+         '((#\h :control) (#\f)))
+
+(define-presentation-to-command-translator describe-command
+    (command-name com-describe-command help-table
+                  :gesture :select
+                  :documentation "Describe command")
+    (object)
+    (list object))
