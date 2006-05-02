@@ -786,7 +786,10 @@ syntax for the buffer."
 (define-command (com-set-syntax :name t :command-table buffer-table) ()
   (let* ((pane (current-window))
 	 (buffer (buffer pane)))
-    (set-syntax buffer (accept 'syntax :prompt "Set Syntax"))))		
+    (handler-case (set-syntax buffer (accept 'syntax :prompt "Set Syntax"))
+                  (input-not-of-required-type 
+                   (message)
+                   (display-message "Invalid syntax: ~A." message)))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
