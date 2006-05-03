@@ -210,6 +210,7 @@
 (defclass comma-at-lexeme (lisp-lexeme) ())
 (defclass comma-dot-lexeme (lisp-lexeme) ())
 (defclass form-lexeme (form lisp-lexeme) ())
+(defclass incomplete-character-lexeme (form-lexeme incomplete-form-mixin) ())
 (defclass character-lexeme (form-lexeme) ())
 (defclass function-lexeme (lisp-lexeme) ())
 (defclass line-comment-start-lexeme (lisp-lexeme) ())
@@ -301,7 +302,7 @@
 			   (make-instance 'error-lexeme))
 			  (#\\ (fo)
 			       (cond ((end-of-buffer-p scan)
-				      (make-instance 'incomplete-lexeme))
+				      (make-instance 'incomplete-character-lexeme))
 				     ((not (constituentp (object-after scan)))
 				      (fo) (make-instance 'character-lexeme))
 				     (t (loop until (end-of-buffer-p scan)
@@ -1834,17 +1835,6 @@ returned."
 
 (defun in-comment-p (mark syntax)
   (in-type-p mark syntax 'comment))
-
-(defgeneric form-operator (form syntax)
-  (:documentation "Return the operator of `form' as a
-symbol. Returns nil if none can be found.")
-  (:method (form syntax) nil))
-
-(defmethod form-operator ((form list-form) syntax)
-  (let* ((operator-token (first-noncomment (rest (children form))))
-         (operator-symbol (when operator-token
-                            (token-to-object syntax operator-token))))
-    operator-symbol))
 
 ;;; shamelessly replacing SWANK code
 ;; We first work through the string removing the characters and noting
