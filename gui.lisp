@@ -314,6 +314,8 @@
    (find-command-table 'global-climacs-table)))
 
 (define-command (com-full-redisplay :name t :command-table base-table) ()
+  "Redisplay the contents of the current window.
+FIXME: does this really have that effect?"
   (full-redisplay (current-window)))
 
 (set-key 'com-full-redisplay
@@ -332,6 +334,8 @@
 		(beep))))))
 
 (define-command (com-load-file :name t :command-table base-table) ()
+  "Prompt for a filename and CL:LOAD that file.
+Signals and error if the file does not exist."
   (let ((filepath (accept 'pathname :prompt "Load File")))
     (load-file filepath)))
 
@@ -429,6 +433,8 @@
 ;;   (note-pane-syntax-changed pane (syntax buffer)))
 
 (define-command (com-switch-to-buffer :name t :command-table pane-table) ()
+  "Prompt for a buffer name and switch to that buffer.
+If the a buffer with that name does not exist, create it. Uses the name of the next buffer (if any) as a default."
   (let* ((default (second (buffers *application-frame*)))
 	 (buffer (if default
 		     (accept 'buffer
@@ -469,6 +475,8 @@
   (kill-buffer (buffer (current-window))))
 
 (define-command (com-kill-buffer :name t :command-table pane-table) ()
+  "Prompt for a buffer name and kill that buffer.
+If the buffer needs saving, will prompt you to do so before killing it. Uses the current buffer as a default."
   (let ((buffer (accept 'buffer
 			:prompt "Kill buffer"
 			:default (buffer (current-window))
