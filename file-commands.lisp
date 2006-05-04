@@ -251,6 +251,8 @@
 	(user-homedir-pathname)))))
 
 (define-command (com-find-file :name t :command-table buffer-table) ()
+  "Prompt for a filename then edit that file.
+If a buffer is already visiting that file, switch to that buffer. Does not create a file if the filename given does not name an existing file."
   (let* ((filepath (accept 'pathname :prompt "Find File"
 			   :default (directory-of-buffer (buffer (current-window)))
 			   :default-type 'pathname
@@ -298,6 +300,8 @@
 		     nil)))))))
 
 (define-command (com-find-file-read-only :name t :command-table buffer-table) ()
+  "Prompt for a filename then open that file readonly.
+If a buffer is already visiting that file, switch to that buffer. If the filename given does not name an existing file, signal an error."
   (let ((filepath (accept 'pathname :Prompt "Find file read only"
 			  :default (directory-of-buffer (buffer (current-window)))
 			  :default-type 'pathname
@@ -309,6 +313,8 @@
 	 '((#\x :control) (#\r :control)))
 
 (define-command (com-read-only :name t :command-table buffer-table) ()
+  "Toggle the readonly status of the current buffer.
+When a buffer is readonly, attempts to change the contents of the buffer signal an error."
   (let ((buffer (buffer (current-window))))
     (setf (read-only-p buffer) (not (read-only-p buffer)))))
 
@@ -322,6 +328,8 @@
 	(needs-saving buffer) t))
 
 (define-command (com-set-visited-file-name :name t :command-table buffer-table) ()
+  "Prompt for a new filename for the current buffer.
+The next time the buffer is saved it will be saved to a file with that filename."
   (let ((filename (accept 'pathname :prompt "New file name"
 			  :default (directory-of-buffer (buffer (current-window)))
 			  :default-type 'pathname
@@ -329,6 +337,8 @@
     (set-visited-file-name filename (buffer (current-window)))))
 
 (define-command (com-insert-file :name t :command-table buffer-table) ()
+  "Prompt for a filename and insert its contents at point.
+Leaves mark after the inserted contents."
   (let ((filename (accept 'pathname :prompt "Insert File"
 			  :default (directory-of-buffer (buffer (current-window)))
 			  :default-type 'pathname
@@ -349,6 +359,8 @@
 	 '((#\x :control) (#\i :control)))
 
 (define-command (com-revert-buffer :name t :command-table buffer-table) ()
+  "Replace the contents of the current buffer with the visited file.
+Signals an error if the file does not exist."
   (let* ((pane (current-window))
 	 (buffer (buffer pane))
 	 (filepath (filepath buffer))
@@ -389,6 +401,8 @@
        (setf (needs-saving buffer) nil)))))
 
 (define-command (com-save-buffer :name t :command-table buffer-table) ()
+  "Write the contents of the buffer to a file.
+If there is filename associated with the buffer, write to that file, replacing its contents. If not, prompt for a filename."
   (let ((buffer (buffer (current-window))))
     (if (or (null (filepath buffer))
 	    (needs-saving buffer))
@@ -418,6 +432,8 @@
     (call-next-method)))
 
 (define-command (com-write-buffer :name t :command-table buffer-table) ()
+  "Prompt for a filename and write the current buffer to it.
+Changes the file visted by the buffer to the given file."
   (let ((filepath (accept 'pathname :prompt "Write Buffer to File"
 			  :default (directory-of-buffer (buffer (current-window)))
 			  :default-type 'pathname
