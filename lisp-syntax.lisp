@@ -1590,7 +1590,7 @@ returned."
   (let ((*current-faces* *standard-faces*))
     (with-slots (stack-top) syntax
       (display-parse-tree stack-top syntax pane)))
-  (when (mark-visible-p pane) (display-mark pane syntax))
+  (when (region-visible-p pane) (display-region pane syntax))
   (display-cursor pane syntax current-p))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

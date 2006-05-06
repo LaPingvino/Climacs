@@ -1538,7 +1538,6 @@ Successive invocations extend the selection."
 	 'marking-table
 	 '((#\h :control :meta)))
 
-(define-command (com-visible-mark :name t :command-table marking-table) ()
-  "Toggle the visibility of the mark in the current pane.
-This is particularly (only?) useful for experimenting with marking commands."
-  (setf (mark-visible-p (current-window)) (not (mark-visible-p (current-window)))))
+(define-command (com-visible-region :name t :command-table marking-table) ()
+  "Toggle the visibility of the region in the current pane."
+  (setf (region-visible-p (current-window)) (not (region-visible-p (current-window)))))

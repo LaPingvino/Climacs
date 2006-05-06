@@ -152,7 +152,7 @@
            #:clear-cache
 	   #:redisplay-pane #:full-redisplay
 	   #:display-cursor
-	   #:display-mark
+	   #:display-region
 	   #:page-down #:page-up
 	   #:top #:bot
            #:tab-space-count #:space-width #:tab-width
@@ -163,7 +163,7 @@
            #:isearch-mode #:isearch-states #:isearch-previous-string
            #:query-replace-state #:string1 #:string2
            #:query-replace-mode
-	   #:mark-visible-p
+	   #:region-visible-p
 	   #:with-undo
 	   #:url
 	   #:climacs-textual-view #:+climacs-textual-view+))

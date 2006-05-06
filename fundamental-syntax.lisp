@@ -185,7 +185,7 @@
 					     :cache-value line
 					     :cache-test #'eq)
 			(display-line pane (start-mark (element* lines i))))))))))
-  (when (mark-visible-p pane) (display-mark pane syntax))
+  (when (region-visible-p pane) (display-region pane syntax))
   (display-cursor pane syntax current-p))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -452,6 +452,6 @@
 		   do (let ((token (lexeme lexer start-token-index)))
 			(display-parse-tree token syntax pane))
 		     (incf start-token-index))))))))
-    (when (mark-visible-p pane) (display-mark pane syntax))
+    (when (region-visible-p pane) (display-region pane syntax))
     (display-cursor pane syntax current-p)))
 

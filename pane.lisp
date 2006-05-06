@@ -280,7 +280,7 @@ is made to alter a buffer which has been set read only."))
    (isearch-previous-string :initform nil :accessor isearch-previous-string)
    (query-replace-mode :initform nil :accessor query-replace-mode)
    (query-replace-state :initform nil :accessor query-replace-state)
-   (mark-visible-p :initform nil :accessor mark-visible-p)
+   (region-visible-p :initform nil :accessor region-visible-p)
    (full-redisplay-p :initform nil :accessor full-redisplay-p)
    (cache :initform (let ((cache (make-instance 'standard-flexichain)))
 		      (insert* cache 0 nil)
@@ -564,7 +564,7 @@ is made to alter a buffer which has been set read only."))
 
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax basic-syntax) current-p)
   (display-cache pane)
-  (when (mark-visible-p pane) (display-mark pane syntax))
+  (when (region-visible-p pane) (display-region pane syntax))
   (display-cursor pane syntax current-p))
 
 (defgeneric redisplay-pane (pane current-p))
@@ -589,43 +589,118 @@ is made to alter a buffer which has been set read only."))
 (defgeneric display-cursor (pane syntax current-p))
 
 (defmethod display-cursor ((pane climacs-pane) (syntax basic-syntax) current-p)
-  (with-slots (top) pane
-    (let* ((cursor-line (number-of-lines-in-region top (point pane)))
-	   (style (medium-text-style pane))
-	   (ascent (text-style-ascent style pane))
-	   (descent (text-style-descent style pane))
-	   (height (+ ascent descent))
-	   (cursor-y (+ (* cursor-line (+ height (stream-vertical-spacing pane)))))
-	   (cursor-column 
-	    (buffer-display-column
-	     (buffer (point pane)) (offset (point pane))
-	     (round (tab-width pane) (space-width pane))))
-	   (cursor-x (* cursor-column (text-style-width (medium-text-style pane) pane))))
+  (let ((point (point pane)))
+    (multiple-value-bind (cursor-x cursor-y line-height)
+	(offset-to-screen-position (offset point) pane)
       (updating-output (pane :unique-id -1)
 	(draw-rectangle* pane
 			 (1- cursor-x) cursor-y
-			 (+ cursor-x 2) (+ cursor-y ascent descent)
+			 (+ cursor-x 2) (+ cursor-y line-height)
 			 :ink (if current-p +red+ +blue+))))))
 
-(defgeneric display-mark (pane syntax))
+(defgeneric display-region (pane syntax))
 
-(defmethod display-mark ((pane climacs-pane) (syntax basic-syntax))
+(defmethod display-region ((pane climacs-pane) (syntax basic-syntax))
+  (multiple-value-bind (cursor-x cursor-y line-height)
+      (offset-to-screen-position (offset (point pane)) pane)
+    (multiple-value-bind (mark-x mark-y)
+	(offset-to-screen-position (offset (mark pane)) pane)
+      (cond
+	;; mark is above the top of the screen
+	((and (null mark-y) (null mark-x))
+	 (updating-output (pane :unique-id -3)
+	   (draw-rectangle* pane
+			    0 0
+			    (stream-text-margin pane) cursor-y
+			    :ink (compose-in +green+
+					     (make-opacity .1)))
+	   (draw-rectangle* pane
+			    0 cursor-y 
+			    cursor-x (+ cursor-y line-height)
+			    :ink (compose-in +green+
+					     (make-opacity .1)))))
+	;; mark is below the bottom of the screen
+	((and (null mark-y) mark-x)
+	 (updating-output (pane :unique-id -3)
+	   (draw-rectangle* pane
+			    0 (+ cursor-y line-height)
+			    (stream-text-margin pane) (bounding-rectangle-height
+						       (window-viewport pane))
+			    :ink (compose-in +green+
+					     (make-opacity .1)))
+	   (draw-rectangle* pane
+			    cursor-x cursor-y
+			    (stream-text-margin pane) (+ cursor-y line-height)
+			    :ink (compose-in +green+
+					     (make-opacity .1)))))
+	;; mark is at point
+	((and (= mark-x cursor-x) (= mark-y cursor-y))
+	 nil)
+	;; mark and point are on the same line
+	((= mark-y cursor-y)
+	 (updating-output (pane :unique-id -3)
+	   (draw-rectangle* pane
+			    mark-x mark-y
+			    cursor-x (+ cursor-y line-height)
+			    :ink (compose-in +green+
+					     (make-opacity .1)))))
+	;; mark and point are both visible, mark above point
+	((< mark-y cursor-y)
+	 (updating-output (pane :unique-id -3)
+	   (draw-rectangle* pane
+			    mark-x mark-y
+			    (stream-text-margin pane) (+ mark-y line-height)
+			    :ink (compose-in +green+
+					     (make-opacity .1)))
+	   (draw-rectangle* pane
+			    0 cursor-y
+			    cursor-x (+ cursor-y line-height)
+			    :ink (compose-in +green+
+					     (make-opacity .1)))
+	   (draw-rectangle* pane
+			    0 (+ mark-y line-height)
+			    (stream-text-margin pane) cursor-y
+			    :ink (compose-in +green+
+					     (make-opacity .1)))))
+	;; mark and point are both visible, point above mark
+	(t
+	 (updating-output (pane :unique-id -3)
+	   (draw-rectangle* pane
+			    cursor-x cursor-y
+			    (stream-text-margin pane) (+ cursor-y line-height)
+			    :ink (compose-in +green+
+					     (make-opacity .1)))
+	   (draw-rectangle* pane
+			    0 mark-y
+			    mark-x (+ mark-y line-height)
+			    :ink (compose-in +green+
+					     (make-opacity .1)))
+	   (draw-rectangle* pane
+			    0 (+ cursor-y line-height)
+			    (stream-text-margin pane) mark-y
+			    :ink (compose-in +green+
+					     (make-opacity .1)))))))))
+
+(defun offset-to-screen-position (offset pane)
+  "Returns the position of offset as a screen position.
+Returns X Y LINE-HEIGHT CHAR-WIDTH as values if offset is on the screen,
+NIL if offset is before the beginning of the screen,
+and T if offset is after the end of the screen."
   (with-slots (top bot) pane
-     (let ((mark (mark pane)))
-       (when (<= (offset top) (offset mark) (offset bot))
-	 (let* ((mark-line (number-of-lines-in-region top mark))
-		(style (medium-text-style pane))
-		(ascent (text-style-ascent style pane))
-		(descent (text-style-descent style pane))
-		(height (+ ascent descent))
-		(mark-y (+ (* mark-line (+ height (stream-vertical-spacing pane)))))
-		(mark-column 
-		 (buffer-display-column
-		  (buffer mark) (offset mark)
-		  (round (tab-width pane) (space-width pane))))
-		(mark-x (* mark-column (text-style-width (medium-text-style pane) pane))))
-	   (updating-output (pane :unique-id -2)
-	     (draw-rectangle* pane
-			      (1- mark-x) mark-y
-			      (+ mark-x 2) (+ mark-y ascent descent)
-			      :ink +green+)))))))
+     (cond
+       ((< offset (offset top)) nil)
+       ((< (offset bot) offset) t)
+       (t
+	(let* ((line (number-of-lines-in-region top offset))
+	       (style (medium-text-style pane))
+	       (style-width (text-style-width style pane))
+	       (ascent (text-style-ascent style pane))
+	       (descent (text-style-descent style pane))
+	       (height (+ ascent descent))
+	       (y (+ (* line (+ height (stream-vertical-spacing pane)))))
+	       (column 
+		(buffer-display-column
+		 (buffer pane) offset
+		 (round (tab-width pane) (space-width pane))))
+	       (x (* column style-width)))
+	  (values x y height style-width))))))
