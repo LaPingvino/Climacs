@@ -212,7 +212,7 @@
 	       (switch-to-buffer existing-buffer)
 	       (let ((buffer (make-buffer))
 		     (pane (current-window)))
-                 ;; Clear the panes cache; otherwise residue from the
+                 ;; Clear the pane's cache; otherwise residue from the
                  ;; previously displayed buffer may under certain
                  ;; circumstances be displayed.
                  (clear-cache pane)
@@ -223,6 +223,7 @@
 		 (when (probe-file filepath)
 		   (with-open-file (stream filepath :direction :input)
 		     (input-from-stream stream buffer 0))
+		   (setf (file-write-time buffer) (file-write-date filepath))
                    ;; A file! That means we may have a local options
                    ;; line to parse.
                    (evaluate-local-options-line buffer))
@@ -242,7 +243,7 @@
 
 (defun directory-of-buffer (buffer)
   "Extract the directory part of the filepath to the file in BUFFER.
-   If BUFFER does not have a filepath, the path to the users home 
+   If BUFFER does not have a filepath, the path to the user's home 
    directory will be returned."
   (make-pathname
    :directory
@@ -324,6 +325,8 @@ When a buffer is readonly, attempts to change the contents of the buffer signal 
 
 (defun set-visited-file-name (filename buffer)
   (setf (filepath buffer) filename
+	(file-saved-p buffer) nil
+	(file-write-time buffer) nil
 	(name buffer) (filepath-filename filename)
 	(needs-saving buffer) t))
 
@@ -371,14 +374,50 @@ Signals an error if the file does not exist."
 	   (display-message "~A is a directory name." filepath)
 	   (beep))
 	  ((probe-file filepath)
+	   (unless (check-file-times buffer filepath "Revert" "reverted")
+	     (return-from com-revert-buffer))
 	   (erase-buffer buffer)
 	   (with-open-file (stream filepath :direction :input)
 	     (input-from-stream stream buffer 0))
-	   (setf (offset (point pane))
-		 (min (size buffer) save)))
+	   (setf (offset (point pane)) (min (size buffer) save)
+		 (file-saved-p buffer) nil))
 	  (t
 	   (display-message "No file ~A" filepath)
 	   (beep))))))
+
+(defun extract-version-number (pathname)
+  "Extracts the emacs-style version-number from a pathname."
+  (let* ((type (pathname-type pathname))
+	 (length (length type)))
+    (when (and (> length 2) (char= (char type (1- length)) #\~))
+      (let ((tilde (position #\~ type :from-end t :end (- length 2))))
+	(when tilde
+	  (parse-integer type :start (1+ tilde) :junk-allowed t))))))
+
+(defun version-number (pathname)
+  "Return the number of the highest versioned backup of PATHNAME
+or 0 if there is no versioned backup. Looks for name.type~X~,
+returns highest X."
+  (let* ((wildpath (merge-pathnames (make-pathname :type :wild) pathname))
+	 (possibilities (directory wildpath)))
+    (loop for possibility in possibilities
+	  for version = (extract-version-number possibility) 
+	  if (numberp version)
+	    maximize version into max
+	  finally (return max))))
+
+(defun check-file-times (buffer filepath question answer)
+  "Return NIL if filepath newer than buffer and user doesn't want to overwrite"
+  (let ((f-w-d (file-write-date filepath))
+	(f-w-t (file-write-time buffer)))
+    (if (and f-w-d f-w-t (> f-w-d f-w-t))
+	(if (accept 'boolean
+		    :prompt (format nil "File has changed on disk. ~a anyway?"
+				    question))
+	    t
+	    (progn (display-message "~a not ~a" filepath answer)
+		   nil))
+	t)))
 
 (defun save-buffer (buffer)
   (let ((filepath (or (filepath buffer)
@@ -388,16 +427,22 @@ Signals an error if the file does not exist."
        (display-message "~A is a directory." filepath)
        (beep))
       (t
-       (when (probe-file filepath)
+       (unless (check-file-times buffer filepath "Overwrite" "written")
+	 (return-from save-buffer))
+       (when  (and (probe-file filepath) (not (file-saved-p buffer)))
 	 (let ((backup-name (pathname-name filepath))
-	       (backup-type (concatenate 'string (pathname-type filepath) "~")))
+	       (backup-type (format nil "~A~~~D~~"
+				    (pathname-type filepath)
+				    (1+ (version-number filepath)))))
 	   (rename-file filepath (make-pathname :name backup-name
-						:type backup-type))))
+						:type backup-type)))
+	 (setf (file-saved-p buffer) t))
        (with-open-file (stream filepath :direction :output :if-exists :supersede)
 	 (output-to-stream stream buffer 0 (size buffer)))
        (setf (filepath buffer) filepath
+	     (file-write-time buffer) (file-write-date filepath)
 	     (name buffer) (filepath-filename filepath))
-       (display-message "Wrote: ~a" (filepath buffer))
+       (display-message "Wrote: ~a" filepath)
        (setf (needs-saving buffer) nil)))))
 
 (define-command (com-save-buffer :name t :command-table buffer-table) ()

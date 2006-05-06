@@ -145,7 +145,8 @@
 (defpackage :climacs-pane
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
 	:climacs-syntax :flexichain :undo)
-  (:export #:climacs-buffer #:needs-saving #:filepath
+  (:export #:climacs-buffer #:needs-saving
+	   #:filepath #:file-saved-p #:file-write-time
 	   #:read-only-p #:buffer-read-only
 	   #:climacs-pane #:point #:mark
            #:clear-cache

@@ -227,8 +227,10 @@ is made to alter a buffer which has been set read only."))
 
 (defparameter +climacs-textual-view+ (make-instance 'climacs-textual-view))
 
-(defclass filepath-mixin ()
-  ((filepath :initform nil :accessor filepath)))
+(defclass file-mixin ()
+  ((filepath :initform nil :accessor filepath)
+   (file-saved-p :initform nil :accessor file-saved-p)
+   (file-write-time :initform nil :accessor file-write-time)))
 
 ;(defgeneric indent-tabs-mode (climacs-buffer))
 
@@ -238,7 +240,7 @@ is made to alter a buffer which has been set read only."))
 (defclass extended-binseq2-buffer (read-only-mixin binseq2-buffer p-undo-mixin abbrev-mixin) ()
   (:documentation "Extensions accessible via marks."))
 
-(defclass climacs-buffer (delegating-buffer filepath-mixin name-mixin)
+(defclass climacs-buffer (delegating-buffer file-mixin name-mixin)
   ((needs-saving :initform nil :accessor needs-saving)
    (syntax :accessor syntax)
    (point :initform nil :initarg :point :accessor point)
