@@ -28,13 +28,6 @@
 
 (in-package :climacs-gui)
 
-(define-command (com-reload-local-options-line
-                 :name t
-                 :command-table buffer-table)
-    ()
-  "Reload the local options line."
-  (evaluate-local-options-line (current-buffer)))
-
 (define-command (com-overwrite-mode :name t :command-table editing-table) ()
   "Toggle overwrite mode for the current mode.
 When overwrite is on, an object entered on the keyboard will replace the object after the point. When overwrite is off (the default), objects are inserted at point. In both cases point is positioned after the new object."

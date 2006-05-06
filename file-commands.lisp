@@ -256,7 +256,7 @@ An example attribute-list is:
 		   (setf (file-write-time buffer) (file-write-date filepath))
                    ;; A file! That means we may have a local options
                    ;; line to parse.
-                   (evaluate-local-options-line buffer))
+                   (evaluate-attributes-line buffer))
                  ;; If the local options line didn't set a syntax, do
                  ;; it now.
                  (when (null (syntax buffer))
@@ -486,7 +486,7 @@ If there is filename associated with the buffer, write to that file, replacing i
 
 (set-key 'com-save-buffer
 	 'buffer-table
-	 '((#\x :control) (#\s :control)))
+n	 '((#\x :control) (#\s :control)))
 
 (defmethod frame-exit :around ((frame climacs) #-mcclim &key)
   (loop for buffer in (buffers frame)
