@@ -601,10 +601,19 @@ is made to alter a buffer which has been set read only."))
 (defgeneric display-region (pane syntax))
 
 (defmethod display-region ((pane climacs-pane) (syntax basic-syntax))
+  (highlight-region pane (point pane) (mark pane)))
+
+(defgeneric highlight-region (pane mark1 offset2 &optional ink))
+
+(defmethod highlight-region ((pane climacs-pane) (offset1 integer) (offset2 integer)
+			     &optional (ink (compose-in +green+ (make-opacity .1))))
+  ;; FIXME stream-vertical-spacing between lines
+  ;; FIXME note sure updating output is working properly...
+  ;; we'll call offset1 CURSOR and offset2 MARK
   (multiple-value-bind (cursor-x cursor-y line-height)
-      (offset-to-screen-position (offset (point pane)) pane)
+      (offset-to-screen-position offset1 pane)
     (multiple-value-bind (mark-x mark-y)
-	(offset-to-screen-position (offset (mark pane)) pane)
+	(offset-to-screen-position offset2 pane)
       (cond
 	;; mark is above the top of the screen
 	((and (null mark-y) (null mark-x))
@@ -612,13 +621,11 @@ is made to alter a buffer which has been set read only."))
 	   (draw-rectangle* pane
 			    0 0
 			    (stream-text-margin pane) cursor-y
-			    :ink (compose-in +green+
-					     (make-opacity .1)))
+			    :ink ink)
 	   (draw-rectangle* pane
 			    0 cursor-y 
 			    cursor-x (+ cursor-y line-height)
-			    :ink (compose-in +green+
-					     (make-opacity .1)))))
+			    :ink ink)))
 	;; mark is below the bottom of the screen
 	((and (null mark-y) mark-x)
 	 (updating-output (pane :unique-id -3)
@@ -626,13 +633,11 @@ is made to alter a buffer which has been set read only."))
 			    0 (+ cursor-y line-height)
 			    (stream-text-margin pane) (bounding-rectangle-height
 						       (window-viewport pane))
-			    :ink (compose-in +green+
-					     (make-opacity .1)))
+			    :ink ink)
 	   (draw-rectangle* pane
 			    cursor-x cursor-y
 			    (stream-text-margin pane) (+ cursor-y line-height)
-			    :ink (compose-in +green+
-					     (make-opacity .1)))))
+			    :ink ink)))
 	;; mark is at point
 	((and (= mark-x cursor-x) (= mark-y cursor-y))
 	 nil)
@@ -642,44 +647,49 @@ is made to alter a buffer which has been set read only."))
 	   (draw-rectangle* pane
 			    mark-x mark-y
 			    cursor-x (+ cursor-y line-height)
-			    :ink (compose-in +green+
-					     (make-opacity .1)))))
+			    :ink ink)))
 	;; mark and point are both visible, mark above point
 	((< mark-y cursor-y)
 	 (updating-output (pane :unique-id -3)
 	   (draw-rectangle* pane
 			    mark-x mark-y
 			    (stream-text-margin pane) (+ mark-y line-height)
-			    :ink (compose-in +green+
-					     (make-opacity .1)))
+			    :ink ink)
 	   (draw-rectangle* pane
 			    0 cursor-y
 			    cursor-x (+ cursor-y line-height)
-			    :ink (compose-in +green+
-					     (make-opacity .1)))
+			    :ink ink)
 	   (draw-rectangle* pane
 			    0 (+ mark-y line-height)
 			    (stream-text-margin pane) cursor-y
-			    :ink (compose-in +green+
-					     (make-opacity .1)))))
+			    :ink ink)))
 	;; mark and point are both visible, point above mark
 	(t
 	 (updating-output (pane :unique-id -3)
 	   (draw-rectangle* pane
 			    cursor-x cursor-y
 			    (stream-text-margin pane) (+ cursor-y line-height)
-			    :ink (compose-in +green+
-					     (make-opacity .1)))
+			    :ink ink)
 	   (draw-rectangle* pane
 			    0 mark-y
 			    mark-x (+ mark-y line-height)
-			    :ink (compose-in +green+
-					     (make-opacity .1)))
+			    :ink ink)
 	   (draw-rectangle* pane
 			    0 (+ cursor-y line-height)
 			    (stream-text-margin pane) mark-y
-			    :ink (compose-in +green+
-					     (make-opacity .1)))))))))
+			    :ink ink)))))))
+
+(defmethod highlight-region ((pane climacs-pane) (mark1 mark) (mark2 mark)
+			     &optional (ink (compose-in +green+ (make-opacity .1))))
+  (highlight-region pane (offset mark1) (offset mark2) ink))
+
+(defmethod highlight-region ((pane climacs-pane) (mark1 mark) (offset2 integer)
+			     &optional (ink (compose-in +green+ (make-opacity .1))))
+  (highlight-region pane (offset mark1) offset2 ink))
+
+(defmethod highlight-region ((pane climacs-pane) (offset1 integer) (mark2 mark)
+			     &optional (ink (compose-in +green+ (make-opacity .1))))
+  (highlight-region pane offset1 (offset mark2) ink))
 
 (defun offset-to-screen-position (offset pane)
   "Returns the position of offset as a screen position.
