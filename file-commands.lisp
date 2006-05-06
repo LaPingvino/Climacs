@@ -486,7 +486,7 @@ If there is filename associated with the buffer, write to that file, replacing i
 
 (set-key 'com-save-buffer
 	 'buffer-table
-n	 '((#\x :control) (#\s :control)))
+	 '((#\x :control) (#\s :control)))
 
 (defmethod frame-exit :around ((frame climacs) #-mcclim &key)
   (loop for buffer in (buffers frame)
