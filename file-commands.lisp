@@ -129,20 +129,8 @@
 	     :key #'climacs-syntax::syntax-description-pathname-types))
       'basic-syntax))
 
-(defun parse-local-options-line (line)
-  "Parse the local options line `line' and return an alist
-  mapping options to values. All option names will be coerced to
-  uppercase. `Line' must be stripped of the leading and
-  terminating -*- tokens."
-  (loop for pair in (split-sequence:split-sequence #\; line)
-     when (find #\: pair)
-     collect (destructuring-bind (key value)
-                 (loop for elem in (split-sequence:split-sequence #\: pair)
-                    collecting (string-trim " " elem))
-               (list (string-upcase key) value))))
-
-(defun evaluate-local-options (buffer options)
-  "Evaluate the local options `options' and modify `buffer' as
+(defun evaluate-attributes (buffer options)
+  "Evaluate the attributes `options' and modify `buffer' as
   appropriate. `Options' should be an alist mapping option names
   to their values."
   ;; First, check whether we need to change the syntax (via the SYNTAX
@@ -152,8 +140,8 @@
   (let ((specified-syntax
          (syntax-from-name
           (second (find-if #'(lambda (name)
-                               (or (string= name "SYNTAX")
-                                   (string= name "MODE")))
+                               (or (string-equal name "SYNTAX")
+                                   (string-equal name "MODE")))
                            options
                            :key #'first)))))
     (when specified-syntax
@@ -163,32 +151,74 @@
   ;; Now we iterate through the options (discarding SYNTAX and MODE
   ;; options).
   (loop for (name value) in options
-     unless (or (string= name "SYNTAX")
-                (string= name "MODE"))
+     unless (or (string-equal name "SYNTAX")
+                (string-equal name "MODE"))
      do (eval-option (syntax buffer) name value)))
 
-(defun evaluate-local-options-line (buffer)
-  "Evaluate the local options line of `buffer'. If `buffer' does
-  not have a local options line, this function is a no-op."
-  ;; This could be simplified a bit by using regexps.
-  (let* ((beginning-mark (beginning-of-buffer
-                          (clone-mark (point buffer))))
-         (end-mark (end-of-line (clone-mark beginning-mark)))
-         (line (buffer-sequence buffer (offset beginning-mark) (offset end-mark)))
-         (first-occurence (search "-*-" line))
-         (second-occurence
-          (when first-occurence
-            (search "-*-" line :start2 (1+ first-occurence)))))
-    (when (and first-occurence
-               second-occurence)
-      ;; Strip away the -*-s.
-      (let ((cleaned-options-line (coerce (subseq line
-                                                  (+ first-occurence 3)
-                                                  second-occurence)
-                                          'string)))
-        (evaluate-local-options
-         buffer
-         (parse-local-options-line cleaned-options-line))))))
+(defun split-attribute (string char)
+  (let (pairs)
+    (loop with start = 0
+	  for ch across string
+	  for i from 0
+	  when (eql ch char)
+	    do (push (string-trim '(#\Space #\Tab) (subseq string start i))
+		     pairs)
+	       (setf start (1+ i))
+	  finally (unless (>= start i)
+		    (push (string-trim '(#\Space #\Tab) (subseq string start))
+			  pairs)))
+    (nreverse pairs)))
+
+(defun split-attribute-line (line)
+  (mapcar (lambda (pair) (split-attribute pair #\:))
+	  (split-attribute line #\;)))
+
+(defun get-attribute-line (buffer)
+  (let ((scan (beginning-of-buffer (clone-mark (point buffer)))))
+    ;; skip the leading whitespace
+    (loop until (end-of-buffer-p scan)
+	  until (not (whitespacep (object-after scan)))
+	  do (forward-object scan))
+    ;; stop looking if we're already 1,000 objects into the buffer
+    (unless (> (offset scan) 1000)
+      (let ((start-found
+	     (loop with newlines = 0
+		   when (end-of-buffer-p scan)
+		     do (return nil)
+		   when (eql (object-after scan) #\Newline)
+		     do (incf newlines)
+		   when (> newlines 1)
+		     do (return nil)
+		   do (forward-object scan)
+		   until (looking-at scan "-*-")
+		   finally (return t))))
+	(when start-found
+	  (let ((line (buffer-substring buffer
+					(offset scan)
+					(offset (end-of-line (clone-mark scan))))))
+	    (when (>= (length line) 6)
+	      (let ((end (search "-*-" line :from-end t :start2 3)))
+		(when end
+		  (string-trim '(#\Space #\Tab) (subseq line 3 end)))))))))))
+
+(defun evaluate-attributes-line (buffer)
+  (evaluate-attributes
+   buffer
+   (split-attribute-line (get-attribute-line buffer))))
+
+(define-command (com-reparse-attribute-list :name t :command-table buffer-table) ()
+  "Reparse the current buffer's attribute list.
+An attribute list is a line of keyword-value pairs, each keyword separated
+from the corresponding value by a colon. If another keyword-value pair
+follows, the value should be terminated by a colon. The attribute list
+is surrounded by '-*-' sequences, but the opening '-*-' need not be at the
+beginning of the line. Climacs looks for the attribute list
+on the first or second non-blank line of the file.
+
+An example attribute-list is:
+
+;; -*- Syntax: Lisp; Base: 10 -*- "
+  (evaluate-attributes-line (buffer (current-window))))
 
 ;; Adapted from cl-fad/PCL
 (defun directory-pathname-p (pathspec)
