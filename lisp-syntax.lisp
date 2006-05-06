@@ -1141,29 +1141,22 @@
                     (let ((package-name
                            (typecase package-form
                              (token-mixin
-                              (coerce (buffer-sequence
-                                       buffer
-                                       (start-offset package-form)
-                                       (end-offset package-form))
-                                      'string))
+                              (token-string syntax package-form))
                              (complete-string-form
-                              (coerce (buffer-sequence
-                                       buffer
-                                       (1+ (start-offset package-form))
-                                       (1- (end-offset package-form)))
-                                      'string))
+                              (buffer-substring
+                               buffer
+                               (1+ (start-offset package-form))
+                               (1- (end-offset package-form))))
                              (quote-form 
-                              (coerce (buffer-sequence
-                                       buffer
-                                       (start-offset (second-noncomment (children package-form)))
-                                       (end-offset (second-noncomment (children package-form))))
-                                      'string))
+                              (buffer-substring
+                               buffer
+                               (start-offset (second-noncomment (children package-form)))
+                               (end-offset (second-noncomment (children package-form)))))
                              (uninterned-symbol-form
-                              (coerce (buffer-sequence
-                                       buffer
-                                       (start-offset (second-noncomment (children package-form)))
-                                       (end-offset (second-noncomment (children package-form))))
-                                      'string))
+                              (buffer-substring
+                               buffer
+                               (start-offset (second-noncomment (children package-form)))
+                               (end-offset (second-noncomment (children package-form)))))
                              (t 'nil))))
                       (when package-name
                         (let ((package-symbol (parse-token package-name)))
@@ -1430,10 +1423,7 @@ returned."
 
 (defmethod display-parse-tree ((parse-symbol token-mixin) (syntax lisp-syntax) pane)
   (if (> (the fixnum (end-offset parse-symbol)) (the fixnum (start-offset parse-symbol)))
-      (let ((string (coerce (buffer-sequence (buffer syntax)
-                                             (start-offset parse-symbol)
-                                             (end-offset parse-symbol))
-                            'string)))
+      (let ((string (token-string syntax parse-symbol)))
         (multiple-value-bind (symbol status)
             (token-to-object syntax parse-symbol)
           (with-output-as-presentation
@@ -1471,10 +1461,7 @@ returned."
       (with-slots (ink face) parser-symbol
 	(setf ink (medium-ink (sheet-medium pane))
 	      face (text-style-face (medium-text-style (sheet-medium pane))))
-	(let ((string (coerce (buffer-sequence (buffer syntax)
-					       (start-offset parser-symbol)
-					       (end-offset parser-symbol))
-			      'string)))
+	(let ((string (token-string syntax parser-symbol)))
           (present string 'string :stream pane))))))
           
 (defmethod display-parse-tree :before ((parse-symbol lisp-lexeme) (syntax lisp-syntax) pane)
@@ -1487,10 +1474,9 @@ returned."
 (defmethod display-parse-tree ((parse-symbol complete-string-form) (syntax lisp-syntax) pane)
   (let ((children (children parse-symbol)))
     (if (third children)
-        (let ((string (coerce (buffer-sequence (buffer syntax)
-                                               (start-offset (second children))
-                                               (end-offset (car (last children 2))))
-                              'string)))
+        (let ((string (buffer-substring (buffer syntax)
+                                        (start-offset (second children))
+                                        (end-offset (car (last children 2))))))
           (with-output-as-presentation (pane string 'lisp-string
                                              :single-box :highlighting)
             (display-parse-tree  (pop children) syntax pane)
@@ -1504,10 +1490,9 @@ returned."
 (defmethod display-parse-tree ((parse-symbol incomplete-string-form) (syntax lisp-syntax) pane)
   (let ((children (children parse-symbol)))
     (if (second children)
-        (let ((string (coerce (buffer-sequence (buffer syntax)
-                                               (start-offset (second children))
-                                               (end-offset (car (last children))))
-                              'string)))
+        (let ((string (buffer-substring (buffer syntax)
+                                        (start-offset (second children))
+                                        (end-offset (car (last children))))))
           (with-output-as-presentation (pane string 'lisp-string
                                              :single-box :highlighting)
             (display-parse-tree  (pop children) syntax pane)
@@ -1553,10 +1538,7 @@ returned."
   "The KEYWORD package.")
 
 (defmethod eval-feature-conditional ((conditional token-mixin) (syntax lisp-syntax))
-  (let* ((string (coerce (buffer-sequence (buffer syntax)
-					 (start-offset conditional)
-					 (end-offset conditional))
-		  'string))
+  (let* ((string (token-string syntax conditional))
 	 (symbol (parse-symbol string :package +keyword-package+)))
     (member symbol *features*)))
 
@@ -1572,10 +1554,7 @@ returned."
 				(remove-if
 				 #'(lambda (child) (typep child 'comment))
 				 children))))
-	       (type-string (coerce (buffer-sequence (buffer syntax)
-						     (start-offset type)
-						     (end-offset type))
-				    'string))
+	       (type-string (token-string syntax type))
 	       (type-symbol (parse-symbol type-string :package +keyword-package+)))
 	  (case type-symbol
 	    (:and (funcall #'every #'eval-fc conditionals))
@@ -1781,10 +1760,7 @@ returned."
 	   when (and (mark<= (start-offset form) mark)
 		     (mark<= mark (end-offset form)))
 	     do (return (eval (read-from-string 
-			       (coerce (buffer-sequence (buffer syntax)
-							(start-offset form)
-							(end-offset form))
-				       'string)))))))
+			       (token-string syntax form)))))))
 
 (defmethod beginning-of-definition (mark (syntax lisp-syntax))
   (with-slots (stack-top) syntax
@@ -1962,10 +1938,9 @@ and whether the symbol-name was separated from the package by a double colon."
 (defun token-string (syntax token)
   "Return the string that specifies `token' in the buffer of
   `syntax'."
-  (coerce (buffer-sequence (buffer syntax)
-                           (start-offset token)
-                           (end-offset token))
-          'string))
+  (buffer-substring (buffer syntax)
+                    (start-offset token)
+                    (end-offset token)))
 
 (defun parse-symbol (string &key (package *package*) (case (readtable-case *readtable*)))
   "Find the symbol named STRING.
