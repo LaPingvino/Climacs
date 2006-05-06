@@ -218,7 +218,7 @@ in the specific syntax.")
 
 (defmethod eval-option :around (syntax (name string) value)
   ;; Convert the name to a keyword symbol...
-  (eval-option syntax (intern name (find-package :keyword))
+  (eval-option syntax (intern (string-upcase name) (find-package :keyword))
                value))
 
 (defmacro define-option-for-syntax

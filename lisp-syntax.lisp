@@ -50,7 +50,7 @@
    (option-specified-package :accessor option-specified-package
                              :initform nil
                              :documentation "The package
-                             specified in the local options
+                             specified in the attribute
                              line (may be overridden
                              by (in-package) forms)."))
   (:name "Lisp")
@@ -59,8 +59,7 @@
 
 (define-option-for-syntax lisp-syntax "Package" (syntax package-name)
   (let ((specified-package (find-package package-name)))
-    (when specified-package
-      (setf (option-specified-package syntax) specified-package))))
+    (setf (option-specified-package syntax) (or specified-package package-name))))
 
 (define-option-for-syntax lisp-syntax "Base" (syntax base)
   (let ((integer-base (parse-integer base :junk-allowed t)))
