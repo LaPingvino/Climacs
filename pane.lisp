@@ -615,6 +615,24 @@ is made to alter a buffer which has been set read only."))
     (multiple-value-bind (mark-x mark-y)
 	(offset-to-screen-position offset2 pane)
       (cond
+	;; mark and point are above the screen
+	((and (null cursor-y) (null mark-y)
+	      (null cursor-x) (null mark-x))
+	 nil)
+	;; mark and point are below the screen
+	((and (null cursor-y) (null mark-y)
+	      cursor-x mark-x)
+	 nil)
+	;; mark or point is above the screen, and point or mark below it
+	((and (null cursor-y) (null mark-y)
+	      (or (and cursor-x (null mark-x))
+		  (and (null cursor-x) mark-y)))
+	 (updating-output (pane :unique-id -3)
+	   (draw-rectangle* pane
+			    0 0
+			    (stream-text-margin pane) (bounding-rectangle-height
+						       (window-viewport pane))
+			    :ink ink)))
 	;; mark is above the top of the screen
 	((and (null mark-y) (null mark-x))
 	 (updating-output (pane :unique-id -3)
