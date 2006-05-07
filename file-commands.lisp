@@ -228,7 +228,7 @@ An example attribute-list is:
     (and (or (null name) (eql name :unspecific))
 	 (or (null type) (eql type :unspecific)))))
 
-(defun find-file (filepath)
+(defun find-file (filepath &optional readonlyp)
   (cond ((null filepath)
 	 (display-message "No file name given.")
 	 (beep))
@@ -238,38 +238,45 @@ An example attribute-list is:
 	(t
 	 (let ((existing-buffer (find filepath (buffers *application-frame*)
 			       :key #'filepath :test #'equal)))
-	   (if existing-buffer
+	   (if (and existing-buffer (if readonlyp (read-only-p existing-buffer) t))
 	       (switch-to-buffer existing-buffer)
-	       (let ((buffer (make-buffer))
-		     (pane (current-window)))
-                 ;; Clear the pane's cache; otherwise residue from the
-                 ;; previously displayed buffer may under certain
-                 ;; circumstances be displayed.
-                 (clear-cache pane)
-                 (setf (syntax buffer) nil)
-		 (setf (offset (point (buffer pane))) (offset (point pane)))
-		 (setf (buffer (current-window)) buffer)
-		 ;; Don't want to create the file if it doesn't exist.
-		 (when (probe-file filepath)
-		   (with-open-file (stream filepath :direction :input)
-		     (input-from-stream stream buffer 0))
-		   (setf (file-write-time buffer) (file-write-date filepath))
-                   ;; A file! That means we may have a local options
-                   ;; line to parse.
-                   (evaluate-attributes-line buffer))
-                 ;; If the local options line didn't set a syntax, do
-                 ;; it now.
-                 (when (null (syntax buffer))
-                   (setf (syntax buffer)
-                         (make-instance (syntax-class-name-for-filepath filepath)
-                                        :buffer buffer)))
-		 (setf (filepath buffer) filepath
-		       (name buffer) (filepath-filename filepath)
-		       (needs-saving buffer) nil)
-		 (beginning-of-buffer (point pane))
-                 (update-syntax buffer (syntax buffer))
-                 (clear-modify buffer)
-		 buffer))))))
+	       (progn
+		 (when readonlyp
+		   (unless (probe-file filepath)
+		     (beep)
+		     (display-message "No such file: ~A" filepath)
+		     (return-from find-file nil)))
+		 (let ((buffer (make-buffer))
+		       (pane (current-window)))
+		   ;; Clear the pane's cache; otherwise residue from the
+		   ;; previously displayed buffer may under certain
+		   ;; circumstances be displayed.
+		   (clear-cache pane)
+		   (setf (syntax buffer) nil)
+		   (setf (offset (point (buffer pane))) (offset (point pane)))
+		   (setf (buffer (current-window)) buffer)
+		   ;; Don't want to create the file if it doesn't exist.
+		   (when (probe-file filepath)
+		     (with-open-file (stream filepath :direction :input)
+		       (input-from-stream stream buffer 0))
+		     (setf (file-write-time buffer) (file-write-date filepath))
+		     ;; A file! That means we may have a local options
+		     ;; line to parse.
+		     (evaluate-attributes-line buffer))
+		   ;; If the local options line didn't set a syntax, do
+		   ;; it now.
+		   (when (null (syntax buffer))
+		     (setf (syntax buffer)
+			   (make-instance (syntax-class-name-for-filepath filepath)
+			      :buffer buffer)))
+		   (setf (filepath buffer) filepath
+			 (name buffer) (filepath-filename filepath)
+			 (needs-saving buffer) nil
+			 (read-only-p buffer) readonlyp)
+		   (beginning-of-buffer (point pane))
+		   (update-syntax buffer (syntax buffer))
+		   (clear-modify buffer)
+		   buffer)))))))
 
 (defun directory-of-buffer (buffer)
   "Extract the directory part of the filepath to the file in BUFFER.
@@ -294,42 +301,6 @@ If a buffer is already visiting that file, switch to that buffer. Does not creat
 	 'buffer-table
 	 '((#\x :control) (#\f :control)))
 
-(defun find-file-read-only (filepath)
-  (cond ((null filepath)
-	 (display-message "No file name given.")
-	 (beep))
-	((directory-pathname-p filepath)
-	 (display-message "~A is a directory name." filepath)
-	 (beep))
-	(t
-	 (let ((existing-buffer (find filepath (buffers *application-frame*)
-				      :key #'filepath :test #'equal)))
-	   (if (and existing-buffer (read-only-p existing-buffer))
-	       (switch-to-buffer existing-buffer)
-	       (if (probe-file filepath)
-		   (let ((buffer (make-buffer))
-			 (pane (current-window)))
-		     (setf (offset (point (buffer pane))) (offset (point pane)))
-		     (setf (buffer (current-window)) buffer)
-		     (setf (syntax buffer)
-			   (make-instance (syntax-class-name-for-filepath filepath)
-			      :buffer (buffer (point pane))))
-		     (with-open-file (stream filepath :direction :input)
-		       (input-from-stream stream buffer 0))
-		     (setf (filepath buffer) filepath
-			   (name buffer) (filepath-filename filepath)
-			   (needs-saving buffer) nil
-			   (read-only-p buffer) t)
-		     (beginning-of-buffer (point pane))
-		     ;; this one is needed so that the buffer modification protocol
-		     ;; resets the low and high marks after redisplay
-		     (redisplay-frame-panes *application-frame*)
-		     buffer)
-		   (progn
-		     (display-message "No such file: ~A" filepath)
-		     (beep)
-		     nil)))))))
-
 (define-command (com-find-file-read-only :name t :command-table buffer-table) ()
   "Prompt for a filename then open that file readonly.
 If a buffer is already visiting that file, switch to that buffer. If the filename given does not name an existing file, signal an error."
@@ -337,7 +308,7 @@ If a buffer is already visiting that file, switch to that buffer. If the filenam
 			  :default (directory-of-buffer (buffer (current-window)))
 			  :default-type 'pathname
 			  :insert-default t)))
-    (find-file-read-only filepath)))
+    (find-file filepath t)))
 
 (set-key 'com-find-file-read-only
 	 'buffer-table
