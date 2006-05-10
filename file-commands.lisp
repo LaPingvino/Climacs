@@ -288,29 +288,30 @@ An example attribute-list is:
     (or (filepath buffer)
 	(user-homedir-pathname)))))
 
-(define-command (com-find-file :name t :command-table buffer-table) ()
+(define-command (com-find-file :name t :command-table buffer-table)
+    ((filepath 'pathname
+	       :prompt "Find File"
+	       :default (directory-of-buffer (buffer (current-window)))
+	       :default-type 'pathname
+	       :insert-default t))
   "Prompt for a filename then edit that file.
 If a buffer is already visiting that file, switch to that buffer. Does not create a file if the filename given does not name an existing file."
-  (let* ((filepath (accept 'pathname :prompt "Find File"
-			   :default (directory-of-buffer (buffer (current-window)))
-			   :default-type 'pathname
-			   :insert-default t)))
-    (find-file filepath)))
+  (find-file filepath))
 
-(set-key 'com-find-file
+(set-key `(com-find-file ,*unsupplied-argument-marker*)
 	 'buffer-table
 	 '((#\x :control) (#\f :control)))
 
-(define-command (com-find-file-read-only :name t :command-table buffer-table) ()
+(define-command (com-find-file-read-only :name t :command-table buffer-table)
+    ((filepath 'pathname :Prompt "Find file read only"
+	       :default (directory-of-buffer (buffer (current-window)))
+	       :default-type 'pathname
+	       :insert-default t))
   "Prompt for a filename then open that file readonly.
 If a buffer is already visiting that file, switch to that buffer. If the filename given does not name an existing file, signal an error."
-  (let ((filepath (accept 'pathname :Prompt "Find file read only"
-			  :default (directory-of-buffer (buffer (current-window)))
-			  :default-type 'pathname
-			  :insert-default t)))
-    (find-file filepath t)))
+  (find-file filepath t))
 
-(set-key 'com-find-file-read-only
+(set-key `(com-find-file-read-only ,*unsupplied-argument-marker*)
 	 'buffer-table
 	 '((#\x :control) (#\r :control)))
 
@@ -331,23 +332,23 @@ When a buffer is readonly, attempts to change the contents of the buffer signal 
 	(name buffer) (filepath-filename filename)
 	(needs-saving buffer) t))
 
-(define-command (com-set-visited-file-name :name t :command-table buffer-table) ()
+(define-command (com-set-visited-file-name :name t :command-table buffer-table)
+    ((filename 'pathname :prompt "New file name"
+	       :default (directory-of-buffer (buffer (current-window)))
+	       :default-type 'pathname
+	       :insert-default t))
   "Prompt for a new filename for the current buffer.
 The next time the buffer is saved it will be saved to a file with that filename."
-  (let ((filename (accept 'pathname :prompt "New file name"
-			  :default (directory-of-buffer (buffer (current-window)))
-			  :default-type 'pathname
-			  :insert-default t)))
-    (set-visited-file-name filename (buffer (current-window)))))
+  (set-visited-file-name filename (buffer (current-window))))
 
-(define-command (com-insert-file :name t :command-table buffer-table) ()
+(define-command (com-insert-file :name t :command-table buffer-table)
+    ((filename 'pathname :prompt "Insert File"
+	       :default (directory-of-buffer (buffer (current-window)))
+	       :default-type 'pathname
+	       :insert-default t))
   "Prompt for a filename and insert its contents at point.
 Leaves mark after the inserted contents."
-  (let ((filename (accept 'pathname :prompt "Insert File"
-			  :default (directory-of-buffer (buffer (current-window)))
-			  :default-type 'pathname
-			  :insert-default t))
-	(pane (current-window)))
+  (let ((pane (current-window)))
     (when (probe-file filename)
       (setf (mark pane) (clone-mark (point pane) :left))
       (with-open-file (stream filename :direction :input)
@@ -358,7 +359,7 @@ Leaves mark after the inserted contents."
 	     (offset (point pane)) (offset (mark pane))))
     (redisplay-frame-panes *application-frame*)))
 
-(set-key 'com-insert-file
+(set-key `(com-insert-file ,*unsupplied-argument-marker*)
 	 'buffer-table
 	 '((#\x :control) (#\i :control)))
 
@@ -477,14 +478,14 @@ If there is filename associated with the buffer, write to that file, replacing i
 			       (return-from frame-exit nil)))))
     (call-next-method)))
 
-(define-command (com-write-buffer :name t :command-table buffer-table) ()
+(define-command (com-write-buffer :name t :command-table buffer-table)
+    ((filepath 'pathname :prompt "Write Buffer to File"
+	       :default (directory-of-buffer (buffer (current-window)))
+	       :default-type 'pathname
+	       :insert-default t))
   "Prompt for a filename and write the current buffer to it.
 Changes the file visted by the buffer to the given file."
-  (let ((filepath (accept 'pathname :prompt "Write Buffer to File"
-			  :default (directory-of-buffer (buffer (current-window)))
-			  :default-type 'pathname
-			  :insert-default t))
-	(buffer (buffer (current-window))))
+  (let ((buffer (buffer (current-window))))
     (cond
       ((directory-pathname-p filepath)
        (display-message "~A is a directory name." filepath))
@@ -496,7 +497,7 @@ Changes the file visted by the buffer to the given file."
 	     (needs-saving buffer) nil)
        (display-message "Wrote: ~a" (filepath buffer))))))
 
-(set-key 'com-write-buffer
+(set-key `(com-write-buffer ,*unsupplied-argument-marker*)
 	 'buffer-table
 	 '((#\x :control) (#\w :control)))
 
