@@ -714,7 +714,8 @@ after MARK"
     (multiple-value-bind (i j)
 	(buffer-re-search-forward a (buffer mark) (offset mark))
       (when i
-	(setf (offset mark) j)))))
+	(setf (offset mark) j)
+	(values mark i)))))
 
 (defun re-search-backward (mark re)
   "move MARK backward before the first occurence of string matching RE
@@ -726,7 +727,8 @@ before MARK"
 	(buffer-re-search-backward a (buffer mark) (1- (offset mark)))
       (declare (ignorable j))
     (when i
-      (setf (offset mark) i)))))
+      (setf (offset mark) i)
+      (values mark j)))))
 
 (defun buffer-search-word-backward (buffer offset word &key (test #'eql))
   "return the largest offset of BUFFER <= (- OFFSET (length WORD))
