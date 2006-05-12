@@ -194,12 +194,12 @@
          (string2 (handler-case 
 		      (if old-string2
 			  (accept 'string
-				  :prompt (format nil "Query Replace ~A with"
+				  :prompt (format nil "Replace ~A with"
 						  string1)
 				  :default old-string2
 				  :default-type 'string)
 			  (accept 'string
-				  :prompt (format nil "Query Replace ~A with" string1)))
+				  :prompt (format nil "Replace ~A with" string1)))
 		    (error () (progn (beep)
 				     (display-message "Empty string")
 				     (return-from com-query-replace nil)))))
@@ -211,7 +211,7 @@
                                                       :string1 string1
                                                       :string2 string2)
             (query-replace-mode pane) t)
-      (display-message "Query Replace ~A with ~A:"
+      (display-message "Replace ~A with ~A:"
 		       string1 string2)
       (simple-command-loop 'query-replace-climacs-table
 			   (query-replace-mode pane)
@@ -242,7 +242,7 @@
           (:capitalized (capitalize-buffer-region buffer offset1 offset2)))))
     (incf occurrences)
     (if (query-replace-find-next-match point string1)
-	(display-message "Query Replace ~A with ~A:"
+	(display-message "Replace ~A with ~A:"
 		       string1 string2)
 	(setf (query-replace-mode pane) nil))))
 
@@ -251,7 +251,7 @@
   (let* ((pane (current-window))
          (point (point pane)))
     (if (query-replace-find-next-match point string1)
-	(display-message "Query Replace ~A with ~A:"
+	(display-message "Replace ~A with ~A:"
 			 string1 string2)
 	(setf (query-replace-mode pane) nil))))
 
@@ -287,3 +287,163 @@
 			:activation-gestures
 			'(:newline :return))))
     (re-search-backward (point (current-window)) string)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Multiple query replace
+
+(make-command-table 'multiple-query-replace-climacs-table :errorp nil)
+
+(defun multiple-query-replace-find-next-match (mark re list)
+  (multiple-value-bind (foundp start)
+      (re-search-forward mark re)
+    (when foundp
+      (loop with buffer = (buffer mark)
+	    for string in list
+	    when (buffer-looking-at buffer start string)
+	      do (return string)))))
+
+(define-command (com-multiple-query-replace :name t :command-table search-table) ()
+  "Prompts for pairs of strings, replacing the first with the second.
+Entering an empty search string stops the prompting."
+  (let ((strings
+	 (loop for string1 = (accept 'string :prompt "Multiple Query Replace")
+	       until (string= string1 "")
+	       for string2
+		 = (accept 'string
+			   :prompt (format nil
+					   "Replace ~A with"
+					   string1))
+	       collecting (cons string1 string2))))
+    (multiple-query-replace strings)))
+
+(define-command (com-multiple-query-replace-from-buffer :name t :command-table search-table)
+    ((buffer 'buffer :prompt "Buffer with Query Repace strings"))
+  (unless (member buffer (buffers *application-frame*))
+    (beep)
+    (display-message "~A not an existing buffer" (name buffer))
+    (return-from com-multiple-query-replace-from-buffer nil))
+  (let* ((contents (buffer-substring buffer 0 (1- (size buffer))))
+	 (strings (loop with length = (length contents)
+			with index = 0
+			with start = 0
+			while (< index length)
+			do (loop until (>= index length)
+				 while (whitespacep (char contents index))
+				 do (incf index))
+			   (setf start index)
+			   (loop until (>= index length)
+				 until (whitespacep (char contents index))
+				 do (incf index))
+			until (= start index)
+			collecting (string-trim '(#\Space #\Tab #\Newline)
+						 (subseq contents start index)))))
+    (unless (evenp (length strings))
+      (beep)
+      (display-message "Uneven number of strings in ~A" (name buffer))
+      (return-from com-multiple-query-replace-from-buffer nil))
+    (multiple-query-replace (loop for (string1 string2) on strings by #'cddr
+				  collect (cons string1 string2)))))
+
+(define-command (com-query-exchange :name t :command-table search-table) ()
+  "Prompts for two strings to exchange for one another."
+  (let* ((string1 (accept 'string :prompt "Query Exchange"))
+	 (string2 (accept 'string :prompt (format nil
+						  "Exchange ~A and"
+						  string1))))
+    (multiple-query-replace (list (cons string1 string2) (cons string2 string1)))))
+
+(defun multiple-query-replace (strings)
+  (declare (special strings))
+  (let* ((occurrences 0)
+	 (search-strings (mapcar #'car strings))
+	 (re (format nil "~{~A~^|~}" search-strings)))
+    (declare (special occurrences re))
+    (when strings
+      (let* ((pane (current-window))
+	     (point (point pane)) 
+	     (found (multiple-query-replace-find-next-match point re search-strings)))
+	(when found
+	  (setf (query-replace-state pane)
+		(make-instance 'query-replace-state
+		   :string1 found
+		   :string2 (cdr (assoc found strings :test #'string=)))
+		(query-replace-mode pane)
+		t)
+	  (display-message "Replace ~A with ~A: "
+			   (string1 (query-replace-state pane))
+			   (string2 (query-replace-state pane)))
+	  (simple-command-loop 'multiple-query-replace-climacs-table
+			       (query-replace-mode pane)
+			       ((setf (query-replace-mode pane) nil))))))
+    (display-message "Replaced ~D occurrence~:P" occurrences)))
+
+(define-command (com-multiple-query-replace-replace
+		 :name t
+		 :command-table multiple-query-replace-climacs-table)
+    ()
+    (declare (special strings occurrences re))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (buffer (buffer pane))
+	 (state (query-replace-state pane))
+	 (string1-length (length (string1 state))))
+    (backward-object point string1-length)
+    (let* ((offset1 (offset point))
+	   (offset2 (+ offset1 string1-length))
+	   (region-case (buffer-region-case buffer offset1 offset2)))
+      (delete-range point string1-length)
+      (insert-sequence point (string2 state))
+      (let ((new-offset2 (+ offset1 (length (string2 state)))))
+	(case region-case
+	  (:upper-case (upcase-buffer-region buffer offset1 new-offset2))
+	  (:lower-case (downcase-buffer-region buffer offset1 new-offset2))
+	  (:capitalized (capitalize-buffer-region buffer offset1 new-offset2)))))
+    (incf occurrences)
+    (let ((found (multiple-query-replace-find-next-match
+		  point
+		  re
+		  (mapcar #'car strings))))
+      (cond ((null found) (setf (query-replace-mode pane) nil))
+	    (t (setf (query-replace-state pane)
+		     (make-instance 'query-replace-state
+			:string1 found
+			:string2 (cdr (assoc found strings :test #'string=))))
+	       (display-message "Replace ~A with ~A: "
+				(string1 (query-replace-state pane))
+				(string2 (query-replace-state pane))))))))
+
+(define-command (com-multiple-query-replace-skip
+		 :name t
+		 :command-table multiple-query-replace-climacs-table)
+    ()
+  (declare (special strings re))
+  (let* ((pane (current-window))
+	 (point (point pane))
+	 (found (multiple-query-replace-find-next-match
+		 point
+		 re
+		 (mapcar #'car strings))))
+    (cond ((null found) (setf (query-replace-mode pane) nil))
+	    (t (setf (query-replace-state pane)
+		     (make-instance 'query-replace-state
+			:string1 found
+			:string2 (cdr (assoc found strings :test #'string=))))
+	       (display-message "Replace ~A with ~A: "
+				(string1 (query-replace-state pane))
+				(string2 (query-replace-state pane)))))))
+
+(defun multiple-query-replace-set-key (gesture command)
+  (add-command-to-command-table command 'multiple-query-replace-climacs-table
+				:keystroke gesture
+				:errorp nil))
+
+(multiple-query-replace-set-key '(#\Newline) 'com-query-replace-exit)
+(multiple-query-replace-set-key '(#\Space) 'com-multiple-query-replace-replace)
+(multiple-query-replace-set-key '(#\Backspace) 'com-multiple-query-replace-skip)
+(multiple-query-replace-set-key '(#\Rubout) 'com-multiple-query-replace-skip)
+(multiple-query-replace-set-key '(#\q) 'com-query-replace-exit)
+(multiple-query-replace-set-key '(#\y) 'com-multiple-query-replace-replace)
+(multiple-query-replace-set-key '(#\n) 'com-multiple-query-replace-skip)
+
+
