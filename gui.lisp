@@ -104,6 +104,14 @@
 ;;; windows
 (make-command-table 'window-table :errorp nil)
 
+;;; customization of help.  FIXME: this might be better done by having
+;;; the functions that the ESA commands call be customizeable generic
+;;; functions; however, while they're not, scribbling over the ESA
+;;; command tables is a bad thing.
+(make-command-table 'climacs-help-table :inherit-from '(help-table)
+                    :errorp nil)
+
+
 (defvar *bg-color* +white+)
 (defvar *fg-color* +black+)
 (defvar *info-bg-color* +gray85+)
@@ -119,7 +127,7 @@
   (:command-table (global-climacs-table
 		   :inherit-from (global-esa-table
 				  keyboard-macro-table
-				  help-table
+				  climacs-help-table
 				  base-table
 				  buffer-table
 				  case-table
@@ -172,7 +180,7 @@
        (vertically (:scroll-bars nil)
 	 climacs-window
 	 minibuffer)))
-  (:top-level (esa-top-level)))
+  (:top-level (esa-top-level :prompt "M-x ")))
 
 (defmethod frame-standard-input ((frame climacs))
   (get-frame-pane frame 'minibuffer))
@@ -507,7 +515,7 @@ documentation and other details will be displayed in a typeout pane."
                                                   :stream out-stream))
             (display-message "Unbound gesture: ~A" gesture-name))))))
 
-(define-command (com-describe-command :name t :command-table help-table)
+(define-command (com-describe-command :name t :command-table climacs-help-table)
     ((command 'command-name))
   "Display documentation for the given command."
   (unless command
@@ -519,15 +527,15 @@ documentation and other details will be displayed in a typeout pane."
                                 :stream out-stream)))
 
 (set-key 'com-describe-binding
-         'help-table
+         'climacs-help-table
          '((#\h :control) (#\k)))
 
 (set-key '(com-describe-command nil)
-         'help-table
+         'climacs-help-table
          '((#\h :control) (#\f)))
 
 (define-presentation-to-command-translator describe-command
-    (command-name com-describe-command help-table
+    (command-name com-describe-command climacs-help-table
                   :gesture :select
                   :documentation "Describe command")
     (object)

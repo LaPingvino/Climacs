@@ -103,7 +103,7 @@
 	(full-redisplay current-window)
 	new-pane))))
 
-(define-command (com-describe-bindings :name t :command-table help-table)
+(define-command (com-describe-bindings :name t :command-table climacs-help-table)
     ((sort-by-keystrokes 'boolean :prompt "Sort by keystrokes?"))
   (let* ((window (current-window))
 	 (buffer (buffer (current-window)))
@@ -115,7 +115,7 @@
 			   #'esa::sort-by-keystrokes
 			   #'esa::sort-by-name))))
 
-(set-key `(com-describe-bindings ,*numeric-argument-p*) 'help-table '((#\h :control) (#\b)))
+(set-key `(com-describe-bindings ,*numeric-argument-p*) 'climacs-help-table '((#\h :control) (#\b)))
 
 (defun make-pane-constellation (&optional (with-scrollbars *with-scrollbars*))
   "make a vbox containing a scroller pane as its first child and an
