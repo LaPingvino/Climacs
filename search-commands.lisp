@@ -30,6 +30,46 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
+;;; String search
+
+(define-command (com-string-search :name t :command-table search-table)
+    ((string 'string :prompt "Search string"))
+  "Prompt for a string and search forward for it.
+If found, leaves point after string. If not, leaves point where it is."
+  (let* ((pane (current-window))
+	 (point (point pane)))
+    (search-forward point string)))
+
+(define-command (com-reverse-string-search :name t :command-table search-table)
+    ((string 'string :prompt "Search string"))
+  "Prompt for a string and search backward for it.
+If found, leaves point before string. If not, leaves point where it is."
+  (let* ((pane (current-window))
+	 (point (point pane)))
+    (search-backward point string)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Word search
+
+(define-command (com-word-search :name t :command-table search-table)
+    ((word 'string :prompt "Search word"))
+  "Prompt for a whitespace delimited word and search forward for it.
+If found, leaves point after the word. If not, leaves point where it is."
+  (let* ((pane (current-window))
+	 (point (point pane)))
+    (climacs-base::search-word-forward point word)))
+
+(define-command (com-reverse-word-search :name t :command-table search-table)
+    ((word 'string :prompt "Search word"))
+  "Prompt for a whitespace delimited word and search backward for it.
+If found, leaves point before the word. If not, leaves point where it is."
+  (let* ((pane (current-window))
+	 (point (point pane)))
+    (climacs-base::search-word-backward point word)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
 ;;; Incremental search
 
 (make-command-table 'isearch-climacs-table :errorp nil)
@@ -445,5 +485,3 @@ Entering an empty search string stops the prompting."
 (multiple-query-replace-set-key '(#\q) 'com-query-replace-exit)
 (multiple-query-replace-set-key '(#\y) 'com-multiple-query-replace-replace)
 (multiple-query-replace-set-key '(#\n) 'com-multiple-query-replace-skip)
-
-

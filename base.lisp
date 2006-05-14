@@ -745,6 +745,11 @@ containing WORD as a word or NIL if no such offset exists"
          return i
        finally (return nil))))
 
+(defun search-word-backward (mark word)
+  (let ((offset (buffer-search-word-backward (buffer mark) (offset mark) word)))
+    (when offset
+      (setf (offset mark) offset))))
+
 (defun buffer-search-word-forward (buffer offset word &key (test #'eql))
   "Return the smallest offset of BUFFER >= OFFSET containing WORD as a
 word or NIL if no such offset exists"
@@ -757,5 +762,12 @@ word or NIL if no such offset exists"
 		 (buffer-looking-at buffer i word :test test)
 		 (not (and (< j blen)
 			   (constituentp (buffer-object buffer j)))))
+	 ;; should this be (+ i wlen)? jqs 2006-05-14
          return i
        finally (return nil))))
+
+(defun search-word-forward (mark word)
+  (let ((wlen (length word))
+	(offset (buffer-search-word-forward (buffer mark) (offset mark) word)))
+    (when offset
+      (setf (offset mark) (+ offset wlen)))))

@@ -144,7 +144,7 @@
 
 (defpackage :climacs-pane
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
-	:climacs-syntax :flexichain :undo :climacs-fundamental-syntax)
+	:climacs-syntax :flexichain :undo)
   (:export #:climacs-buffer #:needs-saving
 	   #:filepath #:file-saved-p #:file-write-time
 	   #:read-only-p #:buffer-read-only
@@ -170,7 +170,7 @@
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-abbrev :climacs-syntax :climacs-fundamental-syntax
+	:climacs-abbrev :climacs-syntax
 	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa)
   ;;(:import-from :lisp-string)
   (:export :climacs ; Main entry point.

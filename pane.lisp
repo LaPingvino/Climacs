@@ -255,7 +255,7 @@ is made to alter a buffer which has been set read only."))
   (declare (ignore args))
   (with-slots (syntax point) buffer
      (setf syntax (make-instance
-		   'fundamental-syntax :buffer (implementation buffer))
+		   'basic-syntax :buffer (implementation buffer))
 	   point (clone-mark (low-mark buffer) :right))))
 
 (defmethod (setf syntax) :after (syntax (buffer climacs-buffer))
