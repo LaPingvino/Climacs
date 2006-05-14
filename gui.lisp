@@ -223,6 +223,33 @@
       (clim-sys:make-process #'run :name process-name)
       (run))))
 
+(define-presentation-type read-only ())
+(define-presentation-method highlight-presentation 
+    ((type read-only) record stream state)
+  nil)
+(define-presentation-type modified ())
+(define-presentation-method highlight-presentation 
+    ((type modified) record stream state)
+  nil)
+
+(define-command (com-toggle-read-only :name t :command-table base-table)
+    ((buffer 'buffer))
+  (setf (read-only-p buffer) (not (read-only-p buffer))))
+(define-presentation-to-command-translator toggle-read-only
+    (read-only com-toggle-read-only base-table
+     :gesture :menu)
+    (object)
+  (list object))
+
+(define-command (com-toggle-modified :name t :command-table base-table)
+    ((buffer 'buffer))
+  (setf (needs-saving buffer) (not (needs-saving buffer))))
+(define-presentation-to-command-translator toggle-modified
+    (modified com-toggle-modified base-table
+     :gesture :menu)
+    (object)
+  (list object))
+
 (defun display-info (frame pane)
   (let* ((master-pane (master-pane pane))
 	 (buffer (buffer master-pane))
@@ -230,16 +257,24 @@
 	 (top (top master-pane))
 	 (bot (bot master-pane)))
     (princ "   " pane)
-    (princ (cond ((and (needs-saving buffer)
-		       (read-only-p buffer)
-		       "%*"))
-		 ((needs-saving buffer) "**")
-		 ((read-only-p buffer) "%%")
-		 (t "--"))
-	   pane)
+    (with-output-as-presentation (pane buffer 'read-only)
+      (princ (cond
+               ((read-only-p buffer) "%")
+               ((needs-saving buffer) "*")
+               (t "-"))
+             pane))
+    (with-output-as-presentation (pane buffer 'modified)
+      (princ (cond
+               ((needs-saving buffer) "*")
+               ((read-only-p buffer) "%")
+               (t "-"))
+             pane))
     (princ "  " pane)
     (with-text-face (pane :bold)
-      (format pane "~25A" (name buffer)))
+      (with-output-as-presentation (pane buffer 'buffer)
+        (format pane "~A" (name buffer)))
+      ;; FIXME: bare 25.
+      (format pane "~V@T" (- 25 (length (name buffer)))))
     (format pane "  ~A  "
 	    (cond ((and (mark= size bot)
 			(mark= 0 top))
@@ -305,10 +340,12 @@
         (beep) (display-message "Buffer is read only")))))
 
 (defmethod execute-frame-command :after ((frame climacs) command)
-  (loop for buffer in (buffers frame)
-        do (update-syntax buffer (syntax buffer))
-	do (when (modified-p buffer)
-	     (setf (needs-saving buffer) t))))
+  (when (eq frame *application-frame*)
+    (loop for buffer in (buffers frame)
+          do (when (syntax buffer)
+               (update-syntax buffer (syntax buffer)))
+          do (when (modified-p buffer)
+               (setf (needs-saving buffer) t)))))
 
 (defmethod find-applicable-command-table ((frame climacs))
   (or
@@ -482,18 +519,37 @@ If the a buffer with that name does not exist, create it. Uses the name of the n
 (defmethod kill-buffer ((symbol (eql 'nil)))
   (kill-buffer (buffer (current-window))))
 
-(define-command (com-kill-buffer :name t :command-table pane-table) ()
+(define-command (com-kill-buffer :name t :command-table pane-table)
+    ((buffer 'buffer
+             :prompt "Kill buffer"
+             :default (buffer (current-window))
+             :default-type 'buffer))
   "Prompt for a buffer name and kill that buffer.
 If the buffer needs saving, will prompt you to do so before killing it. Uses the current buffer as a default."
-  (let ((buffer (accept 'buffer
-			:prompt "Kill buffer"
-			:default (buffer (current-window))
-			:default-type 'buffer)))
-    (kill-buffer buffer)))
+  (kill-buffer buffer))
 
-(set-key 'com-kill-buffer
+(set-key `(com-kill-buffer ,*unsupplied-argument-marker*)
 	 'pane-table
 	 '((#\x :control) (#\k)))
+
+#+sbcl
+(defun ed-in-climacs (thing)
+  (let ((frame-manager (find-frame-manager)))
+    (when frame-manager
+      (let ((climacs-frame (find-if (lambda (x) (typep x 'climacs))
+                                    (frame-manager-frames frame-manager))))
+        (when climacs-frame
+          (typecase thing
+            ((or pathname string)
+             (execute-frame-command 
+              climacs-frame `(com-find-file ,(pathname thing)))
+             t)
+            ((or symbol cons)
+             ;; FIXME: do something
+             nil)))))))
+    
+#+sbcl
+(pushnew 'ed-in-climacs sb-ext:*ed-functions*)
 
 ;;; For the ESA help functions.
 
