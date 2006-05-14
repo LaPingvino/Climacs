@@ -127,11 +127,6 @@
 	   #:line-comment-region #:comment-region
 	   #:line-uncomment-region #:uncomment-region))
 
-(defpackage :climacs-fundamental-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane)
-  (:export #:fundamental-syntax))
-
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
   (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size
@@ -186,6 +181,11 @@
            :syntax
            :mark
            :insert-character))
+
+(defpackage :climacs-fundamental-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
+	:climacs-syntax :flexichain :climacs-pane)
+  (:export #:fundamental-syntax))
 
 (defpackage :climacs-html-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
