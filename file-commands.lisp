@@ -127,7 +127,7 @@
 	     :test (lambda (x y)
 		     (member x y :test #'string-equal))
 	     :key #'climacs-syntax::syntax-description-pathname-types))
-      'basic-syntax))
+      'fundamental-syntax))
 
 (defun evaluate-attributes (buffer options)
   "Evaluate the attributes `options' and modify `buffer' as

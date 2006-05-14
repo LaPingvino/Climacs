@@ -255,7 +255,7 @@ is made to alter a buffer which has been set read only."))
   (declare (ignore args))
   (with-slots (syntax point) buffer
      (setf syntax (make-instance
-		   'basic-syntax :buffer (implementation buffer))
+		   'fundamental-syntax :buffer (implementation buffer))
 	   point (clone-mark (low-mark buffer) :right))))
 
 (defmethod (setf syntax) :after (syntax (buffer climacs-buffer))
@@ -626,76 +626,100 @@ is made to alter a buffer which has been set read only."))
 	;; mark or point is above the screen, and point or mark below it
 	((and (null cursor-y) (null mark-y)
 	      (or (and cursor-x (null mark-x))
-		  (and (null cursor-x) mark-y)))
-	 (updating-output (pane :unique-id -3)
-	   (draw-rectangle* pane
-			    0 0
-			    (stream-text-margin pane) (bounding-rectangle-height
-						       (window-viewport pane))
-			    :ink ink)))
+		  (and (null cursor-x) mark-x)))
+	 (let ((width (stream-text-margin pane))
+	       (height (bounding-rectangle-height
+			(window-viewport pane))))
+	   (updating-output (pane :unique-id -3
+				  :cache-value (list cursor-y mark-y cursor-x mark-x
+						     height width ink))
+	     (draw-rectangle* pane
+			      0 0
+			      width height
+			      :ink ink))))
 	;; mark is above the top of the screen
 	((and (null mark-y) (null mark-x))
-	 (updating-output (pane :unique-id -3)
-	   (draw-rectangle* pane
-			    0 0
-			    (stream-text-margin pane) cursor-y
-			    :ink ink)
-	   (draw-rectangle* pane
-			    0 cursor-y 
-			    cursor-x (+ cursor-y line-height)
-			    :ink ink)))
+	 (let ((width (stream-text-margin pane)))
+	   (updating-output (pane :unique-id -3
+				  :cache-value ink)
+	     (updating-output (pane :cache-value (list mark-y mark-x cursor-y width))
+	       (draw-rectangle* pane
+				0 0
+				width cursor-y
+				:ink ink))
+	     (updating-output (pane :cache-value (list cursor-y cursor-x))
+	       (draw-rectangle* pane
+				0 cursor-y 
+				cursor-x (+ cursor-y line-height)
+				:ink ink)))))
 	;; mark is below the bottom of the screen
 	((and (null mark-y) mark-x)
-	 (updating-output (pane :unique-id -3)
-	   (draw-rectangle* pane
-			    0 (+ cursor-y line-height)
-			    (stream-text-margin pane) (bounding-rectangle-height
-						       (window-viewport pane))
-			    :ink ink)
-	   (draw-rectangle* pane
-			    cursor-x cursor-y
-			    (stream-text-margin pane) (+ cursor-y line-height)
-			    :ink ink)))
+	 (let ((width (stream-text-margin pane))
+	       (height (bounding-rectangle-height
+			(window-viewport pane))))
+	   (updating-output (pane :unique-id -3
+				  :cache-value ink)
+	     (updating-output (pane :cache-value (list cursor-y width height))
+	       (draw-rectangle* pane
+				0 (+ cursor-y line-height)
+				width height
+				:ink ink))
+	     (updating-output (pane :cache-value (list cursor-x cursor-y width))
+	       (draw-rectangle* pane
+				cursor-x cursor-y
+				width (+ cursor-y line-height)
+				:ink ink)))))
 	;; mark is at point
 	((and (= mark-x cursor-x) (= mark-y cursor-y))
 	 nil)
 	;; mark and point are on the same line
 	((= mark-y cursor-y)
-	 (updating-output (pane :unique-id -3)
+	 (updating-output (pane :unique-id -3
+				:cache-value (list offset1 offset2 ink))
 	   (draw-rectangle* pane
 			    mark-x mark-y
 			    cursor-x (+ cursor-y line-height)
 			    :ink ink)))
 	;; mark and point are both visible, mark above point
 	((< mark-y cursor-y)
-	 (updating-output (pane :unique-id -3)
-	   (draw-rectangle* pane
-			    mark-x mark-y
-			    (stream-text-margin pane) (+ mark-y line-height)
-			    :ink ink)
-	   (draw-rectangle* pane
-			    0 cursor-y
-			    cursor-x (+ cursor-y line-height)
-			    :ink ink)
-	   (draw-rectangle* pane
-			    0 (+ mark-y line-height)
-			    (stream-text-margin pane) cursor-y
-			    :ink ink)))
+	 (let ((width (stream-text-margin pane)))
+	   (updating-output (pane :unique-id -3
+				  :cache-value ink)
+	     (updating-output (pane :cache-value (list mark-x mark-y width))
+	       (draw-rectangle* pane
+				mark-x mark-y
+				width (+ mark-y line-height)
+				:ink ink))
+	     (updating-output (pane :cache-value (list cursor-x cursor-y))
+	       (draw-rectangle* pane
+				0 cursor-y
+				cursor-x (+ cursor-y line-height)
+				:ink ink))
+	     (updating-output (pane :cache-value (list mark-y cursor-y width))
+	       (draw-rectangle* pane
+				0 (+ mark-y line-height)
+				width cursor-y
+				:ink ink)))))
 	;; mark and point are both visible, point above mark
 	(t
-	 (updating-output (pane :unique-id -3)
-	   (draw-rectangle* pane
-			    cursor-x cursor-y
-			    (stream-text-margin pane) (+ cursor-y line-height)
-			    :ink ink)
-	   (draw-rectangle* pane
-			    0 mark-y
-			    mark-x (+ mark-y line-height)
-			    :ink ink)
-	   (draw-rectangle* pane
-			    0 (+ cursor-y line-height)
-			    (stream-text-margin pane) mark-y
-			    :ink ink)))))))
+	 (let ((width (stream-text-margin pane)))
+	   (updating-output (pane :unique-id -3
+				  :cache-value ink)
+	     (updating-output (pane :cache-value (list cursor-x cursor-y width))
+	       (draw-rectangle* pane
+				cursor-x cursor-y
+				width (+ cursor-y line-height)
+				:ink ink))
+	     (updating-output (pane :cache-value (list mark-x mark-y))
+	       (draw-rectangle* pane
+				0 mark-y
+				mark-x (+ mark-y line-height)
+				:ink ink))
+	     (updating-output (pane :cache-value (list cursor-y mark-y width))
+	       (draw-rectangle* pane
+				0 (+ cursor-y line-height)
+				width mark-y
+				:ink ink)))))))))
 
 (defmethod highlight-region ((pane climacs-pane) (mark1 mark) (mark2 mark)
 			     &optional (ink (compose-in +green+ (make-opacity .1))))

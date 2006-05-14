@@ -127,6 +127,11 @@
 	   #:line-comment-region #:comment-region
 	   #:line-uncomment-region #:uncomment-region))
 
+(defpackage :climacs-fundamental-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
+	:climacs-syntax :flexichain :climacs-pane)
+  (:export #:fundamental-syntax))
+
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
   (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size
@@ -144,7 +149,7 @@
 
 (defpackage :climacs-pane
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
-	:climacs-syntax :flexichain :undo)
+	:climacs-syntax :flexichain :undo :climacs-fundamental-syntax)
   (:export #:climacs-buffer #:needs-saving
 	   #:filepath #:file-saved-p #:file-write-time
 	   #:read-only-p #:buffer-read-only
@@ -170,7 +175,7 @@
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-abbrev :climacs-syntax 
+	:climacs-abbrev :climacs-syntax :climacs-fundamental-syntax
 	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa)
   ;;(:import-from :lisp-string)
   (:export :climacs ; Main entry point.
@@ -181,11 +186,6 @@
            :syntax
            :mark
            :insert-character))
-
-(defpackage :climacs-fundamental-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane)
-  (:export))
 
 (defpackage :climacs-html-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
