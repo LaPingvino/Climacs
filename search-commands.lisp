@@ -28,6 +28,13 @@
 
 (in-package :climacs-gui)
 
+(defun display-string (string)
+  (with-output-to-string (result)
+    (loop for char across string
+	  do (cond ((graphic-char-p char) (princ char result))
+		((char= char #\Space) (princ char result))
+		(t (prin1 char result))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; String search
@@ -107,7 +114,7 @@ If found, leaves point before the word. If not, leaves point where it is."
                                 (- (offset mark2) (length string))
                                 (+ (offset mark2) (length string)))))
       (display-message "~:[Failing ~;~]Isearch~:[ backward~;~]: ~A"
-		       success forwardp string)
+		       success forwardp (display-string string))
       (push (make-instance 'isearch-state
                            :search-string string
                            :search-mark mark
@@ -133,14 +140,56 @@ If found, leaves point before the word. If not, leaves point where it is."
 	 'search-table
 	 '((#\r :control)))
 
-(define-command (com-isearch-append-char :name t :command-table isearch-climacs-table) ()
+(defun isearch-append-char (char)
   (let* ((pane (current-window))
          (states (isearch-states pane))
          (string (concatenate 'string
                               (search-string (first states))
-                              (string *current-gesture*)))
+                              (string char)))
          (mark (clone-mark (search-mark (first states))))
          (forwardp (search-forward-p (first states))))
+    (unless forwardp
+      (incf (offset mark)))
+    (isearch-from-mark pane mark string forwardp)))
+
+(define-command (com-isearch-append-char :name t :command-table isearch-climacs-table) ()
+  (isearch-append-char *current-gesture*))
+
+(define-command (com-isearch-append-newline :name t :command-table isearch-climacs-table) ()
+  (isearch-append-char #\Newline))
+
+(defun isearch-append-text (movement-function)
+  (let* ((pane (current-window))
+	 (states (isearch-states pane))
+	 (buffer (buffer pane))
+	 (point (point pane))
+	 (start (clone-mark point))
+	 (mark (clone-mark (search-mark (first states))))
+	 (forwardp (search-forward-p (first states))))
+    (funcall movement-function point)
+    (let ((string (concatenate 'string
+			       (search-string (first states))
+			       (buffer-substring buffer
+						 (offset start)
+						 (offset point)))))
+      (unless forwardp
+	(incf (offset mark)))
+      (isearch-from-mark pane mark string forwardp))))
+
+(define-command (com-isearch-append-word :name t :command-table isearch-climacs-table) ()
+  (isearch-append-text #'forward-word))
+
+(define-command (com-isearch-append-line :name t :command-table isearch-climacs-table) ()
+  (isearch-append-text #'end-of-line))
+
+(define-command (com-isearch-append-kill :name t :command-table isearch-climacs-table) ()
+  (let* ((pane (current-window))
+	 (states (isearch-states pane))
+	 (string (concatenate 'string
+			      (search-string (first states))
+			      (kill-ring-yank *kill-ring*)))
+	 (mark (clone-mark (search-mark (first states))))
+	 (forwardp (search-forward-p (first states))))
     (unless forwardp
       (incf (offset mark)))
     (isearch-from-mark pane mark string forwardp)))
@@ -164,7 +213,7 @@ If found, leaves point before the word. If not, leaves point where it is."
                           (length (search-string state)))))
 	     (display-message "Isearch~:[ backward~;~]: ~A"
 			      (search-forward-p state)
-			      (search-string state)))))))
+			      (display-string (search-string state))))))))
 
 (define-command (com-isearch-search-forward :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
@@ -200,6 +249,10 @@ If found, leaves point before the word. If not, leaves point where it is."
 (isearch-set-key '(#\Backspace) 'com-isearch-delete-char)
 (isearch-set-key '(#\s :control) 'com-isearch-search-forward)
 (isearch-set-key '(#\r :control) 'com-isearch-search-backward)
+(isearch-set-key '(#\j :control) 'com-isearch-append-newline)
+(isearch-set-key '(#\w :control) 'com-isearch-append-word)
+(isearch-set-key '(#\y :control) 'com-isearch-append-line)
+(isearch-set-key '(#\y :meta) 'com-isearch-append-kill)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
