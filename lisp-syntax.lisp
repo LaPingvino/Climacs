@@ -208,6 +208,7 @@
 (defclass comma-lexeme (lisp-lexeme) ())
 (defclass comma-at-lexeme (lisp-lexeme) ())
 (defclass comma-dot-lexeme (lisp-lexeme) ())
+(defclass dot-lexeme (lisp-lexeme) ())
 (defclass form-lexeme (form lisp-lexeme) ())
 (defclass incomplete-character-lexeme (form-lexeme incomplete-form-mixin) ())
 (defclass character-lexeme (form-lexeme) ())
