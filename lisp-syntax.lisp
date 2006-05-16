@@ -450,11 +450,13 @@
   ;; May need more work. Can recognize symbols and numbers.
   (flet ((fo () (forward-object scan)))
     (let ((could-be-number t)
-          sign-seen dot-seen slash-seen)
+          sign-seen dot-seen slash-seen nondot-seen)
       (flet ((return-token-or-number-lexeme ()
                (return-from lex-token
                  (if could-be-number
-                     (make-instance 'number-lexeme)
+                     (if nondot-seen
+                         (make-instance 'number-lexeme)
+                         (make-instance 'dot-lexeme))
                      (make-instance 'complete-token-lexeme))))
              (this-object ()
                (object-after scan)))
@@ -463,6 +465,8 @@
            (when (end-of-buffer-p scan)
              (return-token-or-number-lexeme))
            (when (constituentp (object-after scan))
+             (when (not (eql (this-object) #\.))
+               (setf nondot-seen t))
              (cond ((or (eql (this-object) #\+)
                         (eql (this-object) #\-))
                     (when sign-seen
@@ -680,6 +684,42 @@
 ;;; reduce at the end of the buffer
 (define-lisp-action (|( form* | (eql nil))
   (reduce-until-type incomplete-list-form left-parenthesis-lexeme))
+
+;;;;;;;;;;;;;;;; Cons cell
+;; Also (foo bar baz . quux) constructs.
+;; (foo bar . baz quux) flagged as an error (too aggressively?).
+
+;;; parse trees
+(defclass cons-cell-form (form) ())
+(defclass complete-cons-cell-form (cons-cell-form complete-list-form) ())
+(defclass incomplete-cons-cell-form (cons-cell-form incomplete-list-form) ())
+
+(define-parser-state |( form* dot-lexeme |
+    (lexer-list-state form-may-follow) ())
+(define-parser-state |( form* dot-lexeme form |
+    (lexer-list-state form-may-follow) ())
+(define-parser-state |( form* dot-lexeme form ) |
+    (lexer-toplevel-state parser-state) ())
+
+(define-new-lisp-state (|( form* | dot-lexeme)
+  |( form* dot-lexeme |)
+(define-new-lisp-state (|( form* dot-lexeme | form)
+  |( form* dot-lexeme form |)
+(define-new-lisp-state (|( form* dot-lexeme | comment)
+  |( form* dot-lexeme |)
+(define-new-lisp-state (|( form* dot-lexeme form | right-parenthesis-lexeme)
+  |( form* dot-lexeme form ) |)
+(define-new-lisp-state (|( form* dot-lexeme form | comment)
+  |( form* dot-lexeme form |)
+
+(define-lisp-action (|( form* dot-lexeme form ) | t)
+  (reduce-until-type complete-cons-cell-form left-parenthesis-lexeme))
+
+;;; Reduce at end of buffer.
+(define-lisp-action (|( form* dot-lexeme | (eql nil))
+  (reduce-until-type incomplete-cons-cell-form left-parenthesis-lexeme))
+(define-lisp-action (|( form* dot-lexeme form | (eql nil))
+  (reduce-until-type incomplete-cons-cell-form left-parenthesis-lexeme))
 
 ;;;;;;;;;;;;;;;; Simple Vector
 
