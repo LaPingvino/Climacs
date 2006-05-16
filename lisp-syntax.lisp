@@ -1372,10 +1372,10 @@ returned."
 
 (defparameter *standard-faces*
 	      `((:error ,+red+ nil)
-		(:string ,+coral+ ,(make-text-style nil :italic nil))
-		(:keyword ,+dark-violet+ nil)
-                (:macro ,+cyan+)
-                (:special-form ,+cyan+)
+		(:string ,+rosy-brown+ ,(make-text-style nil :italic nil))
+		(:keyword ,+orchid+ nil)
+                (:macro ,+purple+ nil)
+                (:special-form ,+purple+ nil)
 		(:lambda-list-keyword ,+dark-green+ nil)
 		(:comment ,+maroon+ nil)
 		(:reader-conditional ,+gray50+ nil)))
