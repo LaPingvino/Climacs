@@ -817,7 +817,7 @@ With a numeric argument, only delete whitespace before point."
     (loop until (end-of-line-p mark)
 	  while (whitespacep (object-after mark))
 	  repeat count do (forward-object mark)
-	  finally (setf offset (offset mark)))
+	finally (setf offset (offset mark)))
     (loop until (end-of-line-p mark)
 	  while (whitespacep (object-after mark))
 	  do (forward-object mark))
@@ -838,14 +838,12 @@ FIXME: should distinguish between types of whitespace."
 (defun goto-position (mark pos)
   (setf (offset mark) pos))
 
-(define-command (com-goto-position :name t :command-table movement-table) ()
+(define-command (com-goto-position :name t :command-table movement-table) 
+    ((position 'integer :prompt "Goto Position"))
   "Prompts for an integer, and sets the offset of point to that integer."
   (goto-position
    (point (current-window))
-   (handler-case (accept 'integer :prompt "Goto Position")
-     (error () (progn (beep)
-		      (display-message "Not a valid position")
-		      (return-from com-goto-position nil))))))  
+   position))  
 
 (defun goto-line (mark line-number)
   (loop with m = (clone-mark (low-mark (buffer mark))
@@ -859,24 +857,22 @@ FIXME: should distinguish between types of whitespace."
 	finally (beginning-of-line m)
 		(setf (offset mark) (offset m))))
 
-(define-command (com-goto-line :name t :command-table movement-table) ()
+(define-command (com-goto-line :name t :command-table movement-table) 
+    ((line-number 'integer :prompt "Goto Line"))
   "Prompts for a line number, and sets point to the beginning of that line.
 The first line of the buffer is 1. Giving a number <1 leaves 
 point at the beginning of the buffer. Giving a line number 
 larger than the number of the last line in the buffer leaves 
 point at the beginning of the last line of the buffer."
-  (goto-line (point (current-window))
-	     (handler-case (accept 'integer :prompt "Goto Line")
-		 (error () (progn (beep)
-				  (display-message "Not a valid line number")
-				  (return-from com-goto-line nil))))))
+  (goto-line (point (current-window)) line-number))
 
-(define-command (com-browse-url :name t :command-table base-table) ()
-  (let ((url (accept 'url :prompt "Browse URL")))
-    #+ (and sbcl darwin)
-    (sb-ext:run-program "/usr/bin/open" `(,url) :wait nil)
-    #+ (and openmcl darwin)
-    (ccl:run-program "/usr/bin/open" `(,url) :wait nil)))
+(define-command (com-browse-url :name t :command-table base-table) 
+    ((url 'url :prompt "Browse URL"))
+  (declare (ignorable url))
+  #+ (and sbcl darwin)
+     (sb-ext:run-program "/usr/bin/open" `(,url) :wait nil)
+  #+ (and openmcl darwin)
+     (ccl:run-program "/usr/bin/open" `(,url) :wait nil))
 
 (define-command (com-set-mark :name t :command-table marking-table) ()
   "Set mark to the current position of point."
@@ -915,15 +911,12 @@ point at the beginning of the last line of the buffer."
 	   (beep)
 	   (display-message "No such syntax: ~A." syntax)))))
 
-(define-command (com-set-syntax :name t :command-table buffer-table) ()
+(define-command (com-set-syntax :name t :command-table buffer-table) 
+    ((syntax 'syntax
+      :prompt "Name of syntax"))
   "Prompts for a syntax to set for the current buffer.
-Setting a syntax will cause the buffer to be reparsed using the new syntax."
-  (let* ((pane (current-window))
-	 (buffer (buffer pane)))
-    (handler-case (set-syntax buffer (accept 'syntax :prompt "Set Syntax"))
-                  (input-not-of-required-type 
-                   (message)
-                   (display-message "Invalid syntax: ~A." message)))))
+   Setting a syntax will cause the buffer to be reparsed using the new syntax."
+  (set-syntax (current-buffer) syntax))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands
@@ -979,14 +972,11 @@ objects in the kill ring."
 	 'editing-table
 	 '((#\y :meta)))
 
-(define-command (com-resize-kill-ring :name t :command-table editing-table) ()
+(define-command (com-resize-kill-ring :name t :command-table editing-table) 
+    ((size 'integer :prompt "New kill ring size"))
   "Prompt for a new size for the kill ring.
 The default is 5. A number less than 5 will be replaced by 5."
-  (let ((size (handler-case (accept 'integer :prompt "New kill ring size")
-		(error () (progn (beep)
-				 (display-message "Not a valid kill ring size")
-				 (return-from com-resize-kill-ring nil))))))
-    (setf (kill-ring-max-size *kill-ring*) size)))
+     (setf (kill-ring-max-size *kill-ring*) size))
 
 (define-command (com-append-next-kill :name t :command-table editing-table) ()
   "Set the kill ring to append the next kill to the previous one."
@@ -1336,17 +1326,14 @@ FIXME: gives no information at end of buffer."
 	 '((#\x :control) (#\=)))
 
 (define-command (com-eval-expression :name t :command-table base-table)
-    ((insertp 'boolean :prompt "Insert?"))
+    ((exp 'expression :prompt "Eval")
+     (insertp 'boolean :prompt "Insert?"))
   "Prompt for and evaluate a lisp expression.
 With a numeric argument inserts the result at point as a string; 
 otherwise prints the result."
   (let* ((*package* (find-package :climacs-gui))
-	 (string (handler-case (accept 'string :prompt "Eval")
-		   (error () (progn (beep)
-				    (display-message "Empty string")
-				    (return-from com-eval-expression nil)))))
-	 (values (multiple-value-list
-		  (handler-case (eval (read-from-string string))
+         (values (multiple-value-list
+		  (handler-case (eval exp)
 		    (error (condition) (progn (beep)
 					      (display-message "~a" condition)
 					      (return-from com-eval-expression nil))))))
@@ -1355,7 +1342,7 @@ otherwise prints the result."
 	(insert-sequence (point (current-window)) result)
 	(display-message result))))
 
-(set-key `(com-eval-expression ,*numeric-argument-p*)
+(set-key `(com-eval-expression ,*unsupplied-argument-marker* ,*numeric-argument-p*)
 	 'base-table
 	 '((#\: :shift :meta)))
 
