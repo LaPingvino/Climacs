@@ -1172,7 +1172,8 @@
 	     (when (typep x 'complete-list-form)
 	       (let ((candidate (first-form (children x))))
 		 (and (typep candidate 'token-mixin)
-		      (eq (token-to-object syntax candidate)
+		      (eq (token-to-object syntax candidate
+                                           :no-error t)
 			  'cl:in-package))))))
       (with-slots (stack-top) syntax
 	(let ((form (find-if #'test (children stack-top))))
@@ -1466,7 +1467,7 @@ returned."
   (if (> (the fixnum (end-offset parse-symbol)) (the fixnum (start-offset parse-symbol)))
       (let ((string (token-string syntax parse-symbol)))
         (multiple-value-bind (symbol status)
-            (token-to-object syntax parse-symbol)
+            (token-to-object syntax parse-symbol :no-error t)
           (with-output-as-presentation
               (pane (if status symbol string) (if status 'symbol 'unknown-symbol)
                :single-box :highlighting)
