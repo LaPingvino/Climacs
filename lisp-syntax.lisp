@@ -2058,7 +2058,7 @@ found in a package, an uninterned symbol will be returned."
                             &key no-error
                             (case (readtable-case *readtable*)))
   (declare (ignore no-error))
-  (clouseau:inspector (parse-symbol (token-string syntax token) :case case)))
+  (parse-symbol (token-string syntax token) :case case))
 
 (defmethod token-to-object (syntax (token number-lexeme) &rest args)
   (declare (ignore args))
