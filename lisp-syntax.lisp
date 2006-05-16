@@ -2007,15 +2007,15 @@ found in a package, an uninterned symbol will be returned."
                    :case case
                    :no-error t))
 
-(defgeneric token-to-object (syntax token &key no-error &allow-other-keys)
+(defgeneric token-to-object (syntax token &rest args &key no-error package quote &allow-other-keys)
   (:documentation "Return the Lisp object `token' would evaluate
   to if read. An attempt will be made to construct objects from
   incomplete tokens. This function may signal an error if
   `no-error' is nil and `token' cannot be converted to a Lisp
   object. Otherwise, nil will be returned.")
-  (:method :around (syntax token &key no-error package)
+  (:method :around (syntax token &rest args &key no-error package quote)
            ;; Ensure that every symbol that is READ will be looked up
-           ;; in the correct package.
+           ;; in the correct package. Also handle quoting.
            (handler-case (let ((*package* (if (and (slot-boundp syntax 'package)
                                                    (slot-value syntax 'package)
                                                    (typep (slot-value syntax 'package) 'package))
@@ -2025,8 +2025,13 @@ found in a package, an uninterned symbol will be returned."
                                                         package
                                                         (find-package package)))
                                                   (find-package :common-lisp)))))
-                           (call-next-method))
+                           (if quote
+                               (progn
+                                 (setf (getf args :quote) nil)
+                                 `',(call-next-method))
+                               (call-next-method)))
              (t ()
+               ;; Needs more usable error.
                (unless no-error
                  (error "Cannot convert token to Lisp object: ~A" token)))))
   (:method (syntax (token t) &key no-error)
@@ -2034,7 +2039,7 @@ found in a package, an uninterned symbol will be returned."
     ;; We ignore `no-error' as it is truly a bug in Climacs if no
     ;; handler method is specialized on this form.
     (error "Cannot convert token to Lisp object: ~A"
-            token))
+           token))
   (:method (syntax (token incomplete-form-mixin) &key no-error)
     (unless no-error
       (error "Cannot convert incomplete form to Lisp object: ~A"
@@ -2046,30 +2051,31 @@ found in a package, an uninterned symbol will be returned."
   (declare (ignore no-error))
   (parse-symbol (token-string syntax token) :case case))
 
-(defmethod token-to-object (syntax (token number-lexeme) &key no-error)
+(defmethod token-to-object (syntax (token complete-token-form)
+                            &key no-error
+                            (case (readtable-case *readtable*)))
   (declare (ignore no-error))
+  (clouseau:inspector (parse-symbol (token-string syntax token) :case case)))
+
+(defmethod token-to-object (syntax (token number-lexeme) &rest args)
+  (declare (ignore args))
   (let ((*read-base* (base syntax)))
     (read-from-string (token-string syntax token))))
 
-(defmethod token-to-object (syntax (token list-form) &key no-error)
-  (declare (ignore no-error))
-  (mapcar #'(lambda (form)
-              (token-to-object syntax form))
-          (remove-if-not #'(lambda (form)
-                             (typep form 'form))
-                         (children token))))
+(defmethod token-to-object (syntax (token list-form) &rest args)
+  (loop for child in (children token)
+     if (typep child 'comma-at-form)
+       ;; How should we handle this?
+       collect (apply #'token-to-object syntax child args)
+     else if (typep child 'form)
+       collect (apply #'token-to-object syntax child args)))
 
-(defmethod token-to-object (syntax (token simple-vector-form) &key no-error)
-  (declare (ignore no-error))
+(defmethod token-to-object (syntax (token simple-vector-form) &key)
   (apply #'vector
-         (mapcar #'(lambda (form)
-                     (token-to-object syntax form))
-                 (remove-if-not #'(lambda (form)
-                                    (typep form 'form))
-                                (children token)))))
+         (call-next-method)))
 
-(defmethod token-to-object (syntax (token incomplete-string-form) &key no-error)
-  (declare (ignore no-error))
+(defmethod token-to-object (syntax (token incomplete-string-form) &rest args)
+  (declare (ignore args))
   (read-from-string (concatenate 'string
                                  (token-string syntax token)
                                  "\"")))
@@ -2078,9 +2084,61 @@ found in a package, an uninterned symbol will be returned."
   (declare (ignore no-error))
   (read-from-string (token-string syntax token)))
 
-(defmethod token-to-object (syntax (token quote-form) &key no-error)
-  (list 'cl:quote
-        (token-to-object syntax (second (children token)) :no-error no-error)))
+(defmethod token-to-object (syntax (token quote-form) &rest args)
+  (apply #'token-to-object syntax (second (children token)) :quote t args))
+
+;; I'm not sure backquotes are handled correctly, but then again,
+;; `token-to-object' is not meant to be a perfect Lisp reader, only a
+;; convenience function.
+(defmethod token-to-object (syntax (token backquote-form) &rest args)
+  (let ((backquoted-form (first-form (children token))))
+    (if (typep backquoted-form 'list-form)
+        `'(,@(apply #'token-to-object syntax backquoted-form args))
+        `',(apply #'token-to-object syntax backquoted-form args))))
+
+(defmethod token-to-object (syntax (token comma-form) &rest args)
+  (apply #'token-to-object syntax (first-form (children token)) args))
+
+(defmethod token-to-object (syntax (token comma-at-form) &rest args)
+  (apply #'token-to-object syntax (first-form (children token)) args))
+
+(defmethod token-to-object (syntax (token function-form) &rest args)
+  (list 'cl:function (apply #'token-to-object syntax (second (children token))
+                                      args)))
+
+(defmethod token-to-object (syntax (token character-lexeme) &key)
+  (read-from-string (token-string syntax token)))
+
+(defmethod token-to-object (syntax (token cons-cell-form) &key)
+  (let ((components (remove-if #'(lambda (token)
+                                   (not (typep token 'form)))
+                               (children token))))
+    (if (<= (length components) 2)
+        (cons (token-to-object syntax (first components))
+              (token-to-object syntax (second components)))
+        (loop for (head . tail) on components
+           if (rest tail)
+           collect (token-to-object syntax head)
+           else if (not (null tail))
+           append (cons (token-to-object syntax head)
+                        (token-to-object syntax (first tail)))))))
+
+;; Perhaps just returning NIL for conditionals whose condition
+;; evaluates to NIL isn't such a good idea? I don't think it's very
+;; Intuitive.
+(defmethod token-to-object (syntax (token reader-conditional-positive-form) &key)
+  (let ((conditional (second-noncomment (children token))))
+    (when (eval-feature-conditional conditional syntax)
+      (token-to-object syntax (third-noncomment (children token))))))
+
+(defmethod token-to-object (syntax (token reader-conditional-negative-form) &key)
+  (let ((conditional (second-noncomment (children token))))
+    (when (not (eval-feature-conditional conditional syntax))
+      (token-to-object syntax (third-noncomment (children token))))))
+
+(defmethod token-to-object (syntax (token undefined-reader-macro-form) &key)
+  ;; ???
+  nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
