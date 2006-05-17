@@ -148,7 +148,7 @@ If found, leaves point before the word. If not, leaves point where it is."
                               (string char)))
          (mark (clone-mark (search-mark (first states))))
          (forwardp (search-forward-p (first states))))
-    (unless forwardp
+    (unless (or forwardp (end-of-buffer-p mark))
       (incf (offset mark)))
     (isearch-from-mark pane mark string forwardp)))
 
@@ -172,7 +172,7 @@ If found, leaves point before the word. If not, leaves point where it is."
 			       (buffer-substring buffer
 						 (offset start)
 						 (offset point)))))
-      (unless forwardp
+      (unless (or forwardp (end-of-buffer-p mark))
 	(incf (offset mark)))
       (isearch-from-mark pane mark string forwardp))))
 
@@ -190,7 +190,7 @@ If found, leaves point before the word. If not, leaves point where it is."
 			      (kill-ring-yank *kill-ring*)))
 	 (mark (clone-mark (search-mark (first states))))
 	 (forwardp (search-forward-p (first states))))
-    (unless forwardp
+    (unless (or forwardp (end-of-buffer-p mark))
       (incf (offset mark)))
     (isearch-from-mark pane mark string forwardp)))
 
