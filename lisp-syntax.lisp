@@ -1999,7 +1999,7 @@ it was not found in a package."
       (multiple-value-bind (symbol status)
           (when package
             (find-symbol symbol-name package))
-        (if symbol
+        (if (or symbol package)
             (values symbol status)
             (values (make-symbol symbol-name) nil))))))
 
@@ -2195,9 +2195,6 @@ found in a package, an uninterned symbol will be returned."
 	      (t
 	       ;; inside a subexpression
 	       (indent-form syntax (elt-noncomment (children tree) (car path)) (cdr path)))))))	    
-
-(defmethod indent-form ((syntax lisp-syntax) (tree string-form) path)
-  (values tree 1))
 
 (defmethod indent-form ((syntax lisp-syntax) (tree token-form) path)
   (values tree 0))
