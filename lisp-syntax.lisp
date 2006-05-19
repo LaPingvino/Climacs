@@ -1999,7 +1999,7 @@ it was not found in a package."
       (multiple-value-bind (symbol status)
           (when package
             (find-symbol symbol-name package))
-        (if (or symbol package)
+        (if (or symbol status)
             (values symbol status)
             (values (make-symbol symbol-name) nil))))))
 
