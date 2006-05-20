@@ -916,8 +916,9 @@
 ;;;;;;;;;;;;;;;; Reader conditionals
 
 ;;; parse trees
-(defclass reader-conditional-positive-form (form) ())
-(defclass reader-conditional-negative-form (form) ())
+(defclass reader-conditional-form (form) ())
+(defclass reader-conditional-positive-form (reader-conditional-form) ())
+(defclass reader-conditional-negative-form (reader-conditional-form) ())
 
 (define-parser-state |#+ | (form-may-follow) ())
 (define-parser-state |#+ form | (form-may-follow) ())
@@ -1428,13 +1429,17 @@ returned."
 (defmethod display-parse-tree :around (parse-symbol syntax pane)
   (with-slots (top bot) pane
      (when (and (start-offset parse-symbol) 
-		(mark< (start-offset parse-symbol) bot)
-		(mark> (end-offset parse-symbol) top))
+                (mark< (start-offset parse-symbol) bot)
+                (mark> (end-offset parse-symbol) top))
        (call-next-method))))  
 
 (defmethod display-parse-tree (parse-symbol syntax pane)
-  (loop for child in (children parse-symbol)
-     do (display-parse-tree child syntax pane)))
+  (with-slots (top bot) pane
+    (loop for child in (children parse-symbol)
+       when (and (start-offset child) 
+                 (mark< (start-offset child) bot)
+                 (mark> (end-offset child) top))
+       do (display-parse-tree child syntax pane))))
 
 (defmethod display-parse-tree ((parse-symbol error-symbol) (syntax lisp-syntax) pane)
   (let ((children (children parse-symbol)))
@@ -2147,6 +2152,8 @@ found in a package, an uninterned symbol will be returned."
 ;;;
 ;;; indentation
 
+(defgeneric indent-form (syntax tree path))
+
 (defmethod indent-form ((syntax lisp-syntax) (tree form*) path)
   (cond ((or (null path)
 	     (and (null (cdr path)) (zerop (car path))))
@@ -2158,24 +2165,12 @@ found in a package, an uninterned symbol will be returned."
 (defmethod indent-form ((syntax lisp-syntax) (tree string-form) path)
   (values (form-toplevel tree syntax) 0))
 
-;; FIXME: The next two methods are basically identical to the above definition, 
-;; something should be done about this duplication.
-
-(defmethod indent-form ((syntax lisp-syntax) (tree reader-conditional-positive-form) path)
+(defmethod indent-form ((syntax lisp-syntax) (tree reader-conditional-form) path)
   (cond ((or (null path)
 	     (and (null (cdr path)) (zerop (car path))))
 	 (values tree 0))
 	((null (cdr path))
-	 (values (elt-noncomment (children tree) (1- (car path))) 0))
-	(t (indent-form syntax (elt-noncomment (children tree) (car path)) (cdr path)))))
-
-(defmethod indent-form ((syntax lisp-syntax) (tree reader-conditional-negative-form) path)
-  (cond ((or (null path)
-	     (and (null (cdr path)) (zerop (car path))))
-	 (values tree 0))
-	((null (cdr path))
-	 (values (elt-noncomment (children tree) (1- (car path))) 0))
-	(t (indent-form syntax (elt-noncomment (children tree) (car path)) (cdr path)))))
+	 (values (first-form (children tree)) 0))))
 
 (defmethod indent-form ((syntax lisp-syntax) (tree list-form) path)
   (if (= (car path) 1)
