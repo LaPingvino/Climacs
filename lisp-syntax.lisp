@@ -2206,6 +2206,11 @@ found in a package, an uninterned symbol will be returned."
 (defmethod indent-form ((syntax lisp-syntax) (tree backquote-form) path)
   (indent-form syntax (elt-noncomment (children tree) (car path)) (cdr path)))
 
+(defmethod indent-form ((syntax lisp-syntax) (tree function-form) path)
+  (if (null (cdr path))
+      (values tree 0)
+      (indent-form syntax (elt-form (children tree) 0) (cdr path))))
+
 (defmethod indent-binding ((syntax lisp-syntax) tree path)
   (if (null (cdr path))
       ;; top level
