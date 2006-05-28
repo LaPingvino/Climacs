@@ -177,6 +177,7 @@
            ;; GUI functions follow.
            :climacs-rv ; Entry point with alternate colors.
            :current-window
+           :current-buffer
            :point
            :syntax
            :mark
