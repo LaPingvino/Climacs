@@ -2015,13 +2015,13 @@ found in a package, an uninterned symbol will be returned."
                    :case case
                    :no-error t))
 
-(defgeneric token-to-object (syntax token &rest args &key no-error package quote &allow-other-keys)
+(defgeneric token-to-object (syntax token &rest args &key no-error package quote read &allow-other-keys)
   (:documentation "Return the Lisp object `token' would evaluate
   to if read. An attempt will be made to construct objects from
   incomplete tokens. This function may signal an error if
   `no-error' is nil and `token' cannot be converted to a Lisp
   object. Otherwise, nil will be returned.")
-  (:method :around (syntax token &rest args &key no-error package quote)
+  (:method :around (syntax token &rest args &key no-error package quote read)
            ;; Ensure that every symbol that is READ will be looked up
            ;; in the correct package. Also handle quoting.
            (handler-case (let ((*package* (if (and (slot-boundp syntax 'package)
@@ -2033,11 +2033,13 @@ found in a package, an uninterned symbol will be returned."
                                                         package
                                                         (find-package package)))
                                                   (find-package :common-lisp)))))
-                           (if quote
-                               (progn
-                                 (setf (getf args :quote) nil)
-                                 `',(call-next-method))
-                               (call-next-method)))
+                           (cond (read
+                                  (read-from-string (token-string syntax token)))
+                                 (quote
+                                  (setf (getf args :quote) nil)
+                                  `',(call-next-method))
+                                 (t
+                                   (call-next-method))))
              (t ()
                ;; Needs more usable error.
                (unless no-error
