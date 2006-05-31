@@ -1362,6 +1362,17 @@ returned. Otherwise, the top-level-form following `mark' is
 returned."
   (form-toplevel (expression-at-mark mark syntax) syntax))
 
+(defun symbol-at-mark (mark syntax)
+  "Return a symbol token at mark. This function will \"unwrap\"
+  quote-forms in order to return the symbol token. If no symbol
+  token can be found, NIL will be returned."
+  (labels ((unwrap-form (form)
+             (cond ((typep form 'quote-form)
+                    (unwrap-form (first-form (children form))))
+                   ((typep form 'complete-token-lexeme)
+                    form))))
+    (unwrap-form (expression-at-mark mark syntax))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; display
