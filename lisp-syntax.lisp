@@ -2028,43 +2028,43 @@ found in a package, an uninterned symbol will be returned."
 
 (defgeneric token-to-object (syntax token &rest args &key no-error package quote read &allow-other-keys)
   (:documentation "Return the Lisp object `token' would evaluate
-  to if read. An attempt will be made to construct objects from
-  incomplete tokens. This function may signal an error if
-  `no-error' is nil and `token' cannot be converted to a Lisp
-  object. Otherwise, nil will be returned.")
+to if read. An attempt will be made to construct objects from
+incomplete tokens. This function may signal an error if
+`no-error' is nil and `token' cannot be converted to a Lisp
+object. Otherwise, nil will be returned.")
   (:method :around (syntax token &rest args &key no-error package quote read)
            ;; Ensure that every symbol that is READ will be looked up
            ;; in the correct package. Also handle quoting.
-           (handler-case (let ((*package* (if (and (slot-boundp syntax 'package)
-                                                   (slot-value syntax 'package)
-                                                   (typep (slot-value syntax 'package) 'package))
-                                              (slot-value syntax 'package)
-                                              (or (when package
-                                                    (if (packagep package)
-                                                        package
-                                                        (find-package package)))
-                                                  (find-package :common-lisp)))))
-                           (cond (read
-                                  (read-from-string (token-string syntax token)))
-                                 (quote
-                                  (setf (getf args :quote) nil)
-                                  `',(call-next-method))
-                                 (t
-                                   (call-next-method))))
-             (t ()
-               ;; Needs more usable error.
-               (unless no-error
-                 (error "Cannot convert token to Lisp object: ~A" token)))))
+           (flet ((act ()
+                     (let ((*package* (if (and (slot-boundp syntax 'package)
+                                               (slot-value syntax 'package)
+                                               (typep (slot-value syntax 'package) 'package))
+                                          (slot-value syntax 'package)
+                                          (or (when package
+                                                (if (packagep package)
+                                                    package
+                                                    (find-package package)))
+                                              (find-package :common-lisp)))))
+                       (cond (read
+                              (read-from-string (token-string syntax token)))
+                             (quote
+                              (setf (getf args :quote) nil)
+                              `',(call-next-method))
+                             (t
+                              (call-next-method))))))
+             (if no-error 
+                 (ignore-errors (act))
+                 (act))))
   (:method (syntax (token t) &key no-error)
-    (declare (ignore no-error))
-    ;; We ignore `no-error' as it is truly a bug in Climacs if no
-    ;; handler method is specialized on this form.
-    (error "Cannot convert token to Lisp object: ~A"
-           token))
+           (declare (ignore no-error))
+           ;; We ignore `no-error' as it is truly a bug in Climacs if no
+           ;; handler method is specialized on this form.
+           (error "Cannot convert token to Lisp object: ~A"
+                  token))
   (:method (syntax (token incomplete-form-mixin) &key no-error)
-    (unless no-error
-      (error "Cannot convert incomplete form to Lisp object: ~A"
-             token))))
+           (unless no-error
+             (error "Cannot convert incomplete form to Lisp object: ~A"
+                    token))))
 
 (defmethod token-to-object (syntax (token complete-token-lexeme)
                             &key no-error
