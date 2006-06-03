@@ -210,21 +210,19 @@ If a string of length >1, uses the first character of the string."
   (unless (beginning-of-buffer-p mark)
     (when (end-of-line-p mark)
       (backward-object mark))
-    (let ((object (object-after mark)))
-      (delete-range mark)
-      (backward-object mark)
-      (insert-object mark object)
-      (forward-object mark))))
+    (unless (beginning-of-buffer-p mark)
+      (let ((object (object-after mark)))
+	(delete-range mark)
+	(backward-object mark)
+	(insert-object mark object)
+	(forward-object mark)))))
 
 (define-command (com-transpose-objects :name t :command-table editing-table) ()
   "Transpose the objects before and after point, advancing point.
 At the end of a line transpose the previous two objects without
 advancing point. At the beginning of the buffer do nothing.
 At the beginning of any line other than the first effectively
-move the first object of that line to the end of the previous line.
-
-FIXME: at the end of a single object line at the beginning of
-the buffer deletes that object."
+move the first object of that line to the end of the previous line."
   (transpose-objects (point (current-window))))
 
 (set-key 'com-transpose-objects
@@ -269,8 +267,7 @@ that number of objects."
     (setf ew1 (offset mark))
     (forward-word mark)
     (when (= (offset mark) ew1)
-      ;; this is emacs' message in the minibuffer
-      (error "Don't have two things to transpose"))
+      (display-message "Don't have two things to transpose"))
     (setf ew2 (offset mark))
     (backward-word mark)
     (setf bw2 (offset mark))
@@ -1271,8 +1268,7 @@ A page is delimited by the sequence #\Newline #\Page."
 
 (define-command (com-count-lines-page :name t :command-table info-table) ()
   "Print the number of lines in the current page.
-Also prints the number of lines before and after point (as '(b + a)').
-FIXME: the count is off by one."
+Also prints the number of lines before and after point (as '(b + a)')."
   (let* ((pane (current-window))
 	 (point (point pane))
 	 (start (clone-mark point))
@@ -1282,7 +1278,7 @@ FIXME: the count is off by one."
     (let ((total (number-of-lines-in-region start end))
 	  (before (number-of-lines-in-region start point))
 	  (after (number-of-lines-in-region point end)))
-      (display-message "Page has ~A lines (~A + ~A)" total before after))))
+      (display-message "Page has ~A lines (~A + ~A)" (1+ total) before after))))
 
 (set-key 'com-count-lines-page
 	 'info-table
@@ -1290,14 +1286,13 @@ FIXME: the count is off by one."
 
 (define-command (com-count-lines-region :name t :command-table info-table) ()
   "Print the number of lines in the region.
-Also prints the number of objects (as 'o character[s]').
-FIXME: line count is off by one."
+Also prints the number of objects (as 'o character[s]')."
   (let*  ((pane (current-window))
 	  (point (point pane))
 	  (mark (mark pane))
 	  (lines (number-of-lines-in-region point mark))
 	  (chars (abs (- (offset point) (offset mark)))))
-    (display-message "Region has ~D line~:P, ~D character~:P." lines chars)))
+    (display-message "Region has ~D line~:P, ~D character~:P." (1+ lines) chars)))
 
 (set-key 'com-count-lines-region
 	 'info-table
@@ -1315,11 +1310,14 @@ FIXME: gives no information at end of buffer."
 	 (buffer (buffer pane))
 	 (offset (offset point))
 	 (size (size buffer))
-	 (char (object-after point))
+	 (char (or (end-of-buffer-p point) (object-after point)))
 	 (column (column-number point)))
-    (display-message "Char: ~:C (#o~O ~:*~D ~:*#x~X) point=~D of ~D (~D%) column ~D"
-		     char (char-code char) offset size
-		     (round (* 100 (/ offset size))) column)))
+    (display-message "Char: ~:[none~*~;~:*~:C (#o~O ~:*~D ~:*#x~X)~] point=~D of ~D (~D%) column ~D"
+		     (and (characterp char) char)
+		     (and (characterp char) (char-code char))
+		     offset size
+		     (if size (round (* 100 (/ offset size))) 100)
+		     column)))
 
 (set-key 'com-what-cursor-position
 	 'info-table
