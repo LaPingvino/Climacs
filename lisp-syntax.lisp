@@ -2040,7 +2040,7 @@ found in a package, an uninterned symbol will be returned."
                    :case case
                    :no-error t))
 
-(defgeneric token-to-object (syntax token &rest args &key no-error package quote read &allow-other-keys)
+(defgeneric token-to-object (syntax token &key)
   (:documentation "Return the Lisp object `token' would evaluate
 to if read. An attempt will be made to construct objects from
 incomplete tokens. This function may signal an error if
