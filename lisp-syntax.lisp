@@ -1627,7 +1627,7 @@ returned."
   (let* ((children (children parse-symbol))
          (point-offset (the fixnum (offset (point pane))))
          ;; The following is set to true if the location if the point
-         ;; warrants highlighting of a set of matching parantheses.
+         ;; warrants highlighting of a set of matching parentheses.
          (should-highlight (or (= (the fixnum (end-offset parse-symbol)) point-offset)
                                (= (the fixnum (start-offset parse-symbol)) point-offset))))
     (if should-highlight
@@ -1640,6 +1640,20 @@ returned."
            (display-parse-tree (car child-list) syntax pane))
          else do
          (display-parse-tree (car child-list) syntax pane))))
+
+(defmethod display-parse-tree ((parse-symbol incomplete-list-form) (syntax lisp-syntax) pane)
+  (let* ((children (children parse-symbol))
+         (point-offset (the fixnum (offset (point pane))))
+         ;; The following is set to true if the location if the point
+         ;; warrants highlighting of the beginning parenthesis
+         (should-highlight (= (the fixnum (start-offset parse-symbol)) point-offset)))
+    (with-face (:error)
+      (if should-highlight
+          (with-text-face (pane :bold)
+            (display-parse-tree (car children) syntax pane))
+          (display-parse-tree (car children) syntax pane)))
+    (loop for child in (cdr children) do
+      (display-parse-tree child syntax pane))))
     
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax lisp-syntax) current-p)
   (with-slots (top bot) pane
