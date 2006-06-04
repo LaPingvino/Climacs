@@ -42,7 +42,12 @@
    (current-start-mark)
    (current-size)
    (scan)
-   (package)
+   (package-list :accessor package-list
+                 :documentation "An alist mapping the end offset
+                 of (in-package) forms to a string of the package
+                 designator in the form. The list is sorted with
+                 the earliest (in-package) forms last (descending
+                 offset).")
    (base :accessor base
          :initform 10
          :documentation "The base which numbers in the buffer are
@@ -71,12 +76,9 @@
   (with-slots (buffer scan) syntax
      (setf scan (clone-mark (low-mark buffer) :left))))
 
-(defmethod name-for-info-pane ((syntax lisp-syntax) &key)
+(defmethod name-for-info-pane ((syntax lisp-syntax) &key pane)
   (format nil "Lisp~@[:~(~A~)~]"
-	  (let ((package (slot-value syntax 'package)))
-	    (typecase package
-	      (package (package-name package))
-	      (t package)))))
+          (package-name (package-at-mark syntax (point pane)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -1167,45 +1169,86 @@
 (defmethod update-syntax-for-display (buffer (syntax lisp-syntax) top bot)
   nil)
 
-(defun package-of (syntax)
-  (let ((buffer (buffer syntax)))
+(defun package-at-mark (syntax mark-or-offset)
+  "Get the specified Lisp package for the syntax. First, an
+attempt will be made to find the package specified in
+the (in-package) preceding `mark-or-offset'. If none can be
+found, return the package specified in the attribute list. If no
+package can be found at all, or the otherwise found packages are
+invalid, return the CLIM-USER package."
+  (let* ((mark-offset (if (numberp mark-or-offset)
+                          mark-or-offset
+                          (offset mark-or-offset)))
+         (designator (rest (find mark-offset (package-list syntax)
+                                 :key #'first
+                                 :test #'>=))))
+    (or (handler-case (find-package designator)
+          (type-error ()
+             nil))
+        (find-package (option-specified-package syntax))
+        (find-package :clim-user))))
+
+(defmacro with-syntax-package (syntax offset (package-sym) &body
+                               body)
+  "Evaluate `body' with `package-sym' bound to a valid package,
+  preferably taken from `syntax' based on `offset'.."
+  `(let ((,package-sym (package-at-mark ,syntax ,offset)))
+     ,@body))
+
+(defun need-to-update-package-list-p (buffer syntax)
+  (let ((low-mark-offset (offset (low-mark buffer)))
+        (high-mark-offset (offset (high-mark buffer))))
     (flet ((test (x)
-	     (when (typep x 'complete-list-form)
-	       (let ((candidate (first-form (children x))))
-		 (and (typep candidate 'token-mixin)
-		      (eq (token-to-object syntax candidate
-                                           :no-error t)
-			  'cl:in-package))))))
+             (let ((start-offset (start-offset x))
+                   (end-offset (end-offset x)))
+              (when (and (or (<= start-offset
+                                 low-mark-offset
+                                 end-offset
+                                 high-mark-offset)
+                             (<= low-mark-offset
+                                 start-offset
+                                 high-mark-offset
+                                 end-offset)
+                             (<= low-mark-offset
+                                 start-offset
+                                 end-offset
+                                 high-mark-offset)
+                             (<= start-offset
+                                 low-mark-offset
+                                 high-mark-offset
+                                 end-offset))
+                         (typep x 'complete-list-form))
+                (let ((candidate (first-form (children x))))
+                  (and (typep candidate 'token-mixin)
+                       (eq (token-to-object syntax candidate
+                                            :no-error t)
+                           'cl:in-package)))))))
       (with-slots (stack-top) syntax
-	(let ((form (find-if #'test (children stack-top))))
-	  (or (when form
-                (let ((package-form (second-form (children form))))
-                  (when package-form 
-                    (let ((package-name
-                           (typecase package-form
-                             (token-mixin
-                              (token-string syntax package-form))
-                             (complete-string-form
-                              (buffer-substring
-                               buffer
-                               (1+ (start-offset package-form))
-                               (1- (end-offset package-form))))
-                             (quote-form 
-                              (buffer-substring
-                               buffer
-                               (start-offset (second-noncomment (children package-form)))
-                               (end-offset (second-noncomment (children package-form)))))
-                             (uninterned-symbol-form
-                              (buffer-substring
-                               buffer
-                               (start-offset (second-noncomment (children package-form)))
-                               (end-offset (second-noncomment (children package-form)))))
-                             (t 'nil))))
-                      (when package-name
-                        (let ((package-symbol (parse-token package-name)))
-                          (or (find-package package-symbol)
-                              package-symbol)))))))
-              (option-specified-package syntax)))))))
+        (or (not (slot-boundp syntax 'package-list))
+            (loop for child in (children stack-top)
+               when (test child)
+               do (return t)))))))
+
+(defun update-package-list (buffer syntax)
+  (declare (ignore buffer))
+  (setf (package-list syntax) nil)
+  (flet ((test (x)
+           (when (typep x 'complete-list-form)
+             (let ((candidate (first-form (children x))))
+               (and (typep candidate 'token-mixin)
+                    (eq (token-to-object syntax candidate
+                                         :no-error t)
+                        'cl:in-package)))))
+         (extract (x)
+           (let ((designator (second-form (children x))))
+             (token-to-object syntax designator
+                              :no-error t))))
+    (with-slots (stack-top) syntax
+      (loop for child in (children stack-top)
+         when (test child)
+         do (push (cons (end-offset child)
+                        (extract child))
+                  (package-list syntax))))))
 
 (defmethod update-syntax (buffer (syntax lisp-syntax))
   (let* ((low-mark (low-mark buffer))
@@ -1213,21 +1256,21 @@
     (when (mark<= low-mark high-mark)
       (catch 'done
 	(with-slots (current-state stack-top scan potentially-valid-trees) syntax
-	   (setf potentially-valid-trees
-		 (if (null stack-top)
-		     nil
-		     (find-first-potentially-valid-lexeme (children stack-top)
-							  (offset high-mark))))
-	   (setf stack-top (find-last-valid-lexeme stack-top (offset low-mark)))
-	   (setf (offset scan) (if (null stack-top) 0 (end-offset stack-top))
-		 current-state (if (null stack-top)
-				   |initial-state |
-				   (new-state syntax
-					      (parser-state stack-top)
-					      stack-top)))
-	   (loop do (parse-patch syntax))))))
-  (with-slots (package) syntax
-    (setf package (package-of syntax))))
+          (setf potentially-valid-trees
+                (if (null stack-top)
+                    nil
+                    (find-first-potentially-valid-lexeme (children stack-top)
+                                                         (offset high-mark))))
+          (setf stack-top (find-last-valid-lexeme stack-top (offset low-mark)))
+          (setf (offset scan) (if (null stack-top) 0 (end-offset stack-top))
+                current-state (if (null stack-top)
+                                  |initial-state |
+                                  (new-state syntax
+                                             (parser-state stack-top)
+                                             stack-top)))
+          (loop do (parse-patch syntax))))))
+  (when (need-to-update-package-list-p buffer syntax)
+    (update-package-list buffer syntax)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -2050,22 +2093,16 @@ object. Otherwise, nil will be returned.")
            ;; Ensure that every symbol that is READ will be looked up
            ;; in the correct package. Also handle quoting.
            (flet ((act ()
-                     (let ((*package* (if (and (slot-boundp syntax 'package)
-                                               (slot-value syntax 'package)
-                                               (typep (slot-value syntax 'package) 'package))
-                                          (slot-value syntax 'package)
-                                          (or (when package
-                                                (if (packagep package)
-                                                    package
-                                                    (find-package package)))
-                                              (find-package :common-lisp)))))
+                    (with-syntax-package syntax (start-offset token)
+                        (syntax-package)
+                     (let ((*package* syntax-package))
                        (cond (read
                               (read-from-string (token-string syntax token)))
                              (quote
                               (setf (getf args :quote) nil)
                               `',(call-next-method))
                              (t
-                              (call-next-method))))))
+                              (call-next-method)))))))
              (if no-error 
                  (ignore-errors (act))
                  (act))))
