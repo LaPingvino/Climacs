@@ -288,7 +288,7 @@
 					      size)))))))
     (with-text-family (pane :sans-serif)
       (princ #\( pane)
-      (princ (name-for-info-pane (syntax buffer) :pane pane) pane)
+      (princ (name-for-info-pane (syntax buffer) :pane (master-pane pane)) pane)
       (format pane "~{~:[~*~; ~A~]~}" (list
 				       (slot-value master-pane 'overwrite-mode)
 				       "Ovwrt"
