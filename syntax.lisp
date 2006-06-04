@@ -151,7 +151,9 @@ in the specific syntax.")
 ;;;
 ;;; Name for info-pane
 
-(defgeneric name-for-info-pane (syntax))
+(defgeneric name-for-info-pane (syntax &key &allow-other-keys)
+  (:documentation "Return the name that should be used for the
+  info-pane for panes displaying a buffer in this syntax."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -289,7 +291,7 @@ in the specific syntax.")
   (declare (ignore buffer from to))
   nil)
 
-(defmethod name-for-info-pane ((syntax basic-syntax))
+(defmethod name-for-info-pane ((syntax basic-syntax) &key)
   (name syntax))
 
 (defmethod syntax-line-indentation (mark tab-width (syntax basic-syntax))

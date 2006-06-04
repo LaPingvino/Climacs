@@ -71,7 +71,7 @@
   (with-slots (buffer scan) syntax
      (setf scan (clone-mark (low-mark buffer) :left))))
 
-(defmethod name-for-info-pane ((syntax lisp-syntax))
+(defmethod name-for-info-pane ((syntax lisp-syntax) &key)
   (format nil "Lisp~@[:~(~A~)~]"
 	  (let ((package (slot-value syntax 'package)))
 	    (typecase package
