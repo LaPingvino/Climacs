@@ -1791,6 +1791,38 @@ returned."
 	nil
 	(form-around-in-children (children stack-top) offset))))
 
+(defun find-list-parent-offset (form fn)
+    "Find a list parent of `token' and return `fn' 
+applied to this parent token. `Fn' should be a function 
+that returns an offset when applied to a 
+token (eg. `start-offset' or `end-offset'). If a list
+parent cannot be found, return `fn' applied to `form'."
+  (when (not (typep form 'form*))
+    (let ((parent (parent form)))
+      (typecase parent
+        (form* (funcall fn form))
+        (list-form (funcall fn form))
+        (null (funcall fn form))
+        (t (find-list-parent-offset parent fn))))))
+
+(defun find-list-child-offset (form fn &optional (min-offset 0))
+  "Find a list child of `token' with a minimum start 
+offset of `min-offset' and return `fn' applied to this child token.
+`Fn' should be a function that returns an offset when applied to a 
+token (eg. `start-offset' or `end-offset'). If a list child cannot
+be found, return nil."
+  (labels ((has-list-child (form)
+              (some #'(lambda (child)
+                                   (if (and (typep child 'list-form)
+                                            (>= (start-offset child)
+                                                min-offset))
+                                       child
+                                       (has-list-child child)))
+                               (children form))))
+    (let ((list-child (has-list-child form)))
+      (when (not (null list-child))
+        (funcall fn list-child)))))
+
 (defmethod backward-expression (mark (syntax lisp-syntax))
   (let ((potential-form (or (form-before syntax (offset mark))
 			    (form-around syntax (offset mark)))))
@@ -1810,7 +1842,10 @@ returned."
 	  then (end-offset potential-form)
 	for potential-form = (or (form-after syntax start)
 				 (form-around syntax start))
-	until (null potential-form)
+	until (or (null potential-form)
+                  (and (= start
+                          (end-offset potential-form))
+                       (null (form-after syntax start))))
 	when (typep potential-form 'list-form)
 	  do (setf (offset mark) (end-offset potential-form))
 	     (return)
@@ -1821,55 +1856,52 @@ returned."
 	  then (start-offset potential-form)
 	for potential-form = (or (form-before syntax start)
 				 (form-around syntax start))
-	until (null potential-form)
+	until (or (null potential-form)
+                  (and (= start
+                          (start-offset potential-form))
+                       (null (form-before syntax start))))
 	when (typep potential-form 'list-form)
 	  do (setf (offset mark) (start-offset potential-form))
 	     (return)
 	finally (error 'no-expression)))
 
+(defun down-list-by-fn (mark syntax fn)
+  (let* ((offset (offset mark))
+         (potential-form (form-after syntax offset)))
+    (let ((new-offset (typecase potential-form
+                        (list-form (start-offset potential-form))
+                        (null nil)
+                        (t (find-list-child-offset
+                            (parent potential-form) 
+                            fn
+                            offset)))))
+      (when new-offset 
+        (setf (offset mark) (1+ new-offset))))))
+
 (defmethod down-list (mark (syntax lisp-syntax))
-  (loop for start = (offset mark)
-	  then (end-offset potential-form)
-	for potential-form = (or (form-after syntax start)
-				 (form-around syntax start))
-	until (null potential-form)
-	when (typep potential-form 'list-form)
-	  do (setf (offset mark) (1+ (start-offset potential-form)))
-	     (return)
-	finally (error 'no-expression)))
+  (down-list-by-fn mark syntax #'start-offset))
 
 (defmethod backward-down-list (mark (syntax lisp-syntax))
-  (loop for start = (offset mark)
-	  then (start-offset potential-form)
-	for potential-form = (or (form-before syntax start)
-				 (form-around syntax start))
-	until (null potential-form)
-	when (typep potential-form 'list-form)
-	  do (setf (offset mark) (1- (end-offset potential-form)))
-	     (return)
-	finally (error 'no-expression)))
+  (down-list-by-fn mark syntax #'end-offset)
+  (backward-object mark))
+
+(defun up-list-by-fn (mark syntax fn)
+  (let ((form (or (form-before syntax (offset mark))
+                  (form-after syntax (offset mark))
+                  (form-around syntax (offset mark)))))
+    (if form
+        (let ((parent (parent form)))
+          (when (not (null parent))
+            (let ((new-offset (find-list-parent-offset parent fn)))
+              (when new-offset
+                (setf (offset mark) new-offset)))))
+        (error 'no-expression))))
 
 (defmethod backward-up-list (mark (syntax lisp-syntax))
-  (let ((form (or (form-around syntax (offset mark))
-		  (form-before syntax (offset mark))
-		  (form-after syntax (offset mark)))))
-    (if form
-	(let ((parent (parent form)))
-	  (if (typep parent 'list-form)
-	      (setf (offset mark) (start-offset parent))
-	      (error 'no-expression)))
-	(error 'no-expression))))
+  (up-list-by-fn mark syntax #'start-offset))
 
 (defmethod up-list (mark (syntax lisp-syntax))
-  (let ((form (or (form-around syntax (offset mark))
-		  (form-before syntax (offset mark))
-		  (form-after syntax (offset mark)))))
-    (if form
-	(let ((parent (parent form)))
-	  (if (typep parent 'list-form)
-	      (setf (offset mark) (end-offset parent))
-	      (error 'no-expression)))
-	(error 'no-expression))))
+  (up-list-by-fn mark syntax #'end-offset))
 
 (defmethod eval-defun (mark (syntax lisp-syntax))
   (with-slots (stack-top) syntax
