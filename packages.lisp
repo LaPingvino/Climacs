@@ -77,7 +77,7 @@
            #:indent-line
            #:indent-region
            #:delete-indentation
-           #:fill-line
+           #:fill-line #:fill-region
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
 	   #:buffer-looking-at #:looking-at

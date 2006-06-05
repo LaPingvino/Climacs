@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: CLIMACS-GUI -*-
+;;; -*- Mode: Lisp; Package: CLIMACS-LISP-SYNTAX; -*-
 
 ;;;  (c) copyright 2004-2005 by
 ;;;           Robert Strandh (strandh@labri.fr)
@@ -43,13 +43,36 @@
 (define-command (com-package :name t :command-table lisp-table) ()
   (let* ((pane (current-window))
          (syntax (syntax (buffer pane)))
-         (package (climacs-lisp-syntax::package-of syntax)))
+         (package (package-at-mark syntax (point pane))))
     (esa:display-message (format nil "~A" (if (packagep package)
                                               (package-name package)
                                               package)))))
 
-(define-command (com-fill-paragraph :name t :command-table lisp-table) ()
-  )
+(define-command (com-fill-paragraph :name t :command-table lisp-table) 
+    ()
+  "Fill paragraph at point. Will have no effect unless there is a
+string at point."
+  (let* ((pane (current-window))
+         (buffer (buffer pane))
+         (implementation (implementation buffer))
+         (syntax (syntax buffer))
+         (token (form-around syntax (offset (point pane))))
+         (fill-column (auto-fill-column pane))
+         (tab-width (tab-space-count (stream-default-view pane))))
+    (when (typep token 'string-form)
+      (with-accessors ((offset1 start-offset) 
+                       (offset2 end-offset)) token
+        (fill-region (make-instance 'standard-right-sticky-mark
+                                    :buffer implementation
+                                    :offset offset1)
+                     (make-instance 'standard-right-sticky-mark
+                                    :buffer implementation
+                                    :offset offset2)
+                     #'(lambda (mark)
+                         (syntax-line-indentation mark tab-width syntax))
+                     fill-column
+                     tab-width
+                     t)))))
 
 (esa:set-key 'com-fill-paragraph
              'lisp-table

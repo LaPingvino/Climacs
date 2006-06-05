@@ -587,6 +587,23 @@ compression means just the deletion of trailing whitespaces."
                (setf column 0))
              (incf (offset walking-mark)))))
 
+(defun fill-region (mark1 mark2 syntax-line-indentation-function fill-column tab-width
+                    &optional (compress-whitespaces t))
+  "Fill the region delimited by `mark1' and `mark2'. `Mark1' must be
+mark<= `mark2.'"
+  (let* ((buffer (buffer mark1)))
+    (do-buffer-region (object offset buffer
+                              (offset mark1) (offset mark2))
+      (when (eql object #\Newline)
+        (setf object #\Space)))
+    (when (>= (buffer-display-column buffer (offset mark2) tab-width)
+              (1- fill-column))
+      (fill-line mark2
+                 syntax-line-indentation-function
+                 fill-column
+                 tab-width
+                 compress-whitespaces))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Named objects
