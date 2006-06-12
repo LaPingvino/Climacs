@@ -1006,7 +1006,7 @@
 	 (incf valid-parse))))
 
 (defmethod inter-lexeme-object-p ((lexer cl-lexer) object)
-  (whitespacep object))
+  (whitespacep (syntax (buffer lexer)) object))
 
 (defmethod update-syntax (buffer (syntax cl-syntax))
   (with-slots (lexer valid-parse) syntax
@@ -1030,7 +1030,8 @@
   (let ((space-width (space-width pane))
 	(tab-width (tab-width pane)))
     (loop while (and (< start end)
-                     (whitespacep (buffer-object buffer start)))
+                     (whitespacep (syntax buffer)
+                                  (buffer-object buffer start)))
           do (ecase (buffer-object buffer start)
                (#\Newline (terpri pane)
                           (setf (aref *cursor-positions* (incf *current-line*))

@@ -44,15 +44,17 @@
 
    (:file "packages" :depends-on ("cl-automaton" "Persistent"))
    (:file "buffer" :depends-on ("packages"))
+   (:file "motion" :depends-on ("packages" "buffer" "syntax"))
+   (:file "editing" :depends-on ("packages" "buffer" "syntax" "motion" "kill-ring"))
    (:file "persistent-buffer"
           :pathname #p"Persistent/persistent-buffer.lisp"
           :depends-on ("packages" "buffer" "Persistent"))
 
-   (:file "base" :depends-on ("packages" "buffer" "persistent-buffer"))
+   (:file "base" :depends-on ("packages" "buffer" "persistent-buffer" "kill-ring"))
    (:file "io" :depends-on ("packages" "buffer"))
    (:file "abbrev" :depends-on ("packages" "buffer" "base"))
    (:file "syntax" :depends-on ("packages" "buffer" "base"))
-   (:file "text-syntax" :depends-on ("packages" "base" "buffer" "syntax"))
+   (:file "text-syntax" :depends-on ("packages" "base" "buffer" "syntax" "motion"))
    (:file "delegating-buffer" :depends-on ("packages" "buffer"))
    (:file "kill-ring" :depends-on ("packages"))
    (:file "undo" :depends-on ("packages"))
@@ -72,12 +74,14 @@
 						 "pane"))
    (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"
 						"gui"))
-   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax"))
+   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax" "motion" "gui" "motion-commands" "editing-commands"))
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
                                         "kill-ring" "io" "text-syntax"
-					"abbrev" ))
+					"abbrev" "editing" "motion"))
 ;;    (:file "buffer-commands" :depends-on ("gui"))
    (:file "developer-commands" :depends-on ("gui" "lisp-syntax"))
+   (:file "motion-commands" :depends-on ("gui"))
+   (:file "editing-commands" :depends-on ("gui"))
    (:file "file-commands" :depends-on ("gui"))
    (:file "misc-commands" :depends-on ("gui"))
    (:file "search-commands" :depends-on ("gui"))

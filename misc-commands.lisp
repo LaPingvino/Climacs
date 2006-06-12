@@ -85,14 +85,15 @@ The default fill column is 70."
                      (lambda (mark)
                        (syntax-line-indentation mark tab-width syntax))
                      fill-column
-                     tab-width))))))
+                     tab-width
+                     (syntax buffer)))))))
 
 (defun insert-character (char)
   (let* ((window (current-window))
 	 (point (point window)))
     (unless (constituentp char)
       (possibly-expand-abbrev point))
-    (when (whitespacep char)
+    (when (whitespacep (syntax (buffer window)) char)
       (possibly-fill-line))
     (if (and (slot-value window 'overwrite-mode) (not (end-of-line-p point)))
 	(progn
@@ -102,73 +103,6 @@ The default fill column is 70."
 
 (define-command com-self-insert ((count 'integer))
   (loop repeat count do (insert-character *current-gesture*)))
-
-(define-command (com-beginning-of-line :name t :command-table movement-table) ()
-  "Move point to the beginning of the current line."
-  (beginning-of-line (point (current-window))))
-
-(set-key 'com-beginning-of-line
-	 'movement-table
-	 '((:home)))
-
-(set-key 'com-beginning-of-line
-	 'movement-table
-	 '((#\a :control)))
-
-(define-command (com-end-of-line :name t :command-table movement-table) ()
-  "Move point to the end of the current line."
-  (end-of-line (point (current-window))))
-
-(set-key 'com-end-of-line
-	 'movement-table
-	 '((#\e :control)))
-
-(set-key 'com-end-of-line
-	 'movement-table
-	 '((:end)))
-
-(define-command (com-delete-object :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of Objects")
-     (killp 'boolean :prompt "Kill?"))
-  "Delete the object after point.
-With a numeric argument, kill that many objects 
-after (or before, if negative) point."
-  (let* ((point (point (current-window)))
-	 (mark (clone-mark point)))
-    (forward-object mark count)
-    (when killp
-      (kill-ring-standard-push *kill-ring*
-			       (region-to-sequence point mark)))
-    (delete-region point mark)))
-
-(set-key `(com-delete-object ,*numeric-argument-marker*
-			     ,*numeric-argument-p*)
-	 'deletion-table
-	 '(#\Rubout))
-
-(set-key `(com-delete-object ,*numeric-argument-marker*
-			     ,*numeric-argument-p*)
-	 'deletion-table
-	 '((#\d :control)))
-
-(define-command (com-backward-delete-object :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of Objects")
-     (killp 'boolean :prompt "Kill?"))
-  "Delete the object before point.
-With a numeric argument, kills that many objects 
-before (or after, if negative) point."
-  (let* ((point (point (current-window)))
-	 (mark (clone-mark point)))
-    (backward-object mark count)
-    (when killp
-      (kill-ring-standard-push *kill-ring*
-			       (region-to-sequence mark point)))
-  (delete-region mark point)))
-
-(set-key `(com-backward-delete-object ,*numeric-argument-marker*
-				      ,*numeric-argument-p*)
-	 'deletion-table
-	 '(#\Backspace))
 
 (define-command (com-zap-to-object :name t :command-table deletion-table) ()
   "Prompt for an object and kill to the next occurence of that object after point.
@@ -206,174 +140,6 @@ If a string of length >1, uses the first character of the string."
 	 'deletion-table
 	 '((#\z :meta)))
 
-(defun transpose-objects (mark)
-  (unless (beginning-of-buffer-p mark)
-    (when (end-of-line-p mark)
-      (backward-object mark))
-    (unless (beginning-of-buffer-p mark)
-      (let ((object (object-after mark)))
-	(delete-range mark)
-	(backward-object mark)
-	(insert-object mark object)
-	(forward-object mark)))))
-
-(define-command (com-transpose-objects :name t :command-table editing-table) ()
-  "Transpose the objects before and after point, advancing point.
-At the end of a line transpose the previous two objects without
-advancing point. At the beginning of the buffer do nothing.
-At the beginning of any line other than the first effectively
-move the first object of that line to the end of the previous line."
-  (transpose-objects (point (current-window))))
-
-(set-key 'com-transpose-objects
-	 'editing-table
-	 '((#\t :control)))
-
-(define-command (com-backward-object :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of Objects"))
-  "Move point backward one object.
-With a numeric argument, move point backward (or forward, if negative) 
-that number of objects."
-  (backward-object (point (current-window)) count))
-
-(set-key `(com-backward-object ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\b :control)))
-
-(set-key `(com-backward-object ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#+mcclim :left #-mcclim :left-arrow)))
-
-(define-command (com-forward-object :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of Objects"))
-  "Move point forward one object.
-With a numeric argument, move point forward (or backward, if negative) 
-that number of objects."
-  (forward-object (point (current-window)) count))
-
-(set-key `(com-forward-object ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\f :control)))
-
-(set-key `(com-forward-object ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#+mcclim :right #-mcclim :right-arrow)))
-
-(defun transpose-words (mark)
-  (let (bw1 bw2 ew1 ew2)
-    (backward-word mark)
-    (setf bw1 (offset mark))
-    (forward-word mark)
-    (setf ew1 (offset mark))
-    (forward-word mark)
-    (when (= (offset mark) ew1)
-      (display-message "Don't have two things to transpose"))
-    (setf ew2 (offset mark))
-    (backward-word mark)
-    (setf bw2 (offset mark))
-    (let ((w2 (buffer-sequence (buffer mark) bw2 ew2))
-	  (w1 (buffer-sequence (buffer mark) bw1 ew1)))
-      (delete-word mark)
-      (insert-sequence mark w1)
-      (backward-word mark)
-      (backward-word mark)
-      (delete-word mark)
-      (insert-sequence mark w2)
-      (forward-word mark))))
-
-(define-command (com-transpose-words :name t :command-table editing-table) ()
-  "Transpose the words around point, leaving point at the end of them.
-With point in the whitespace between words, transpose the words before 
-and after point. With point inside a word, transpose that word with 
-the next one. With point before the first word of the buffer, transpose 
-the first two words of the buffer.
-
-FIXME: with point after the penultimate word of the buffer, 
-or if there are <2 words in the buffer, Strange Things (TM) 
-happen (including breaking Climacs)."
-  (transpose-words (point (current-window))))
-
-(set-key 'com-transpose-words
-	 'editing-table
-	 '((#\t :meta)))
-
-(defun transpose-lines (mark)
-  (beginning-of-line mark)
-  (unless (beginning-of-buffer-p mark)
-    (previous-line mark))
-  (let* ((bol (offset mark))
-	 (eol (progn (end-of-line mark)
-		     (offset mark)))
-	 (line (buffer-sequence (buffer mark) bol eol)))
-    (delete-region bol mark)
-    ;; Remove newline at end of line as well.
-    (unless (end-of-buffer-p mark)
-      (delete-range mark))
-    ;; If the current line is at the end of the buffer, we want to
-    ;; be able to insert past it, so we need to get an extra line
-    ;; at the end.
-    (end-of-line mark)
-    (when (end-of-buffer-p mark)
-      (insert-object mark #\Newline))
-    (next-line mark 0)
-    (insert-sequence mark line)
-    (insert-object mark #\Newline)))
-
-(define-command (com-transpose-lines :name t :command-table editing-table) ()
-  "Transpose current line and previous line, leaving point at the end of them.
-If point is in the first line, transpose the first two lines. 
-If point is in the last line of the buffer and there is no 
-final #\Newline, add one."
-  (transpose-lines (point (current-window))))
-
-(set-key 'com-transpose-lines
-	 'editing-table
-	 '((#\x :control) (#\t :control)))
-
-(define-command (com-previous-line :name t :command-table movement-table)
-    ((numarg 'integer :prompt "How many lines?"))
-  "Move point to the previous line.
-With a numeric argument, move point up (down, if negative) that many lines. 
-Successive line movement commands seek to respect the 'goal column'."
-  (let* ((window (current-window))
-	 (point (point window)))
-    (unless (or (eq (previous-command window) 'com-previous-line)
-		(eq (previous-command window) 'com-next-line))
-      (setf (slot-value window 'goal-column) (column-number point)))
-    (if (plusp numarg)
-	(previous-line point (slot-value window 'goal-column) numarg)
-	(next-line point (slot-value window 'goal-column) (- numarg)))))
-
-(set-key `(com-previous-line ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\p :control)))
-
-(set-key `(com-previous-line ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#+mcclim :up #-mcclim :up-arrow)))
-
-(define-command (com-next-line :name t :command-table movement-table)
-    ((numarg 'integer :prompt "How many lines?"))
-  "Move point to the next line.
-With a numeric argument, move point down (up, if negative) that many lines. 
-Successive line movement commands seek to respect the 'goal column'."
-  (let* ((window (current-window))
-	 (point (point window)))
-    (unless (or (eq (previous-command window) 'com-previous-line)
-		(eq (previous-command window) 'com-next-line))
-      (setf (slot-value window 'goal-column) (column-number point)))
-    (if (plusp numarg)
-	(next-line point (slot-value window 'goal-column) numarg)
-	(previous-line point (slot-value window 'goal-column) (- numarg)))))
-
-(set-key `(com-next-line ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\n :control)))
-
-(set-key `(com-next-line ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#+mcclim :down #-mcclim :down-arrow)))
-
 (define-command (com-open-line :name t :command-table editing-table)
     ((numarg 'integer :prompt "How many lines?"))
   "Insert a #\Newline and leave point before it.
@@ -402,7 +168,7 @@ With a numeric argument greater than 1, insert that many #\Newlines."
 		 do (forward-object mark)))
 	  (t
 	   (cond ((end-of-buffer-p mark) nil)
-		 ((end-of-line-p mark)(forward-object mark))
+		 ((end-of-line-p mark) (forward-object mark))
 		 (t (end-of-line mark)))))
     (unless (mark= mark start)
       (if concatenate-p
@@ -431,122 +197,64 @@ Successive kills append to the kill ring."
 	 'deletion-table
 	 '((#\k :control)))
 
-(define-command (com-forward-word :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of words"))
-  "Move point to the next word end.
-With a numeric argument, move point forward (backward, if negative) 
-that many words."
-  (if (plusp count)
-      (forward-word (point (current-window)) count)
-      (backward-word (point (current-window)) (- count))))
-
-(set-key `(com-forward-word ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\f :meta)))
-
-(set-key `(com-forward-word ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#+mcclim :right #-mcclim :right-arrow :control)))
-
-(define-command (com-backward-word :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of words"))
-  "Move point to the previous word beginning.
-With a numeric argument, move point backward (forward, if negative) 
-that many words."
-  (backward-word (point (current-window)) count))
-
-(set-key `(com-backward-word ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\b :meta)))
-
-(set-key `(com-backward-word ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#+mcclim :left #-mcclim :left-arrow :control)))
-
-(define-command (com-delete-word :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of words"))
-  "Delete from point until the next word end.
-With a positive numeric argument, delete that many words forward."
-  (delete-word (point (current-window)) count))
-
-(defun kill-word (mark &optional (count 1) (concatenate-p nil))
-  (let ((start (offset mark)))
-    (if (plusp count)
-	(loop repeat count
-	      until (end-of-buffer-p mark)
-	      do (forward-word mark))
-	(loop repeat (- count)
-	      until (beginning-of-buffer-p mark)
-	      do (backward-word mark)))
-    (unless (mark= mark start)
-      (if concatenate-p
-	  (if (plusp count)
-	      (kill-ring-concatenating-push *kill-ring*
-					(region-to-sequence start mark))
-	      (kill-ring-reverse-concatenating-push *kill-ring*
-						    (region-to-sequence start mark)))
-	  (kill-ring-standard-push *kill-ring*
-				   (region-to-sequence start mark)))
-      (delete-region start mark))))
-
-(define-command (com-kill-word :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of words"))
-  "Kill from point until the next word end.
-With a numeric argument, kill forward (backward, if negative) 
-that many words.
-
-Successive kills append to the kill ring."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (concatenate-p (eq (previous-command pane) 'com-kill-word)))
-    (kill-word point count concatenate-p)))
-
-(set-key `(com-kill-word ,*numeric-argument-marker*)
-	 'deletion-table
-	 '((#\d :meta)))
-
-(define-command (com-backward-kill-word :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of words"))
-  "Kill from point until the previous word beginning.
-With a numeric argument, kill backward (forward, if negative) 
-that many words. 
-
-Successive kills append to the kill ring."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (concatenate-p (eq (previous-command pane) 'com-backward-kill-word)))
-    (kill-word point (- count) concatenate-p)))
-
-(set-key `(com-backward-kill-word ,*numeric-argument-marker*)
-	 'deletion-table
-	 '((#\Backspace :meta)))
-
-(define-command (com-mark-word :name t :command-table marking-table)
-    ((count 'integer :prompt "Number of words"))
-  "Place mark at the next word end.
+(defmacro define-mark-unit-command (unit command-table &key
+                                    move-point
+                                    noun
+                                    plural)
+  "Define a COM-MARK-<UNIT> for `unit' command and put it in
+  `command-table'."
+  (labels ((symbol (&rest strings)
+             (intern (apply #'concat strings)))
+           (concat (&rest strings)
+             (apply #'concatenate 'STRING (mapcar #'string strings))))
+    (let ((forward (symbol "FORWARD-" unit))
+          (backward (symbol "BACKWARD-" unit))
+          (noun (or noun (string-downcase unit)))
+          (plural (or plural (concat (string-downcase unit) "s"))))
+      `(define-command (,(symbol "COM-MARK-" unit)
+                         :name t
+                         :command-table ,command-table)
+           ((count 'integer :prompt ,(concat "Number of " plural)))
+           ,(if (not (null move-point))
+                (concat "Place point and mark around the current " noun ".
+Put point at the beginning of the current " noun ", and mark at the end. 
+With a positive numeric argument, put mark that many " plural " forward. 
+With a negative numeric argument, put point at the end of the current 
+" noun " and mark that many " plural " backward. 
+Successive invocations extend the selection.")
+                (concat "Place mark at the next " noun " end.
 With a positive numeric argument, place mark at the end of 
-that many words forward. With a negative numeric argument, 
-place mark at the beginning of that many words backward. 
+that many " plural " forward. With a negative numeric argument, 
+place mark at the beginning of that many " plural " backward. 
 
-Successive invocations extend the selection."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (mark (mark pane)))
-    (unless (eq (previous-command pane) 'com-mark-word)
-      (setf (offset mark) (offset point)))
-    (if (plusp count)
-	(forward-word mark count)
-	(backward-word mark (- count)))))
+Successive invocations extend the selection."))
+         (let* ((pane (current-window))
+                (point (point pane))
+                (mark (mark pane)))
+           (unless (eq (previous-command pane) 'com-mark-word)
+             (setf (offset mark) (offset point))
+             ,(when (not (null move-point))
+                    `(if (plusp count)
+                         (,backward point (syntax (buffer pane)))
+                         (,forward point (syntax (buffer pane))))))
+           (,forward mark (syntax (buffer pane)) count))))))
+
+(define-mark-unit-command word marking-table)
+(define-mark-unit-command expression marking-table)
+(define-mark-unit-command paragraph marking-table :move-point t)
+(define-mark-unit-command definition marking-table :move-point t)
 
 (set-key `(com-mark-word ,*numeric-argument-marker*)
 	 'marking-table
 	 '((#\@ :meta :shift)))
 
-(define-command (com-backward-delete-word :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of words"))
-  "Delete from point until the previous word beginning.
-With a positive numeric argument, delete that many words backward."
-  (backward-delete-word (point (current-window)) count))
+(set-key `(com-mark-paragraph ,*numeric-argument-marker*)
+	 'marking-table
+	 '((#\h :meta)))
+
+(set-key 'com-mark-definition
+	 'marking-table
+	 '((#\h :control :meta)))
 
 (define-command (com-upcase-region :name t :command-table case-table) ()
   "Convert the region to upper case."
@@ -566,7 +274,8 @@ With a positive numeric argument, delete that many words backward."
 (define-command (com-upcase-word :name t :command-table case-table) ()
   "Convert the characters from point until the next word end to upper case.
 Leave point at the word end."
-  (upcase-word (point (current-window))))
+  (upcase-word (point (current-window))
+               (syntax (buffer (current-window)))))
 
 (set-key 'com-upcase-word
 	 'case-table
@@ -641,27 +350,6 @@ Uses TAB-SPACE-COUNT of the STREAM-DEFAULT-VIEW of the pane."
 (set-key 'com-newline-and-indent
 	 'indent-table
 	 '((#\j :control)))
-
-(defun indent-region (pane mark1 mark2)
-  "Indent all lines in the region delimited by `mark1' and `mark2'
-   according to the rules of the active syntax in `pane'."
-  (let* ((buffer (buffer pane))
-         (view (stream-default-view pane))
-         (tab-space-count (tab-space-count view))
-         (tab-width (and (climacs-pane:indent-tabs-mode buffer)
-                         tab-space-count))
-         (syntax (climacs-syntax:syntax buffer)))
-    (do-buffer-region-lines (line mark1 mark2)
-      (let ((indentation (climacs-syntax:syntax-line-indentation  
-                          line
-                          tab-space-count
-                          syntax)))
-        (indent-line line indentation tab-width))
-      ;; We need to update the syntax every time we perform an
-      ;; indentation, so that subsequent indentations will be
-      ;; correctly indented (this matters in list forms). FIXME: This
-      ;; should probably happen automatically.
-      (update-syntax buffer syntax))))
 
 (define-command (com-indent-region :name t :command-table indent-table) ()
   "Indent every line of the current region as specified by the
@@ -769,29 +457,30 @@ beginning of the buffer at leaves point there."
 	 'marking-table
 	 '((#\x :control) (#\h)))
 
-(defun back-to-indentation (mark)
+(defun back-to-indentation (mark syntax)
   (beginning-of-line mark)
   (loop until (end-of-line-p mark)
-	while (whitespacep (object-after mark))
+	while (whitespacep syntax (object-after mark))
 	do (forward-object mark)))
 
 (define-command (com-back-to-indentation :name t :command-table movement-table) ()
   "Move point to the first non-whitespace object on the current line.
 If there is no non-whitespace object, leaves point at the end of the line."
-  (back-to-indentation (point (current-window))))
+  (back-to-indentation (point (current-window))
+                       (syntax (buffer (current-window)))))
 
 (set-key 'com-back-to-indentation
 	 'movement-table
 	 '((#\m :meta)))
 
-(defun delete-horizontal-space (mark &optional (backward-only-p nil))
+(defun delete-horizontal-space (mark syntax &optional (backward-only-p nil))
   (let ((mark2 (clone-mark mark)))
     (loop until (beginning-of-line-p mark)
-	  while (whitespacep (object-before mark))
+	  while (whitespacep syntax (object-before mark))
 	  do (backward-object mark))
     (unless backward-only-p
       (loop until (end-of-line-p mark2)
-	    while (whitespacep (object-after mark2))
+	    while (whitespacep syntax (object-after mark2))
 	    do (forward-object mark2)))
     (delete-region mark mark2)))
 
@@ -800,23 +489,25 @@ If there is no non-whitespace object, leaves point at the end of the line."
       'boolean :prompt "Delete backwards only?"))
   "Delete whitespace around point.
 With a numeric argument, only delete whitespace before point."
-  (delete-horizontal-space (point (current-window)) backward-only-p))
+  (delete-horizontal-space (point (current-window))
+                           (syntax (buffer (current-window)))
+                           backward-only-p))
 
 (set-key `(com-delete-horizontal-space ,*numeric-argument-p*)
 	 'deletion-table
 	 '((#\\ :meta)))
 
-(defun just-one-space (mark count)
+(defun just-one-space (mark syntax count)
   (let (offset)
     (loop until (beginning-of-line-p mark)
-	  while (whitespacep (object-before mark))
+	  while (whitespacep syntax (object-before mark))
 	  do (backward-object mark))
     (loop until (end-of-line-p mark)
-	  while (whitespacep (object-after mark))
+	  while (whitespacep syntax (object-after mark))
 	  repeat count do (forward-object mark)
 	finally (setf offset (offset mark)))
     (loop until (end-of-line-p mark)
-	  while (whitespacep (object-after mark))
+	  while (whitespacep syntax (object-after mark))
 	  do (forward-object mark))
     (delete-region offset mark)))
 
@@ -826,7 +517,9 @@ With a numeric argument, only delete whitespace before point."
 With a positive numeric argument, leave that many spaces.
 
 FIXME: should distinguish between types of whitespace."
-  (just-one-space (point (current-window)) count))
+  (just-one-space (point (current-window))
+                  (syntax (buffer (current-window)))
+                  count))
 
 (set-key `(com-just-one-space ,*numeric-argument-marker*)
 	 'deletion-table
@@ -1023,12 +716,13 @@ Search from point (first backward to the beginning of the buffer,
 then forward) for words for which the word before point is a prefix, 
 inserting each in turn at point as an expansion."
   (let* ((window (current-window))
-	 (point (point window)))
+	 (point (point window))
+         (syntax (syntax (buffer window))))
     (with-slots (original-prefix prefix-start-offset dabbrev-expansion-mark) window
        (flet ((move () (cond ((beginning-of-buffer-p dabbrev-expansion-mark)
 			      (setf (offset dabbrev-expansion-mark)
 				    (offset point))
-			      (forward-word dabbrev-expansion-mark))
+			      (forward-word dabbrev-expansion-mark syntax))
 			     ((mark< dabbrev-expansion-mark point)
 			      (backward-object dabbrev-expansion-mark))
 			     (t (forward-object dabbrev-expansion-mark)))))
@@ -1037,7 +731,7 @@ inserting each in turn at point as an expansion."
 	   (unless (and (eq (previous-command window) 'com-dabbrev-expand)
 			(not (null prefix-start-offset)))
 	     (setf dabbrev-expansion-mark (clone-mark point))
-	     (backward-word dabbrev-expansion-mark)
+	     (backward-word dabbrev-expansion-mark syntax)
 	     (setf prefix-start-offset (offset dabbrev-expansion-mark))
 	     (setf original-prefix (region-to-sequence prefix-start-offset point))
 	     (move))
@@ -1053,7 +747,7 @@ inserting each in turn at point as an expansion."
 	       (progn (delete-region prefix-start-offset point)
 		      (insert-sequence point
 				       (let ((offset (offset dabbrev-expansion-mark)))
-					 (prog2 (forward-word dabbrev-expansion-mark)
+					 (prog2 (forward-word dabbrev-expansion-mark syntax)
 						(region-to-sequence offset dabbrev-expansion-mark)
 						(setf (offset dabbrev-expansion-mark) offset))))
 		      (move))))))))
@@ -1061,185 +755,6 @@ inserting each in turn at point as an expansion."
 (set-key 'com-dabbrev-expand
 	 'editing-table
 	 '((#\/ :meta)))
-
-(define-command (com-backward-paragraph :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of paragraphs"))
-  "Move point to the previous paragraph start.
-With a numeric argument, move point backward (forward, if negative) 
-that many paragraphs."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (backward-paragraph point syntax))
-	(loop repeat (- count) do (forward-paragraph point syntax)))))
-
-(set-key `(com-backward-paragraph ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\{ :shift :meta)))
-
-(define-command (com-forward-paragraph :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of paragraphs"))
-  "Move point to the next paragraph end.
-With a numeric argument, move point forward (backward, if negative) 
-that many paragraphs."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (forward-paragraph point syntax))
-	(loop repeat (- count) do (backward-paragraph point syntax)))))
-
-(set-key `(com-forward-paragraph ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\} :shift :meta)))
-
-(define-command (com-mark-paragraph :name t :command-table marking-table)
-    ((count 'integer :prompt "Number of paragraphs"))
-  "Place point and mark around the current paragraph.
-Put point at the beginning of the current paragraph, and mark at the end. 
-With a positive numeric argument, put mark that many paragraphs forward. 
-With a negative numeric argument, put point at the end of the current 
-paragraph and mark that many paragraphs backward. 
-
-Successive invocations extend the selection.
-
-FIXME: when called with point already at the beginning or end of a paragraph marks 2 paras."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (mark (mark pane))
-	 (syntax (syntax (buffer pane))))
-    (unless (eq (previous-command pane) 'com-mark-paragraph)
-      (setf (offset mark) (offset point))
-      (if (plusp count)
-	  (backward-paragraph point syntax)
-	  (forward-paragraph point syntax)))
-    (if (plusp count)
-	(loop repeat count do (forward-paragraph mark syntax))
-	(loop repeat (- count) do (backward-paragraph mark syntax)))))
-
-(set-key `(com-mark-paragraph ,*numeric-argument-marker*)
-	 'marking-table
-	 '((#\h :meta)))
-
-(define-command (com-backward-sentence :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of sentences"))
-  "Move point to the previous sentence beginning.
-With a numeric argument, move point backward (forward if negative) 
-that many sentences."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (backward-sentence point syntax))
-	(loop repeat (- count) do (forward-sentence point syntax)))))
-
-(set-key `(com-backward-sentence ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\a :meta)))
-
-(define-command (com-forward-sentence :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of sentences"))
-  "Move point to the next sentence end.
-With a numeric argument, move point forward (backward if negative) 
-that many sentences."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (forward-sentence point syntax))
-	(loop repeat (- count) do (backward-sentence point syntax)))))
-
-(set-key `(com-forward-sentence ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\e :meta)))
-
-(define-command (com-kill-sentence :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of sentences"))
-  "Kill the objects from point to the next sentence end.
-With a numeric argument, kill forward (backward if negative) 
-that many sentences."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (mark (clone-mark point))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (forward-sentence point syntax))
-	(loop repeat (- count) do (backward-sentence point syntax)))
-    (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
-    (delete-region point mark)))
-
-(set-key `(com-kill-sentence ,*numeric-argument-marker*)
-	 'deletion-table
-	 '((#\k :meta)))
-
-(define-command (com-backward-kill-sentence :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of sentences"))
-  "Kill the objects from point to the previous sentence beginning.
-With a numeric argument, kill backward (forward if negative) 
-that many sentences."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (mark (clone-mark point))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (backward-sentence point syntax))
-	(loop repeat (- count) do (forward-sentence point syntax)))
-    (kill-ring-standard-push *kill-ring* (region-to-sequence point mark))
-    (delete-region point mark)))
-
-(set-key `(com-backward-kill-sentence ,*numeric-argument-marker*)
-	 'deletion-table
-	 '((#\x :control) (#\Backspace)))
-
-(defun forward-page (mark &optional (count 1))
-  (loop repeat count
-	unless (search-forward mark (coerce (list #\Newline #\Page) 'vector))
-	  do (end-of-buffer mark)
-	     (loop-finish)))
-
-(define-command (com-forward-page :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of pages"))
-  "Move point to the beginning of the next page.
-With a numeric argument, move point forward (backward if negative) 
-that many pages. When no page delimeter is found, leave point at the
- end of the buffer. 
-
-A page is delimited by the sequence #\Newline #\Page."
-  (let* ((pane (current-window))
-	 (point (point pane)))
-    (if (plusp count)
-	(forward-page point count)
-	(backward-page point count))))
-
-(set-key `(com-forward-page ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\x :control) (#\])))
-
-(defun backward-page (mark &optional (count 1))
-  (loop repeat count
-	  when (search-backward mark (coerce (list #\Newline #\Page) 'vector))
-	    do (forward-object mark)
-	  else do (beginning-of-buffer mark)
-		  (loop-finish)))
-
-(define-command (com-backward-page :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of pages"))
-  "Move point to the end of the previous page.
-With a numeric argument, move point backward (forward if negative) 
-that many pages. When no page delimeter is found, leave point at the 
-beginning of the buffer. 
-
-A page is delimited by the sequence #\Newline #\Page."
-  (let* ((pane (current-window))
-	 (point (point pane)))
-    (if (plusp count)
-	(backward-page point count)
-	(forward-page point count))))
-
-(set-key `(com-backward-page ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\x :control) (#\[)))
 
 (define-command (com-mark-page :name t :command-table marking-table)
     ((count 'integer :prompt "Move how many pages")
@@ -1252,15 +767,16 @@ leave point at the beginning and mark at the end of the buffer.
 
 A page is delimited by the sequence #\Newline #\Page."
   (let* ((pane (current-window))
-	 (point (point pane))
+	 (syntax (syntax (buffer pane)))
+         (point (point pane))
 	 (mark (mark pane)))
     (cond ((and numargp (/= 0 count))
 	   (if (plusp count)
-	       (forward-page point count)
-	       (backward-page point (1+ count))))
-	  (t (backward-page point count)))
+	       (forward-page point syntax count)
+	       (backward-page point syntax (1+ count))))
+	  (t (backward-page point syntax count)))
     (setf (offset mark) (offset point))
-	   (forward-page mark 1)))
+    (forward-page mark syntax 1)))
 
 (set-key `(com-mark-page ,*numeric-argument-marker* ,*numeric-argument-p*)
 	 'marking-table
@@ -1270,11 +786,12 @@ A page is delimited by the sequence #\Newline #\Page."
   "Print the number of lines in the current page.
 Also prints the number of lines before and after point (as '(b + a)')."
   (let* ((pane (current-window))
+         (syntax (syntax (buffer pane)))
 	 (point (point pane))
 	 (start (clone-mark point))
 	 (end (clone-mark point)))
-    (backward-page start)
-    (forward-page end)
+    (backward-page start syntax)
+    (forward-page end syntax)
     (let ((total (number-of-lines-in-region start end))
 	  (before (number-of-lines-in-region start point))
 	  (after (number-of-lines-in-region point end)))
@@ -1356,112 +873,19 @@ otherwise prints the result."
 	 (syntax (syntax (buffer pane))))
     (comment-region syntax point mark)))
 
-(define-command (com-backward-expression :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of expressions"))
-  "Move point backward one expression.
-With a numeric argument, move backward (forward if negative) 
-that many expressions. The meaning of 'expression' is given by 
-the relevant syntax. The Lisp syntax, for example, uses s-expressions.
-
-FIXME: I'm not sure it does."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (backward-expression point syntax))
-	(loop repeat (- count) do (forward-expression point syntax)))))
-
-(set-key `(com-backward-expression ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\b :control :meta)))
-
-(define-command (com-forward-expression :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of expresssions"))
-  "Move point forward one expression.
-With a numeric argument, move forward (backward if negative) 
-that many expressions. The meaning of 'expression' is given by the 
-relevant syntax. The Lisp syntax, for example, uses s-expressions."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (forward-expression point syntax))
-	(loop repeat (- count) do (backward-expression point syntax)))))
-
-(set-key `(com-forward-expression ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\f :control :meta)))
-
-(define-command (com-mark-expression :name t :command-table marking-table)
-    ((count 'integer :prompt "Number of expressions"))
-  "Place mark at the next expression end.
-With a numeric argument, place mark forward (backward if negative) 
-that many expressions. Successive invocations extend the selection."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (mark (mark pane))
-	 (syntax (syntax (buffer pane))))
-    (unless (eq (previous-command pane) 'com-mark-expression)
-      (setf (offset mark) (offset point)))
-    (if (plusp count)
-	(loop repeat count do (forward-expression mark syntax))
-	(loop repeat (- count) do (backward-expression mark syntax)))))
-
-(set-key `(com-mark-expression ,*numeric-argument-marker*)
-	 'marking-table
-	 '((#\@ :shift :control :meta)))
-
-(define-command (com-kill-expression :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of expressions"))
-  "Kill objects up to the next expression end.
-With a numeric argument, kill forward (backward if negative) 
-that many expressions."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (mark (clone-mark point))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (forward-expression mark syntax))
-	(loop repeat (- count) do (backward-expression mark syntax)))
-    (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
-    (delete-region mark point)))
-
-(set-key `(com-kill-expression ,*numeric-argument-marker*)
-	 'deletion-table
-	 '((#\k :control :meta)))
-
-(define-command (com-backward-kill-expression :name t :command-table deletion-table)
-    ((count 'integer :prompt "Number of expressions"))
-  "Kill objects back to the previous expression beginning.
-With a numeric argument, kill backward (forward if negative) 
-that many expressions."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (mark (clone-mark point))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (backward-expression mark syntax))
-	(loop repeat (- count) do (forward-expression mark syntax)))
-    (kill-ring-standard-push *kill-ring* (region-to-sequence mark point))
-    (delete-region mark point)))
-
-(set-key `(com-backward-kill-expression ,*numeric-argument-marker*)
-	 'deletion-table
-	 '((#\Backspace :control :meta)))
-
 ;; (defparameter *insert-pair-alist*
 ;; 	      '((#\( #\)) (#\[ #\]) (#\{ #\}) (#\< #\>) (#\" #\") (#\' #\') (#\` #\')))
 
 (defun insert-pair (mark syntax &optional (count 0) (open #\() (close #\)))
   (cond ((> count 0)
 	 (loop while (and (not (end-of-buffer-p mark))
-			  (whitespacep (object-after mark)))
+			  (whitespacep syntax (object-after mark)))
 	       do (forward-object mark)))
 	((< count 0)
 	 (setf count (- count))
 	 (loop repeat count do (backward-expression mark syntax))))
   (unless (or (beginning-of-buffer-p mark)
-	      (whitespacep (object-before mark)))
+	      (whitespacep syntax (object-before mark)))
     (insert-object mark #\Space))
   (insert-object mark open)
   (let ((here (clone-mark mark)))
@@ -1469,7 +893,7 @@ that many expressions."
 	  do (forward-expression here syntax))
     (insert-object here close)
     (unless (or (end-of-buffer-p here)
-		(whitespacep (object-after here)))
+		(whitespacep syntax (object-after here)))
       (insert-object here #\Space))))
 
 (defun insert-parentheses (mark syntax count)
@@ -1492,149 +916,6 @@ FIXME: no it doesn't."
 (set-key `(com-insert-parentheses ,*numeric-argument-marker* ,*numeric-argument-p*)
 	 'editing-table
 	 '((#\( :meta)))
-
-(define-command (com-forward-list :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of lists"))
-  "Move point forward across a delimited list.
-With a numeric argument, move forward (backward if negative) that many lists."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	 (loop repeat count do (forward-list point syntax))
-	 (loop repeat (- count) do (backward-list point syntax)))))
-
-(set-key `(com-forward-list ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\n :control :meta)))
-
-(define-command (com-backward-list :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of lists"))
-  "Move point backward across a delimited list.
-With a numeric argument, move backward (forward if negative) 
-that many lists."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (backward-list point syntax))
-	(loop repeat (- count) do (forward-list point syntax)))))
-
-(set-key `(com-backward-list ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\p :control :meta)))
-
-(define-command (com-down-list :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of lists"))
-  "Move point forward down one level of delimited list.
-With a numeric argument, move forward (backward if negative) 
-down that many lists."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (down-list point syntax))
-	(loop repeat (- count) do (backward-down-list point syntax)))))
-
-(set-key `(com-down-list ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\d :control :meta)))
-
-(define-command (com-backward-down-list :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of lists"))
-  "Move point backward down one level of delimited list.
-With a numeric argument, move backward (forward if negative) 
-down that many lists."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (backward-down-list point syntax))
-	(loop repeat (- count) do (down-list point syntax)))))
-
-(define-command (com-backward-up-list :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of lists"))
-  "Move point backward up one level of delimited list.
-With a numeric argument, move backward (forward if negative) 
-up that many lists."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (backward-up-list point syntax))
-	(loop repeat (- count) do (up-list point syntax)))))
-
-(set-key `(com-backward-up-list ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\u :control :meta)))
-
-(define-command (com-up-list :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of lists"))
-  "Move point forward up one level of delimited list.
-With a numeric argument, move forward (backward if negative) 
-up that many lists."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (up-list point syntax))
-	(loop repeat (- count) do (backward-up-list point syntax)))))
-
-(define-command (com-beginning-of-definition :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of definitions"))
-  "Move point to the previous definition beginning.
-With a numeric argument, move backward (forward if negative) 
-that many definitions.
-
-FIXME: negative arg actually does end-of-definition.
-
-FIXME: should take account of CLHS 3.2.3.1 .../HyperSpec/Body/03_bca.htm"
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (beginning-of-definition point syntax))
-	(loop repeat (- count) do (end-of-definition point syntax)))))
-
-(set-key `(com-beginning-of-definition ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\a :control :meta)))
-
-(define-command (com-end-of-definition :name t :command-table movement-table)
-    ((count 'integer :prompt "Number of definitions"))
-  "Move point to the following definition end.
-With a numeric argument, move forward (backward if negative) 
-that many defintions.
-
-FIXME: negative arg actually does beginning-of-definition.
-
-FIXME: see second FIXME for com-beginning-of-definition."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (syntax (syntax (buffer pane))))
-    (if (plusp count)
-	(loop repeat count do (end-of-definition point syntax))
-	(loop repeat (- count) do (beginning-of-definition point syntax)))))
-
-(set-key `(com-end-of-definition ,*numeric-argument-marker*)
-	 'movement-table
-	 '((#\e :control :meta)))
-
-(define-command (com-mark-definition :name t :command-table marking-table) ()
-  "Place point and mark around the current definition.
-Successive invocations extend the selection."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (mark (mark pane))
-	 (syntax (syntax (buffer pane))))
-    (unless (eq (previous-command pane) 'com-mark-definition)
-      (beginning-of-definition point syntax)
-      (setf (offset mark) (offset point)))
-    (end-of-definition mark syntax)))
-
-(set-key 'com-mark-definition
-	 'marking-table
-	 '((#\h :control :meta)))
 
 (define-command (com-visible-region :name t :command-table marking-table) ()
   "Toggle the visibility of the region in the current pane."

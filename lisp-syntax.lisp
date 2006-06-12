@@ -246,7 +246,7 @@
   (macrolet ((fo () `(forward-object scan)))
     (loop when (end-of-buffer-p scan)
 	    do (return nil)
-	  until (not (whitespacep (object-after scan)))
+	  until (not (whitespacep syntax (object-after scan)))
 	  do (fo)
 	  finally (return t))))
 
@@ -434,7 +434,7 @@
 (defmethod skip-inter ((syntax lisp-syntax) (state lexer-line-comment-state) scan)
   (macrolet ((fo () `(forward-object scan)))
     (loop until (or (end-of-line-p scan)
-		    (not (whitespacep (object-after scan))))
+		    (not (whitespacep syntax (object-after scan))))
 	  do (fo)
 	  finally (return t))))
 
@@ -520,7 +520,7 @@
 	   (fo)
 	   (go start))
          (if (evenp bars-seen)
-             (unless (whitespacep (object-after scan))
+             (unless (whitespacep syntax (object-after scan))
                (fo)
                (go start))
              (when (constituentp (object-after scan))
@@ -1823,47 +1823,57 @@ be found, return nil."
       (when (not (null list-child))
         (funcall fn list-child)))))
 
-(defmethod backward-expression (mark (syntax lisp-syntax))
+(defmethod backward-one-expression (mark (syntax lisp-syntax))
   (let ((potential-form (or (form-before syntax (offset mark))
 			    (form-around syntax (offset mark)))))
     (if potential-form
 	(setf (offset mark) (start-offset potential-form))
 	(error 'no-expression))))
 
-(defmethod forward-expression (mark (syntax lisp-syntax))
+(defmethod forward-one-expression (mark (syntax lisp-syntax))
   (let ((potential-form (or (form-after syntax (offset mark))
 			    (form-around syntax (offset mark)))))
     (if potential-form
 	(setf (offset mark) (end-offset potential-form))
 	(error 'no-expression))))
 
-(defmethod forward-list (mark (syntax lisp-syntax))
-  (loop for start = (offset mark)
-	  then (end-offset potential-form)
-	for potential-form = (or (form-after syntax start)
-				 (form-around syntax start))
-	until (or (null potential-form)
-                  (and (= start
-                          (end-offset potential-form))
-                       (null (form-after syntax start))))
-	when (typep potential-form 'list-form)
-	  do (setf (offset mark) (end-offset potential-form))
-	     (return)
-	finally (error 'no-expression)))
+(defgeneric forward-one-list (mark syntax)
+  (:documentation
+   "Move `mark' forward by one list. 
+Return T if successful, or NIL if the buffer limit was reached."))
 
-(defmethod backward-list (mark (syntax lisp-syntax))
+(defmethod forward-one-list (mark (syntax lisp-syntax))
   (loop for start = (offset mark)
-	  then (start-offset potential-form)
-	for potential-form = (or (form-before syntax start)
-				 (form-around syntax start))
-	until (or (null potential-form)
-                  (and (= start
-                          (start-offset potential-form))
-                       (null (form-before syntax start))))
-	when (typep potential-form 'list-form)
-	  do (setf (offset mark) (start-offset potential-form))
-	     (return)
-	finally (error 'no-expression)))
+     then (end-offset potential-form)
+     for potential-form = (or (form-after syntax start)
+                              (form-around syntax start))
+     until (or (null potential-form)
+               (and (= start
+                       (end-offset potential-form))
+                    (null (form-after syntax start))))
+     when (typep potential-form 'list-form)
+     do (setf (offset mark) (end-offset potential-form))
+     (return t)))
+
+(defgeneric backward-one-list (mark syntax)
+  (:documentation
+   "Move `mark' backward by one list.  Return T if successful, or
+NIL if the buffer limit was reached."))
+
+(defmethod backward-one-list (mark (syntax lisp-syntax))
+  (loop for start = (offset mark)
+     then (start-offset potential-form)
+     for potential-form = (or (form-before syntax start)
+                              (form-around syntax start))
+     until (or (null potential-form)
+               (and (= start
+                       (start-offset potential-form))
+                    (null (form-before syntax start))))
+     when (typep potential-form 'list-form)
+     do (setf (offset mark) (start-offset potential-form))
+     (return t)))
+
+(climacs-motion:define-motion-fns list)
 
 (defun down-list-by-fn (mark syntax fn)
   (let* ((offset (offset mark))
@@ -1876,31 +1886,30 @@ be found, return nil."
                             fn
                             offset)))))
       (when new-offset 
-        (setf (offset mark) (1+ new-offset))))))
+        (progn (setf (offset mark) (1+ new-offset)) t)))))
 
-(defmethod down-list (mark (syntax lisp-syntax))
+(defmethod forward-one-down (mark (syntax lisp-syntax))
   (down-list-by-fn mark syntax #'start-offset))
 
-(defmethod backward-down-list (mark (syntax lisp-syntax))
+(defmethod backward-one-down (mark (syntax lisp-syntax))
   (down-list-by-fn mark syntax #'end-offset)
-  (backward-object mark))
+  (backward-object mark syntax))
 
 (defun up-list-by-fn (mark syntax fn)
   (let ((form (or (form-before syntax (offset mark))
                   (form-after syntax (offset mark))
                   (form-around syntax (offset mark)))))
-    (if form
+    (when form
         (let ((parent (parent form)))
           (when (not (null parent))
             (let ((new-offset (find-list-parent-offset parent fn)))
               (when new-offset
-                (setf (offset mark) new-offset)))))
-        (error 'no-expression))))
+                (setf (offset mark) new-offset))))))))
 
-(defmethod backward-up-list (mark (syntax lisp-syntax))
+(defmethod backward-one-up (mark (syntax lisp-syntax))
   (up-list-by-fn mark syntax #'start-offset))
 
-(defmethod up-list (mark (syntax lisp-syntax))
+(defmethod forward-one-up (mark (syntax lisp-syntax))
   (up-list-by-fn mark syntax #'end-offset))
 
 (defmethod eval-defun (mark (syntax lisp-syntax))
@@ -1911,7 +1920,7 @@ be found, return nil."
 	     do (return (eval (read-from-string 
 			       (token-string syntax form)))))))
 
-(defmethod beginning-of-definition (mark (syntax lisp-syntax))
+(defmethod backward-one-definition (mark (syntax lisp-syntax))
   (with-slots (stack-top) syntax
     (loop for form in (children stack-top)
 	  with last-toplevel-list = nil
@@ -1925,15 +1934,18 @@ be found, return nil."
 	  when (typep form 'form)
 	  do (setf last-toplevel-list form)
 	  finally (when last-toplevel-list form
-		       (setf (offset mark) (start-offset last-toplevel-list))))))
+		       (setf (offset mark)
+                             (start-offset last-toplevel-list))
+                       (return t)))))
 
-(defmethod end-of-definition (mark (syntax lisp-syntax))
+(defmethod forward-one-definition (mark (syntax lisp-syntax))
   (with-slots (stack-top) syntax
     (loop for form in (children stack-top)
 	  when (and (typep form 'form)
 		    (mark< mark (end-offset form)))
 	  do (setf (offset mark) (end-offset form))
-	     (loop-finish))))
+	     (loop-finish)
+          finally (return t))))
 
 (defun in-type-p-in-children (children offset type)
   (loop for child in children

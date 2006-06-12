@@ -136,25 +136,17 @@ made to move a mark after the end of the buffer."))
   (:documentation "Move `mark' `count' objects backwards. Returns
   `mark'."))
 
-(defmethod backward-object :around (mark &optional count)
-  (declare (ignore count))
-  (call-next-method)
-  mark)
-
-(defmethod backward-object ((mark mark-mixin) &optional (count 1))
-  (decf (offset mark) count))
-
 (defgeneric forward-object (mark &optional count)
   (:documentation "Move `mark' `count' objects forwards. Returns
   `mark'"))
 
-(defmethod forward-object :around (mark &optional count)
-  (declare (ignore count))
-  (call-next-method)
-  mark)
-
 (defmethod forward-object ((mark mark-mixin) &optional (count 1))
-  (incf (offset mark) count))
+  (incf (offset mark) count)
+  t)
+
+(defmethod backward-object ((mark mark-mixin) &optional (count 1))
+  (decf (offset mark) count)
+  t)
 
 (defclass standard-left-sticky-mark (left-sticky-mark mark-mixin) ()
   (:documentation "A left-sticky-mark subclass suitable for use in a standard-buffer"))
@@ -377,7 +369,7 @@ end of the buffer), nil otherwise."))
 
 (defmethod beginning-of-line ((mark mark-mixin))
   (loop until (beginning-of-line-p mark)
-	do (decf (offset mark))))
+	do (backward-object mark)))
 
 (defgeneric end-of-line (mark)
   (:documentation "Move the mark to the end of the line. The mark will be positioned
@@ -431,6 +423,15 @@ at the end of the buffer if no following newline character exists. Returns mark.
 
 (defmethod column-number ((mark mark-mixin))
   (buffer-column-number (buffer mark) (offset mark)))
+
+(defgeneric (setf column-number) (number mark)
+  (:documentation "Set the column number of the mark."))
+
+(defmethod (setf column-number) (number mark)
+  (beginning-of-line mark)
+  (loop repeat number
+       until (end-of-line-p mark)
+       do (incf (offset mark))))
 
 (defgeneric insert-buffer-object (buffer offset object)
   (:documentation "Insert the object at the offset in the buffer.  Any left-sticky marks

@@ -675,7 +675,7 @@
 	      (incf valid-parse))))
 
 (defmethod inter-lexeme-object-p ((lexer html-lexer) object)
-  (whitespacep object))
+  (whitespacep (syntax (buffer lexer)) object))
 
 (defmethod update-syntax (buffer (syntax html-syntax))
   (with-slots (lexer valid-parse) syntax

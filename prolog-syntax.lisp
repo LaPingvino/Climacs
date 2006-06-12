@@ -302,7 +302,8 @@
 	       (t
 		(cond
 		  ((and (string= string ".") 
-                        (or (whitespacep (object-after scan))
+                        (or (whitespacep (syntax (buffer lexer))
+                                         (object-after scan))
                             (eql (object-after scan) #\%)))
 		   (return (make-instance 'end-lexeme)))
 		  (t (return (make-instance 'graphic-lexeme))))))
@@ -372,7 +373,8 @@
              (when (or (end-of-buffer-p scan)
                        (let ((object (object-after scan)))
                          (or (eql object #\%)
-                             (whitespacep object))))
+                             (whitespacep (syntax (buffer lexer))
+                                          object))))
                (bo)
                (return (make-instance 'integer-lexeme)))
              (loop until (end-of-buffer-p scan)

@@ -30,15 +30,25 @@
 
 (in-package :climacs-lisp-syntax)
 
+;; Movement commands.
+(climacs-motion-commands:define-motion-commands expression lisp-table)
+(climacs-motion-commands:define-motion-commands definition lisp-table)
+(climacs-motion-commands:define-motion-commands up lisp-table
+  :noun "nesting level up"
+  :plural "levels")
+(climacs-motion-commands:define-motion-commands down lisp-table
+  :noun "nesting level down"
+  :plural "levels")
+(climacs-motion-commands:define-motion-commands list lisp-table)
+
+(climacs-editing-commands:define-editing-commands expression lisp-table)
+(climacs-editing-commands:define-deletion-commands expression lisp-table)
+
 (define-command (com-eval-defun :name t :command-table lisp-table) ()
   (let* ((pane (current-window))
          (point (point pane))
          (syntax (syntax (buffer pane))))
     (eval-defun point syntax)))
-
-(esa:set-key 'com-eval-defun
-             'lisp-table
-             '((#\x :control :meta)))
 
 (define-command (com-package :name t :command-table lisp-table) ()
   (let* ((pane (current-window))
@@ -62,35 +72,74 @@ string at point."
     (when (typep token 'string-form)
       (with-accessors ((offset1 start-offset) 
                        (offset2 end-offset)) token
-        (fill-region (make-instance 'standard-right-sticky-mark
-                                    :buffer implementation
-                                    :offset offset1)
-                     (make-instance 'standard-right-sticky-mark
-                                    :buffer implementation
-                                    :offset offset2)
-                     #'(lambda (mark)
-                         (syntax-line-indentation mark tab-width syntax))
-                     fill-column
-                     tab-width
-                     t)))))
-
-(esa:set-key 'com-fill-paragraph
-             'lisp-table
-             '((#\q :meta)))
+        (climacs-editing:fill-region (make-instance 'standard-right-sticky-mark
+                                                    :buffer implementation
+                                                    :offset offset1)
+                                     (make-instance 'standard-right-sticky-mark
+                                                    :buffer implementation
+                                                    :offset offset2)
+                                     #'(lambda (mark)
+                                         (syntax-line-indentation mark tab-width syntax))
+                                     fill-column
+                                     tab-width
+                                     syntax
+                                     t)))))
 
 (define-command (com-indent-expression :name t :command-table lisp-table)
     ((count 'integer :prompt "Number of expressions"))
   (let* ((pane (current-window))
          (point (point pane))
          (mark (clone-mark point))
-         (syntax (syntax (buffer pane)))
-         (view (stream-default-view pane))
-         (tab-space-count (tab-space-count view)))
+         (syntax (syntax (buffer pane))))
     (if (plusp count)
         (loop repeat count do (forward-expression mark syntax))
         (loop repeat (- count) do (backward-expression mark syntax)))
-    (indent-region pane (clone-mark point) mark)))
+    (climacs-editing:indent-region pane (clone-mark point) mark)))
+
+(esa:set-key 'com-fill-paragraph
+             'lisp-table
+             '((#\q :meta)))
+
+(esa:set-key 'com-eval-defun
+             'lisp-table
+             '((#\x :control :meta)))
 
 (esa:set-key `(com-indent-expression ,*numeric-argument-marker*)
              'lisp-table
              '((#\q :meta :control)))
+
+(esa:set-key `(com-backward-up ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\u :control :meta)))
+
+(esa:set-key `(com-forward-down ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\d :control :meta)))
+
+(esa:set-key `(com-backward-expression ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\b :control :meta)))
+
+(esa:set-key `(com-forward-expression ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\f :control :meta)))
+
+(esa:set-key `(com-backward-definition ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\a :control :meta)))
+
+(esa:set-key `(com-forward-definition ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\e :control :meta)))
+
+(esa:set-key `(com-forward-list ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\n :control :meta)))
+
+(esa:set-key `(com-backward-list ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\p :control :meta)))
+
+(esa:set-key `(com-kill-expression ,*numeric-argument-marker*)
+             'lisp-table
+             '((#\k :control :meta)))

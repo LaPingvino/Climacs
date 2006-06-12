@@ -311,8 +311,6 @@
   (declare (ignore region))
   (redisplay-frame-pane *application-frame* pane))
 
-(defvar *kill-ring* (make-instance 'kill-ring :max-size 7))
-
 (defmethod execute-frame-command :around ((frame climacs) command)
   (let ((current-window (car (windows frame))))
     (handler-case

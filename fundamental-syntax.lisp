@@ -192,12 +192,6 @@
 ;;;
 ;;; exploit the parse 
 
-(defmethod backward-expression (mark (syntax fundamental-syntax))
-  nil)
-
-(defmethod forward-expression (mark (syntax fundamental-syntax))
-  nil)
-
 ;; do this better
 (defmethod syntax-line-indentation (mark tab-width (syntax fundamental-syntax))
   0)

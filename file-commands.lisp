@@ -177,7 +177,7 @@
   (let ((scan (beginning-of-buffer (clone-mark (point buffer)))))
     ;; skip the leading whitespace
     (loop until (end-of-buffer-p scan)
-	  until (not (whitespacep (object-after scan)))
+	  until (not (whitespacep (syntax buffer) (object-after scan)))
 	  do (forward-object scan))
     ;; stop looking if we're already 1,000 objects into the buffer
     (unless (> (offset scan) 1000)

@@ -32,7 +32,10 @@
 	   #:invalid-motion #:motion-before-beginning #:motion-after-end
 	   #:size #:number-of-lines
 	   #:offset #:mark< #:mark<= #:mark= #:mark> #:mark>=
-           #:forward-object #:backward-object
+           #:forward-object
+           #:backward-object
+           #:forward-line-start #:backward-line-start
+           #:forward-line-end #:backward-line-end
 	   #:beginning-of-buffer #:end-of-buffer
 	   #:beginning-of-buffer-p #:end-of-buffer-p
 	   #:beginning-of-line #:end-of-line
@@ -47,44 +50,41 @@
 	   #:buffer-object #:buffer-sequence
 	   #:object-before #:object-after #:region-to-sequence
 	   #:low-mark #:high-mark #:modified-p #:clear-modify
-
 	   #:binseq-buffer #:obinseq-buffer #:binseq2-buffer
 	   #:persistent-left-sticky-mark #:persistent-right-sticky-mark
 	   #:persistent-left-sticky-line-mark #:persistent-right-sticky-line-mark
 	   #:p-line-mark-mixin #:buffer-line-offset
-
 	   #:delegating-buffer #:implementation))
 
+(defpackage :climacs-kill-ring
+  (:use :clim-lisp :flexichain)
+  (:export #:kill-ring
+           #:kill-ring-length #:kill-ring-max-size
+	   #:append-next-p
+	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
+	   #:kill-ring-standard-push #:kill-ring-concatenating-push
+	   #:kill-ring-reverse-concatenating-push))
+
 (defpackage :climacs-base
-  (:use :clim-lisp :climacs-buffer)
+  (:use :clim-lisp :climacs-buffer :climacs-kill-ring)
   (:export #:do-buffer-region
            #:do-buffer-region-lines
 	   #:previous-line #:next-line
-	   #:open-line #:kill-line
            #:empty-line-p
            #:line-indentation
            #:buffer-display-column
 	   #:number-of-lines-in-region
-	   #:constituentp #:whitespacep
+	   #:constituentp
 	   #:forward-word #:backward-word
-	   #:delete-word #:backward-delete-word
            #:buffer-region-case
-           #:upcase-buffer-region #:upcase-region
-           #:downcase-buffer-region #:downcase-region
-           #:capitalize-buffer-region #:capitalize-region
-           #:upcase-word #:downcase-word #:capitalize-word
-           #:tabify-region #:untabify-region
-           #:indent-line
-           #:indent-region
-           #:delete-indentation
-           #:fill-line #:fill-region
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
 	   #:buffer-looking-at #:looking-at
 	   #:buffer-search-forward #:buffer-search-backward
 	   #:buffer-re-search-forward #:buffer-re-search-backward
 	   #:search-forward #:search-backward
-	   #:re-search-forward #:re-search-backward))
+	   #:re-search-forward #:re-search-backward
+           #:*kill-ring*))
 
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)
@@ -125,15 +125,11 @@
 	   #:backward-down-list #:backward-up-list
 	   #:syntax-line-comment-string
 	   #:line-comment-region #:comment-region
-	   #:line-uncomment-region #:uncomment-region))
-
-(defpackage :climacs-kill-ring
-  (:use :clim-lisp :flexichain)
-  (:export #:kill-ring      #:kill-ring-length      #:kill-ring-max-size
-	   #:append-next-p 
-	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
-	   #:kill-ring-standard-push    #:kill-ring-concatenating-push
-	   #:kill-ring-reverse-concatenating-push))
+	   #:line-uncomment-region #:uncomment-region
+           #:word-constituentp
+           #:whitespacep
+           #:page-delimiter
+           #:paragraph-delimiter))
 
 (defpackage :undo
   (:use :common-lisp)
@@ -168,10 +164,129 @@
 	   #:url
 	   #:climacs-textual-view #:+climacs-textual-view+))
 
+(defpackage :climacs-motion
+  (:use :clim-lisp :clim :climacs-base :climacs-buffer :climacs-syntax)
+  (:export #:forward-to-word-boundary #:backward-to-word-boundary
+           #:define-motion-fns
+           #:beep-limit-action #:revert-limit-action #:error-limit-action
+           #:motion-limit-error
+           #:make-diligent-motor
+
+           ;; Lines
+           #:forward-one-line
+           #:backward-one-line
+           #:forward-line
+           #:backward-line
+
+           ;; Words
+           #:forward-one-word
+           #:backward-one-word
+           #:forward-word
+           #:backward-word
+
+           ;; Pages
+           #:forward-one-page
+           #:backward-one-page
+           #:forward-page
+           #:backward-page
+
+           ;; Expressions
+           #:forward-one-expression
+           #:backward-one-expression
+           #:forward-expression
+           #:backward-expression
+
+           ;; Definitions
+           #:forward-one-definition
+           #:backward-one-definition
+           #:forward-definition
+           #:backward-definition
+
+           ;; Up
+           #:forward-one-up
+           #:backward-one-up
+           #:forward-up
+           #:backward-up
+
+           ;; Down
+           #:forward-one-down
+           #:backward-one-down
+           #:forward-down
+           #:backward-down
+
+           ;; Paragraphs
+           #:forward-one-paragraph
+           #:backward-one-paragraph
+           #:forward-paragraph
+           #:backward-paragraph
+
+           ;; Sentences
+           #:forward-one-sentence
+           #:backward-one-sentence
+           #:forward-sentence
+           #:backward-sentence))
+
+(defpackage :climacs-editing
+  (:use :clim-lisp :clim :climacs-base :climacs-buffer
+        :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring)
+  (:export #:transpose-objects
+           #:open-line
+           
+           ;; Lines
+           #:forward-delete-line #:backward-delete-line
+           #:forward-kill-line #:backward-kill-line
+           #:transpose-lines
+           #:forward-delete-line-start #:backward-delete-line-start
+           #:forward-kill-line-start #:backward-kill-line-start
+           #:transpose-line-starts
+           
+           ;; Words
+           #:forward-delete-word #:backward-delete-word
+           #:forward-kill-word #:backward-kill-word
+           #:transpose-words
+
+           ;; Pages
+           #:forward-delete-page #:backward-delete-page
+           #:forward-kill-page #:backward-kill-page
+           #:transpose-page
+           
+           ;; Expressions
+           #:forward-delete-expression #:backward-delete-expression
+           #:forward-kill-expression #:backward-kill-expression
+           #:transpose-expressions
+
+           ;; Definitions
+           #:forward-delete-definition #:backward-delete-definition
+           #:forward-kill-definition #:backward-kill-definition
+           #:transpose-definitions
+
+           ;; Paragraphs
+           #:forward-delete-paragraph #:backward-delete-paragraph
+           #:forward-kill-paragraph #:backward-kill-paragraph
+           #:transpose-paragraphs
+
+           ;; Sentences
+           #:forward-delete-sentence #:backward-delete-sentence
+           #:forward-kill-sentence #:backward-kill-sentence
+           #:transpose-sentences
+           
+           #:downcase-buffer-region #:downcase-region
+           #:upcase-buffer-region #:upcase-region
+           #:downcase-word #:upcase-word
+           #:capitalize-buffer-region #:capitalize-region
+           #:capitalize-word
+           #:tabify-region #:untabify-region
+           #:indent-line
+           #:indent-region
+           #:delete-indentation
+           #:fill-line
+           #:fill-region))
+
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-abbrev :climacs-syntax
-	:climacs-kill-ring :climacs-pane :clim-extensions :undo :esa)
+	:climacs-abbrev :climacs-syntax :climacs-motion
+	:climacs-kill-ring :climacs-pane :clim-extensions
+        :undo :esa :climacs-editing :climacs-motion)
   ;;(:import-from :lisp-string)
   (:export :climacs ; Main entry point.
            ;; GUI functions follow.
@@ -183,7 +298,35 @@
            :point
            :syntax
            :mark
-           :insert-character))
+           :insert-character
+           :base-table
+           :buffer-table
+           :case-table
+           :comment-table
+           :deletion-table
+           :development-table
+           :editing-table
+           :fill-table
+           :indent-table
+           :info-table
+           :marking-table
+           :movement-table
+           :pane-table
+           :search-table
+           :self-insert-table
+           :window-table))
+
+(defpackage :climacs-motion-commands
+  (:use :clim-lisp :clim :climacs-base :climacs-buffer
+        :climacs-syntax :climacs-motion :climacs-gui :esa)
+  (:export #:define-motion-commands))
+
+(defpackage :climacs-editing-commands
+  (:use :clim-lisp :clim :climacs-base :climacs-buffer
+        :climacs-syntax :climacs-motion :climacs-gui
+        :esa :climacs-editing :climacs-kill-ring)
+  (:export #:define-deletion-commands
+           #:define-editing-commands))
 
 (defpackage :climacs-fundamental-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
@@ -206,7 +349,5 @@
 
 (defpackage :climacs-lisp-syntax
   (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane :climacs-gui)
+	:climacs-syntax :flexichain :climacs-pane :climacs-gui :climacs-motion :climacs-editing)
   (:export :lisp-string))
-
-

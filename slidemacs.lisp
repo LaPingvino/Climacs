@@ -363,7 +363,7 @@
   nil)
 
 (defmethod inter-lexeme-object-p ((lexer slidemacs-lexer) object)
-  (whitespacep object))
+  (whitespacep (syntax (buffer lexer)) object))
 
 (defmethod update-syntax (buffer (syntax slidemacs-editor-syntax))
   (with-slots (parser lexer valid-parse) syntax
@@ -389,7 +389,8 @@
   (let ((space-width (space-width pane))
 	(tab-width (tab-width pane)))
     (loop while (and (< start end)
-                     (whitespacep (buffer-object buffer start)))
+                     (whitespacep (syntax buffer)
+                                  (buffer-object buffer start)))
           do (ecase (buffer-object buffer start)
                (#\Newline (terpri pane)
                           (setf (aref *cursor-positions* (incf *current-line*))

@@ -148,16 +148,17 @@
 			 (incf pos1))
 			(t nil))))))))
 
-(defmethod backward-paragraph (mark (syntax text-syntax))
+(defmethod backward-one-paragraph (mark (syntax text-syntax))
   (with-slots (paragraphs) syntax
      (let ((pos1 (index-of-mark-after-offset paragraphs (offset mark))))
        (when (> pos1 0)
 	 (setf (offset mark)
 	       (if (typep (element* paragraphs (1- pos1)) 'right-sticky-mark)
 		   (offset (element* paragraphs (- pos1 2)))
-		   (offset (element* paragraphs (1- pos1)))))))))
+		   (offset (element* paragraphs (1- pos1)))))
+         t))))
 
-(defmethod forward-paragraph (mark (syntax text-syntax))
+(defmethod forward-one-paragraph (mark (syntax text-syntax))
   (with-slots (paragraphs) syntax
     (let ((pos1 (index-of-mark-after-offset
                  paragraphs
@@ -168,16 +169,18 @@
 	 (setf (offset mark)
 	       (if (typep (element* paragraphs pos1) 'left-sticky-mark)
 		   (offset (element* paragraphs (1+ pos1)))
-		   (offset (element* paragraphs pos1))))))))
+		   (offset (element* paragraphs pos1))))
+         t))))
 
- (defmethod backward-sentence (mark (syntax text-syntax))
+ (defmethod backward-one-sentence (mark (syntax text-syntax))
    (with-slots (sentence-beginnings) syntax
       (let ((pos1 (index-of-mark-after-offset sentence-beginnings (offset mark))))
         (when (> pos1 0)
- 	 (setf (offset mark)
- 		   (offset (element* sentence-beginnings (1- pos1))))))))
+          (setf (offset mark)
+                (offset (element* sentence-beginnings (1- pos1))))
+          t))))
 
- (defmethod forward-sentence (mark (syntax text-syntax))
+ (defmethod forward-one-sentence (mark (syntax text-syntax))
    (with-slots (sentence-endings) syntax
      (let ((pos1 (index-of-mark-after-offset
                   sentence-endings
@@ -186,13 +189,14 @@
                   (1+ (offset mark)))))
        (when (< pos1 (nb-elements sentence-endings))
  	 (setf (offset mark)
- 		   (offset (element* sentence-endings pos1)))))))
+               (offset (element* sentence-endings pos1)))
+         t))))
 
 (defmethod syntax-line-indentation (mark tab-width (syntax text-syntax))
   (loop with indentation = 0
         with mark2 = (clone-mark mark)
         until (beginning-of-buffer-p mark2)
-        do (previous-line mark2)
+        do (climacs-motion:backward-line mark2 syntax)
            (setf indentation (line-indentation mark2 tab-width))
         while (empty-line-p mark2)
         finally (return indentation)))

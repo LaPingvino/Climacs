@@ -50,48 +50,7 @@ made to execute a by-experssion motion command and no expression is available." 
   (:documentation "Return the correct indentation for the line containing
 the mark, according to the specified syntax."))
 
-(defgeneric forward-expression (mark syntax))
-
-(defgeneric backward-expression (mark syntax))
-
 (defgeneric eval-defun (mark syntax))
-
-(defgeneric beginning-of-definition (mark syntax))
-
-(defgeneric end-of-definition (mark syntax))
-
-(defgeneric backward-paragraph (mark syntax))
-
-(defgeneric forward-paragraph (mark syntax))
-
-(defgeneric backward-sentence (mark syntax))
-
-(defgeneric forward-sentence (mark syntax))
-
-(defgeneric forward-list (mark syntax)
-  (:method (mark syntax)
-    (error 'no-such-operation)))
-
-(defgeneric backward-list (mark syntax)
-  (:method (mark syntax)
-    (error 'no-such-operation)))
-
-(defgeneric down-list (mark syntax)
-  (:method (mark syntax)
-    (error 'no-such-operation)))
-
-(defgeneric backward-down-list (mark syntax)
-  (:method (mark syntax)
-    (error 'no-such-operation)))
-
-(defgeneric backward-up-list (mark syntax)
-  (:method (mark syntax)
-    (error 'no-such-operation)))
-
-(defgeneric up-list (mark syntax)
-  (:method (mark syntax)
-    (error 'no-such-operation)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -298,31 +257,7 @@ in the specific syntax.")
   (declare (ignore mark tab-width))
   0)
 
-(defmethod forward-expression (mark syntax)
-  (error 'no-such-operation))
-
-(defmethod backward-expression (mark syntax)
-  (error 'no-such-operation))
-
 (defmethod eval-defun (mark syntax)
-  (error 'no-such-operation))
-
-(defmethod beginning-of-defintion (mark syntax)
-  (error 'no-such-operation))
-
-(defmethod end-of-definition (mark syntax)
-  (error 'no-such-operation))
-
-(defmethod backward-paragraph (mark syntax)
-  (error 'no-such-operation))
-
-(defmethod forward-paragraph (mark syntax)
-  (error 'no-such-operation))
-
-(defmethod backward-sentence (mark syntax)
-  (error 'no-such-operation))
-
-(defmethod forward-sentence (mark syntax)
   (error 'no-such-operation))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -789,3 +724,34 @@ internal state of the parser.  Do not alter it!"
 
 (defgeneric redisplay-pane-with-syntax (pane syntax current-p))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Querying
+
+(defgeneric word-constituentp (syntax obj)
+  (:documentation "Return T if `obj' is a word constituent
+  character in `syntax'.")
+  (:method (syntax obj)
+    nil)
+  (:method (syntax (obj character))
+    (alphanumericp obj)))
+
+(defgeneric whitespacep (syntax obj)
+  (:documentation "Return T if `obj' is a whitespace character in
+  `syntax'.")
+  (:method (syntax obj)
+    nil)
+  (:method (syntax (obj character))
+    (member obj '(#\Space #\Tab #\Newline #\Page #\Return))))
+
+(defgeneric page-delimiter (syntax)
+  (:documentation "Return the object sequence used as a page
+  deliminter in `syntax'.")
+  (:method (syntax)
+    '(#\Newline #\Page)))
+
+(defgeneric paragraph-delimiter (syntax)
+  (:documentation "Return the object used as a paragraph
+  deliminter in `syntax'.")
+  (:method (syntax)
+    '(#\Newline #\Newline)))
