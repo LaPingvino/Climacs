@@ -2302,6 +2302,9 @@ object. Otherwise, nil will be returned.")
 (defmethod indent-form ((syntax lisp-syntax) (tree backquote-form) path)
   (indent-form syntax (elt-noncomment (children tree) (car path)) (cdr path)))
 
+(defmethod indent-form ((syntax lisp-syntax) (tree comma-form) path)
+  (indent-form syntax (elt-noncomment (children tree) (car path)) (cdr path)))
+
 (defmethod indent-form ((syntax lisp-syntax) (tree function-form) path)
   (if (null (cdr path))
       (values tree 0)
