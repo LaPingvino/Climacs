@@ -63,6 +63,11 @@
 (defparameter *with-scrollbars* t
   "If T, classic look and feel. If NIL, stripped-down look (:")
 
+(defparameter *show-info-pane-mark-position* nil
+  "If T, show the line number and column number in the info pane
+  of all panes. If NIL, don't. This is off by default, as finding
+  the line and column numbers is potentially expensive.")
+
 ;;; Basic command tables follow. The global command table,
 ;;; `global-climacs-table', inherits from these, so they should not
 ;;; contain any overly syntax-specific commands. The idea is that it
@@ -255,7 +260,8 @@
 	 (buffer (buffer master-pane))
 	 (size (size buffer))
 	 (top (top master-pane))
-	 (bot (bot master-pane)))
+	 (bot (bot master-pane))
+         (point (point master-pane)))
     (princ "   " pane)
     (with-output-as-presentation (pane buffer 'read-only)
       (princ (cond
@@ -274,7 +280,7 @@
       (with-output-as-presentation (pane buffer 'buffer)
         (format pane "~A" (name buffer)))
       ;; FIXME: bare 25.
-      (format pane "~V@T" (- 25 (length (name buffer)))))
+      (format pane "~V@T" (max (- 25 (length (name buffer))) 1)))
     (format pane "  ~A  "
 	    (cond ((and (mark= size bot)
 			(mark= 0 top))
@@ -286,6 +292,10 @@
 		  (t (format nil "~a%"
 			     (round (* 100 (/ (offset top)
 					      size)))))))
+    (when *show-info-pane-mark-position*
+     (format pane "(~A,~A)     "
+             (1+ (line-number point))
+             (column-number point)))
     (with-text-family (pane :sans-serif)
       (princ #\( pane)
       (princ (name-for-info-pane (syntax buffer) :pane (master-pane pane)) pane)
