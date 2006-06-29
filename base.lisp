@@ -139,6 +139,11 @@ one of the marks"))
                                 #\: #\< #\= #\> #\? #\@ #\^ #\~ #\_
                                 #\{ #\} #\[ #\] )))))
 
+(defun buffer-whitespacep (obj)
+  "Return T if `obj' is a basic whitespace character. This
+  function does not respect the current syntax."
+  (member obj '(#\Space #\Tab #\Newline #\Page #\Return)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Character case
@@ -317,7 +322,7 @@ containing WORD as a word or NIL if no such offset exists"
     (loop
        for i downfrom (- offset wlen) to 0
        for j = (+ i wlen)
-       when (and (or (zerop i) (whitespacep t (buffer-object buffer (1- i))))
+       when (and (or (zerop i) (buffer-whitespacep (buffer-object buffer (1- i))))
 		 (buffer-looking-at buffer i word :test test)
 		 (not (and (< (+ i wlen) blen)
 			   (constituentp (buffer-object buffer (+ i wlen))))))
@@ -337,7 +342,7 @@ word or NIL if no such offset exists"
     (loop
        for i upfrom offset to (- blen (max wlen 1))
        for j = (+ i wlen)
-       when (and (or (zerop i) (whitespacep (buffer-object buffer (1- i))))
+       when (and (or (zerop i) (buffer-whitespacep (buffer-object buffer (1- i))))
 		 (buffer-looking-at buffer i word :test test)
 		 (not (and (< j blen)
 			   (constituentp (buffer-object buffer j)))))
