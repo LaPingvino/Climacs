@@ -195,7 +195,7 @@ The typical way of entering @climacs{} is to type a @cl{}
 @emph{expression} at the prompt of a @cl{} @emph{listener} such as:
 
 @lisp
-CL-USER> (climacs:climacs)
+CL-USER> (climacs-gui:climacs)
 @end lisp
 
 You exit from @climacs{} by typing @kbd{C-x C-c} (@command{Quit}).
