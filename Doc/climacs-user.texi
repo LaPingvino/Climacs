@@ -564,7 +564,7 @@ facility.  There are several different topics that you can get help
 with.  Most of these topics are obtained by some order using the
 @kbd{C-h}
 @kindex C-h
-prefex key.  The key following @kbd{C-h} determines what kind of help
+prefix key.  The key following @kbd{C-h} determines what kind of help
 information is displayed. 
 
 @menu 
@@ -572,6 +572,18 @@ information is displayed.
 * Help with a particular key sequence::
 * Help finding an order for a command::
 @end menu
+
+@node Help with a command
+@section Help with a command
+
+To get documentation about a particular command, use the order @kbd{C-h
+f} 
+@kindex C-h f
+(@command{Describe Command}). You will be prompted for
+the name of a command, and if you provide a valid command name, a pane
+containing information about which function the command calls, which
+gestures the command can be invoked through, as well as a description of
+the command, will be displayed.
 
 @node Help with a key binding
 @section Help with a key binding
@@ -592,6 +604,26 @@ order @kbd{C-h c}
 sequence.  If the key sequence you type is bound to a command, the
 command name will be displayed in the minibuffer.  Otherwise, a message
 indicating that the key is not bound to a command will be displayed.
+
+For more detailed information, use the order @kbd{C-h c} 
+@kindex C-h k
+(@command{Describe Key}). You will be prompted for a key sequence, and
+if the key sequence you provide is bound to a command, documentation for
+that command, as well as any arguments the given key binding calls the
+command with, will be shown.
+
+@node Help finding a command
+@section Help findind a command
+
+If you do not know which commands are applicable to a given situation,
+you can use the order @kbd{C-h a}
+@kindex C-h a
+(@command{Apropos Command}) to perform a keyword-based search for
+commands. You will be prompted for a keyword, after which Climacs will
+search through the available commands for commands that are connected to
+the keyword. If commands are found, they will be displayed in a pane
+along with the gestures you can use to invoke them. You can also click
+on the names of the commands to get more thorough documentation.
 
 @node Help finding an order for a command
 @section Help finding an order for a command
