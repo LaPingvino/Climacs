@@ -556,6 +556,156 @@ this command will repeat the sequence of keystrokes that many times.
 @node Searching and replacing
 @section Searching and replacing
 
+Climacs has a number of useful searching and replacing commands. The
+replacing commands come in two flavors - querying commands and
+non-querying commands. The former will unconditionally replace all
+matches, while the latter will query before each replacement. Note that
+the searching and replacing commands only affect the buffer contents
+after point.
+
+@menu
+* Simple search::
+* Incremental search::
+* The isearch command loop::
+* Replacing single strings::
+* Replacing multiple different strings::
+* The query-replace command loop::
+@end menu
+
+@node Simple search
+@subsection Simple search
+
+The simplest search command is @command{String Search}. It prompts for a
+string and moves point to after the next occurrence of the
+string. @command{Reverse String Search} is similar, but searches
+backwards from point, and puts point before the first occurrence of the
+string.
+
+The commands @command{Word Search} and @command{Reverse Word Search} are
+very similar to @command{String Search} and @command{Reverse String
+Search}, but only finds matches that are whole words.
+
+The commands @command{Regex Search Forward} and @command{Regex Search
+Backward} are similar to @command{String Search} and @command{Reverse
+Word Search}, but do not search for plain strings. Instead, they ask the
+user to enter a regular expression and attempts to find a match in the
+buffer.
+
+You can use the command @command{How Many} to count the number of
+matches in the buffer for a given regular expression. When invoked, the
+command will ask for a regular expression, and then proceed to search
+through the buffer, counting each match for the regular expression, and
+finally print the number of matches to the minibuffer.
+
+@node Incremental search
+@subsection Incremental search
+
+Incremental search, or @emph{isearch} in common speech, is different
+from string search, in that point is moved to matches in the buffer,
+while the search string is being entered, thus, the user receives
+immediate feedback while entering the search string. Incremental search
+is controlled through a command loop. @xref{The isearch command loop}.
+
+Incremental search can be entered via two orders, @kbd{C-s}
+@kindex C-s
+(@command{Isearch Forward}) and  @kbd{C-r}
+@kindex C-r
+(@command{Isearch Backward}). These commands starts a command loop that
+searches forwards and backwards by default, respectively. Note that the
+search direction can be changed from inside the command loop, no matter
+which of these commands were used to start it.
+
+@node The isearch command loop
+@subsection The isearch command loop
+
+The isearch command loop consists of the user typing in characters for
+the search string, and Climacs moving point ahead to the most immediate
+instance of the provided string, while the user is typing. Apart from
+simply entering text, the user can manipulate the command loop by
+entering the following orders:
+
+@table @kbd
+@item C-s
+Move to next match for current search string and set the search
+direction to forward.
+@item C-r
+Move to previous match for current search string and set the search
+direction to backward.
+@item C-j
+Append a ``newline'' character to the current search string.
+@item C-w
+Append the word at point to the current search string.
+@item C-y 
+Append the line at point to the current search string.
+@item M-y
+Append the head of the kill ring to the search string.
+@item @key{Backspace}
+Delete the last element of the search string. This is not the same as
+deleting the last character - for example, if the word at point has been
+appended to the search string via @kbd{C-w}, this order will delete the
+entire word, not just the last character of the word.
+@item @key{Newline}
+Exit the isearch command loop.
+@end table
+
+@node Replacing single strings
+@subsection Replacing single strings
+
+The basic string-replacement command can be accessed through the order
+@kbd{C-x e}
+@kindex C-x e
+(@command{Replace String}). This command will prompt for two strings,
+and replace all instances of the first string following point in the
+current buffer, with the second string. This command is not querying,
+and will thus not prompt before each replacement, so if you desire this
+behavior, use the order @kbd{M-%}
+@kindex M-%
+(@command{Query Replace}) instead. @xref{The query-replace command loop}.
+
+@node Replacing multiple different strings
+@subsection Replacing multiple different strings
+
+It is often desirable to be able to replace multiple, different strings
+with one command - for instance, you might want to replace all
+occurrences of ``foo'' with ``bar'' and all occurrences of ``bar'' with
+``baz'', without having the replacements affect each other. For this,
+Climacs provides the command @command{Multiple Query Replace}, which
+will prompt for pairs of strings, replacing the first with the second.
+Entering an empty search string stops the prompting and starts the
+query-replace command loop. It is also possible to use @command{Multiple
+Query Replace From Buffer}, which will read the string pairs from a
+buffer provided by the user.
+
+If you wish to exchange two strings for one another, use the command
+@command{Query Exchange}, which will prompt for two strings, and replace
+them for each other in the current buffer.
+
+@node The query-replace command loop
+@subsection The query-replace command loop
+
+When invoking one of the querying replace commands, you will enter a
+command loop with specialized commands for manipulating the replacement
+process.
+
+The command loop will loop across the buffer, and for each match, the
+command loop will read an order from the user. The following orders and
+their corresponding commands are available:
+
+@table @kbd
+@item y, @key{Space}
+Replace the current match with the provided string, go to next
+match.
+@item n, @key{Rubout}, @key{Backspace}
+Do not replace the current match, go to next match.
+@item q, @key{Newline}
+Quit the command loop, preserving all replacements already made.
+@item .
+Replace the current match with the provided string and quit the
+command loop.
+@item !
+Replace all matches with the provided replacement strings.
+@end table
+
 @node Getting help
 @chapter Getting help
 
@@ -568,8 +718,10 @@ prefix key.  The key following @kbd{C-h} determines what kind of help
 information is displayed. 
 
 @menu 
+* Help with a command::
 * Help with a key binding::
 * Help with a particular key sequence::
+* Help finding a command::
 * Help finding an order for a command::
 @end menu
 
@@ -598,7 +750,7 @@ associated order (if any) is displayed in a new window.
 @section Help with a particular key sequence
 
 To obtain a description of what some putative order will do, use the
-order @kbd{C-h c}
+order @kbd{C-h c}p
 @kindex C-h c
 (@command{Describe Key Briefly}).  You will be prompted for a key
 sequence.  If the key sequence you type is bound to a command, the
