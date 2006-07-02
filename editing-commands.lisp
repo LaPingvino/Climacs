@@ -195,13 +195,57 @@ before (or after, if negative) point."
 			       (region-to-sequence mark point)))
   (delete-region mark point)))
 
+;; We require somewhat special behavior from Kill Line, so define a
+;; new function and use that to implement the Kill Line command.
+(defun user-kill-line (mark &optional (count 1) (whole-lines-p nil) (concatenate-p nil))
+  (let ((start (offset mark)))
+    (cond ((= 0 count)
+	   (beginning-of-line mark))
+	  ((< count 0)
+	   (loop repeat (- count)
+              until (beginning-of-buffer-p mark)
+              do (beginning-of-line mark)
+              until (beginning-of-buffer-p mark)
+              do (backward-object mark)))
+	  ((or whole-lines-p (> count 1))
+	   (loop repeat count
+              until (end-of-buffer-p mark)
+              do (end-of-line mark)
+              until (end-of-buffer-p mark)
+              do (forward-object mark)))
+	  (t
+	   (cond ((end-of-buffer-p mark) nil)
+		 ((end-of-line-p mark) (forward-object mark))
+		 (t (end-of-line mark)))))
+    (unless (mark= mark start)
+      (if concatenate-p
+	  (kill-ring-concatenating-push *kill-ring*
+					(region-to-sequence start mark))
+	  (kill-ring-standard-push *kill-ring*
+				   (region-to-sequence start mark)))
+      (delete-region start mark))))
+
+(define-command (com-kill-line :name t :command-table deletion-table)
+    ((numarg 'integer :prompt "Kill how many lines?")
+     (numargp 'boolean :prompt "Kill entire lines?"))
+  "Kill the objects on the current line after point.
+When at the end of a line, kill the #\\Newline. 
+With a numeric argument of 0, kill the objects on the current line before point.
+With a non-zero numeric argument, kill that many lines forward (backward, 
+if negative) from point.
+
+Successive kills append to the kill ring."
+  (let* ((pane (current-window))
+	 (point (point pane))
+         (concatenate-p (eq (previous-command pane) 'com-kill-line)))
+    (user-kill-line point numarg numargp concatenate-p)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Autogenerate commands
 
 (define-deletion-commands word deletion-table)
 (define-editing-commands word editing-table)
-(define-deletion-commands line deletion-table)
 (define-editing-commands line editing-table)
 (define-deletion-commands definition deletion-table)
 (define-editing-commands definition editing-table)
@@ -247,3 +291,6 @@ before (or after, if negative) point."
 	 'editing-table
 	 '((#\t :control)))
 
+(set-key `(com-kill-line ,*numeric-argument-marker* ,*numeric-argument-p*)
+	 'deletion-table
+	 '((#\k :control)))
