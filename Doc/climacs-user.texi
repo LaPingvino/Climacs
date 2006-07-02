@@ -556,7 +556,7 @@ this command will repeat the sequence of keystrokes that many times.
 @node Searching and replacing
 @section Searching and replacing
 
-Climacs has a number of useful searching and replacing commands. The
+@climacs{} has a number of useful searching and replacing commands. The
 replacing commands come in two flavors - querying commands and
 non-querying commands. The former will unconditionally replace all
 matches, while the latter will query before each replacement. Note that
@@ -619,7 +619,7 @@ which of these commands were used to start it.
 @subsection The isearch command loop
 
 The isearch command loop consists of the user typing in characters for
-the search string, and Climacs moving point ahead to the most immediate
+the search string, and @climacs{} moving point ahead to the most immediate
 instance of the provided string, while the user is typing. Apart from
 simply entering text, the user can manipulate the command loop by
 entering the following orders:
@@ -669,7 +669,7 @@ It is often desirable to be able to replace multiple, different strings
 with one command - for instance, you might want to replace all
 occurrences of ``foo'' with ``bar'' and all occurrences of ``bar'' with
 ``baz'', without having the replacements affect each other. For this,
-Climacs provides the command @command{Multiple Query Replace}, which
+@climacs{} provides the command @command{Multiple Query Replace}, which
 will prompt for pairs of strings, replacing the first with the second.
 Entering an empty search string stops the prompting and starts the
 query-replace command loop. It is also possible to use @command{Multiple
@@ -771,7 +771,7 @@ If you do not know which commands are applicable to a given situation,
 you can use the order @kbd{C-h a}
 @kindex C-h a
 (@command{Apropos Command}) to perform a keyword-based search for
-commands. You will be prompted for a keyword, after which Climacs will
+commands. You will be prompted for a keyword, after which @climacs{} will
 search through the available commands for commands that are connected to
 the keyword. If commands are found, they will be displayed in a pane
 along with the gestures you can use to invoke them. You can also click
