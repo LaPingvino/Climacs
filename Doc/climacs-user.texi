@@ -108,9 +108,16 @@ that are used by it, and referred to in this manual.
 
 A @climacs{} @emph{buffer}
 @cindex buffer
-is an editable sequence of arbitrary @cl{} objects.  If the buffer
+is a named, editable sequence of arbitrary @cl{} objects.  If the buffer
 contains text, most of those objects will be @emph{Unicode
-characters}.
+characters}. When editing a file, the contents of the file will be
+loaded into a buffer with a name corresponding to the name of the file
+(creating the buffer in the process), and all editing operations will be
+performed on the buffer. Upon saving, the contents of the buffer will be
+written to the file associated with it. @xref{Editing the contents of a
+file}. A buffer does not necessarily have a file associated with it, for
+example, the @emph{*scratch*} buffer automatically created upon
+@climacs{} startup is not associated with any file.
 @cindex character
 @cindex Unicode
 
@@ -118,10 +125,15 @@ characters}.
 @section Window and pane
 
 A @climacs{} buffer may or may not be on display.  If it is, it is on
-display in a @emph{pane} 
+display in a @emph{pane}
 @cindex pane
 or a @emph{window}.
 @cindex window
+A pane does not necessarily contain a buffer, it may just be a pane
+containing output from Climacs. These panes are known as @emph{typeout
+panes},
+@cindex typeout pane
+and their contents are lost when they are destroyed.
 
 @node Mark and point
 @section Mark and point
@@ -731,8 +743,8 @@ information is displayed.
 To get documentation about a particular command, use the order @kbd{C-h
 f} 
 @kindex C-h f
-(@command{Describe Command}). You will be prompted for
-the name of a command, and if you provide a valid command name, a pane
+(@command{Describe Command}). You will be prompted for the name of a
+command, and if you provide a valid command name, a typeout pane
 containing information about which function the command calls, which
 gestures the command can be invoked through, as well as a description of
 the command, will be displayed.
@@ -762,20 +774,21 @@ For more detailed information, use the order @kbd{C-h c}
 (@command{Describe Key}). You will be prompted for a key sequence, and
 if the key sequence you provide is bound to a command, documentation for
 that command, as well as any arguments the given key binding calls the
-command with, will be shown.
+command with, will be shown in a typeout pane.
 
 @node Help finding a command
-@section Help findind a command
+@section Help finding a command
 
 If you do not know which commands are applicable to a given situation,
 you can use the order @kbd{C-h a}
 @kindex C-h a
 (@command{Apropos Command}) to perform a keyword-based search for
-commands. You will be prompted for a keyword, after which @climacs{} will
-search through the available commands for commands that are connected to
-the keyword. If commands are found, they will be displayed in a pane
-along with the gestures you can use to invoke them. You can also click
-on the names of the commands to get more thorough documentation.
+commands. You will be prompted for a keyword, after which @climacs{}
+will search through the available commands for commands that are
+connected to the keyword. If commands are found, they will be displayed
+in a typeout pane along with the gestures you can use to invoke
+them. You can also click on the names of the commands to get more
+thorough documentation.
 
 @node Help finding an order for a command
 @section Help finding an order for a command
