@@ -144,6 +144,29 @@ one of the marks"))
   function does not respect the current syntax."
   (member obj '(#\Space #\Tab #\Newline #\Page #\Return)))
 
+(defun just-n-spaces (mark1 n)
+  "Remove all spaces around `mark', leaving behind `n'
+spaces. `Mark' will be moved to after any spaces inserted."
+  (let ((mark2 (clone-mark mark1)))
+    (loop
+       while (not (beginning-of-buffer-p mark2))
+       while (eql (object-before mark2) #\Space)
+       do (backward-object mark2))
+    (loop
+       while (not (end-of-buffer-p mark1))
+       while (eql (object-after mark1) #\Space)
+       do (forward-object mark1))
+    (let ((existing-spaces (- (offset mark1)
+                              (offset mark2))))
+      (cond ((= n existing-spaces))
+            ((> n existing-spaces)
+             (insert-sequence mark1 (make-array (- n existing-spaces)
+                                                :initial-element #\Space)))
+            ((< n existing-spaces)
+             (delete-region (- (offset mark1)
+                               (- existing-spaces n))
+                            mark1))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Character case

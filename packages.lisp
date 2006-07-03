@@ -75,6 +75,7 @@
            #:buffer-display-column
 	   #:number-of-lines-in-region
 	   #:constituentp
+           #:just-n-spaces
 	   #:forward-word #:backward-word
            #:buffer-region-case
 	   #:input-from-stream #:output-to-stream
