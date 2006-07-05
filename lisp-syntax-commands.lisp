@@ -96,6 +96,209 @@ string at point."
         (loop repeat (- count) do (backward-expression mark syntax)))
     (climacs-editing:indent-region pane (clone-mark point) mark)))
 
+(define-command (com-eval-last-expression :name t :command-table lisp-table)
+    ((insertp 'boolean :prompt "Insert?"))
+  "Evaluate the expression before point in the local Lisp image."
+  (let* ((syntax (syntax (buffer (current-window))))
+         (mark (point (current-window)))
+         (token (form-before syntax (offset mark))))
+    (if token
+        (with-syntax-package syntax mark (package)
+          (let ((*package* package))
+            (climacs-gui::com-eval-expression
+             (token-to-object syntax token :read t)
+             insertp)))
+        (esa:display-message "Nothing to evaluate."))))
+
+(define-command (com-macroexpand-1 :name t :command-table lisp-table)
+    ()
+  "Macroexpand-1 the expression at point.
+
+The expanded expression will be displayed in a
+\"*Macroexpansion*\"-buffer."
+  (let* ((syntax (syntax (buffer (current-window))))
+         (token (expression-at-mark (point (current-window)) syntax)))
+    (if token
+        (macroexpand-token syntax token)
+        (esa:display-message "Nothing to expand at point."))))
+
+(define-command (com-macroexpand-all :name t :command-table lisp-table)
+    ()
+  "Completely macroexpand the expression at point.
+
+The expanded expression will be displayed in a
+\"*Macroexpansion*\"-buffer."
+  (let* ((syntax (syntax (buffer (current-window))))
+         (token (expression-at-mark (point (current-window)) syntax)))
+    (if token
+        (macroexpand-token syntax token t)
+        (esa:display-message "Nothing to expand at point."))))
+
+(define-command (com-eval-region :name t :command-table lisp-table)
+    ()
+  "Evaluate the current region."
+  (let ((mark (mark (current-window)))
+        (point (point (current-window))))
+    (when (mark> mark point)
+      (rotatef mark point))
+    (evaluating-interactively
+     (eval-region mark point
+                  (syntax (buffer (current-window)))))))
+
+(define-command (com-compile-definition :name t :command-table lisp-table)
+    ()
+  "Compile and load definition at point."
+  (evaluating-interactively 
+   (compile-definition-interactively (point (current-window))
+                                     (syntax (buffer (current-window))))))
+
+(define-command (com-compile-and-load-file :name t :command-table lisp-table)
+    ()
+  "Compile and load the current file.
+
+Compiler notes will be displayed in a seperate buffer."
+  (compile-file-interactively (buffer (current-window)) t))
+
+(define-command (com-compile-file :name t :command-table lisp-table)
+    ()
+  "Compile the file open in the current buffer.
+
+This command does not load the file after it has been compiled."
+  (compile-file-interactively (buffer (current-window)) nil))
+
+(define-command (com-goto-location :name t :command-table lisp-table)
+    ((note 'compiler-note))
+  "Move point to the part of a given file that caused the
+compiler note.
+
+If the file is not already open, a new buffer will be opened with
+that file."
+  (goto-location (location note)))
+
+(define-presentation-to-command-translator compiler-note-to-goto-location-translator
+    (compiler-note com-goto-location lisp-table)
+    (presentation)
+  (list (presentation-object presentation)))
+
+(define-command (com-goto-xref :name t :command-table lisp-table)
+    ((xref 'xref))
+  "Go to the referenced location of a code cross-reference."
+  (goto-location xref))
+
+(define-presentation-to-command-translator xref-to-goto-location-translator
+    (xref com-goto-xref lisp-table)
+    (presentation)
+    (list (presentation-object presentation)))
+
+(define-command (com-edit-this-definition :command-table lisp-table)
+    ()
+  "Edit definition of the symbol at point.
+If there is no symbol at point, this is a no-op."
+  (let* ((buffer (buffer (current-window)))
+         (point (point (current-window)))
+         (syntax (syntax buffer))
+         (token (this-form point syntax))
+         (this-symbol (when token (token-to-object syntax token))))
+    (when (and this-symbol (symbolp this-symbol))
+      (edit-definition this-symbol))))
+
+(define-command (com-return-from-definition :name t :command-table lisp-table)
+    ()
+  "Return point to where it was before the previous Edit
+Definition command was issued."
+  (pop-find-definition-stack))
+
+(define-command (com-lookup-arglist-for-this-symbol :command-table lisp-table)
+    ()
+  "Show argument list for symbol at point."
+  (let* ((pane (current-window))
+         (buffer (buffer pane))
+         (syntax (syntax buffer))
+         (mark (point pane))
+         (token (this-form mark syntax)))
+    (if (and token (typep token 'complete-token-lexeme))
+        (com-lookup-arglist (token-to-object syntax token))
+        (esa:display-message "Could not find symbol at point."))))
+
+(define-command (com-lookup-arglist :name t :command-table lisp-table)
+    ((symbol 'symbol :prompt "Symbol"))
+  "Show argument list for a given symbol."
+  (show-arglist symbol))
+
+(define-command (com-space :command-table lisp-table)
+    ()
+  "Insert a space and display argument hints in the minibuffer."
+  (let* ((window (current-window))
+         (mark (point window))
+         (syntax (syntax (buffer window))))
+    ;; It is important that the space is inserted before we look up
+    ;; any symbols, but at the same time, there must not be a space
+    ;; between the mark and the symbol.
+    (insert-character #\Space)
+    (backward-object mark)
+    ;; We must update the syntax in order to reflect any changes to
+    ;; the parse tree our insertion of a space character may have
+    ;; done.
+    (update-syntax (buffer syntax) syntax)
+    (show-arglist-for-form-at-mark mark syntax)
+    (forward-object mark)
+    (clear-completions)))
+
+(define-command (com-complete-symbol :name t :command-table lisp-table) ()
+  "Attempt to complete the symbol at mark.
+
+If more than one completion is available, a list of possible
+completions will be displayed."
+  (let* ((pane (current-window))
+         (buffer (buffer pane))
+         (syntax (syntax buffer))
+         (point-current-window (point pane))
+	 (name (symbol-name-at-mark point-current-window
+				    syntax)))
+    (when name
+      (with-syntax-package syntax point-current-window (package)
+        (let ((completion (show-completions syntax name package))
+              (mark (clone-mark point-current-window)))
+          (unless (= (length completion) 0)
+            (backward-object mark (length name))
+            (delete-region mark point-current-window)
+            (insert-sequence point-current-window completion)))))))
+
+(define-command (com-fuzzily-complete-symbol :name t :command-table lisp-table) ()
+  "Attempt to fuzzily complete the abbreviation at mark.
+
+Fuzzy completion tries to guess which symbol is abbreviated. If
+the abbreviation is ambiguous, a list of possible completions
+will be displayed."
+  (let* ((pane (current-window))
+         (buffer (buffer pane))
+         (syntax (syntax buffer))
+         (point-current-window (point pane))
+	 (name (symbol-name-at-mark point-current-window
+				    syntax)))
+    (when name
+      (with-syntax-package syntax point-current-window (package)
+        (let ((completion (show-fuzzy-completions syntax name package))
+              (mark (clone-mark point-current-window)))
+          (unless (= (length completion) 0)
+            (backward-object mark (length name))
+            (delete-region mark point-current-window)
+            (insert-sequence point-current-window completion)))))))
+
+(define-presentation-to-command-translator lookup-symbol-arglist
+    (symbol com-lookup-arglist lisp-table
+            :gesture :describe
+            :tester ((object presentation)
+                     (declare (ignore object))
+                     (not (eq (presentation-type presentation) 'unknown-symbol)))
+            :documentation "Lookup arglist")
+    (object)
+    (list object))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Gesture bindings
+
 (esa:set-key 'com-fill-paragraph
              'lisp-table
              '((#\q :meta)))
@@ -143,3 +346,60 @@ string at point."
 (esa:set-key `(com-kill-expression ,*numeric-argument-marker*)
              'lisp-table
              '((#\k :control :meta)))
+
+(esa:set-key `(com-eval-last-expression ,esa:*numeric-argument-p*)
+	     'lisp-table
+	     '((#\c :control) (#\e :control)))
+
+(esa:set-key 'com-macroexpand-1
+             'lisp-table
+             '((#\c :control) (#\Newline)))
+
+(esa:set-key 'com-macroexpand-1
+             'lisp-table
+             '((#\c :control) (#\m :control)))
+
+(esa:set-key 'com-eval-region
+	     'lisp-table
+	     '((#\c :control) (#\r :control)))
+
+(esa:set-key 'com-compile-definition
+	     'lisp-table
+	     '((#\c :control) (#\c :control)))
+
+(esa:set-key 'com-compile-and-load-file
+	     'lisp-table
+	     '((#\c :control) (#\k :control)))
+
+(esa:set-key  'com-compile-file
+	      'lisp-table
+	      '((#\c :control) (#\k :meta)))
+
+(esa:set-key `(com-edit-this-definition)
+             'lisp-table
+             '((#\. :meta)))
+
+(esa:set-key  'com-return-from-definition
+	      'lisp-table
+	      '((#\, :meta)))
+
+(esa:set-key  'com-hyperspec-lookup
+              'lisp-table
+              '((#\c :control) (#\d :control) (#\h)))
+
+(esa:set-key `(com-lookup-arglist-for-this-symbol)
+             'lisp-table
+             '((#\c :control) (#\d :control) (#\a)))
+
+(esa:set-key 'com-space
+             'lisp-table
+             '((#\Space)))
+
+(esa:set-key 'com-complete-symbol
+	     'lisp-table
+	     '((#\Tab :meta)))
+
+(esa:set-key 'com-fuzzily-complete-symbol
+	     'lisp-table
+	     '((#\c :control) (#\i :meta)))
+

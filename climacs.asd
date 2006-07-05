@@ -27,8 +27,18 @@
 
 (defparameter *climacs-directory* (directory-namestring *load-truename*))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun find-swank-package ()
+    (find-package :swank))
+  (defun find-swank-system ()
+    (handler-case (asdf:find-system :swank)
+      (asdf:missing-component ())))
+  (defun find-swank ()
+    (or (find-swank-package)
+        (find-swank-system))))
+
 (defsystem :climacs
-  :depends-on (:mcclim :flexichain :esa :split-sequence)
+  :depends-on (:mcclim :flexichain :esa #.(if (find-swank-system) :swank (values)))
   :components
   ((:module "cl-automaton"
 	    :components ((:file "automaton-package")
@@ -73,8 +83,11 @@
    (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base"
 						 "pane"))
    (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"
-						"gui"))
-   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax" "motion" "gui" "motion-commands" "editing-commands"))
+						"window-commands" "gui"))
+   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax" "motion" "gui" "motion-commands" "editing-commands" "misc-commands" "window-commands" "file-commands"))
+   #.(if (find-swank)
+         '(:file "lisp-syntax-swank" :depends-on ("lisp-syntax"))
+         (values))
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
                                         "kill-ring" "io" "text-syntax"
 					"abbrev" "editing" "motion"))
