@@ -107,16 +107,16 @@
   (let ((buffer-var (gensym)))
     `(let ((,buffer-var ,buffer))
        (setf (undo-accumulate ,buffer-var) '())
-       ,@body
-       (cond ((null (undo-accumulate ,buffer-var)) nil)
-	     ((null (cdr (undo-accumulate ,buffer-var)))
-	      (add-undo (car (undo-accumulate ,buffer-var))
-			(undo-tree ,buffer-var)))
-	     (t
-	      (add-undo (make-instance 'compound-record
-				       :buffer ,buffer-var
-				       :records (undo-accumulate ,buffer-var))
-			(undo-tree ,buffer-var)))))))
+       (unwind-protect (progn ,@body)
+         (cond ((null (undo-accumulate ,buffer-var)) nil)
+               ((null (cdr (undo-accumulate ,buffer-var)))
+                (add-undo (car (undo-accumulate ,buffer-var))
+                          (undo-tree ,buffer-var)))
+               (t
+                (add-undo (make-instance 'compound-record
+                                         :buffer ,buffer-var
+                                         :records (undo-accumulate ,buffer-var))
+                          (undo-tree ,buffer-var))))))))
 
 (defmethod flip-undo-record :around ((record climacs-undo-record))
   (with-slots (buffer) record
