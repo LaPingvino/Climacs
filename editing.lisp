@@ -211,17 +211,6 @@
 ;;; 
 ;;; Line editing
 
-(defmethod open-line ((mark left-sticky-mark) &optional (count 1))
-  "Create a new line in a buffer after the mark."
-  (loop repeat count
-     do (insert-object mark #\Newline)))
-
-(defmethod open-line ((mark right-sticky-mark) &optional (count 1))
-  "Create a new line in a buffer after the mark."
-  (loop repeat count
-     do (insert-object mark #\Newline)
-        (decf (offset mark))))
-
 (define-edit-fns line)
 (define-edit-fns line-start)
 
@@ -280,38 +269,6 @@
 ;;; 
 ;;; Character case
 
-;;; I'd rather have update-buffer-range methods spec. on buffer for this,
-;;; for performance and history-size reasons --amb
-(defun downcase-buffer-region (buffer offset1 offset2)
-  (do-buffer-region (object offset buffer offset1 offset2)
-    (when (and (constituentp object) (upper-case-p object))
-      (setf object (char-downcase object)))))
-
-(defgeneric downcase-region (mark1 mark2)
-  (:documentation "Convert all characters after mark1 and before mark2 to
-lowercase. An error is signaled if the two marks are positioned in different
-buffers. It is acceptable to pass an offset in place of one of the marks."))
-
-(defmethod downcase-region ((mark1 mark) (mark2 mark))
-  (assert (eq (buffer mark1) (buffer mark2)))
-  (let ((offset1 (offset mark1))
-	(offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (downcase-buffer-region (buffer mark1) offset1 offset2)))
-
-(defmethod downcase-region ((offset1 integer) (mark2 mark))
-  (let ((offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (downcase-buffer-region (buffer mark2) offset1 offset2)))
-
-(defmethod downcase-region ((mark1 mark) (offset2 integer))
-  (let ((offset1 (offset mark1)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (downcase-buffer-region (buffer mark1) offset1 offset2)))
-
 (defun downcase-word (mark &optional (n 1))
   "Convert the next N words to lowercase, leaving mark after the last word."
   (let ((syntax (syntax (buffer mark))))
@@ -321,36 +278,6 @@ buffers. It is acceptable to pass an offset in place of one of the marks."))
          (forward-word mark syntax 1 nil)
          (downcase-region offset mark)))))
 
-(defun upcase-buffer-region (buffer offset1 offset2)
-  (do-buffer-region (object offset buffer offset1 offset2)
-    (when (and (constituentp object) (lower-case-p object))
-      (setf object (char-upcase object)))))
-
-(defgeneric upcase-region (mark1 mark2)
-  (:documentation "Convert all characters after mark1 and before mark2 to
-uppercase. An error is signaled if the two marks are positioned in different
-buffers. It is acceptable to pass an offset in place of one of the marks."))
-
-(defmethod upcase-region ((mark1 mark) (mark2 mark))
-  (assert (eq (buffer mark1) (buffer mark2)))
-  (let ((offset1 (offset mark1))
-	(offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (upcase-buffer-region (buffer mark1) offset1 offset2)))
-
-(defmethod upcase-region ((offset1 integer) (mark2 mark))
-  (let ((offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (upcase-buffer-region (buffer mark2) offset1 offset2)))
-
-(defmethod upcase-region ((mark1 mark) (offset2 integer))
-  (let ((offset1 (offset mark1)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (upcase-buffer-region (buffer mark1) offset1 offset2)))
-
 (defun upcase-word (mark syntax &optional (n 1))
   "Convert the next N words to uppercase, leaving mark after the last word."
   (loop repeat n
@@ -358,42 +285,6 @@ buffers. It is acceptable to pass an offset in place of one of the marks."))
      (let ((offset (offset mark)))
        (forward-word mark syntax 1 nil)
        (upcase-region offset mark))))
-
-(defun capitalize-buffer-region (buffer offset1 offset2)
-  (let ((previous-char-constituent-p nil))
-    (do-buffer-region (object offset buffer offset1 offset2)
-      (when (constituentp object)
-        (if previous-char-constituent-p
-            (when (upper-case-p object)
-              (setf object (char-downcase object)))
-            (when (lower-case-p object)
-              (setf object (char-upcase object)))))
-      (setf previous-char-constituent-p (constituentp object)))))
-
-(defgeneric capitalize-region (mark1 mark2)
-  (:documentation "Capitalize all words after mark1 and before mark2.
-An error is signaled if the two marks are positioned in different buffers.
-It is acceptable to pass an offset in place of one of the marks."))
-
-(defmethod capitalize-region ((mark1 mark) (mark2 mark))
-  (assert (eq (buffer mark1) (buffer mark2)))
-  (let ((offset1 (offset mark1))
-	(offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (capitalize-buffer-region (buffer mark1) offset1 offset2)))
-
-(defmethod capitalize-region ((offset1 integer) (mark2 mark))
-  (let ((offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (capitalize-buffer-region (buffer mark2) offset1 offset2)))
-
-(defmethod capitalize-region ((mark1 mark) (offset2 integer))
-  (let ((offset1 (offset mark1)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (capitalize-buffer-region (buffer mark1) offset1 offset2)))
 
 (defun capitalize-word (mark &optional (n 1))
   "Capitalize the next N words, leaving mark after the last word."
@@ -406,133 +297,7 @@ It is acceptable to pass an offset in place of one of the marks."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
-;;; Tabify
-
-(defun tabify-buffer-region (buffer offset1 offset2 tab-width)
-  (flet ((looking-at-spaces (buffer offset count)
-           (loop for i from offset
-                 repeat count
-                 unless (char= (buffer-object buffer i) #\Space)
-                 return nil
-                 finally (return t))))
-    (loop for offset = offset1 then (1+ offset)
-          until (>= offset offset2)
-          do (let* ((column (buffer-display-column
-                             buffer offset tab-width))
-                    (count (- tab-width (mod column tab-width))))
-               (when (looking-at-spaces buffer offset count)
-                 (finish-output)
-                 (delete-buffer-range buffer offset count)
-                 (insert-buffer-object buffer offset #\Tab)
-                 (decf offset2 (1- count)))))))
-
-(defgeneric tabify-region (mark1 mark2 tab-width)
-  (:documentation "Replace sequences of tab-width spaces with tabs
-in the region delimited by mark1 and mark2."))
-
-(defmethod tabify-region ((mark1 mark) (mark2 mark) tab-width)
-  (assert (eq (buffer mark1) (buffer mark2)))
-  (let ((offset1 (offset mark1))
-	(offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (tabify-buffer-region (buffer mark1) offset1 offset2 tab-width)))
-
-(defmethod tabify-region ((offset1 integer) (mark2 mark) tab-width)
-  (let ((offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (tabify-buffer-region (buffer mark2) offset1 offset2 tab-width)))
-
-(defmethod tabify-region ((mark1 mark) (offset2 integer) tab-width)
-  (let ((offset1 (offset mark1)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (tabify-buffer-region (buffer mark1) offset1 offset2 tab-width)))
-
-(defun untabify-buffer-region (buffer offset1 offset2 tab-width)
-  (loop for offset = offset1 then (1+ offset)
-        until (>= offset offset2)
-        when (char= (buffer-object buffer offset) #\Tab)
-        do (let* ((column (buffer-display-column buffer
-                                                 offset
-                                                 tab-width))
-                  (count (- tab-width (mod column tab-width))))
-             (delete-buffer-range buffer offset 1)
-             (loop repeat count
-                   do (insert-buffer-object buffer offset #\Space))
-             (incf offset (1- count))
-             (incf offset2 (1- count)))))
-
-(defgeneric untabify-region (mark1 mark2 tab-width)
-  (:documentation "Replace tabs with tab-width spaces in the region
-delimited by mark1 and mark2."))
-
-(defmethod untabify-region ((mark1 mark) (mark2 mark) tab-width)
-  (assert (eq (buffer mark1) (buffer mark2)))
-  (let ((offset1 (offset mark1))
-	(offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (untabify-buffer-region (buffer mark1) offset1 offset2 tab-width)))
-
-(defmethod untabify-region ((offset1 integer) (mark2 mark) tab-width)
-  (let ((offset2 (offset mark2)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (untabify-buffer-region (buffer mark2) offset1 offset2 tab-width)))
-
-(defmethod untabify-region ((mark1 mark) (offset2 integer) tab-width)
-  (let ((offset1 (offset mark1)))
-    (when (> offset1 offset2)
-      (rotatef offset1 offset2))
-    (untabify-buffer-region (buffer mark1) offset1 offset2 tab-width)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
 ;;; Indentation
-
-(defgeneric indent-line (mark indentation tab-width)
-  (:documentation "Indent the line containing mark with indentation
-spaces. Use tabs and spaces if tab-width is not nil, otherwise use
-spaces only."))
-
-(defun indent-line* (mark indentation tab-width left)
-  (let ((mark2 (clone-mark mark)))
-    (beginning-of-line mark2)
-    (loop until (end-of-buffer-p mark2)
-       as object = (object-after mark2)
-       while (or (eql object #\Space) (eql object #\Tab))
-       do (delete-range mark2 1))
-    (loop until (zerop indentation)
-       do (cond ((and tab-width (>= indentation tab-width))
-		 (insert-object mark2 #\Tab)
-		 (when left             ; spaces must follow tabs
-		   (forward-object mark2))
-		 (decf indentation tab-width))
-		(t
-		 (insert-object mark2 #\Space)
-		 (decf indentation))))))
-
-(defmethod indent-line ((mark left-sticky-mark) indentation tab-width)
-  (indent-line* mark indentation tab-width t))
-
-(defmethod indent-line ((mark right-sticky-mark) indentation tab-width)
-  (indent-line* mark indentation tab-width nil))
-
-(defun delete-indentation (mark syntax)
-  (beginning-of-line mark)
-  (unless (beginning-of-buffer-p mark)
-    (delete-range mark -1)
-    (loop until (end-of-buffer-p mark)
-          while (whitespacep syntax (object-after mark))
-          do (delete-range mark 1))
-    (loop until (beginning-of-buffer-p mark)
-          while (whitespacep syntax (object-before mark))
-          do (delete-range mark -1))
-    (when (and (not (beginning-of-buffer-p mark))
-	       (constituentp (object-before mark)))
-      (insert-object mark #\Space))))
 
 (defun indent-region (pane mark1 mark2)
   "Indent all lines in the region delimited by `mark1' and `mark2'

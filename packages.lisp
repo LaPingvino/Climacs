@@ -70,12 +70,15 @@
   (:export #:do-buffer-region
            #:do-buffer-region-lines
 	   #:previous-line #:next-line
+           #:open-line
+           #:delete-line
            #:empty-line-p
            #:line-indentation
            #:buffer-display-column
 	   #:number-of-lines-in-region
 	   #:constituentp
            #:just-n-spaces
+           #:buffer-whitespacep
 	   #:forward-word #:backward-word
            #:buffer-region-case
 	   #:input-from-stream #:output-to-stream
@@ -85,6 +88,11 @@
 	   #:buffer-re-search-forward #:buffer-re-search-backward
 	   #:search-forward #:search-backward
 	   #:re-search-forward #:re-search-backward
+           #:downcase-buffer-region #:downcase-region
+           #:upcase-buffer-region #:upcase-region
+           #:capitalize-buffer-region #:capitalize-region
+           #:tabify-region #:untabify-region
+           #:indent-line #:delete-indentation
            #:*kill-ring*))
 
 (defpackage :climacs-abbrev
@@ -231,7 +239,6 @@
   (:use :clim-lisp :clim :climacs-base :climacs-buffer
         :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring)
   (:export #:transpose-objects
-           #:open-line
            
            ;; Lines
            #:forward-delete-line #:backward-delete-line
@@ -271,15 +278,10 @@
            #:forward-kill-sentence #:backward-kill-sentence
            #:transpose-sentences
            
-           #:downcase-buffer-region #:downcase-region
-           #:upcase-buffer-region #:upcase-region
-           #:downcase-word #:upcase-word
-           #:capitalize-buffer-region #:capitalize-region
-           #:capitalize-word
-           #:tabify-region #:untabify-region
-           #:indent-line
+
+           #:downcase-word #:upcase-word #:capitalize-word
+ 
            #:indent-region
-           #:delete-indentation
            #:fill-line
            #:fill-region))
 
