@@ -742,7 +742,8 @@ internal state of the parser.  Do not alter it!"
   (:method (syntax obj)
     nil)
   (:method (syntax (obj character))
-    (member obj '(#\Space #\Tab #\Newline #\Page #\Return))))
+    (when (member obj '(#\Space #\Tab #\Newline #\Page #\Return))
+      t)))
 
 (defgeneric page-delimiter (syntax)
   (:documentation "Return the object sequence used as a page
