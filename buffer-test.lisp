@@ -4,7 +4,7 @@
 ;;; 
 
 (cl:defpackage :climacs-tests
-  (:use :cl :rtest :climacs-buffer :climacs-base :automaton))
+  (:use :cl :rtest :climacs-buffer :climacs-base :climacs-motion :climacs-editing :automaton))
 
 (cl:in-package :climacs-tests)
 
@@ -1055,7 +1055,7 @@ climacs")
 	  for i from 0 below 1000
 	  for f = t then (not b)
 	  do (if f
-		 (next-line m 0 100000)
+		 (forward-line m 0 100000)
 		 (previous-line m 0 100000))
 	    finally (return (number-of-lines b))))))
   100000)

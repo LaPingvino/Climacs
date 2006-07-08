@@ -190,59 +190,59 @@ climacs" 0)
   "climacs
 " 7)
 
-(defmultitest kill-line.test-1
+(defmultitest delete-line.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((mark (clone-mark (low-mark buffer) :left)))
       (setf (offset mark) 0)
-      (kill-line mark)
+      (delete-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   #() 0)
 
-(defmultitest kill-line.test-2
+(defmultitest delete-line.test-2
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((mark (clone-mark (low-mark buffer) :right)))
       (setf (offset mark) 0)
-      (kill-line mark)
+      (delete-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   #() 0)
 
-(defmultitest kill-line.test-3
+(defmultitest delete-line.test-3
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((mark (clone-mark (low-mark buffer) :left)))
       (setf (offset mark) 7)
-      (kill-line mark)
+      (delete-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacs" 7)
 
-(defmultitest kill-line.test-4
+(defmultitest delete-line.test-4
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs")
     (let ((mark (clone-mark (low-mark buffer) :right)))
       (setf (offset mark) 7)
-      (kill-line mark)
+      (delete-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacs" 7)
 
-(defmultitest kill-line.test-5
+(defmultitest delete-line.test-5
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
     (let ((mark (clone-mark (low-mark buffer) :left)))
       (setf (offset mark) 7)
-      (kill-line mark)
+      (delete-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacsclimacs" 7)
 
-(defmultitest kill-line.test-6
+(defmultitest delete-line.test-6
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "climacs
 climacs")
     (let ((mark (clone-mark (low-mark buffer) :right)))
       (setf (offset mark) 7)
-      (kill-line mark)
+      (delete-line mark)
       (values (buffer-sequence buffer 0 (size buffer)) (offset mark))))
   "climacsclimacs" 7)
 
@@ -459,16 +459,19 @@ climacs")
    (constituentp #\Null))
   t nil nil nil nil #-sbcl nil #+sbcl t)
 
-(defmultitest whitespacep.test-1
+(defmultitest buffer-whitespacep.test-1
   (values
-   (not (null (whitespacep #\a)))
-   (not (null (whitespacep #\Newline)))
-   (not (null (whitespacep #\Space)))
-   (not (null (whitespacep #\Tab)))
-   (not (null (whitespacep " ")))
-   (not (null (whitespacep #\Null))))
+   (not (null (buffer-whitespacep #\a)))
+   (not (null (buffer-whitespacep #\Newline)))
+   (not (null (buffer-whitespacep #\Space)))
+   (not (null (buffer-whitespacep #\Tab)))
+   (not (null (buffer-whitespacep " ")))
+   (not (null (buffer-whitespacep #\Null))))
   nil t t t nil nil)
 
+;; Words are not recognized by CLIMACS-BASE, setup syntax-aware
+;; tests. Until then, these are disabled.
+#||
 (defmultitest forward-to-word-boundary.test-1
   (let ((buffer (make-instance %%buffer)))
     (insert-buffer-sequence buffer 0 "  climacs
@@ -627,6 +630,7 @@ climacs  ")
        (climacs-base::previous-word m1)
        (climacs-base::previous-word m2))))
   "climacs" #() "cl")
+||#
 
 (defmultitest downcase-buffer-region.test-1
   (let ((buffer (make-instance %%buffer)))
@@ -664,16 +668,16 @@ climacs  ")
       (buffer-sequence buffer 0 (size buffer))))
   "_cli	mac5_")
 
-(defmultitest downcase-word.test-1
-  (let ((buffer (make-instance %%buffer)))
-    (insert-buffer-sequence buffer 0 "CLI MA CS CLIMACS")
-    (let ((m (clone-mark (low-mark buffer) :right)))
-      (setf (offset m) 0)
-      (downcase-word m 3)
-      (values
-       (buffer-sequence buffer 0 (size buffer))
-       (offset m))))
-  "cli ma cs CLIMACS" 9)
+#+(or)(defmultitest downcase-word.test-1
+          (let ((buffer (make-instance %%buffer)))
+            (insert-buffer-sequence buffer 0 "CLI MA CS CLIMACS")
+            (let ((m (clone-mark (low-mark buffer) :right)))
+              (setf (offset m) 0)
+              (downcase-word m 3)
+              (values
+               (buffer-sequence buffer 0 (size buffer))
+               (offset m))))
+        "cli ma cs CLIMACS" 9)
 
 (defmultitest upcase-buffer-region.test-1
   (let ((buffer (make-instance %%buffer)))
@@ -711,16 +715,16 @@ climacs  ")
       (buffer-sequence buffer 0 (size buffer))))
   "_CLI	MAC5_")
 
-(defmultitest upcase-word.test-1
-  (let ((buffer (make-instance %%buffer)))
-    (insert-buffer-sequence buffer 0 "cli ma cs climacs")
-    (let ((m (clone-mark (low-mark buffer) :right)))
-      (setf (offset m) 0)
-      (upcase-word m 3)
-      (values
-       (buffer-sequence buffer 0 (size buffer))
-       (offset m))))
-  "CLI MA CS climacs" 9)
+#+(or)(defmultitest upcase-word.test-1
+          (let ((buffer (make-instance %%buffer)))
+            (insert-buffer-sequence buffer 0 "cli ma cs climacs")
+            (let ((m (clone-mark (low-mark buffer) :right)))
+              (setf (offset m) 0)
+              (upcase-word m 3)
+              (values
+               (buffer-sequence buffer 0 (size buffer))
+               (offset m))))
+        "CLI MA CS climacs" 9)
 
 (defmultitest capitalize-buffer-region.test-1
   (let ((buffer (make-instance %%buffer)))
@@ -765,16 +769,16 @@ climacs  ")
       (buffer-sequence buffer 0 (size buffer))))
   "_Cli	Mac5_")
 
-(defmultitest capitalize-word.test-1
-  (let ((buffer (make-instance %%buffer)))
-    (insert-buffer-sequence buffer 0 "cli ma cs climacs")
-    (let ((m (clone-mark (low-mark buffer) :right)))
-      (setf (offset m) 0)
-      (capitalize-word m 3)
-      (values
-       (buffer-sequence buffer 0 (size buffer))
-       (offset m))))
-  "Cli Ma Cs climacs" 9)
+#+(or)(defmultitest capitalize-word.test-1
+          (let ((buffer (make-instance %%buffer)))
+            (insert-buffer-sequence buffer 0 "cli ma cs climacs")
+            (let ((m (clone-mark (low-mark buffer) :right)))
+              (setf (offset m) 0)
+              (capitalize-word m 3)
+              (values
+               (buffer-sequence buffer 0 (size buffer))
+               (offset m))))
+        "Cli Ma Cs climacs" 9)
 
 (defmultitest tabify-buffer-region.test-1
   (let ((buffer (make-instance %%buffer)))
@@ -960,7 +964,7 @@ climacs  ")
     (insert-buffer-sequence buffer 0 "climacs  climacs  climacs  climacs")
     (let ((m (clone-mark (low-mark buffer) :right)))
       (setf (offset m) 25)
-      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8)
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8 t)
       (values
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
@@ -973,7 +977,7 @@ climacs  ")
     (insert-buffer-sequence buffer 0 "climacs  climacs  climacs  climacs")
     (let ((m (clone-mark (low-mark buffer) :right)))
       (setf (offset m) 25)
-      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8 nil)
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8 t nil)
       (values
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
@@ -986,7 +990,7 @@ climacs  ")
     (insert-buffer-sequence buffer 0 "climacs	climacs	climacs	climacs")
     (let ((m (clone-mark (low-mark buffer) :left)))
       (setf (offset m) 25)
-      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8)
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 10 8 t)
       (values
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
@@ -1012,7 +1016,7 @@ climacs  ")
     (insert-buffer-sequence buffer 0 "c l i m a c s")
     (let ((m (clone-mark (low-mark buffer) :right)))
       (setf (offset m) 1)
-      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 0 8)
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 0 8 t)
       (values
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
@@ -1023,7 +1027,7 @@ climacs  ")
     (insert-buffer-sequence buffer 0 "c l i m a c s")
     (let ((m (clone-mark (low-mark buffer) :right)))
       (setf (offset m) 1)
-      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 0 8 nil)
+      (fill-line m #'(lambda (m) (declare (ignore m)) 8) 0 8 t nil)
       (values
        (offset m)
        (buffer-sequence buffer 0 (size buffer)))))
@@ -1253,26 +1257,26 @@ climacs")
       (offset m)))
   3)
 
-(defmultitest buffer-search-word-forward.test-1
-  (let ((buffer (make-instance %%buffer)))
-    (insert-buffer-sequence buffer 0 "
+#+(or)(defmultitest buffer-search-word-forward.test-1
+          (let ((buffer (make-instance %%buffer)))
+            (insert-buffer-sequence buffer 0 "
  climacs")
-    (values
-     (climacs-base::buffer-search-word-forward buffer 0 "climacs")
-     (climacs-base::buffer-search-word-forward buffer 3 "climacs")
-     (climacs-base::buffer-search-word-forward buffer 0 "clim")
-     (climacs-base::buffer-search-word-forward buffer 5 "macs")
-     (climacs-base::buffer-search-word-forward buffer 0 "")))
-  2 nil nil nil 0)
+            (values
+             (climacs-base::buffer-search-word-forward buffer 0 "climacs")
+             (climacs-base::buffer-search-word-forward buffer 3 "climacs")
+             (climacs-base::buffer-search-word-forward buffer 0 "clim")
+             (climacs-base::buffer-search-word-forward buffer 5 "macs")
+             (climacs-base::buffer-search-word-forward buffer 0 "")))
+        2 nil nil nil 0)
 
-(defmultitest buffer-search-word-backward.test-1
-  (let ((buffer (make-instance %%buffer)))
-    (insert-buffer-sequence buffer 0 "climacs 
+#+(or)(defmultitest buffer-search-word-backward.test-1
+          (let ((buffer (make-instance %%buffer)))
+            (insert-buffer-sequence buffer 0 "climacs 
 ")
-    (values
-     (climacs-base::buffer-search-word-backward buffer 8 "climacs")
-     (climacs-base::buffer-search-word-backward buffer 5 "climacs")
-     (climacs-base::buffer-search-word-backward buffer 4 "clim")
-     (climacs-base::buffer-search-word-backward buffer 8 "macs")
-     (climacs-base::buffer-search-word-backward buffer 8 "")))
-  0 nil nil nil 8)
+            (values
+             (climacs-base::buffer-search-word-backward buffer 8 "climacs")
+             (climacs-base::buffer-search-word-backward buffer 5 "climacs")
+             (climacs-base::buffer-search-word-backward buffer 4 "clim")
+             (climacs-base::buffer-search-word-backward buffer 8 "macs")
+             (climacs-base::buffer-search-word-backward buffer 8 "")))
+        0 nil nil nil 8)
