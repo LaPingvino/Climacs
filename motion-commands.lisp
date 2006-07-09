@@ -42,7 +42,7 @@
 ;;;     forward by N <plural>.'
 ;;;
 
-(in-package :climacs-motion-commands)
+(in-package :climacs-commands)
 
 (defmacro define-motion-commands (unit command-table &key
                                   noun

@@ -31,18 +31,18 @@
 (in-package :climacs-lisp-syntax)
 
 ;; Movement commands.
-(climacs-motion-commands:define-motion-commands expression lisp-table)
-(climacs-motion-commands:define-motion-commands definition lisp-table)
-(climacs-motion-commands:define-motion-commands up lisp-table
+(climacs-commands:define-motion-commands expression lisp-table)
+(climacs-commands:define-motion-commands definition lisp-table)
+(climacs-commands:define-motion-commands up lisp-table
   :noun "nesting level up"
   :plural "levels")
-(climacs-motion-commands:define-motion-commands down lisp-table
+(climacs-commands:define-motion-commands down lisp-table
   :noun "nesting level down"
   :plural "levels")
-(climacs-motion-commands:define-motion-commands list lisp-table)
+(climacs-commands:define-motion-commands list lisp-table)
 
-(climacs-editing-commands:define-editing-commands expression lisp-table)
-(climacs-editing-commands:define-deletion-commands expression lisp-table)
+(climacs-commands:define-editing-commands expression lisp-table)
+(climacs-commands:define-deletion-commands expression lisp-table)
 
 (define-command (com-eval-defun :name t :command-table lisp-table) ()
   (let* ((pane (current-window))

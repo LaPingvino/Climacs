@@ -43,7 +43,7 @@
 ;;; This file also holds command definitions for other functions
 ;;; defined in the CLIMACS-EDITING package.
 
-(in-package :climacs-editing-commands)
+(in-package :climacs-commands)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

@@ -54,7 +54,10 @@
 	   #:persistent-left-sticky-mark #:persistent-right-sticky-mark
 	   #:persistent-left-sticky-line-mark #:persistent-right-sticky-line-mark
 	   #:p-line-mark-mixin #:buffer-line-offset
-	   #:delegating-buffer #:implementation))
+	   #:delegating-buffer #:implementation)
+  (:documentation "An implementation of the Climacs buffer
+  protocol. This package is quite low-level, not syntax-aware,
+  not CLIM-aware and not user-oriented at all."))
 
 (defpackage :climacs-kill-ring
   (:use :clim-lisp :flexichain)
@@ -63,7 +66,8 @@
 	   #:append-next-p
 	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
 	   #:kill-ring-standard-push #:kill-ring-concatenating-push
-	   #:kill-ring-reverse-concatenating-push))
+	   #:kill-ring-reverse-concatenating-push)
+  (:documentation "An implementation of a kill ring."))
 
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer :climacs-kill-ring)
@@ -93,7 +97,15 @@
            #:capitalize-buffer-region #:capitalize-region
            #:tabify-region #:untabify-region
            #:indent-line #:delete-indentation
-           #:*kill-ring*))
+           #:*kill-ring*)
+  (:documentation "Basic functionality built on top of the buffer
+ protocol. Here is where we define slightly higher level
+ functions, that can be directly implemented in terms of the
+ buffer protocol, but that are not, strictly speaking, part of
+ that protocol. The functions in this package are not
+ syntax-aware, and are thus limited in what they can do. They
+ percieve the buffer as little more than a sequence of
+ characters."))
 
 (defpackage :climacs-abbrev
   (:use :clim-lisp :clim :climacs-buffer :climacs-base)
@@ -138,10 +150,13 @@
            #:word-constituentp
            #:whitespacep
            #:page-delimiter
-           #:paragraph-delimiter))
+           #:paragraph-delimiter)
+  (:documentation "The Climacs syntax protocol. Contains
+  functions that can be used to implement higher-level operations
+  on buffer contents."))
 
 (defpackage :undo
-  (:use :common-lisp)
+  (:use :clim-lisp)
   (:export #:no-more-undo
 	   #:undo-tree #:standard-undo-tree
 	   #:undo-record #:standard-undo-record
@@ -174,7 +189,7 @@
 	   #:climacs-textual-view #:+climacs-textual-view+))
 
 (defpackage :climacs-motion
-  (:use :clim-lisp :clim :climacs-base :climacs-buffer :climacs-syntax)
+  (:use :clim-lisp :climacs-base :climacs-buffer :climacs-syntax)
   (:export #:forward-to-word-boundary #:backward-to-word-boundary
            #:define-motion-fns
            #:beep-limit-action #:revert-limit-action #:error-limit-action
@@ -233,10 +248,16 @@
            #:forward-one-sentence
            #:backward-one-sentence
            #:forward-sentence
-           #:backward-sentence))
+           #:backward-sentence)
+  (:documentation "Functions and facilities for moving a mark
+  around by syntactical elements. The functions in this package
+  are syntax-aware, and their behavior is based on the semantics
+  defined by the syntax of the buffer, that the mark they are
+  manipulating belong to. These functions are also directly used
+  to implement the motion commands."))
 
 (defpackage :climacs-editing
-  (:use :clim-lisp :clim :climacs-base :climacs-buffer
+  (:use :clim-lisp :climacs-base :climacs-buffer
         :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring)
   (:export #:transpose-objects
            
@@ -283,7 +304,13 @@
  
            #:indent-region
            #:fill-line
-           #:fill-region))
+           #:fill-region)
+  (:documentation "Functions and facilities for changing the
+  buffer contents by syntactical elements. The functions in this package
+  are syntax-aware, and their behavior is based on the semantics
+  defined by the syntax of the buffer, that the mark they are
+  manipulating belong to. These functions are also directly used
+  to implement the editing commands."))
 
 (defpackage :climacs-gui
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
@@ -319,17 +346,16 @@
            :self-insert-table
            :window-table))
 
-(defpackage :climacs-motion-commands
+(defpackage :climacs-commands
   (:use :clim-lisp :clim :climacs-base :climacs-buffer
-        :climacs-syntax :climacs-motion :climacs-gui :esa)
-  (:export #:define-motion-commands))
-
-(defpackage :climacs-editing-commands
-  (:use :clim-lisp :clim :climacs-base :climacs-buffer
-        :climacs-syntax :climacs-motion :climacs-gui
-        :esa :climacs-editing :climacs-kill-ring)
-  (:export #:define-deletion-commands
-           #:define-editing-commands))
+        :climacs-syntax :climacs-motion :climacs-editing
+        :climacs-gui :esa :climacs-kill-ring)
+  (:export #:define-motion-commands
+           #:define-deletion-commands
+           #:define-editing-commands)
+  (:documentation "This package is meant to contain Climacs'
+  command definitions, as well as some useful automatic
+  command-defining facilities."))
 
 (defpackage :climacs-fundamental-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
