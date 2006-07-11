@@ -201,33 +201,6 @@
   "Return the current buffer."
   (buffer (current-window)))
 
-(defun climacs (&key new-process (process-name "Climacs")
-                (width 900) (height 400))
-  "Starts up a climacs session"
-  (let ((frame (make-application-frame 'climacs :width width :height height)))
-    (flet ((run ()
-	     (run-frame-top-level frame)))
-      (if new-process
-	  (clim-sys:make-process #'run :name process-name)
-	  (run)))))
-
-(defun climacs-rv (&key new-process (process-name "Climacs")
-                (width 900) (height 400))
-  "Starts up a climacs session"
-  ;; SBCL doesn't inherit dynamic bindings when starting new
-  ;; processes, so start a new processes and THEN setup the colors.
-  (flet ((run ()
-           (let ((*bg-color* +black+)
-                 (*fg-color* +gray+)
-                 (*info-bg-color* +darkslategray+)
-                 (*info-fg-color* +gray+)
-                 (*mini-bg-color* +black+)
-                 (*mini-fg-color* +white+))
-             (climacs :new-process nil :width width :height height))))
-    (if new-process
-      (clim-sys:make-process #'run :name process-name)
-      (run))))
-
 (define-presentation-type read-only ())
 (define-presentation-method highlight-presentation 
     ((type read-only) record stream state)
@@ -539,25 +512,6 @@ If the buffer needs saving, will prompt you to do so before killing it. Uses the
 (set-key `(com-kill-buffer ,*unsupplied-argument-marker*)
 	 'pane-table
 	 '((#\x :control) (#\k)))
-
-#+sbcl
-(defun ed-in-climacs (thing)
-  (let ((frame-manager (find-frame-manager)))
-    (when frame-manager
-      (let ((climacs-frame (find-if (lambda (x) (typep x 'climacs))
-                                    (frame-manager-frames frame-manager))))
-        (when climacs-frame
-          (typecase thing
-            ((or pathname string)
-             (execute-frame-command 
-              climacs-frame `(com-find-file ,(pathname thing)))
-             t)
-            ((or symbol cons)
-             ;; FIXME: do something
-             nil)))))))
-    
-#+sbcl
-(pushnew 'ed-in-climacs sb-ext:*ed-functions*)
 
 ;;; For the ESA help functions.
 

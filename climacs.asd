@@ -2,6 +2,8 @@
 
 ;;;  (c) copyright 2004 by
 ;;;           Robert Strandh (strandh@labri.u-bordeaux.fr)
+;;;  (c) copyright 2006 by
+;;;           Troels Henriksen (athas@sigkill.dk)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -91,6 +93,7 @@
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
                                         "kill-ring" "io" "text-syntax"
 					"abbrev" "editing" "motion"))
+   (:file "climacs" :depends-on ("gui"))
 ;;    (:file "buffer-commands" :depends-on ("gui"))
    (:file "developer-commands" :depends-on ("gui" "lisp-syntax"))
    (:file "motion-commands" :depends-on ("gui"))

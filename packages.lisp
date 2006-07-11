@@ -4,6 +4,8 @@
 ;;;           Robert Strandh (strandh@labri.fr)
 ;;;  (c) copyright 2005 by
 ;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
+;;;  (c) copyright 2006 by
+;;;           Troels Henriksen (athas@sigkill.dk)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -21,6 +23,8 @@
 ;;; Boston, MA  02111-1307  USA.
 
 ;;; Package definitions for the Climacs editor.
+
+(in-package :cl-user)
 
 (defpackage :climacs-buffer
   (:use :clim-lisp :flexichain :binseq)
@@ -318,33 +322,41 @@
 	:climacs-kill-ring :climacs-pane :clim-extensions
         :undo :esa :climacs-editing :climacs-motion)
   ;;(:import-from :lisp-string)
-  (:export :climacs ; Main entry point.
+  (:export #:climacs ; Frame.
+           
            ;; GUI functions follow.
-           :climacs-rv ; Entry point with alternate colors.
-           :current-window
-           :current-point
-           :current-buffer
-           :current-buffer
-           :point
-           :syntax
-           :mark
-           :insert-character
-           :base-table
-           :buffer-table
-           :case-table
-           :comment-table
-           :deletion-table
-           :development-table
-           :editing-table
-           :fill-table
-           :indent-table
-           :info-table
-           :marking-table
-           :movement-table
-           :pane-table
-           :search-table
-           :self-insert-table
-           :window-table))
+           #:current-window
+           #:current-point
+           #:current-buffer
+           #:current-buffer
+           #:point
+           #:syntax
+           #:mark
+           #:insert-character
+           #:base-table
+           #:buffer-table
+           #:case-table
+           #:comment-table
+           #:deletion-table
+           #:development-table
+           #:editing-table
+           #:fill-table
+           #:indent-table
+           #:info-table
+           #:marking-table
+           #:movement-table
+           #:pane-table
+           #:search-table
+           #:self-insert-table
+           #:window-table
+           
+           ;; Some configuration variables
+           #:*bg-color*
+           #:*fg-color*
+           #:*info-bg-color*
+           #:*info-fg-color*
+           #:*mini-bg-color*
+           #:*mini-fg-color*))
 
 (defpackage :climacs-commands
   (:use :clim-lisp :clim :climacs-base :climacs-buffer
@@ -379,4 +391,12 @@
 (defpackage :climacs-lisp-syntax
   (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
 	:climacs-syntax :flexichain :climacs-pane :climacs-gui :climacs-motion :climacs-editing)
-  (:export :lisp-string))
+  (:export #:lisp-string
+           #:edit-definition))
+
+(defpackage :climacs
+  (:use :clim-lisp :clim :clim-sys :clim-extensions :climacs-gui)
+  (:export #:climacs
+           #:climacs-rv
+           #:edit-definition)
+  (:documentation "Package containing entry points to Climacs."))
