@@ -2438,6 +2438,11 @@ object. Otherwise, nil will be returned.")
 	((null (cdr path))
 	 (values (first-form (children tree)) 0))))
 
+(defmethod indent-form ((syntax lisp-syntax) (tree readtime-evaluation-form) path)
+  (if (null (cdr path))
+      (values tree 0)
+      (indent-form syntax (elt-form (children tree) 0) (cdr path))))
+
 (defmethod indent-form ((syntax lisp-syntax) (tree list-form) path)
   (if (= (car path) 1)
       ;; before first element
