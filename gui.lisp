@@ -299,7 +299,7 @@
     (handler-case
         (progn
           (if (buffer-pane-p current-window)
-              (with-undo ((buffer current-window))
+              (with-undo ((buffers frame))
                 (call-next-method))
               (call-next-method))
           (loop for buffer in (buffers frame)

@@ -103,20 +103,28 @@
 	     :objects (buffer-sequence buffer offset (+ offset n)))
 	  (undo-accumulate buffer))))
 
-(defmacro with-undo ((buffer) &body body)
-  (let ((buffer-var (gensym)))
-    `(let ((,buffer-var ,buffer))
-       (setf (undo-accumulate ,buffer-var) '())
-       (unwind-protect (progn ,@body)
-         (cond ((null (undo-accumulate ,buffer-var)) nil)
-               ((null (cdr (undo-accumulate ,buffer-var)))
-                (add-undo (car (undo-accumulate ,buffer-var))
-                          (undo-tree ,buffer-var)))
-               (t
-                (add-undo (make-instance 'compound-record
-                                         :buffer ,buffer-var
-                                         :records (undo-accumulate ,buffer-var))
-                          (undo-tree ,buffer-var))))))))
+(defmacro with-undo ((get-buffers-exp) &body body)
+  "Evaluate `body', registering any changes to buffer contents in
+the undo memory for the respective buffer, permitting individual
+undo for each buffer. `get-buffers-exp' should be a form, that
+will be evaluated whenever a complete list of buffers is
+needed (to set up all buffers to prepare for undo, and to check
+them all for changes after `body' has run)."
+  (let ((buffer-sym (gensym)))
+   `(progn
+      (dolist (,buffer-sym ,get-buffers-exp)
+        (setf (undo-accumulate ,buffer-sym) '()))
+      (unwind-protect (progn ,@body)
+        (dolist (,buffer-sym ,get-buffers-exp)
+          (cond ((null (undo-accumulate ,buffer-sym)) nil)
+                ((null (cdr (undo-accumulate ,buffer-sym)))
+                 (add-undo (car (undo-accumulate ,buffer-sym))
+                           (undo-tree ,buffer-sym)))
+                (t
+                 (add-undo (make-instance 'compound-record
+                                          :buffer ,buffer-sym
+                                          :records (undo-accumulate ,buffer-sym))
+                           (undo-tree ,buffer-sym)))))))))
 
 (defmethod flip-undo-record :around ((record climacs-undo-record))
   (with-slots (buffer) record
