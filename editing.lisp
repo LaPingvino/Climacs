@@ -303,7 +303,7 @@
   "Indent all lines in the region delimited by `mark1' and `mark2'
    according to the rules of the active syntax in `pane'."
   (let* ((buffer (buffer pane))
-         (view (stream-default-view pane))
+         (view (clim:stream-default-view pane))
          (tab-space-count (tab-space-count view))
          (tab-width (and (indent-tabs-mode buffer)
                          tab-space-count))
