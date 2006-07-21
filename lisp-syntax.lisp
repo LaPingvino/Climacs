@@ -3551,18 +3551,21 @@ Returns NIL if an arglist cannot be displayed."
                              (worker (parent operand-form)))))))))
       (nreverse (worker operand-form t)))))
 
-(defun find-operand-info (mark syntax operator-form)
-  "Returns two values: The operand preceding `mark' and the path
-  from `operator-form' to the operand."
-  (let* ((preceding-arg-token (form-before syntax (offset mark)))
+(defun find-operand-info (mark-or-offset syntax operator-form)
+  "Returns two values: The operand preceding `mark-or-offset' and
+  the path from `operator-form' to the operand."
+  (let* ((offset (if (numberp mark-or-offset)
+                     mark-or-offset
+                     (offset mark-or-offset)))
+         (preceding-arg-token (form-before syntax offset))
          (indexing-start-arg
           (let* ((candidate-before preceding-arg-token)
                  (candidate-after (when (null candidate-before)
-                                    (let ((after (form-after syntax (offset mark))))
+                                    (let ((after (form-after syntax offset)))
                                       (when after
                                         (parent after)))))
                  (candidate-around (when (null candidate-after)
-                                     (form-around syntax (offset mark))))
+                                     (form-around syntax offset)))
                  (candidate (or candidate-before
                                 candidate-after
                                 candidate-around)))
@@ -3617,6 +3620,32 @@ Returns NIL if an arglist cannot be displayed."
         (indices-match-arglist arg (rest arg-indices))
         (null (rest arg-indices)))))
 
+(defun direct-arg-p (form syntax)
+  "Check whether `form' is a direct argument to one of its
+   parents."
+  (labels ((recurse (parent)
+             (let ((operator (form-operator
+                              parent
+                              syntax)))
+               (or (and
+                    ;; An operator is not an argument to itself...
+                    (not (= (start-offset form)
+                            (start-offset (first-form (children parent)))))
+                    (valid-operator-p operator)
+                    (indices-match-arglist
+                     (arglist (image syntax)
+                              operator)
+                     (second
+                      (multiple-value-list
+                       (find-operand-info
+                        (start-offset form)
+                        syntax
+                        parent)))))
+                   (when (parent parent)
+                     (recurse (parent parent)))))))
+    (when (parent form)
+      (recurse (parent form)))))
+
 (defmacro with-code-insight (mark syntax (&key operator preceding-operand
                                                form preceding-operand-indices
                                                operands)
@@ -3645,21 +3674,25 @@ Returns NIL if an arglist cannot be displayed."
                ;; regard to the structure of the lambda list. If we
                ;; cannot find a form with a valid operator, just
                ;; return the form `mark' is in.
-               (labels ((recurse (form)
-                          (if (and (valid-operator-p (form-operator
-                                                      form
-                                                      ,syntax-value-sym))
-                                   (indices-match-arglist
-                                    (arglist (image syntax)
-                                             (form-operator
-                                              form
-                                              ,syntax-value-sym))
-                                    (second (multiple-value-list (find-operand-info ,mark-value-sym ,syntax-value-sym form)))))
-                              (or (when (and form (parent form))
-                                    (recurse (parent form)))
-                                  form))))
-                 (or (recurse (when immediate-form (parent immediate-form)))
-                     (when immediate-form (parent immediate-form))))))
+               (unless (null immediate-form)
+                (labels ((recurse (form)
+                           (unless (null form)
+                             (if (and (valid-operator-p (form-operator
+                                                         form
+                                                         ,syntax-value-sym))
+                                      (indices-match-arglist
+                                       (arglist (image ,syntax-value-sym)
+                                                (form-operator
+                                                 form
+                                                 ,syntax-value-sym))
+                                       (second
+                                        (multiple-value-list
+                                         (find-operand-info ,mark-value-sym ,syntax-value-sym form)))))
+                                 (or (recurse (parent form))
+                                     (unless (direct-arg-p form ,syntax-value-sym)
+                                       form))))))
+                  (or (recurse (parent immediate-form))
+                      immediate-form)))))
             ;; If we cannot find a form, there's no point in looking
             ;; up any of this stuff.
             (,operator-sym (when ,form-sym (form-operator ,form-sym ,syntax-value-sym)))
