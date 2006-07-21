@@ -3137,6 +3137,10 @@ results."
 (defparameter +cl-garbage-keywords+
   '(&whole &environment))
 
+(defun arglist-keyword-p (arg)
+  "Return T if `arg' is an arglist keyword. NIL otherwise."
+  (member arg +cl-arglist-keywords+))
+
 (defun split-arglist-on-keywords (arglist)
   "Return an alist keying lambda list keywords of `arglist'
 to the symbols affected by the keywords."
@@ -3149,7 +3153,7 @@ to the symbols affected by the keywords."
       (push (subseq arglist 0 2) sing-result)
       (setf arglist (cddr arglist)))
     (do ((llk '(&mandatory &optional &key &allow-other-keys &aux &rest &body))
-         (args (if (member (first arglist) +cl-arglist-keywords+)
+         (args (if (arglist-keyword-p (first arglist))
                    arglist
                    (cons '&mandatory arglist))
                (cdr args))
@@ -3597,6 +3601,22 @@ Returns NIL if an arglist cannot be displayed."
         ((listp operator)
          (eq (first operator) 'cl:lambda))))
 
+(defun indices-match-arglist (arglist arg-indices)
+  "Check whether the argument indices `arg-indices' could refer
+  to a direct argument for the operator with the argument list
+  `arglist'. Returns T if they could, NIL otherwise. This
+  functions does not care about the argument quantity, only their
+  structure."
+  (let* ((index (first arg-indices))
+         (pure-arglist (remove-if #'arglist-keyword-p arglist))
+         (arg (when (< index (length pure-arglist))
+                (elt pure-arglist index))))
+    (if (and (not (null arg))
+             (listp arg)
+             (rest arg-indices))
+        (indices-match-arglist arg (rest arg-indices))
+        (null (rest arg-indices)))))
+
 (defmacro with-code-insight (mark syntax (&key operator preceding-operand
                                                form preceding-operand-indices
                                                operands)
@@ -3609,7 +3629,7 @@ Returns NIL if an arglist cannot be displayed."
         (operands-sym (or operands (gensym)))
         (form-sym (or form (gensym)))
         (operand-indices-sym (or preceding-operand-indices (gensym)))
-        ;; My kingdom for with-gensyms!
+        ;; My kingdom for with-gensyms (or once-only)!
         (mark-value-sym (gensym))
         (syntax-value-sym (gensym)))
     `(let* ((,mark-value-sym ,mark)
@@ -3626,12 +3646,18 @@ Returns NIL if an arglist cannot be displayed."
                ;; cannot find a form with a valid operator, just
                ;; return the form `mark' is in.
                (labels ((recurse (form)
-                          (if (valid-operator-p (form-operator
-                                                 form
-                                                 ,syntax-value-sym))
-                              form
-                              (when (and form (parent form))
-                                (recurse (parent form))))))
+                          (if (and (valid-operator-p (form-operator
+                                                      form
+                                                      ,syntax-value-sym))
+                                   (indices-match-arglist
+                                    (arglist (image syntax)
+                                             (form-operator
+                                              form
+                                              ,syntax-value-sym))
+                                    (second (multiple-value-list (find-operand-info ,mark-value-sym ,syntax-value-sym form)))))
+                              (or (when (and form (parent form))
+                                    (recurse (parent form)))
+                                  form))))
                  (or (recurse (when immediate-form (parent immediate-form)))
                      (when immediate-form (parent immediate-form))))))
             ;; If we cannot find a form, there's no point in looking
@@ -3643,15 +3669,15 @@ Returns NIL if an arglist cannot be displayed."
          ,@body))))
 
 (defun show-arglist-for-form-at-mark (mark syntax)
-   "Display the argument list for the operator of `form'. The
+  "Display the argument list for the operator of `form'. The
 list need not be complete. If an argument list cannot be
 retrieved for the operator, nothing will be displayed."
   (with-code-insight mark syntax (:operator operator
                                             :preceding-operand preceding-operand
                                             :preceding-operand-indices preceding-operand-indices
                                             :operands operands)
-     (when (valid-operator-p operator) 
-       (show-arglist-silent operator preceding-operand-indices preceding-operand operands))))
+    (when (valid-operator-p operator) 
+      (show-arglist-silent operator preceding-operand-indices preceding-operand operands))))
 
 ;;; Definition editing
 
