@@ -1575,6 +1575,19 @@ returned."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; Useful functions for modifying forms based on the mark.
+
+(defun replace-symbol-at-mark (mark syntax string)
+  "Replace the symbol at `mark' with `string' and move `mark' to
+after `string'."
+  (let ((token (symbol-at-mark mark syntax)))
+    (unless (= (offset mark) (start-offset token))
+      (backward-expression mark syntax 1 nil))
+    (forward-kill-expression mark syntax)
+    (insert-sequence mark string)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; display
 
 (defvar *white-space-start* nil)

@@ -245,24 +245,22 @@ Definition command was issued."
     (clear-completions)))
 
 (define-command (com-complete-symbol :name t :command-table lisp-table) ()
-  "Attempt to complete the symbol at mark.
+  "Attempt to complete the symbol at mark. If successful, move point
+to end of symbol.  
 
-If more than one completion is available, a list of possible
-completions will be displayed."
+If more than one completion is available, a list of
+possible completions will be displayed."
   (let* ((pane (current-window))
          (buffer (buffer pane))
          (syntax (syntax buffer))
-         (point-current-window (point pane))
-	 (name (symbol-name-at-mark point-current-window
+         (mark (point pane))
+	 (name (symbol-name-at-mark mark
 				    syntax)))
     (when name
-      (with-syntax-package syntax point-current-window (package)
-        (let ((completion (show-completions syntax name package))
-              (mark (clone-mark point-current-window)))
+      (with-syntax-package syntax mark (package)
+        (let ((completion (show-completions syntax name package)))
           (unless (= (length completion) 0)
-            (backward-object mark (length name))
-            (delete-region mark point-current-window)
-            (insert-sequence point-current-window completion)))))))
+            (replace-symbol-at-mark mark syntax completion)))))))
 
 (define-command (com-fuzzily-complete-symbol :name t :command-table lisp-table) ()
   "Attempt to fuzzily complete the abbreviation at mark.
@@ -273,17 +271,14 @@ will be displayed."
   (let* ((pane (current-window))
          (buffer (buffer pane))
          (syntax (syntax buffer))
-         (point-current-window (point pane))
-	 (name (symbol-name-at-mark point-current-window
+         (mark (mark pane))
+	 (name (symbol-name-at-mark mark
 				    syntax)))
     (when name
-      (with-syntax-package syntax point-current-window (package)
-        (let ((completion (show-fuzzy-completions syntax name package))
-              (mark (clone-mark point-current-window)))
+      (with-syntax-package syntax mark (package)
+        (let ((completion (show-fuzzy-completions syntax name package)))
           (unless (= (length completion) 0)
-            (backward-object mark (length name))
-            (delete-region mark point-current-window)
-            (insert-sequence point-current-window completion)))))))
+            (replace-symbol-at-mark mark syntax completion)))))))
 
 (define-presentation-to-command-translator lookup-symbol-arglist
     (symbol com-lookup-arglist lisp-table
