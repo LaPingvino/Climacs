@@ -3614,11 +3614,14 @@ Returns NIL if an arglist cannot be displayed."
          (pure-arglist (remove-if #'arglist-keyword-p arglist))
          (arg (when (< index (length pure-arglist))
                 (elt pure-arglist index))))
-    (if (and (not (null arg))
-             (listp arg)
-             (rest arg-indices))
-        (indices-match-arglist arg (rest arg-indices))
-        (null (rest arg-indices)))))
+    (cond ((and (> index (or (position #'arglist-keyword-p arglist) 0))
+                (not (null (rest arg-indices))))
+           nil)
+          ((and (not (null arg))
+                (listp arg)
+                (rest arg-indices))
+           (indices-match-arglist arg (rest arg-indices)))
+          (t (null (rest arg-indices))))))
 
 (defun direct-arg-p (form syntax)
   "Check whether `form' is a direct argument to one of its
@@ -3689,10 +3692,11 @@ Returns NIL if an arglist cannot be displayed."
                                         (multiple-value-list
                                          (find-operand-info ,mark-value-sym ,syntax-value-sym form)))))
                                  (or (recurse (parent form))
-                                     (unless (direct-arg-p form ,syntax-value-sym)
+                                     (unless (and (typep form 'complete-token-lexeme)
+                                                  (direct-arg-p form ,syntax-value-sym))
                                        form))))))
                   (or (recurse (parent immediate-form))
-                      immediate-form)))))
+                      (parent immediate-form))))))
             ;; If we cannot find a form, there's no point in looking
             ;; up any of this stuff.
             (,operator-sym (when ,form-sym (form-operator ,form-sym ,syntax-value-sym)))
