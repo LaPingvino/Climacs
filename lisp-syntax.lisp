@@ -2526,7 +2526,8 @@ object. Otherwise, nil will be returned.")
 (defmethod compute-list-indentation ((syntax lisp-syntax) symbol tree path)
   (if (null (cdr path))
       ;; top level
-      (let* ((arglist (when (fboundp symbol) (arglist (get-usable-image syntax) symbol)))
+      (let* ((arglist (when (fboundp symbol)
+                        (arglist-for-form symbol)))
              (body-or-rest-pos (or (position '&body arglist)
                                    (position '&rest arglist))))
         (if (and (or (macro-function symbol)
@@ -3325,66 +3326,47 @@ to the symbols affected by the keywords."
                   for arg-name = (unlisted arg-element)
                   for index from 0
                     
-                  with in-&aux          ; If non-NIL, we are in the
-                                        ; &aux parameters that should
-                                        ; not be displayed.
-                    
-                  with in-garbage       ; If non-NIL, the next
-                                        ; argument is a garbage
-                                        ; parameter that should not be
-                                        ; displayed.
-                  if (eq arg-element '&aux)
-                  do (setf in-&aux t)
-                  else if (member arg-element +cl-garbage-keywords+ :test #'eq)
-                    do (setf in-garbage t)
-                  else if (and (listp arg-element)
+                  if (and (listp arg-element)
                           (> mandatory-argument-count
-                             index)
-                          (not in-garbage)
-                          (not in-&aux))
-                    collect (multiple-value-bind (arglist
-                                                  sublist-emphasized-symbols
-                                                  sublist-highlighted-symbols)
-                                (analyze-arglist arg-element
-                                                     (rest current-arg-indices)
-                                                     preceding-arg
-                                                     (when (< index (length provided-args))
-                                                       (listed (elt provided-args index))))
-                              ;; Unless our `current-arg-index'
-                              ;; actually refers to this sublist, its
-                              ;; highlighted and emphasized symbols
-                              ;; are ignored. Also, if
-                              ;; `current-arg-indices' is nil, we do
-                              ;; not have enough information to
-                              ;; properly highlight symbols in the
-                              ;; arglist.
-                              (when (and current-arg-indices
-                                         (= index current-arg-index))
-                                  (if (and (rest current-arg-indices))
-                                      (setf emphasized-symbols
-                                            (union (mapcar #'unlisted
-                                                           sublist-emphasized-symbols)
-                                                   emphasized-symbols)
-                                            highlighted-symbols
-                                            (union sublist-highlighted-symbols
-                                                   highlighted-symbols))
-                                      (setf emphasized-symbols
+                             index))
+                  collect (multiple-value-bind (arglist
+                                                sublist-emphasized-symbols
+                                                sublist-highlighted-symbols)
+                              (analyze-arglist arg-element
+                                               (rest current-arg-indices)
+                                               preceding-arg
+                                               (when (< index (length provided-args))
+                                                 (listed (elt provided-args index))))
+                            ;; Unless our `current-arg-index'
+                            ;; actually refers to this sublist, its
+                            ;; highlighted and emphasized symbols
+                            ;; are ignored. Also, if
+                            ;; `current-arg-indices' is nil, we do
+                            ;; not have enough information to
+                            ;; properly highlight symbols in the
+                            ;; arglist.
+                            (when (and current-arg-indices
+                                       (= index current-arg-index))
+                              (if (and (rest current-arg-indices))
+                                  (setf emphasized-symbols
+                                        (union (mapcar #'unlisted
+                                                       sublist-emphasized-symbols)
+                                               emphasized-symbols)
+                                        highlighted-symbols
+                                        (union sublist-highlighted-symbols
+                                               highlighted-symbols))
+                                  (setf emphasized-symbols
                                         (union (mapcar #'unlisted
                                                        arg-element)
                                                emphasized-symbols))))
-                              arglist)
-                  else if (and (assoc arg-name user-supplied-arg-values)
-                               (not in-garbage)
-                               (not in-&aux))
-                    collect (list arg-name
-                                  (rest (assoc
-                                         arg-name
-                                         user-supplied-arg-values)))
+                            arglist)
+                  else if (assoc arg-name user-supplied-arg-values)
+                  collect (list arg-name
+                                (rest (assoc
+                                       arg-name
+                                       user-supplied-arg-values)))
                   else
-                    if in-garbage
-                      do (setf in-garbage nil)
-                    else if (not in-&aux)
-                     collect arg-element)))
+                  collect arg-element)))
       (setf ret-arglist (generate-arglist arglist)))
     (list ret-arglist emphasized-symbols highlighted-symbols)))
 
@@ -3411,12 +3393,35 @@ inserted from `provided-args'.
                    preceding-arg
                    provided-args)))
 
+(defun cleanup-arglist (arglist)
+  "Remove elements of `arglist' that we are not interested in."
+  (loop
+     for arg in arglist
+     with in-&aux                       ; If non-NIL, we are in the
+                                        ; &aux parameters that should
+                                        ; not be displayed.
+                    
+     with in-garbage                    ; If non-NIL, the next
+                                        ; argument is a garbage
+                                        ; parameter that should not be
+                                        ; displayed.
+     if in-garbage
+     do (setf in-garbage nil)
+     else if (not in-&aux)
+     if (eq arg '&aux)
+     do (setf in-&aux t)
+     else if (member arg +cl-garbage-keywords+ :test #'eq)
+     do (setf in-garbage t)
+     else
+     collect arg))
+
 (defgeneric arglist-for-form (operator &optional arguments)
   (:documentation
    "Return an arglist for `operator'")
   (:method (operator &optional arguments)
     (declare (ignore arguments))
-    (arglist (get-usable-image (syntax (current-buffer))) operator)))
+    (cleanup-arglist
+     (arglist (get-usable-image (syntax (current-buffer))) operator))))
 
 ;; Proof of concept, just to make sure it can be done. Also, we need a
 ;; more elegant interface. Perhaps it could be integrated with the
@@ -3440,7 +3445,7 @@ inserted from `provided-args'.
 (defmethod arglist-for-form ((operator list) &optional arguments)
   (declare (ignore arguments))
   (case (first operator)
-    ('cl:lambda (second operator))))
+    ('cl:lambda (cleanup-arglist (second operator)))))
 
 (defgeneric operator-for-display (operator)
   (:documentation "Return what should be displayed whenever
@@ -3621,7 +3626,7 @@ Returns NIL if an arglist cannot be displayed."
                 (listp arg)
                 (rest arg-indices))
            (indices-match-arglist arg (rest arg-indices)))
-          (t (null (rest arg-indices))))))
+          (t t))))
 
 (defun direct-arg-p (form syntax)
   "Check whether `form' is a direct argument to one of its
@@ -3679,21 +3684,26 @@ Returns NIL if an arglist cannot be displayed."
                ;; return the form `mark' is in.
                (unless (null immediate-form)
                 (labels ((recurse (form)
-                           (unless (null form)
-                             (if (and (valid-operator-p (form-operator
+                           (unless (null (parent form))
+                             (or (unless (eq (first-form (children (parent form)))
+                                             form)
+                                   (recurse (parent form)))
+                                 (and (valid-operator-p (form-operator
                                                          form
                                                          ,syntax-value-sym))
                                       (indices-match-arglist
-                                       (arglist (image ,syntax-value-sym)
-                                                (form-operator
-                                                 form
-                                                 ,syntax-value-sym))
+                                       (arglist-for-form
+                                        (form-operator
+                                         form
+                                         ,syntax-value-sym)
+                                        (form-operands
+                                         form
+                                         ,syntax-value-sym))
                                        (second
                                         (multiple-value-list
-                                         (find-operand-info ,mark-value-sym ,syntax-value-sym form)))))
-                                 (or (recurse (parent form))
-                                     (unless (direct-arg-p form ,syntax-value-sym)
-                                       form))))))
+                                         (find-operand-info ,mark-value-sym ,syntax-value-sym form))))
+                                      (not (direct-arg-p form ,syntax-value-sym))
+                                      form)))))
                   (or (recurse (parent immediate-form))
                       (parent immediate-form))))))
             ;; If we cannot find a form, there's no point in looking
