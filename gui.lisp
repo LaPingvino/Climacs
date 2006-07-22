@@ -432,9 +432,9 @@ Signals and error if the file does not exist."
   (let* ((buffers (buffers *application-frame*))
 	 (position (position buffer buffers))
 	 (pane (current-window)))
-    (if position
-	(rotatef (car buffers) (nth position buffers))
-	(push buffer (buffers *application-frame*)))
+    (when position
+      (setf buffers (delete buffer buffers)))
+    (push buffer (buffers *application-frame*))
     (setf (offset (point (buffer pane))) (offset (point pane)))
     (setf (buffer pane) buffer)
     (full-redisplay pane)
