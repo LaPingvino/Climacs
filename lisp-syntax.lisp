@@ -3692,8 +3692,7 @@ Returns NIL if an arglist cannot be displayed."
                                         (multiple-value-list
                                          (find-operand-info ,mark-value-sym ,syntax-value-sym form)))))
                                  (or (recurse (parent form))
-                                     (unless (and (typep form 'complete-token-lexeme)
-                                                  (direct-arg-p form ,syntax-value-sym))
+                                     (unless (direct-arg-p form ,syntax-value-sym)
                                        form))))))
                   (or (recurse (parent immediate-form))
                       (parent immediate-form))))))
