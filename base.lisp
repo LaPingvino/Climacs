@@ -32,6 +32,30 @@
 
 (in-package :climacs-base)
 
+(defmacro as-offsets ((&rest marks)
+                      &body body)
+  "Bind the symbols in `marks' to the numeric offsets of the mark
+  objects that the symbols are bound to. If a symbol in `mark' is
+  already bound to an offset, just keep that binding. An element
+  of `marks' may also be a list - in this case, the first element
+  is used to get an offset, and the second element (which should
+  be a symbol) will be bound to this offset. Evaluate `body' with
+  these bindings."
+  `(let ,(mapcar #'(lambda (mark-sym)
+                     (if (listp mark-sym)
+                         `(,(second mark-sym)
+                            (let ((value ,(first mark-sym)))
+                              (if (numberp value)
+                                  value
+                                  (offset value))))
+                         `(,mark-sym
+                           (let ((value ,mark-sym))
+                             (if (numberp value)
+                                 ,mark-sym
+                                 (offset value))))))
+                 marks)
+     ,@body))
+
 (defmacro do-buffer-region ((object offset buffer offset1 offset2)
                             &body body)
   "Iterate over the elements of the region delimited by offset1 and offset2.
