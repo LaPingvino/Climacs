@@ -1305,17 +1305,15 @@ the (in-package) preceding `mark-or-offset'. If none can be
 found, return the package specified in the attribute list. If no
 package can be found at all, or the otherwise found packages are
 invalid, return the CLIM-USER package."
-  (let* ((mark-offset (if (numberp mark-or-offset)
-                          mark-or-offset
-                          (offset mark-or-offset)))
-         (designator (rest (find mark-offset (package-list syntax)
-                                 :key #'first
-                                 :test #'>=))))
-    (or (handler-case (find-package designator)
-          (type-error ()
+  (as-offsets ((mark-or-offset offset))
+   (let* ((designator (rest (find offset (package-list syntax)
+                                  :key #'first
+                                  :test #'>=))))
+     (or (handler-case (find-package designator)
+           (type-error ()
              nil))
-        (find-package (option-specified-package syntax))
-        (find-package :clim-user))))
+         (find-package (option-specified-package syntax))
+         (find-package :clim-user)))))
 
 (defmacro with-syntax-package (syntax offset (package-sym) &body
                                body)
@@ -1489,8 +1487,6 @@ object. Returns nil if none can be found.")
   (:method (form syntax) nil))
 
 (defmethod form-operands ((form list-form) syntax)
-  ;; If *anything' goes wrong, just assume that we could not find any
-  ;; operands and return nil.
   (mapcar #'(lambda (operand)
               (if (typep operand 'form)
                   (token-to-object syntax operand :no-error t)))
@@ -1517,60 +1513,64 @@ object. Returns nil if none can be found.")
 ;;;
 ;;; Useful functions for selecting forms based on the mark.
 
-(defun expression-at-mark (mark syntax)
-  "Return the form at `mark'. If `mark' is just after,
+(defun expression-at-mark (mark-or-offset syntax)
+  "Return the form at `mark-or-offset'. If `mark-or-offset' is just after,
 or inside, a top-level-form, or if there are no forms after
-`mark', the form preceding `mark' is returned. Otherwise, the
-form following `mark' is returned."
-  (or (form-around syntax (offset mark))
-      (form-after syntax (offset mark))
-      (form-before syntax (offset mark))))
-
-(defun definition-at-mark (mark syntax)
-  "Return the top-level form at `mark'. If `mark' is just after,
-or inside, a top-level-form, or if there are no forms after
-`mark', the top-level-form preceding `mark' is
-returned. Otherwise, the top-level-form following `mark' is
+`mark-or-offset', the form preceding `mark-or-offset' is
+returned. Otherwise, the form following `mark-or-offset' is
 returned."
-  (form-toplevel (expression-at-mark mark syntax) syntax))
+  (as-offsets ((mark-or-offset offset))
+   (or (form-around syntax offset)
+       (form-after syntax offset)
+       (form-before syntax offset))))
 
-(defun symbol-at-mark (mark syntax)
-  "Return a symbol token at mark. This function will \"unwrap\"
-  quote-forms in order to return the symbol token. If no symbol
-  token can be found, NIL will be returned."
+(defun definition-at-mark (mark-or-offset syntax)
+  "Return the top-level form at `mark-or-offset'. If `mark-or-offset' is just after,
+or inside, a top-level-form, or if there are no forms after
+`mark-or-offset', the top-level-form preceding `mark-or-offset'
+is returned. Otherwise, the top-level-form following
+`mark-or-offset' is returned."
+  (form-toplevel (expression-at-mark mark-or-offset syntax) syntax))
+
+(defun symbol-at-mark (mark-or-offset syntax)
+  "Return a symbol token at `mark-or-offset'. This function will
+  \"unwrap\" quote-forms in order to return the symbol token. If
+  no symbol token can be found, NIL will be returned."
   (labels ((unwrap-form (form)
              (cond ((typep form 'quote-form)
                     (unwrap-form (first-form (children form))))
                    ((typep form 'complete-token-lexeme)
                     form))))
-    (unwrap-form (expression-at-mark mark syntax))))
+    (unwrap-form (expression-at-mark mark-or-offset syntax))))
 
-(defun this-form (mark syntax)
-  "Return a form at mark. This function defines which
+(defun this-form (mark-or-offset syntax)
+  "Return a form at `mark-or-offset'. This function defines which
   forms the COM-FOO-this commands affect."
-  (or (form-around syntax (offset mark))
-      (form-before syntax (offset mark))))
+  (as-offsets ((mark-or-offset offset))
+    (or (form-around syntax offset)
+        (form-before syntax offset))))
 
-(defun preceding-form (mark syntax)
-  "Return a form at mark."
-  (or (form-before syntax (offset mark))
-      (form-around syntax (offset mark))))
+(defun preceding-form (mark-or-offset syntax)
+  "Return a form at `mark-or-offset'."
+  (as-offsets ((mark-or-offset offset))
+   (or (form-before syntax offset)
+       (form-around syntax offset))))
 
 (defun text-of-definition-at-mark (mark syntax)
   "Return the text of the definition at mark."
   (let ((definition (definition-at-mark mark syntax)))
     (buffer-substring (buffer mark)
-                      (start-offset definition)                      
+                      (start-offset definition)           
                       (end-offset definition))))
                       
-(defun text-of-expression-at-mark (mark syntax)
-  "Return the text of the expression at mark."
-  (let ((expression (expression-at-mark mark syntax)))
+(defun text-of-expression-at-mark (mark-or-offset syntax)
+  "Return the text of the expression at `mark-or-offset'."
+  (let ((expression (expression-at-mark mark-or-offset syntax)))
     (token-string syntax expression)))
 
-(defun symbol-name-at-mark (mark syntax)
-  "Return the text of the symbol at mark."
-  (let ((token (symbol-at-mark mark syntax)))
+(defun symbol-name-at-mark (mark-or-offset syntax)
+  "Return the text of the symbol at `mark-or-offset'."
+  (let ((token (symbol-at-mark mark-or-offset syntax)))
     (when token (token-string syntax token))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1581,8 +1581,7 @@ returned."
   "Replace the symbol at `mark' with `string' and move `mark' to
 after `string'."
   (let ((token (symbol-at-mark mark syntax)))
-    (unless (= (offset mark) (start-offset token))
-      (backward-expression mark syntax 1 nil))
+    (setf (offset mark) (start-offset token))
     (forward-kill-expression mark syntax)
     (insert-sequence mark string)))
 
@@ -1844,15 +1843,15 @@ after `string'."
          (should-highlight (or (= (the fixnum (end-offset parse-symbol)) point-offset)
                                (= (the fixnum (start-offset parse-symbol)) point-offset))))
     (if should-highlight
-	(with-text-face (pane :bold)
-	  (display-parse-tree (car children) syntax pane))
-	(display-parse-tree (car children) syntax pane))
+        (with-text-face (pane :bold)
+          (display-parse-tree (car children) syntax pane))
+        (display-parse-tree (car children) syntax pane))
     (loop for child-list on (cdr children)
        if (and should-highlight (null (cdr child-list))) do
-         (with-text-face (pane :bold)
-           (display-parse-tree (car child-list) syntax pane))
-         else do
-         (display-parse-tree (car child-list) syntax pane))))
+       (with-text-face (pane :bold)
+         (display-parse-tree (car child-list) syntax pane))
+       else do
+       (display-parse-tree (car child-list) syntax pane))))
 
 (defmethod display-parse-tree ((parse-symbol incomplete-list-form) (syntax lisp-syntax) pane)
   (let* ((children (children parse-symbol))
@@ -3559,44 +3558,42 @@ Returns NIL if an arglist cannot be displayed."
 (defun find-operand-info (mark-or-offset syntax operator-form)
   "Returns two values: The operand preceding `mark-or-offset' and
   the path from `operator-form' to the operand."
-  (let* ((offset (if (numberp mark-or-offset)
-                     mark-or-offset
-                     (offset mark-or-offset)))
-         (preceding-arg-token (form-before syntax offset))
-         (indexing-start-arg
-          (let* ((candidate-before preceding-arg-token)
-                 (candidate-after (when (null candidate-before)
-                                    (let ((after (form-after syntax offset)))
-                                      (when after
-                                        (parent after)))))
-                 (candidate-around (when (null candidate-after)
-                                     (form-around syntax offset)))
-                 (candidate (or candidate-before
-                                candidate-after
-                                candidate-around)))
-            (if (or (and candidate-before
-                         (typep candidate-before 'incomplete-list-form))
-                    (and (null candidate-before)
-                         (typep (or candidate-after candidate-around)
-                                'list-form)))
-                ;; HACK: We should not attempt to find the location of
-                ;; the list form itself, so we create a new parser
-                ;; symbol, attach the list form as a parent and try to
-                ;; find the new symbol. That way we can get a list of
-                ;; argument-indices to the first element of the list
-                ;; form, even if it is empty or incomplete.
-                (let ((obj (make-instance 'parser-symbol)))
-                  (setf (parent obj) candidate)
-                  obj)
-                candidate)))
-         (argument-indices (find-argument-indices-for-operand
-                            syntax
-                            indexing-start-arg
-                            operator-form))
-         (preceding-arg-obj (when preceding-arg-token
-                              (token-to-object syntax preceding-arg-token
-                                               :no-error t))))
-    (values preceding-arg-obj argument-indices)))
+  (as-offsets ((mark-or-offset offset))
+    (let* ((preceding-arg-token (form-before syntax offset))
+           (indexing-start-arg
+            (let* ((candidate-before preceding-arg-token)
+                   (candidate-after (when (null candidate-before)
+                                      (let ((after (form-after syntax offset)))
+                                        (when after
+                                          (parent after)))))
+                   (candidate-around (when (null candidate-after)
+                                       (form-around syntax offset)))
+                   (candidate (or candidate-before
+                                  candidate-after
+                                  candidate-around)))
+              (if (or (and candidate-before
+                           (typep candidate-before 'incomplete-list-form))
+                      (and (null candidate-before)
+                           (typep (or candidate-after candidate-around)
+                                  'list-form)))
+                  ;; HACK: We should not attempt to find the location of
+                  ;; the list form itself, so we create a new parser
+                  ;; symbol, attach the list form as a parent and try to
+                  ;; find the new symbol. That way we can get a list of
+                  ;; argument-indices to the first element of the list
+                  ;; form, even if it is empty or incomplete.
+                  (let ((obj (make-instance 'parser-symbol)))
+                    (setf (parent obj) candidate)
+                    obj)
+                  candidate)))
+           (argument-indices (find-argument-indices-for-operand
+                              syntax
+                              indexing-start-arg
+                              operator-form))
+           (preceding-arg-obj (when preceding-arg-token
+                                (token-to-object syntax preceding-arg-token
+                                                 :no-error t))))
+      (values preceding-arg-obj argument-indices))))
 
 (defun valid-operator-p (operator)
   "Check whether or not `operator' is a valid
@@ -3654,9 +3651,9 @@ Returns NIL if an arglist cannot be displayed."
     (when (parent form)
       (recurse (parent form)))))
 
-(defmacro with-code-insight (mark syntax (&key operator preceding-operand
-                                               form preceding-operand-indices
-                                               operands)
+(defmacro with-code-insight (mark-or-offset syntax (&key operator preceding-operand
+                                                         form preceding-operand-indices
+                                                         operands)
                              &body body)
   "Evaluate `body' with the provided symbols lexically bound to
   interesting details about the code at `mark'. If `mark' is not
@@ -3669,7 +3666,7 @@ Returns NIL if an arglist cannot be displayed."
         ;; My kingdom for with-gensyms (or once-only)!
         (mark-value-sym (gensym))
         (syntax-value-sym (gensym)))
-    `(let* ((,mark-value-sym ,mark)
+    `(let* ((,mark-value-sym ,mark-or-offset)
             (,syntax-value-sym ,syntax)
             (,form-sym
              ;; Find a form with a valid (fboundp) operator.
@@ -3683,35 +3680,38 @@ Returns NIL if an arglist cannot be displayed."
                ;; cannot find a form with a valid operator, just
                ;; return the form `mark' is in.
                (unless (null immediate-form)
-                (labels ((recurse (form)
-                           (unless (null (parent form))
-                             (or (unless (eq (first-form (children (parent form)))
-                                             form)
-                                   (recurse (parent form)))
-                                 (and (valid-operator-p (form-operator
-                                                         form
-                                                         ,syntax-value-sym))
-                                      (indices-match-arglist
-                                       (arglist-for-form
-                                        (form-operator
-                                         form
-                                         ,syntax-value-sym)
-                                        (form-operands
-                                         form
-                                         ,syntax-value-sym))
-                                       (second
-                                        (multiple-value-list
-                                         (find-operand-info ,mark-value-sym ,syntax-value-sym form))))
-                                      (not (direct-arg-p form ,syntax-value-sym))
-                                      form)))))
-                  (or (recurse (parent immediate-form))
-                      (parent immediate-form))))))
+                 (labels ((recurse (form)
+                            (unless (null (parent form))
+                              (or (unless (eq (first-form (children (parent form)))
+                                              form)
+                                    (recurse (parent form)))
+                                  (and (valid-operator-p (form-operator
+                                                          form
+                                                          ,syntax-value-sym))
+                                       (indices-match-arglist
+                                        (arglist-for-form
+                                         (form-operator
+                                          form
+                                          ,syntax-value-sym)
+                                         (form-operands
+                                          form
+                                          ,syntax-value-sym))
+                                        (second
+                                         (multiple-value-list
+                                          (find-operand-info ,mark-value-sym ,syntax-value-sym form))))
+                                       (not (direct-arg-p form ,syntax-value-sym))
+                                       form)))))
+                   (or (recurse (parent immediate-form))
+                       (parent immediate-form))))))
             ;; If we cannot find a form, there's no point in looking
             ;; up any of this stuff.
             (,operator-sym (when ,form-sym (form-operator ,form-sym ,syntax-value-sym)))
             (,operands-sym (when ,form-sym (form-operands ,form-sym ,syntax-value-sym))))
+       (declare (ignorable ,mark-value-sym ,syntax-value-sym ,form-sym
+                           ,operator-sym ,operands-sym))
        (multiple-value-bind (,preceding-operand-sym ,operand-indices-sym)
            (when ,form-sym (find-operand-info ,mark-value-sym ,syntax-value-sym ,form-sym))
+         (declare (ignorable ,preceding-operand-sym ,operand-indices-sym))
          ,@body))))
 
 (defun show-arglist-for-form-at-mark (mark syntax)
@@ -3824,6 +3824,103 @@ retrieved for the operator, nothing will be displayed."
 
 (defvar *completion-pane* nil)
 
+(defun relevant-keywords (arglist arg-indices)
+  "Return a list of the keyword arguments that it would make
+  sense to use at the position `arg-indices' relative to the
+  operator that has the argument list `arglist'."
+  (let* ((key-position (position '&key arglist))
+         (cleaned-arglist (remove-if #'arglist-keyword-p
+                                     arglist))
+         (index (first arg-indices))
+         (difference (- (length arglist)
+                        (length cleaned-arglist))))
+    (cond ((and (null key-position)
+                (rest arg-indices)
+                (> (length cleaned-arglist)
+                   index)
+                (listp (elt cleaned-arglist index)))
+           ;; Look in a nested argument list.
+           (relevant-keywords (elt cleaned-arglist index)
+                              (rest arg-indices)))
+          ((and (not (null key-position))
+                (>= (+ index
+                       difference) 
+                    key-position)
+                (not (evenp (- index key-position difference))))
+           (mapcar #'unlisted (subseq cleaned-arglist
+                                      (- key-position
+                                         difference
+                                         -1)))))))
+
+(defun completions-from-keywords (syntax token)
+  "Assume that `token' is a (partial) keyword argument
+keyword. Find out which operator it is applicable to, and return
+a completion list based on the valid keywords, or NIL, if no
+keyword arguments would be valid (for example, if the operator
+doesn't take keyword arguments)."
+  (with-code-insight (start-offset token) syntax
+      (:preceding-operand-indices poi
+                                  :operator operator)
+    (when (valid-operator-p operator)
+      (let* ((relevant-keywords
+              (relevant-keywords (arglist-for-form operator)
+                                 poi))
+             (completions (simple-completions
+                           (get-usable-image syntax)
+                           (token-string syntax token)
+                           +keyword-package+))
+             (relevant-completions
+              (remove-if-not #'(lambda (compl)
+                                 (member compl relevant-keywords
+                                         :test #'(lambda (a b)
+                                                   (string-equal a b
+                                                                 :start1 1))
+                                         :key #'symbol-name))
+                             (mapcar #'string-downcase (first completions)))))
+        (list relevant-completions
+              (longest-completion relevant-completions))))))
+
+;; The following stuff is from Swank.
+
+(defun longest-completion (completions)
+  "Return the longest completion of `completions', which must be a
+list of sequences."
+  (untokenize-completion
+   (mapcar #'longest-common-prefix
+           (transpose-lists (mapcar #'tokenize-completion completions)))))
+
+(defun tokenize-completion (string)
+  "Return all substrings of STRING delimited by #\-."
+  (loop with end
+        for start = 0 then (1+ end)
+        until (> start (length string))
+        do (setq end (or (position #\- string :start start) (length string)))
+        collect (subseq string start end)))
+
+(defun untokenize-completion (tokens)
+  (format nil "~{~A~^-~}" tokens))
+
+(defun longest-common-prefix (strings)
+  "Return the longest string that is a common prefix of STRINGS."
+  (if (null strings)
+      ""
+      (flet ((common-prefix (s1 s2)
+               (let ((diff-pos (mismatch s1 s2)))
+                 (if diff-pos (subseq s1 0 diff-pos) s1))))
+        (reduce #'common-prefix strings))))
+
+(defun transpose-lists (lists)
+  "Turn a list-of-lists on its side.
+If the rows are of unequal length, truncate uniformly to the shortest.
+
+For example:
+\(transpose-lists '((ONE TWO THREE) (1 2)))
+  => ((ONE 1) (TWO 2))"
+  (cond ((null lists) '())
+        ((some #'null lists) '())
+        (t (cons (mapcar #'car lists)
+                 (transpose-lists (mapcar #'cdr lists))))))
+
 (defun clear-completions ()
   (when *completion-pane*
     (climacs-gui::delete-window *completion-pane*)
@@ -3834,7 +3931,7 @@ retrieved for the operator, nothing will be displayed."
   (let* ((result (funcall fn symbol (package-name package)))
          (set (first result))
          (longest (second result)))
-    (cond ((<= (length set) 1)
+    (cond ((<=(length set) 1)
            (clear-completions))
           (t (let ((stream (or *completion-pane*
                                (climacs-gui::typeout-window "Simple Completions"))))
@@ -3846,11 +3943,22 @@ retrieved for the operator, nothing will be displayed."
            (esa:display-message "No completions found"))
     longest))
 
-(defun show-completions (syntax symbol-name package)
-  (show-completions-by-fn #'(lambda (&rest args)
-                              (apply #'simple-completions
-                                     (get-usable-image syntax)
-                                     args)) symbol-name package))
+(defun show-completions (syntax token package)
+  (let ((symbol-name (token-string syntax token)))
+    (show-completions-by-fn
+     #'(lambda (&rest args)
+         (find-if #'identity
+                  (list
+                   ;; If we are in a position where only keyword parameters
+                   ;; make sense, only complete from the available keyword
+                   ;; parameters.
+                   (completions-from-keywords syntax token)
+                   ;; Plain, complete symbol completion.
+                   (apply #'simple-completions
+                          (get-usable-image syntax)
+                          args))
+                  :key #'first))
+     symbol-name package)))
 
 (defun show-fuzzy-completions (syntax symbol-name package)
   (esa:display-message (format nil "~a completions" symbol-name))

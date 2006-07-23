@@ -254,11 +254,11 @@ possible completions will be displayed."
          (buffer (buffer pane))
          (syntax (syntax buffer))
          (mark (point pane))
-	 (name (symbol-name-at-mark mark
-				    syntax)))
-    (when name
+	 (token (symbol-at-mark mark
+                                syntax)))
+    (when token
       (with-syntax-package syntax mark (package)
-        (let ((completion (show-completions syntax name package)))
+        (let ((completion (show-completions syntax token package)))
           (unless (= (length completion) 0)
             (replace-symbol-at-mark mark syntax completion)))))))
 
