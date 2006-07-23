@@ -75,7 +75,8 @@
 
 (defpackage :climacs-base
   (:use :clim-lisp :climacs-buffer :climacs-kill-ring)
-  (:export #:do-buffer-region
+  (:export #:as-offsets
+           #:do-buffer-region
            #:do-buffer-region-lines
 	   #:previous-line #:next-line
            #:open-line
