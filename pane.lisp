@@ -183,7 +183,9 @@ them all for changes after `body' has run)."
 
 (defclass query-replace-state ()
   ((string1 :initarg :string1 :accessor string1)
-   (string2 :initarg :string2 :accessor string2)))
+   (string2 :initarg :string2 :accessor string2)
+   (buffers :initarg :buffers :accessor buffers)
+   (mark :initarg :mark :accessor mark)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

@@ -72,7 +72,7 @@ string at point."
     (when (typep token 'string-form)
       (with-accessors ((offset1 start-offset) 
                        (offset2 end-offset)) token
-        (climacs-editing:fill-region (make-instance 'standard-right-sticky-mark
+        (climacs-core:fill-region (make-instance 'standard-right-sticky-mark
                                                     :buffer implementation
                                                     :offset offset1)
                                      (make-instance 'standard-right-sticky-mark
@@ -94,7 +94,7 @@ string at point."
     (if (plusp count)
         (loop repeat count do (forward-expression mark syntax))
         (loop repeat (- count) do (backward-expression mark syntax)))
-    (climacs-editing:indent-region pane (clone-mark point) mark)))
+    (climacs-core:indent-region pane (clone-mark point) mark)))
 
 (define-command (com-eval-last-expression :name t :command-table lisp-table)
     ((insertp 'boolean :prompt "Insert?"))
@@ -106,7 +106,7 @@ string at point."
         (with-syntax-package syntax mark (package)
           (let ((*package* package)
                 (*read-base* (base syntax)))
-            (climacs-gui::com-eval-expression
+            (climacs-commands::com-eval-expression
              (token-to-object syntax token :read t)
              insertp)))
         (esa:display-message "Nothing to evaluate."))))

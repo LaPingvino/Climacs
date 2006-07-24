@@ -26,7 +26,7 @@
 
 ;;; Search commands for the Climacs editor. 
 
-(in-package :climacs-gui)
+(in-package :climacs-commands)
 
 (defun display-string (string)
   (with-output-to-string (result)
@@ -329,7 +329,9 @@ using the case of those objects if USE-REGION-CASE is true."
 	  with length = (length string)
 	  with use-region-case = (no-upper-p string)
 	  for occurrences from 0
-	  while (query-replace-find-next-match point string)
+	  while (let ((offset-before (offset point)))
+                  (search-forward point string :test (case-relevant-test string))
+                  (/= (offset point) offset-before))
 	  do (backward-object point length)
 	     (replace-one-string point length newstring use-region-case)
 	  finally (display-message "Replaced ~A occurrence~:P" occurrences))))
@@ -340,10 +342,19 @@ using the case of those objects if USE-REGION-CASE is true."
 
 (make-command-table 'query-replace-climacs-table :errorp nil)
 
-(defun query-replace-find-next-match (mark string)
-  (let ((offset-before (offset mark)))
-    (search-forward mark string :test (case-relevant-test string))
-    (/= (offset mark) offset-before)))
+(defun query-replace-find-next-match (state)
+  (with-accessors ((string string1)
+                   (buffers buffers)
+                   (mark mark)) state
+    (let ((offset-before (offset mark)))
+      (search-forward mark string :test (case-relevant-test string))
+      (or (/= (offset mark) offset-before)
+          (unless (null (rest buffers))
+            (pop buffers)
+            (switch-to-buffer (first buffers))
+            (setf mark (point (first buffers)))
+            (beginning-of-buffer mark)
+            (query-replace-find-next-match state))))))
 
 (define-command (com-query-replace :name t :command-table search-table) ()
   (let* ((pane (current-window))
@@ -375,11 +386,13 @@ using the case of those objects if USE-REGION-CASE is true."
          (point (point pane))
 	 (occurrences 0))
     (declare (special string1 string2 occurrences))
-    (when (query-replace-find-next-match point string1)
-      (setf (query-replace-state pane) (make-instance 'query-replace-state
-                                                      :string1 string1
-                                                      :string2 string2)
-            (query-replace-mode pane) t)
+    (setf (query-replace-state pane) (make-instance 'query-replace-state
+                                                    :string1 string1
+                                                    :string2 string2
+                                                    :mark point
+                                                    :buffers (list (buffer pane))))
+    (when (query-replace-find-next-match (query-replace-state pane))
+      (setf (query-replace-mode pane) t)
       (display-message "Replace ~A with ~A:"
 		       string1 string2)
       (simple-command-loop 'query-replace-climacs-table
@@ -394,12 +407,15 @@ using the case of those objects if USE-REGION-CASE is true."
 (define-command (com-query-replace-replace :name t :command-table query-replace-climacs-table) ()
   (declare (special string1 string2 occurrences))
   (let* ((pane (current-window))
-         (point (point pane))
-         (string1-length (length string1)))
-    (backward-object point string1-length)
-    (replace-one-string point string1-length string2 (no-upper-p string1))
+         (string1-length (length string1))
+         (state (query-replace-state pane)))
+    (backward-object (mark state) string1-length)
+    (replace-one-string (mark state)
+                        string1-length
+                        string2
+                        (no-upper-p string1))
     (incf occurrences)
-    (if (query-replace-find-next-match point string1)
+    (if (query-replace-find-next-match (query-replace-state pane))
 	(display-message "Replace ~A with ~A:"
 		       string1 string2)
 	(setf (query-replace-mode pane) nil))))
@@ -410,10 +426,13 @@ using the case of those objects if USE-REGION-CASE is true."
     ()
   (declare (special string1 string2 occurrences))
   (let* ((pane (current-window))
-	 (point (point pane))
-	 (string1-length (length string1)))
-    (backward-object point string1-length)
-    (replace-one-string point string1-length string2 (no-upper-p string1))
+	 (string1-length (length string1))
+         (state (query-replace-state pane)))
+    (backward-object (mark state) string1-length)
+    (replace-one-string (mark state)
+                        string1-length
+                        string2
+                        (no-upper-p string1))
     (incf occurrences)
     (setf (query-replace-mode pane) nil)))
 
@@ -423,19 +442,21 @@ using the case of those objects if USE-REGION-CASE is true."
     ()
   (declare (special string1 string2 occurrences))
   (let* ((pane (current-window))
-	 (point (point pane))
-	 (string1-length (length string1)))
-    (loop do (backward-object point string1-length)
-	     (replace-one-string point string1-length string2 (no-upper-p string1))
-	     (incf occurrences)
-	  while (query-replace-find-next-match point string1)
-	  finally (setf (query-replace-mode pane) nil))))
+	 (string1-length (length string1))
+         (state (query-replace-state pane)))
+    (loop do (backward-object (mark state) string1-length)
+         (replace-one-string (mark state)
+                             string1-length
+                             string2
+                             (no-upper-p string1))
+         (incf occurrences)
+         while (query-replace-find-next-match (query-replace-state pane))
+         finally (setf (query-replace-mode pane) nil))))
 
 (define-command (com-query-replace-skip :name t :command-table query-replace-climacs-table) ()
   (declare (special string1 string2))
-  (let* ((pane (current-window))
-         (point (point pane)))
-    (if (query-replace-find-next-match point string1)
+  (let ((pane (current-window)))
+    (if (query-replace-find-next-match (query-replace-state pane))
 	(display-message "Replace ~A with ~A:"
 			 string1 string2)
 	(setf (query-replace-mode pane) nil))))

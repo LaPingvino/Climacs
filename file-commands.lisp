@@ -26,7 +26,7 @@
 
 ;;; File commands for the Climacs editor. 
 
-(in-package :climacs-gui)
+(in-package :climacs-commands)
 
 (defun filename-completer (so-far mode)
   (flet ((remove-trail (s)

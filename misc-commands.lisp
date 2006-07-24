@@ -26,7 +26,7 @@
 
 ;;; miscellaneous commands for the Climacs editor. 
 
-(in-package :climacs-gui)
+(in-package :climacs-commands)
 
 (define-command (com-overwrite-mode :name t :command-table editing-table) ()
   "Toggle overwrite mode for the current mode.
@@ -52,6 +52,11 @@ when deciding whether to prompt you to save the buffer before killing it."
 	 'buffer-table
 	 '((#\~ :meta :shift)))
 
+(defun set-fill-column (column)
+  (if (> column 1)
+      (setf (auto-fill-column (current-window)) column)
+      (progn (beep) (display-message "Set Fill Column requires an explicit argument."))))
+
 (define-command (com-set-fill-column :name t :command-table fill-table)
     ((column 'integer :prompt "Column Number:"))
   "Set the fill column to the specified value.
@@ -64,45 +69,6 @@ The default fill column is 70."
 (set-key `(com-set-fill-column ,*numeric-argument-marker*)
 	 'fill-table
 	 '((#\x :control) (#\f)))
-
-(defun set-fill-column (column)
-  (if (> column 1)
-      (setf (auto-fill-column (current-window)) column)
-      (progn (beep) (display-message "Set Fill Column requires an explicit argument."))))
-
-(defun possibly-fill-line ()
-  (let* ((pane (current-window))
-         (buffer (buffer pane)))
-    (when (auto-fill-mode pane)
-      (let* ((fill-column (auto-fill-column pane))
-             (point (point pane))
-             (offset (offset point))
-             (tab-width (tab-space-count (stream-default-view pane)))
-             (syntax (syntax buffer)))
-        (when (>= (buffer-display-column buffer offset tab-width)
-                  (1- fill-column))
-          (fill-line point
-                     (lambda (mark)
-                       (syntax-line-indentation mark tab-width syntax))
-                     fill-column
-                     tab-width
-                     (syntax buffer)))))))
-
-(defun insert-character (char)
-  (let* ((window (current-window))
-	 (point (point window)))
-    (unless (constituentp char)
-      (possibly-expand-abbrev point))
-    (when (whitespacep (syntax (buffer window)) char)
-      (possibly-fill-line))
-    (if (and (slot-value window 'overwrite-mode) (not (end-of-line-p point)))
-	(progn
-	  (delete-range point)
-	  (insert-object point char))
-	(insert-object point char))))
-
-(define-command com-self-insert ((count 'integer))
-  (loop repeat count do (insert-character *current-gesture*)))
 
 (define-command (com-zap-to-object :name t :command-table deletion-table) ()
   "Prompt for an object and kill to the next occurence of that object after point.
@@ -271,16 +237,6 @@ Uses TAB-SPACE-COUNT of the STREAM-DEFAULT-VIEW of the pane."
     (untabify-region
      (mark pane) (point pane) (tab-space-count (stream-default-view pane)))))
 
-(defun indent-current-line (pane point)
-  (let* ((buffer (buffer pane))
-         (view (stream-default-view pane))
-         (tab-space-count (tab-space-count view))
-         (indentation (syntax-line-indentation point
-                                               tab-space-count
-                                               (syntax buffer))))
-    (indent-line point indentation (and (indent-tabs-mode buffer)
-                                        tab-space-count))))
-
 (define-command (com-indent-line :name t :command-table indent-table) ()
   (let* ((pane (current-window))
          (point (point pane)))
@@ -410,12 +366,6 @@ beginning of the buffer at leaves point there."
 	 'marking-table
 	 '((#\x :control) (#\h)))
 
-(defun back-to-indentation (mark syntax)
-  (beginning-of-line mark)
-  (loop until (end-of-line-p mark)
-	while (whitespacep syntax (object-after mark))
-	do (forward-object mark)))
-
 (define-command (com-back-to-indentation :name t :command-table movement-table) ()
   "Move point to the first non-whitespace object on the current line.
 If there is no non-whitespace object, leaves point at the end of the line."
@@ -425,17 +375,6 @@ If there is no non-whitespace object, leaves point at the end of the line."
 (set-key 'com-back-to-indentation
 	 'movement-table
 	 '((#\m :meta)))
-
-(defun delete-horizontal-space (mark syntax &optional (backward-only-p nil))
-  (let ((mark2 (clone-mark mark)))
-    (loop until (beginning-of-line-p mark)
-	  while (whitespacep syntax (object-before mark))
-	  do (backward-object mark))
-    (unless backward-only-p
-      (loop until (end-of-line-p mark2)
-	    while (whitespacep syntax (object-after mark2))
-	    do (forward-object mark2)))
-    (delete-region mark mark2)))
 
 (define-command (com-delete-horizontal-space :name t :command-table deletion-table)
     ((backward-only-p
@@ -450,36 +389,18 @@ With a numeric argument, only delete whitespace before point."
 	 'deletion-table
 	 '((#\\ :meta)))
 
-(defun just-one-space (mark syntax count)
-  (let (offset)
-    (loop until (beginning-of-line-p mark)
-	  while (whitespacep syntax (object-before mark))
-	  do (backward-object mark))
-    (loop until (end-of-line-p mark)
-	  while (whitespacep syntax (object-after mark))
-	  repeat count do (forward-object mark)
-	finally (setf offset (offset mark)))
-    (loop until (end-of-line-p mark)
-	  while (whitespacep syntax (object-after mark))
-	  do (forward-object mark))
-    (delete-region offset mark)))
-
 (define-command (com-just-one-space :name t :command-table deletion-table)
     ((count 'integer :prompt "Number of spaces"))
   "Delete whitespace around point, leaving a single space.
 With a positive numeric argument, leave that many spaces.
 
 FIXME: should distinguish between types of whitespace."
-  (just-one-space (point (current-window))
-                  (syntax (buffer (current-window)))
-                  count))
+  (just-n-spaces (point (current-window))
+                 count))
 
 (set-key `(com-just-one-space ,*numeric-argument-marker*)
 	 'deletion-table
 	 '((#\Space :meta)))
-
-(defun goto-position (mark pos)
-  (setf (offset mark) pos))
 
 (define-command (com-goto-position :name t :command-table movement-table) 
     ((position 'integer :prompt "Goto Position"))
@@ -487,18 +408,6 @@ FIXME: should distinguish between types of whitespace."
   (goto-position
    (point (current-window))
    position))  
-
-(defun goto-line (mark line-number)
-  (loop with m = (clone-mark (low-mark (buffer mark))
-		       :right)
-	initially (beginning-of-buffer m)
-	do (end-of-line m)
-	until (end-of-buffer-p m)
-	repeat (1- line-number)
-	do (incf (offset m))
-	   (end-of-line m)
-	finally (beginning-of-line m)
-		(setf (offset mark) (offset m))))
 
 (define-command (com-goto-line :name t :command-table movement-table) 
     ((line-number 'integer :prompt "Goto Line"))
@@ -671,7 +580,9 @@ inserting each in turn at point as an expansion."
   (let* ((window (current-window))
 	 (point (point window))
          (syntax (syntax (buffer window))))
-    (with-slots (original-prefix prefix-start-offset dabbrev-expansion-mark) window
+    (with-accessors ((original-prefix original-prefix)
+                     (prefix-start-offset prefix-start-offset)
+                     (dabbrev-expansion-mark dabbrev-expansion-mark)) window
        (flet ((move () (cond ((beginning-of-buffer-p dabbrev-expansion-mark)
 			      (setf (offset dabbrev-expansion-mark)
 				    (offset point))
@@ -828,26 +739,6 @@ otherwise prints the result."
 
 ;; (defparameter *insert-pair-alist*
 ;; 	      '((#\( #\)) (#\[ #\]) (#\{ #\}) (#\< #\>) (#\" #\") (#\' #\') (#\` #\')))
-
-(defun insert-pair (mark syntax &optional (count 0) (open #\() (close #\)))
-  (cond ((> count 0)
-	 (loop while (and (not (end-of-buffer-p mark))
-			  (whitespacep syntax (object-after mark)))
-	       do (forward-object mark)))
-	((< count 0)
-	 (setf count (- count))
-	 (loop repeat count do (backward-expression mark syntax))))
-  (unless (or (beginning-of-buffer-p mark)
-	      (whitespacep syntax (object-before mark)))
-    (insert-object mark #\Space))
-  (insert-object mark open)
-  (let ((here (clone-mark mark)))
-    (loop repeat count
-	  do (forward-expression here syntax))
-    (insert-object here close)
-    (unless (or (end-of-buffer-p here)
-		(whitespacep syntax (object-after here)))
-      (insert-object here #\Space))))
 
 (defun insert-parentheses (mark syntax count)
   (insert-pair mark syntax count #\( #\)))

@@ -26,7 +26,7 @@
 
 ;;; Windows commands for the Climacs editor. 
 
-(in-package :climacs-gui)
+(in-package :climacs-commands)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

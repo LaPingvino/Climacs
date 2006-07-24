@@ -86,14 +86,16 @@
 						 "pane"))
    (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"
 						"window-commands" "gui"))
-   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax" "motion" "gui" "motion-commands" "editing-commands" "misc-commands" "window-commands" "file-commands"))
+   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax" "motion" "gui" "motion-commands" "editing-commands"
+                                                            "misc-commands" "window-commands" "file-commands" "core"))
    #.(if (find-swank)
          '(:file "lisp-syntax-swank" :depends-on ("lisp-syntax"))
          (values))
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
                                         "kill-ring" "io" "text-syntax"
 					"abbrev" "editing" "motion"))
-   (:file "climacs" :depends-on ("gui"))
+   (:file "core" :depends-on ("gui"))
+   (:file "climacs" :depends-on ("gui" "core"))
 ;;    (:file "buffer-commands" :depends-on ("gui"))
    (:file "developer-commands" :depends-on ("gui" "lisp-syntax"))
    (:file "motion-commands" :depends-on ("gui"))
@@ -111,7 +113,7 @@
   :components
   ((:file "rt" :pathname #p"testing/rt.lisp")
    (:file "buffer-test" :depends-on ("rt"))
-   (:file "base-test" :depends-on ("rt"))
+   (:file "base-test" :depends-on ("rt" "buffer-test"))
    (:module
     "cl-automaton"
     :depends-on ("rt")

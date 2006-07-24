@@ -30,12 +30,12 @@
 
 (defclass extended-pane (climacs-pane esa-pane-mixin)
   (;; for next-line and previous-line commands
-   (goal-column :initform nil)
+   (goal-column :initform nil :accessor goal-column)
    ;; for dynamic abbrev expansion
-   (original-prefix :initform nil)
-   (prefix-start-offset :initform nil)
-   (dabbrev-expansion-mark :initform nil)
-   (overwrite-mode :initform nil)))
+   (original-prefix :initform nil :accessor original-prefix)
+   (prefix-start-offset :initform nil :accessor prefix-start-offset)
+   (dabbrev-expansion-mark :initform nil :accessor dabbrev-expansion-mark)
+   (overwrite-mode :initform nil :accessor overwrite-mode)))
 
 (defgeneric buffer-pane-p (pane)
   (:documentation "Returns T when a pane contains a buffer."))
@@ -128,7 +128,6 @@
 (define-application-frame climacs (standard-application-frame
 				   esa-frame-mixin)
   ((buffers :initform '() :accessor buffers))
-  
   (:command-table (global-climacs-table
 		   :inherit-from (global-esa-table
 				  keyboard-macro-table
@@ -368,6 +367,9 @@ Signals and error if the file does not exist."
 (set-key 'com-load-file
 	 'base-table
 	 '((#\c :control) (#\l :control)))
+
+(define-command com-self-insert ((count 'integer))
+  (loop repeat count do (insert-character *current-gesture*)))
 
 (loop for code from (char-code #\Space) to (char-code #\~)
       do (set-key `(com-self-insert ,*numeric-argument-marker*)

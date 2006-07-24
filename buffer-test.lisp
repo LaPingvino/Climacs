@@ -4,7 +4,8 @@
 ;;; 
 
 (cl:defpackage :climacs-tests
-  (:use :cl :rtest :climacs-buffer :climacs-base :climacs-motion :climacs-editing :automaton))
+  (:use :cl :rtest :climacs-buffer :climacs-base :climacs-motion
+        :climacs-editing :automaton :climacs-core))
 
 (cl:in-package :climacs-tests)
 

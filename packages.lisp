@@ -88,7 +88,6 @@
 	   #:constituentp
            #:just-n-spaces
            #:buffer-whitespacep
-	   #:forward-word #:backward-word
            #:buffer-region-case
 	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
@@ -101,7 +100,6 @@
            #:upcase-buffer-region #:upcase-region
            #:capitalize-buffer-region #:capitalize-region
            #:tabify-region #:untabify-region
-           #:indent-line #:delete-indentation
            #:*kill-ring*)
   (:documentation "Basic functionality built on top of the buffer
  protocol. Here is where we define slightly higher level
@@ -186,7 +184,7 @@
            #:isearch-state #:search-string #:search-mark
            #:search-forward-p #:search-success-p
            #:isearch-mode #:isearch-states #:isearch-previous-string
-           #:query-replace-state #:string1 #:string2
+           #:query-replace-state #:string1 #:string2 #:buffers #:mark
            #:query-replace-mode
 	   #:region-visible-p
 	   #:with-undo
@@ -302,14 +300,7 @@
            ;; Sentences
            #:forward-delete-sentence #:backward-delete-sentence
            #:forward-kill-sentence #:backward-kill-sentence
-           #:transpose-sentences
-           
-
-           #:downcase-word #:upcase-word #:capitalize-word
- 
-           #:indent-region
-           #:fill-line
-           #:fill-region)
+           #:transpose-sentences)
   (:documentation "Functions and facilities for changing the
   buffer contents by syntactical elements. The functions in this package
   are syntax-aware, and their behavior is based on the semantics
@@ -318,51 +309,87 @@
   to implement the editing commands."))
 
 (defpackage :climacs-gui
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-abbrev :climacs-syntax :climacs-motion
-	:climacs-kill-ring :climacs-pane :clim-extensions
-        :undo :esa :climacs-editing :climacs-motion)
-  ;;(:import-from :lisp-string)
-  (:export #:climacs ; Frame.
+    (:use :clim-lisp :clim :climacs-buffer :climacs-base
+          :climacs-abbrev :climacs-syntax :climacs-motion
+          :climacs-kill-ring :climacs-pane :clim-extensions
+          :undo :esa :climacs-editing :climacs-motion)
+    ;;(:import-from :lisp-string)
+    (:export #:climacs                  ; Frame.
+
+             #:extended-pane
+             #:climacs-info-pane
            
-           ;; GUI functions follow.
-           #:current-window
-           #:current-point
-           #:current-buffer
-           #:current-buffer
-           #:point
-           #:syntax
-           #:mark
+             ;; GUI functions follow.
+             #:current-window
+             #:current-point
+             #:current-buffer
+             #:current-point
+             #:point
+             #:syntax
+             #:mark
+             #:insert-character
+             #:switch-to-buffer
+             #:make-buffer
+             #:erase-buffer
+             #:buffer-pane-p
+             #:display-window
+           
+             ;; Some configuration variables
+             #:*bg-color*
+             #:*fg-color*
+             #:*info-bg-color*
+             #:*info-fg-color*
+             #:*mini-bg-color*
+             #:*mini-fg-color*
+             #:*with-scrollbars*
+
+             ;; The command tables
+             #:global-climacs-table #:keyboard-macro-table #:climacs-help-table
+             #:base-table #:buffer-table #:case-table #:comment-table
+             #:deletion-table #:development-table #:editing-table
+             #:fill-table #:indent-table #:info-table #:marking-table
+             #:movement-table #:pane-table #:search-table #:self-insert-table
+             #:window-table
+
+             ;; Other stuff
+             #:dabbrev-expansion-mark
+             #:original-prefix
+             #:prefix-start-offset
+             #:overwrite-mode
+             #:goal-column
+             ))
+
+(defpackage :climacs-core
+  (:use :clim-lisp :climacs-base :climacs-buffer
+        :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring
+        :climacs-editing :climacs-gui :clim :climacs-abbrev)
+  (:export #:goto-position
+           #:goto-line
+
+           #:possibly-fill-line
            #:insert-character
-           #:base-table
-           #:buffer-table
-           #:case-table
-           #:comment-table
-           #:deletion-table
-           #:development-table
-           #:editing-table
-           #:fill-table
-           #:indent-table
-           #:info-table
-           #:marking-table
-           #:movement-table
-           #:pane-table
-           #:search-table
-           #:self-insert-table
-           #:window-table
-           
-           ;; Some configuration variables
-           #:*bg-color*
-           #:*fg-color*
-           #:*info-bg-color*
-           #:*info-fg-color*
-           #:*mini-bg-color*
-           #:*mini-fg-color*))
+           #:back-to-indentation
+           #:delete-horizontal-space
+           #:indent-current-line
+           #:insert-pair
+
+           #:downcase-word #:upcase-word #:capitalize-word
+ 
+           #:indent-region
+           #:fill-line #:fill-region
+
+           #:indent-line #:delete-indentation)
+  (:documentation "Package for editor functionality that is
+  syntax-aware, but yet not specific to certain
+  syntaxes. Contains stuff like indentation, filling and other
+  features that require a fairly high-level view of the
+  application, but are not solely GUI-specific."))
 
 (defpackage :climacs-commands
   (:use :clim-lisp :clim :climacs-base :climacs-buffer
         :climacs-syntax :climacs-motion :climacs-editing
-        :climacs-gui :esa :climacs-kill-ring)
+        :climacs-gui :esa :climacs-kill-ring :climacs-pane
+        :climacs-abbrev :undo :climacs-core)
   (:export #:define-motion-commands
            #:define-deletion-commands
            #:define-editing-commands)
