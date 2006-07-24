@@ -3840,11 +3840,13 @@ retrieved for the operator, nothing will be displayed."
   sense to use at the position `arg-indices' relative to the
   operator that has the argument list `arglist'."
   (let* ((key-position (position '&key arglist))
+         (rest-position (position '&rest arglist))
          (cleaned-arglist (remove-if #'arglist-keyword-p
                                      arglist))
          (index (first arg-indices))
-         (difference (- (length arglist)
-                        (length cleaned-arglist))))
+         (difference (+ (- (length arglist)
+                           (length cleaned-arglist))
+                        (if rest-position 1 0))))
     (cond ((and (null key-position)
                 (rest arg-indices)
                 (> (length cleaned-arglist)
@@ -3857,11 +3859,12 @@ retrieved for the operator, nothing will be displayed."
                 (>= (+ index
                        difference) 
                     key-position)
-                (not (evenp (- index key-position difference))))
+                (evenp (- index (- key-position
+                                   (1- difference)))))
            (mapcar #'unlisted (subseq cleaned-arglist
-                                      (- key-position
-                                         difference
-                                         -1)))))))
+                                      (+ (- key-position
+                                            difference)
+                                         (if rest-position 2 1))))))))
 
 (defun completions-from-keywords (syntax token)
   "Assume that `token' is a (partial) keyword argument
@@ -3871,10 +3874,11 @@ keyword arguments would be valid (for example, if the operator
 doesn't take keyword arguments)."
   (with-code-insight (start-offset token) syntax
       (:preceding-operand-indices poi
-                                  :operator operator)
+                                  :operator operator
+                                  :operands operands)
     (when (valid-operator-p operator)
       (let* ((relevant-keywords
-              (relevant-keywords (arglist-for-form operator)
+              (relevant-keywords (arglist-for-form operator operands)
                                  poi))
              (completions (simple-completions
                            (get-usable-image syntax)
