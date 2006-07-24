@@ -207,7 +207,13 @@ The typical way of entering @climacs{} is to type a @cl{}
 @emph{expression} at the prompt of a @cl{} @emph{listener} such as:
 
 @lisp
-CL-USER> (climacs-gui:climacs)
+CL-USER> (climacs:climacs)
+@end lisp
+
+@climacs{} also has an option to start in a new thread:
+
+@lisp
+CL-USER> (climacs:climacs :new-process t)
 @end lisp
 
 You exit from @climacs{} by typing @kbd{C-x C-c} (@command{Quit}).
