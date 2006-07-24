@@ -104,7 +104,8 @@ string at point."
          (token (form-before syntax (offset mark))))
     (if token
         (with-syntax-package syntax mark (package)
-          (let ((*package* package))
+          (let ((*package* package)
+                (*read-base* (base syntax)))
             (climacs-gui::com-eval-expression
              (token-to-object syntax token :read t)
              insertp)))
@@ -141,9 +142,8 @@ The expanded expression will be displayed in a
         (point (point (current-window))))
     (when (mark> mark point)
       (rotatef mark point))
-    (evaluating-interactively
-     (eval-region mark point
-                  (syntax (buffer (current-window)))))))
+    (eval-region mark point
+                 (syntax (buffer (current-window))))))
 
 (define-command (com-compile-definition :name t :command-table lisp-table)
     ()

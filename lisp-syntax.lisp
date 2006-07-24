@@ -72,8 +72,7 @@
                  designator in the form. The list is sorted with
                  the earliest (in-package) forms last (descending
                  offset).")
-   (base :accessor base
-         :initform 10
+   (base :initform nil
          :documentation "The base which numbers in the buffer are
          expected to be in.")
    (option-specified-package :accessor option-specified-package
@@ -90,6 +89,13 @@
   (:name "Lisp")
   (:pathname-types "lisp" "lsp" "cl")
   (:command-table lisp-table))
+
+(defgeneric base (syntax)
+  (:documentation "Get the base `syntax' should interpret numbers
+  in.")
+  (:method ((syntax lisp-syntax))
+    (or (slot-value syntax 'base)
+        *read-base*)))
 
 (define-option-for-syntax lisp-syntax "Package" (syntax package-name)
   (let ((specified-package (find-package package-name)))
@@ -160,7 +166,8 @@ evaluating `string' and a list of compiler notes. `Buffer' and
 the source code.")
   (:method (image form buffer buffer-mark)
     (compile-string-for-climacs image
-                                (write-to-string form)
+                                (let ((*print-base* (base (syntax buffer))))
+                                  (write-to-string form))
                                 *package* buffer buffer-mark)))
 
 (defgeneric compile-file-for-climacs (image filepath package &optional load-p)
@@ -3086,23 +3093,26 @@ results."
 
 (defun eval-region (start end syntax)
   ;; Must be (mark>= end start).
-  (with-slots (package) syntax
-    (let* ((string (buffer-substring (buffer start)
-                                     (offset start)
-                                     (offset end)))
-           (values (multiple-value-list
-                    (eval-string syntax string)))
-           ;; Enclose each set of values in {}.
-           (result (apply #'format nil "~{{~:[No values~;~:*~{~S~^,~}~]}~}"
-                          values)))
-      (esa:display-message result))))
+  (with-syntax-package syntax start (package)
+    (let ((*package* package)
+          (*read-base* (base syntax)))
+      (let* ((string (buffer-substring (buffer start)
+                                       (offset start)
+                                       (offset end)))
+             (values (multiple-value-list
+                      (eval-string syntax string)))
+             ;; Enclose each set of values in {}.
+             (result (apply #'format nil "~{{~:[No values~;~:*~{~S~^,~}~]}~}"
+                            values)))
+        (esa:display-message result)))))
 
 (defun compile-definition-interactively (mark syntax)
   (with-syntax-package syntax mark (package)
     (let* ((token (definition-at-mark mark syntax))
            (string (token-string syntax token))
            (m (clone-mark mark))
-           (buffer-name (name (buffer syntax))))
+           (buffer-name (name (buffer syntax)))
+           (*read-base* (base syntax)))
       (forward-definition m syntax)
       (backward-definition m syntax)
       (multiple-value-bind (result notes)
@@ -3122,12 +3132,13 @@ results."
              (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name buffer))))
     (climacs-gui::save-buffer buffer))
   (with-syntax-package (syntax buffer) 0 (package)
-    (multiple-value-bind (result notes)
-        (compile-file-for-climacs (get-usable-image (syntax buffer))
-                                  (filepath buffer)
-                                  package load-p)
-      (show-note-counts notes (second result))
-      (when notes (show-notes notes (name buffer) "")))))
+    (let ((*read-base* (base (syntax buffer))))
+      (multiple-value-bind (result notes)
+          (compile-file-for-climacs (get-usable-image (syntax buffer))
+                                    (filepath buffer)
+                                    package load-p)
+        (show-note-counts notes (second result))
+        (when notes (show-notes notes (name buffer) ""))))))
 
 ;;; Parameter hinting
 
