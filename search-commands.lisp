@@ -209,7 +209,9 @@ If found, leaves point before the word. If not, leaves point where it is."
 (define-command (com-isearch-append-kill :name t :command-table isearch-climacs-table) ()
   (let* ((pane (current-window))
 	 (states (isearch-states pane))
-	 (yank (kill-ring-yank *kill-ring*))
+	 (yank (handler-case (kill-ring-yank *kill-ring*)
+                 (flexichain:at-end-error ()
+                   "")))
 	 (string (concatenate 'string
 			      (search-string (first states))
 			      yank))

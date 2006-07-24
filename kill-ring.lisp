@@ -151,3 +151,7 @@ is empty a new entry is pushed."))
 (defmethod kill-ring-yank ((kr kill-ring) &optional (reset nil))
   (if reset (reset-yank-position kr))
   (element> (kill-ring-cursor kr)))
+
+(defparameter *kill-ring* nil
+  "This special variable is bound to the kill ring of the running
+  Climacs, whenever a command is executed.")

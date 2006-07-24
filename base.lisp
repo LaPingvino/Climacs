@@ -663,9 +663,3 @@ delimited by mark1 and mark2."))
     (when (> offset1 offset2)
       (rotatef offset1 offset2))
     (untabify-buffer-region (buffer mark1) offset1 offset2 tab-width)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Kill ring
-
-(defvar *kill-ring* (make-instance 'kill-ring :max-size 7))

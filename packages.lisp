@@ -70,7 +70,8 @@
 	   #:append-next-p
 	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
 	   #:kill-ring-standard-push #:kill-ring-concatenating-push
-	   #:kill-ring-reverse-concatenating-push)
+	   #:kill-ring-reverse-concatenating-push
+           #:*kill-ring*)
   (:documentation "An implementation of a kill ring."))
 
 (defpackage :climacs-base
@@ -99,8 +100,7 @@
            #:downcase-buffer-region #:downcase-region
            #:upcase-buffer-region #:upcase-region
            #:capitalize-buffer-region #:capitalize-region
-           #:tabify-region #:untabify-region
-           #:*kill-ring*)
+           #:tabify-region #:untabify-region)
   (:documentation "Basic functionality built on top of the buffer
  protocol. Here is where we define slightly higher level
  functions, that can be directly implemented in terms of the
@@ -318,6 +318,8 @@
 
              #:extended-pane
              #:climacs-info-pane
+             #:typeout-pane
+             #:kill-ring
            
              ;; GUI functions follow.
              #:current-window
@@ -333,6 +335,10 @@
              #:erase-buffer
              #:buffer-pane-p
              #:display-window
+             #:split-window
+             #:typeout-window
+             #:delete-window
+             #:other-window
            
              ;; Some configuration variables
              #:*bg-color*

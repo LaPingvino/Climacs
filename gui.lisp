@@ -37,6 +37,9 @@
    (dabbrev-expansion-mark :initform nil :accessor dabbrev-expansion-mark)
    (overwrite-mode :initform nil :accessor overwrite-mode)))
 
+(defclass typeout-pane (application-pane esa-pane-mixin)
+  ())
+
 (defgeneric buffer-pane-p (pane)
   (:documentation "Returns T when a pane contains a buffer."))
 
@@ -124,10 +127,10 @@
 (defvar *mini-bg-color* +white+)
 (defvar *mini-fg-color* +black+)
 
-
 (define-application-frame climacs (standard-application-frame
 				   esa-frame-mixin)
-  ((buffers :initform '() :accessor buffers))
+  ((buffers :initform '() :accessor buffers)
+   (kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring))
   (:command-table (global-climacs-table
 		   :inherit-from (global-esa-table
 				  keyboard-macro-table
@@ -184,7 +187,9 @@
        (vertically (:scroll-bars nil)
 	 climacs-window
 	 minibuffer)))
-  (:top-level (esa-top-level :prompt "M-x ")))
+  (:top-level ((lambda (frame)
+                 (let ((*kill-ring* (kill-ring frame)))
+                   (esa-top-level frame :prompt "M-x "))))))
 
 (defmethod frame-standard-input ((frame climacs))
   (get-frame-pane frame 'minibuffer))
@@ -380,14 +385,170 @@ Signals and error if the file does not exist."
 	 'self-insert-table
 	 '((#\Newline)))
 
-;;;;;;;;;;;;;;;;;;;
-;;; Pane commands
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Pane/buffer functions
+
+(defun replace-constellation (constellation additional-constellation vertical-p)
+  (let* ((parent (sheet-parent constellation))
+	 (children (sheet-children parent))
+	 (first (first children))
+	 (second (second children))
+	 (third (third children))
+	 (first-split-p (= (length (sheet-children parent)) 2))
+	 (parent-region (sheet-region parent))
+	 (parent-height (rectangle-height parent-region))
+	 (parent-width (rectangle-width parent-region))
+	 (filler (when first-split-p (make-pane 'basic-pane))) ;Prevents resizing.
+         (adjust #+mcclim (make-pane 'clim-extensions:box-adjuster-gadget)))
+    (assert (member constellation children))
+    
+    (when first-split-p (setf (sheet-region filler) (sheet-region parent)) 
+      (sheet-adopt-child parent filler))
+
+    (sheet-disown-child parent constellation)
+
+    (if vertical-p
+	(resize-sheet constellation parent-width (/ parent-height 2))
+	(resize-sheet constellation  (/ parent-width 2) parent-height))
+    
+    (let ((new (if vertical-p
+		   (vertically ()
+		     constellation adjust additional-constellation)
+		   (horizontally ()
+		     constellation adjust additional-constellation))))
+      (sheet-adopt-child parent new)
+
+      (when first-split-p (sheet-disown-child parent filler))
+      (reorder-sheets parent 
+		      (if (eq constellation first)
+			  (if third
+			      (list new second third)
+			      (list new second))
+			  (if third
+			      (list first second new)
+			      (list first new)))))))
+(defun find-parent (sheet)
+  (loop for parent = (sheet-parent sheet)
+	  then (sheet-parent parent)
+	until (typep parent 'vrack-pane)
+	finally (return parent)))
+
+(defun make-pane-constellation (&optional (with-scrollbars *with-scrollbars*))
+  "make a vbox containing a scroller pane as its first child and an
+info pane as its second child.  The scroller pane contains a viewport
+which contains an extended pane.  Return the vbox and the extended pane
+as two values.
+If with-scrollbars nil, omit the scroller."
+  (let* ((extended-pane
+	  (make-pane 'extended-pane
+		     :width 900 :height 400
+		     :name 'window
+		     :end-of-line-action :scroll
+		     :incremental-redisplay t
+		     :background *bg-color*
+		     :foreground *fg-color*
+		     :display-function 'display-window
+		     :command-table 'global-climacs-table))
+	 (vbox
+	  (vertically ()
+	    (if with-scrollbars
+		(scrolling ()
+		  extended-pane)
+		extended-pane)
+	    (make-pane 'climacs-info-pane
+		       :background *info-bg-color*
+		       :foreground *info-fg-color*
+		       :master-pane extended-pane
+		       :width 900))))
+    (values vbox extended-pane)))
+
+(defun split-window (&optional (vertically-p nil) (pane (current-window)))
+  (with-look-and-feel-realization
+      ((frame-manager *application-frame*) *application-frame*)
+    (multiple-value-bind (vbox new-pane) (make-pane-constellation)
+      (let* ((current-window pane)
+	     (constellation-root (find-parent current-window)))
+        (setf (offset (point (buffer current-window))) (offset (point current-window))
+	      (buffer new-pane) (buffer current-window)
+              (auto-fill-mode new-pane) (auto-fill-mode current-window)
+              (auto-fill-column new-pane) (auto-fill-column current-window))
+	(push new-pane (windows *application-frame*))
+	(setf *standard-output* new-pane)
+	(replace-constellation constellation-root vbox vertically-p)
+	(full-redisplay current-window)
+	(full-redisplay new-pane)
+	new-pane))))
+
+(defun make-typeout-constellation (&optional label)
+  (let* ((typeout-pane
+	  (make-pane 'typeout-pane :foreground *fg-color* :background *bg-color*
+		     :width 900 :height 400 :display-time nil))
+	 (label
+	  (make-pane 'label-pane :label label))
+	 (vbox
+	  (vertically ()
+	    (scrolling (:scroll-bar :vertical) typeout-pane) label)))
+    (values vbox typeout-pane)))
+
+(defun typeout-window (&optional (label "Typeout") (pane (current-window)))
+  (with-look-and-feel-realization
+      ((frame-manager *application-frame*) *application-frame*)
+    (multiple-value-bind (vbox new-pane) (make-typeout-constellation label)
+      (let* ((current-window pane)
+	     (constellation-root (find-parent current-window)))
+	(push new-pane (windows *application-frame*))
+	(other-window)
+	(replace-constellation constellation-root vbox t)
+	(full-redisplay current-window)
+	new-pane))))
+
+(defun delete-window (&optional (window (current-window)))
+  (unless (null (cdr (windows *application-frame*)))
+    (let* ((constellation (find-parent window))
+	   (box (sheet-parent constellation))
+	   (box-children (sheet-children box))
+	   (other (if (eq constellation (first box-children))
+		      (third box-children)
+		      (first box-children)))
+	   (parent (sheet-parent box))
+	   (children (sheet-children parent))
+	   (first (first children))
+	   (second (second children))
+	   (third (third children)))
+      (setf (windows *application-frame*)
+	    (remove window (windows *application-frame*)))
+      (setf *standard-output* (car (windows *application-frame*)))
+      (sheet-disown-child box other)
+      (sheet-adopt-child parent other)
+      (sheet-disown-child parent box)
+      (reorder-sheets parent (if (eq box first)
+				 (if third
+				     (list other second third)
+				     (list other second))
+				 (if third
+				     (list first second other)
+				     (list first other)))))))
 
 (defun make-buffer (&optional name)
   (let ((buffer (make-instance 'climacs-buffer)))
     (when name (setf (name buffer) name))
     (push buffer (buffers *application-frame*))
     buffer))
+
+(defun other-window (&optional pane)
+  (if (and pane (find pane (windows *application-frame*)))
+      (setf (windows *application-frame*)
+            (append (list pane)
+                    (remove pane (windows *application-frame*))))
+      (setf (windows *application-frame*)
+            (append (cdr (windows *application-frame*))
+                    (list (car (windows *application-frame*))))))
+  ;; Try to avoid setting the point in a typeout pane. FIXME: This is a kludge.
+  (if (and (subtypep 'typeout-pane (type-of (car (windows *application-frame*))))
+           (> (length (windows *application-frame*)) 1))
+      (other-window)
+      (setf *standard-output* (car (windows *application-frame*)))))
 
 (defgeneric erase-buffer (buffer))
 

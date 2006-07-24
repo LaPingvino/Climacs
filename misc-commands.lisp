@@ -476,7 +476,9 @@ point at the beginning of the last line of the buffer."
 ;; Copies an element from a kill-ring to a buffer at the given offset
 (define-command (com-yank :name t :command-table editing-table) ()
   "Insert the objects most recently added to the kill ring at point."
-  (insert-sequence (point (current-window)) (kill-ring-yank *kill-ring*)))
+  (handler-case (insert-sequence (point (current-window)) (kill-ring-yank *kill-ring*))
+    (flexichain:at-end-error ()
+      (display-message "Kill ring is empty"))))
 
 (set-key 'com-yank
 	 'editing-table
@@ -510,15 +512,17 @@ That is, push them onto the kill ring, and delete them from the buffer."
 Must be given immediately following a Yank or Rotate Yank command. 
 The replacement objects are those before the previously yanked 
 objects in the kill ring."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (last-yank (kill-ring-yank *kill-ring*)))
-    (if (eq (previous-command pane)
-	    'com-rotate-yank)
-	(progn
-	  (delete-range point (* -1 (length last-yank)))
-	  (rotate-yank-position *kill-ring*)))
-    (insert-sequence point (kill-ring-yank *kill-ring*))))
+  (handler-case (let* ((pane (current-window))
+                       (point (point pane))
+                       (last-yank (kill-ring-yank *kill-ring*)))
+                  (if (eq (previous-command pane)
+                          'com-rotate-yank)
+                      (progn
+                        (delete-range point (* -1 (length last-yank)))
+                        (rotate-yank-position *kill-ring*)))
+                  (insert-sequence point (kill-ring-yank *kill-ring*)))
+    (flexichain:at-end-error ()
+      (display-message "Kill ring is empty"))))
 
 (set-key 'com-rotate-yank
 	 'editing-table
