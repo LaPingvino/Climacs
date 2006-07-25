@@ -88,7 +88,7 @@
 
 (defun beep-limit-action (mark original-offset remaining unit syntax)
   (declare (ignore mark original-offset remaining unit syntax))
-  (beep)
+  (clim:beep)
   nil)
 
 (defun revert-limit-action (mark original-offset remaining unit syntax)

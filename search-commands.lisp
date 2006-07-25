@@ -28,37 +28,6 @@
 
 (in-package :climacs-commands)
 
-(defun display-string (string)
-  (with-output-to-string (result)
-    (loop for char across string
-	  do (cond ((graphic-char-p char) (princ char result))
-		((char= char #\Space) (princ char result))
-		(t (prin1 char result))))))
-
-(defun object-equal (x y)
-  "Case insensitive equality that doesn't require characters"
-  (if (characterp x)
-      (and (characterp y) (char-equal x y))
-      (eql x y)))
-
-(defun object= (x y)
-  "Case sensitive equality that doesn't require characters"
-  (if (characterp x)
-      (and (characterp y) (char= x y))
-      (eql x y)))
-
-(defun no-upper-p (string)
-  "Does STRING contain no uppercase characters"
-  (notany #'upper-case-p string))
-
-(defun case-relevant-test (string)
-  "Returns a test function based on the search-string STRING.
-If STRING contains no uppercase characters the test is case-insensitive,
-otherwise it is case-sensitive."
-  (if (no-upper-p string)
-      #'object-equal
-      #'object=))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; String search

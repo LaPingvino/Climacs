@@ -17,6 +17,37 @@
 ;;; 
 ;;; Misc stuff
 
+(defun display-string (string)
+  (with-output-to-string (result)
+    (loop for char across string
+	  do (cond ((graphic-char-p char) (princ char result))
+		((char= char #\Space) (princ char result))
+		(t (prin1 char result))))))
+
+(defun object-equal (x y)
+  "Case insensitive equality that doesn't require characters"
+  (if (characterp x)
+      (and (characterp y) (char-equal x y))
+      (eql x y)))
+
+(defun object= (x y)
+  "Case sensitive equality that doesn't require characters"
+  (if (characterp x)
+      (and (characterp y) (char= x y))
+      (eql x y)))
+
+(defun no-upper-p (string)
+  "Does STRING contain no uppercase characters"
+  (notany #'upper-case-p string))
+
+(defun case-relevant-test (string)
+  "Returns a test function based on the search-string STRING.
+If STRING contains no uppercase characters the test is case-insensitive,
+otherwise it is case-sensitive."
+  (if (no-upper-p string)
+      #'object-equal
+      #'object=))
+
 (defun possibly-fill-line ()
   (let* ((pane (current-window))
          (buffer (buffer pane)))
@@ -278,3 +309,391 @@ spaces only."))
     (when (and (not (beginning-of-buffer-p mark))
 	       (constituentp (object-before mark)))
       (insert-object mark #\Space))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Syntax handling
+
+(defgeneric set-syntax (buffer syntax))
+
+(defmethod set-syntax ((buffer climacs-buffer) (syntax syntax))
+  (setf (syntax buffer) syntax))
+
+;;FIXME - what should this specialise on?
+(defmethod set-syntax ((buffer climacs-buffer) syntax)
+  (set-syntax buffer (make-instance syntax :buffer buffer)))
+
+(defmethod set-syntax ((buffer climacs-buffer) (syntax string))
+  (let ((syntax-class (syntax-from-name syntax)))
+    (cond (syntax-class
+	   (set-syntax buffer (make-instance syntax-class
+				 :buffer buffer)))
+	  (t
+	   (beep)
+	   (display-message "No such syntax: ~A." syntax)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Buffer handling
+
+(defun make-buffer (&optional name)
+  (let ((buffer (make-instance 'climacs-buffer)))
+    (when name (setf (name buffer) name))
+    (push buffer (buffers *application-frame*))
+    buffer))
+
+(defgeneric erase-buffer (buffer))
+
+(defmethod erase-buffer ((buffer string))
+  (let ((b (find buffer (buffers *application-frame*)
+		 :key #'name :test #'string=)))
+    (when b (erase-buffer b))))
+
+(defmethod erase-buffer ((buffer climacs-buffer))
+  (let* ((point (point buffer))
+	 (mark (clone-mark point)))
+    (beginning-of-buffer mark)
+    (end-of-buffer point)
+    (delete-region mark point)))
+
+(define-presentation-method present (object (type buffer)
+					    stream
+					    (view textual-view)
+					    &key acceptably for-context-type)
+  (declare (ignore acceptably for-context-type))
+  (princ (name object) stream))
+
+(define-presentation-method accept
+    ((type buffer) stream (view textual-view) &key (default nil defaultp)
+     (default-type type))
+  (multiple-value-bind (object success string)
+      (complete-input stream
+		      (lambda (so-far action)
+			(complete-from-possibilities
+			 so-far (buffers *application-frame*) '() :action action
+			 :name-key #'name
+			 :value-key #'identity))
+		      :partial-completers '(#\Space)
+		      :allow-any-input t)
+    (cond (success
+	   (values object type))
+	  ((and (zerop (length string)) defaultp)
+	    (values default default-type))
+	  (t (values string 'string)))))
+
+(defgeneric switch-to-buffer (buffer))
+
+(defmethod switch-to-buffer ((buffer climacs-buffer))
+  (let* ((buffers (buffers *application-frame*))
+	 (position (position buffer buffers))
+	 (pane (current-window)))
+    (when position
+      (setf buffers (delete buffer buffers)))
+    (push buffer (buffers *application-frame*))
+    (setf (offset (point (buffer pane))) (offset (point pane)))
+    (setf (buffer pane) buffer)
+    (full-redisplay pane)
+    buffer))
+
+(defmethod switch-to-buffer ((name string))
+  (let ((buffer (find name (buffers *application-frame*)
+		      :key #'name :test #'string=)))
+    (switch-to-buffer (or buffer
+			  (make-buffer name)))))
+
+;;placeholder
+(defmethod switch-to-buffer ((symbol (eql 'nil)))  
+  (let ((default (second (buffers *application-frame*))))
+    (when default
+      (switch-to-buffer default))))
+
+;; ;;; FIXME: see the comment by (SETF SYNTAX) :AROUND.  -- CSR,
+;; ;;; 2005-10-31.
+;; (defmethod (setf buffer) :around (buffer (pane extended-pane))
+;;   (call-next-method)
+;;   (note-pane-syntax-changed pane (syntax buffer)))
+
+(defgeneric kill-buffer (buffer))
+
+(defmethod kill-buffer ((buffer climacs-buffer))
+  (with-slots (buffers) *application-frame*
+     (when (and (needs-saving buffer)
+		(handler-case (accept 'boolean :prompt "Save buffer first?")
+		  (error () (progn (beep)
+				   (display-message "Invalid answer")
+				   (return-from kill-buffer nil)))))
+       (save-buffer buffer))
+     (setf buffers (remove buffer buffers))
+     ;; Always need one buffer.
+     (when (null buffers)
+       (make-buffer "*scratch*"))
+     (setf (buffer (current-window)) (car buffers))
+     (full-redisplay (current-window))
+     (buffer (current-window))))
+
+(defmethod kill-buffer ((name string))
+  (let ((buffer (find name (buffers *application-frame*)
+		      :key #'name :test #'string=)))
+    (when buffer (kill-buffer buffer))))
+
+(defmethod kill-buffer ((symbol (eql 'nil)))
+  (kill-buffer (buffer (current-window))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; File handling
+
+(defun filepath-filename (pathname)
+  (if (null (pathname-type pathname))
+      (pathname-name pathname)
+      (concatenate 'string (pathname-name pathname)
+		   "." (pathname-type pathname))))
+
+(defun syntax-class-name-for-filepath (filepath)
+  (or (climacs-syntax::syntax-description-class-name
+       (find (or (pathname-type filepath)
+		 (pathname-name filepath))
+	     climacs-syntax::*syntaxes*
+	     :test (lambda (x y)
+		     (member x y :test #'string-equal))
+	     :key #'climacs-syntax::syntax-description-pathname-types))
+      'basic-syntax))
+
+(defun evaluate-attributes (buffer options)
+  "Evaluate the attributes `options' and modify `buffer' as
+  appropriate. `Options' should be an alist mapping option names
+  to their values."
+  ;; First, check whether we need to change the syntax (via the SYNTAX
+  ;; option). MODE is an alias for SYNTAX for compatibility with
+  ;; Emacs. If there is more than one option with one of these names,
+  ;; only the first will be acted upon.
+  (let ((specified-syntax
+         (syntax-from-name
+          (second (find-if #'(lambda (name)
+                               (or (string-equal name "SYNTAX")
+                                   (string-equal name "MODE")))
+                           options
+                           :key #'first)))))
+    (when specified-syntax
+      (setf (syntax buffer)
+            (make-instance specified-syntax
+                           :buffer buffer))))
+  ;; Now we iterate through the options (discarding SYNTAX and MODE
+  ;; options).
+  (loop for (name value) in options
+     unless (or (string-equal name "SYNTAX")
+                (string-equal name "MODE"))
+     do (eval-option (syntax buffer) name value)))
+
+(defun split-attribute (string char)
+  (let (pairs)
+    (loop with start = 0
+	  for ch across string
+	  for i from 0
+	  when (eql ch char)
+	    do (push (string-trim '(#\Space #\Tab) (subseq string start i))
+		     pairs)
+	       (setf start (1+ i))
+	  finally (unless (>= start i)
+		    (push (string-trim '(#\Space #\Tab) (subseq string start))
+			  pairs)))
+    (nreverse pairs)))
+
+(defun split-attribute-line (line)
+  (mapcar (lambda (pair) (split-attribute pair #\:))
+	  (split-attribute line #\;)))
+
+(defun get-attribute-line (buffer)
+  (let ((scan (beginning-of-buffer (clone-mark (point buffer)))))
+    ;; skip the leading whitespace
+    (loop until (end-of-buffer-p scan)
+	  until (not (whitespacep (syntax buffer) (object-after scan)))
+	  do (forward-object scan))
+    ;; stop looking if we're already 1,000 objects into the buffer
+    (unless (> (offset scan) 1000)
+      (let ((start-found
+	     (loop with newlines = 0
+		   when (end-of-buffer-p scan)
+		     do (return nil)
+		   when (eql (object-after scan) #\Newline)
+		     do (incf newlines)
+		   when (> newlines 1)
+		     do (return nil)
+		   do (forward-object scan)
+		   until (looking-at scan "-*-")
+		   finally (return t))))
+	(when start-found
+	  (let ((line (buffer-substring buffer
+					(offset scan)
+					(offset (end-of-line (clone-mark scan))))))
+	    (when (>= (length line) 6)
+	      (let ((end (search "-*-" line :from-end t :start2 3)))
+		(when end
+		  (string-trim '(#\Space #\Tab) (subseq line 3 end)))))))))))
+
+(defun evaluate-attributes-line (buffer)
+  (evaluate-attributes
+   buffer
+   (split-attribute-line (get-attribute-line buffer))))
+
+;; Adapted from cl-fad/PCL
+(defun directory-pathname-p (pathspec)
+  "Returns NIL if PATHSPEC does not designate a directory."
+  (let ((name (pathname-name pathspec))
+	(type (pathname-type pathspec)))
+    (and (or (null name) (eql name :unspecific))
+	 (or (null type) (eql type :unspecific)))))
+
+(defun find-file (filepath &optional readonlyp)
+  (cond ((null filepath)
+	 (display-message "No file name given.")
+	 (beep))
+	((directory-pathname-p filepath)
+	 (display-message "~A is a directory name." filepath)
+	 (beep))
+        (t
+         (flet ((usable-pathname (pathname)
+                   (if (probe-file pathname)
+                       (truename pathname)
+                       pathname)))
+           (let ((existing-buffer (find filepath (buffers *application-frame*)
+                                        :key #'filepath
+                                        :test #'(lambda (fp1 fp2)
+                                                  (and fp1 fp2
+                                                       (equal (usable-pathname fp1)
+                                                              (usable-pathname fp2)))))))
+             (if (and existing-buffer (if readonlyp (read-only-p existing-buffer) t))
+                 (switch-to-buffer existing-buffer)
+                 (progn
+                   (when readonlyp
+                     (unless (probe-file filepath)
+                       (beep)
+                       (display-message "No such file: ~A" filepath)
+                       (return-from find-file nil)))
+                   (let ((buffer (make-buffer))
+                         (pane (current-window)))
+                     ;; Clear the pane's cache; otherwise residue from the
+                     ;; previously displayed buffer may under certain
+                     ;; circumstances be displayed.
+                     (clear-cache pane)
+                     (setf (syntax buffer) nil)
+                     (setf (offset (point (buffer pane))) (offset (point pane)))
+                     (setf (buffer (current-window)) buffer)
+                     ;; Don't want to create the file if it doesn't exist.
+                     (when (probe-file filepath)
+                       (with-open-file (stream filepath :direction :input)
+                         (input-from-stream stream buffer 0))
+                       (setf (file-write-time buffer) (file-write-date filepath))
+                       ;; A file! That means we may have a local options
+                       ;; line to parse.
+                       (evaluate-attributes-line buffer))
+                     ;; If the local options line didn't set a syntax, do
+                     ;; it now.
+                     (when (null (syntax buffer))
+                       (setf (syntax buffer)
+                             (make-instance (syntax-class-name-for-filepath filepath)
+                                            :buffer buffer)))
+                     (setf (filepath buffer) filepath
+                           (name buffer) (filepath-filename filepath)
+                           (needs-saving buffer) nil
+                           (read-only-p buffer) readonlyp)
+                     (beginning-of-buffer (point pane))
+                     (update-syntax buffer (syntax buffer))
+                     (clear-modify buffer)
+                     buffer))))))))
+
+(defun directory-of-buffer (buffer)
+  "Extract the directory part of the filepath to the file in BUFFER.
+   If BUFFER does not have a filepath, the path to the user's home 
+   directory will be returned."
+  (make-pathname
+   :directory
+   (pathname-directory
+    (or (filepath buffer)
+	(user-homedir-pathname)))))
+
+(defun set-visited-file-name (filename buffer)
+  (setf (filepath buffer) filename
+	(file-saved-p buffer) nil
+	(file-write-time buffer) nil
+	(name buffer) (filepath-filename filename)
+	(needs-saving buffer) t))
+
+(defun extract-version-number (pathname)
+  "Extracts the emacs-style version-number from a pathname."
+  (let* ((type (pathname-type pathname))
+	 (length (length type)))
+    (when (and (> length 2) (char= (char type (1- length)) #\~))
+      (let ((tilde (position #\~ type :from-end t :end (- length 2))))
+	(when tilde
+	  (parse-integer type :start (1+ tilde) :junk-allowed t))))))
+
+(defun version-number (pathname)
+  "Return the number of the highest versioned backup of PATHNAME
+or 0 if there is no versioned backup. Looks for name.type~X~,
+returns highest X."
+  (let* ((wildpath (merge-pathnames (make-pathname :type :wild) pathname))
+	 (possibilities (directory wildpath)))
+    (loop for possibility in possibilities
+	  for version = (extract-version-number possibility) 
+	  if (numberp version)
+	    maximize version into max
+	  finally (return max))))
+
+(defun check-file-times (buffer filepath question answer)
+  "Return NIL if filepath newer than buffer and user doesn't want
+to overwrite."
+  (let ((f-w-d (file-write-date filepath))
+	(f-w-t (file-write-time buffer)))
+    (if (and f-w-d f-w-t (> f-w-d f-w-t))
+	(if (accept 'boolean
+		    :prompt (format nil "File has changed on disk. ~a anyway?"
+				    question))
+	    t
+	    (progn (display-message "~a not ~a" filepath answer)
+		   nil))
+	t)))
+
+(defun save-buffer (buffer)
+  (let ((filepath (or (filepath buffer)
+		      (accept 'pathname :prompt "Save Buffer to File"))))
+    (cond
+      ((directory-pathname-p filepath)
+       (display-message "~A is a directory." filepath)
+       (beep))
+      (t
+       (unless (check-file-times buffer filepath "Overwrite" "written")
+	 (return-from save-buffer))
+       (when  (and (probe-file filepath) (not (file-saved-p buffer)))
+	 (let ((backup-name (pathname-name filepath))
+	       (backup-type (format nil "~A~~~D~~"
+				    (pathname-type filepath)
+				    (1+ (version-number filepath)))))
+	   (rename-file filepath (make-pathname :name backup-name
+						:type backup-type)))
+	 (setf (file-saved-p buffer) t))
+       (with-open-file (stream filepath :direction :output :if-exists :supersede)
+	 (output-to-stream stream buffer 0 (size buffer)))
+       (setf (filepath buffer) filepath
+	     (file-write-time buffer) (file-write-date filepath)
+	     (name buffer) (filepath-filename filepath))
+       (display-message "Wrote: ~a" filepath)
+       (setf (needs-saving buffer) nil)))))
+
+(defmethod frame-exit :around ((frame climacs) #-mcclim &key)
+  (loop for buffer in (buffers frame)
+	when (and (needs-saving buffer)
+		  (filepath buffer)
+		  (handler-case (accept 'boolean
+					:prompt (format nil "Save buffer: ~a ?" (name buffer)))
+		    (error () (progn (beep)
+				     (display-message "Invalid answer")
+				     (return-from frame-exit nil)))))
+	  do (save-buffer buffer))
+  (when (or (notany #'(lambda (buffer) (and (needs-saving buffer) (filepath buffer)))
+		    (buffers frame))
+	    (handler-case (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?")
+	      (error () (progn (beep)
+			       (display-message "Invalid answer")
+			       (return-from frame-exit nil)))))
+    (call-next-method)))

@@ -52,7 +52,7 @@
 
 (make-command-table 'lisp-table
                     :errorp nil
-                    :inherit-from '(climacs-gui::global-climacs-table))
+                    :inherit-from '(global-climacs-table))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -97,6 +97,9 @@
     (or (slot-value syntax 'base)
         *read-base*)))
 
+(defmethod (setf base) (base (syntax lisp-syntax))
+  (setf (slot-value syntax 'base) base))
+
 (define-option-for-syntax lisp-syntax "Package" (syntax package-name)
   (let ((specified-package (find-package package-name)))
     (setf (option-specified-package syntax) (or specified-package package-name))))
@@ -104,7 +107,9 @@
 (define-option-for-syntax lisp-syntax "Base" (syntax base)
   (let ((integer-base (parse-integer base :junk-allowed t)))
     (when integer-base
-      (setf (base syntax) integer-base))))
+      (if (typep integer-base '(integer 2 36))
+          (setf (base syntax) integer-base)
+          (esa:display-message "Invalid base specified: outside the interval 2 to 36.")))))
 
 (defmethod initialize-instance :after ((syntax lisp-syntax) &rest args)
   (declare (ignore args))
@@ -3010,7 +3015,7 @@ Each newline and following whitespace is replaced by a single space."
 (def-print-for-menu note-compiler-note "Note" +brown+)
 
 (defun show-notes (notes buffer-name definition)
- (let ((stream (climacs-gui::typeout-window
+ (let ((stream (typeout-window
                 (format nil "~10TCompiler Notes: ~A  ~A" buffer-name definition))))
    (loop for note in notes
          do (with-output-as-presentation (stream note 'compiler-note)
@@ -3028,32 +3033,26 @@ Each newline and following whitespace is replaced by a single space."
 
 (defmethod goto-location ((location buffer-location))
  (let ((buffer (find (buffer-name location)
-                     (climacs-gui::buffers *application-frame*)
+                     (buffers *application-frame*)
                      :test #'string= :key #'name)))
    (unless buffer
      (esa:display-message "No buffer ~A" (buffer-name location))
      (beep)
      (return-from goto-location))
-   (climacs-gui::switch-to-buffer buffer)
+   (switch-to-buffer buffer)
    (goto-position (source-position location))))
 
 (defmethod goto-location ((location file-location))
  (let ((buffer (find (file-name location)
-                     (climacs-gui::buffers *application-frame*)
+                     (buffers *application-frame*)
                      :test #'string= :key #'(lambda (buffer)
                                               (let ((path (filepath buffer)))
                                                 (when path
                                                   (namestring path)))))))
    (if buffer
-       (climacs-gui::switch-to-buffer buffer)
-       (climacs-gui::find-file (file-name location)))
+       (switch-to-buffer buffer)
+       (climacs-commands::find-file (file-name location)))
    (goto-position (source-position location))))
-
-(defgeneric goto-position (position))
-
-(defmethod goto-position ((position char-position))
- (climacs-gui::goto-position (climacs-gui::point (climacs-gui::current-window))
-                             (char-position position)))
 
 ;;; Macroexpansion and evaluation
 
@@ -3067,12 +3066,12 @@ Each newline and following whitespace is replaced by a single space."
                                                  all))
              (expansion-string (with-output-to-string (s)
                                  (pprint expansion s))))
-        (let ((buffer (climacs-gui::switch-to-buffer "*Macroexpansion*")))
-          (climacs-gui::set-syntax buffer "Lisp"))
-        (let ((point (point (climacs-gui::current-window)))
+        (let ((buffer (switch-to-buffer "*Macroexpansion*")))
+          (set-syntax buffer "Lisp"))
+        (let ((point (point (current-window)))
               (header-string (one-line-ify (subseq string 0
                                                    (min 40 (length string))))))
-          (climacs-gui::end-of-buffer point)
+          (end-of-buffer point)
           (unless (beginning-of-buffer-p point)
             (insert-object point #\Newline))
           (insert-sequence point
@@ -3130,7 +3129,7 @@ results."
 (defun compile-file-interactively (buffer &optional load-p)
   (when (and (needs-saving buffer)
              (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name buffer))))
-    (climacs-gui::save-buffer buffer))
+    (save-buffer buffer))
   (with-syntax-package (syntax buffer) 0 (package)
     (let ((*read-base* (base (syntax buffer))))
       (multiple-value-bind (result notes)
@@ -3745,9 +3744,9 @@ retrieved for the operator, nothing will be displayed."
    (let* ((offset+buffer (pop *find-definition-stack*))
           (offset (first offset+buffer))
           (buffer (second offset+buffer)))
-     (if (find buffer (climacs-gui::buffers *application-frame*))
-         (progn (climacs-gui::switch-to-buffer buffer)
-                (climacs-gui::goto-position (point (climacs-gui::current-window)) offset))
+     (if (find buffer (buffers *application-frame*))
+         (progn (switch-to-buffer buffer)
+                (goto-position (point (current-window)) offset))
          (pop-find-definition-stack)))))
 
 ;; KLUDGE: We need to put more info in the definition objects to begin
@@ -3780,7 +3779,7 @@ retrieved for the operator, nothing will be displayed."
              (goto-definition symbol definitions))))))
 
 (defun goto-definition (name definitions)
- (let* ((pane (climacs-gui:current-window))
+ (let* ((pane (current-window))
         (buffer (buffer pane))
         (point (point pane))
         (offset (offset point)))
@@ -3820,7 +3819,7 @@ retrieved for the operator, nothing will be displayed."
                  (with-drawing-options (stream :ink +dark-blue+
                                                :text-style (make-text-style :fixed nil nil))
                    (princ (dspec item) stream))))
-         (let ((stream (climacs-gui::typeout-window
+         (let ((stream (typeout-window
                         (format nil "~10T~A ~A" type symbol))))
              (loop for xref in xrefs
                    do (with-output-as-presentation (stream xref 'xref)
@@ -3938,7 +3937,7 @@ For example:
 
 (defun clear-completions ()
   (when *completion-pane*
-    (climacs-gui::delete-window *completion-pane*)
+    (delete-window *completion-pane*)
     (setf *completion-pane* nil)))
 
 (defun show-completions-by-fn (fn symbol package)
@@ -3949,7 +3948,7 @@ For example:
     (cond ((<=(length set) 1)
            (clear-completions))
           (t (let ((stream (or *completion-pane*
-                               (climacs-gui::typeout-window "Simple Completions"))))
+                               (typeout-window "Simple Completions"))))
                (setf *completion-pane* stream)
                (window-clear stream)
                (format stream "~{~A~%~}" set))))
@@ -3982,7 +3981,7 @@ For example:
     (cond ((<= (length set) 1)
            (clear-completions))
           (t (let ((stream (or *completion-pane*
-                               (climacs-gui::typeout-window "Simple Completions"))))
+                               (typeout-window "Simple Completions"))))
                (setf *completion-pane* stream)
                (window-clear stream)
                (loop for completed-string in set

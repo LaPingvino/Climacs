@@ -445,24 +445,6 @@ point at the beginning of the last line of the buffer."
 	 'marking-table
 	 '((#\x :control) (#\x :control)))
 
-(defgeneric set-syntax (buffer syntax))
-
-(defmethod set-syntax ((buffer climacs-buffer) (syntax syntax))
-  (setf (syntax buffer) syntax))
-
-;;FIXME - what should this specialise on?
-(defmethod set-syntax ((buffer climacs-buffer) syntax)
-  (set-syntax buffer (make-instance syntax :buffer buffer)))
-
-(defmethod set-syntax ((buffer climacs-buffer) (syntax string))
-  (let ((syntax-class (syntax-from-name syntax)))
-    (cond (syntax-class
-	   (set-syntax buffer (make-instance syntax-class
-				 :buffer buffer)))
-	  (t
-	   (beep)
-	   (display-message "No such syntax: ~A." syntax)))))
-
 (define-command (com-set-syntax :name t :command-table buffer-table) 
     ((syntax 'syntax
       :prompt "Name of syntax"))

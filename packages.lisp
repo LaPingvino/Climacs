@@ -329,16 +329,14 @@
              #:point
              #:syntax
              #:mark
+             #:buffers
              #:insert-character
-             #:switch-to-buffer
-             #:make-buffer
-             #:erase-buffer
-             #:buffer-pane-p
              #:display-window
              #:split-window
              #:typeout-window
              #:delete-window
              #:other-window
+             #:buffer-pane-p
            
              ;; Some configuration variables
              #:*bg-color*
@@ -368,8 +366,14 @@
 (defpackage :climacs-core
   (:use :clim-lisp :climacs-base :climacs-buffer
         :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring
-        :climacs-editing :climacs-gui :clim :climacs-abbrev)
-  (:export #:goto-position
+        :climacs-editing :climacs-gui :clim :climacs-abbrev :esa)
+  (:export #:display-string
+           #:object-equal
+           #:object=
+           #:no-upper-p
+           #:case-relevant-test
+           
+           #:goto-position
            #:goto-line
 
            #:possibly-fill-line
@@ -384,7 +388,23 @@
            #:indent-region
            #:fill-line #:fill-region
 
-           #:indent-line #:delete-indentation)
+           #:indent-line #:delete-indentation
+
+           #:set-syntax
+
+           #:switch-to-buffer
+           #:make-buffer
+           #:erase-buffer
+           #:kill-buffer
+
+           #:filepath-filename
+           #:evaluate-attributes-line
+           #:directory-pathname-p
+           #:find-file
+           #:directory-of-buffer
+           #:set-visited-file-name
+           #:check-file-times
+           #:save-buffer)
   (:documentation "Package for editor functionality that is
   syntax-aware, but yet not specific to certain
   syntaxes. Contains stuff like indentation, filling and other
@@ -424,7 +444,8 @@
 
 (defpackage :climacs-lisp-syntax
   (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane :climacs-gui :climacs-motion :climacs-editing)
+	:climacs-syntax :flexichain :climacs-pane :climacs-gui
+        :climacs-motion :climacs-editing :climacs-core)
   (:export #:lisp-string
            #:edit-definition))
 

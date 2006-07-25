@@ -24,7 +24,7 @@
 ;;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;;; Boston, MA  02111-1307  USA.
 
-;;; File commands for the Climacs editor. 
+;;; File (and buffer) commands for the Climacs editor. 
 
 (in-package :climacs-commands)
 
@@ -113,99 +113,6 @@
 	   (values default default-type))
 	  (t (values string 'string)))))
     
-(defun filepath-filename (pathname)
-  (if (null (pathname-type pathname))
-      (pathname-name pathname)
-      (concatenate 'string (pathname-name pathname)
-		   "." (pathname-type pathname))))
-
-(defun syntax-class-name-for-filepath (filepath)
-  (or (climacs-syntax::syntax-description-class-name
-       (find (or (pathname-type filepath)
-		 (pathname-name filepath))
-	     climacs-syntax::*syntaxes*
-	     :test (lambda (x y)
-		     (member x y :test #'string-equal))
-	     :key #'climacs-syntax::syntax-description-pathname-types))
-      'basic-syntax))
-
-(defun evaluate-attributes (buffer options)
-  "Evaluate the attributes `options' and modify `buffer' as
-  appropriate. `Options' should be an alist mapping option names
-  to their values."
-  ;; First, check whether we need to change the syntax (via the SYNTAX
-  ;; option). MODE is an alias for SYNTAX for compatibility with
-  ;; Emacs. If there is more than one option with one of these names,
-  ;; only the first will be acted upon.
-  (let ((specified-syntax
-         (syntax-from-name
-          (second (find-if #'(lambda (name)
-                               (or (string-equal name "SYNTAX")
-                                   (string-equal name "MODE")))
-                           options
-                           :key #'first)))))
-    (when specified-syntax
-      (setf (syntax buffer)
-            (make-instance specified-syntax
-                           :buffer buffer))))
-  ;; Now we iterate through the options (discarding SYNTAX and MODE
-  ;; options).
-  (loop for (name value) in options
-     unless (or (string-equal name "SYNTAX")
-                (string-equal name "MODE"))
-     do (eval-option (syntax buffer) name value)))
-
-(defun split-attribute (string char)
-  (let (pairs)
-    (loop with start = 0
-	  for ch across string
-	  for i from 0
-	  when (eql ch char)
-	    do (push (string-trim '(#\Space #\Tab) (subseq string start i))
-		     pairs)
-	       (setf start (1+ i))
-	  finally (unless (>= start i)
-		    (push (string-trim '(#\Space #\Tab) (subseq string start))
-			  pairs)))
-    (nreverse pairs)))
-
-(defun split-attribute-line (line)
-  (mapcar (lambda (pair) (split-attribute pair #\:))
-	  (split-attribute line #\;)))
-
-(defun get-attribute-line (buffer)
-  (let ((scan (beginning-of-buffer (clone-mark (point buffer)))))
-    ;; skip the leading whitespace
-    (loop until (end-of-buffer-p scan)
-	  until (not (whitespacep (syntax buffer) (object-after scan)))
-	  do (forward-object scan))
-    ;; stop looking if we're already 1,000 objects into the buffer
-    (unless (> (offset scan) 1000)
-      (let ((start-found
-	     (loop with newlines = 0
-		   when (end-of-buffer-p scan)
-		     do (return nil)
-		   when (eql (object-after scan) #\Newline)
-		     do (incf newlines)
-		   when (> newlines 1)
-		     do (return nil)
-		   do (forward-object scan)
-		   until (looking-at scan "-*-")
-		   finally (return t))))
-	(when start-found
-	  (let ((line (buffer-substring buffer
-					(offset scan)
-					(offset (end-of-line (clone-mark scan))))))
-	    (when (>= (length line) 6)
-	      (let ((end (search "-*-" line :from-end t :start2 3)))
-		(when end
-		  (string-trim '(#\Space #\Tab) (subseq line 3 end)))))))))))
-
-(defun evaluate-attributes-line (buffer)
-  (evaluate-attributes
-   buffer
-   (split-attribute-line (get-attribute-line buffer))))
-
 (define-command (com-reparse-attribute-list :name t :command-table buffer-table) ()
   "Reparse the current buffer's attribute list.
 An attribute list is a line of keyword-value pairs, each keyword separated
@@ -219,82 +126,6 @@ An example attribute-list is:
 
 ;; -*- Syntax: Lisp; Base: 10 -*- "
   (evaluate-attributes-line (buffer (current-window))))
-
-;; Adapted from cl-fad/PCL
-(defun directory-pathname-p (pathspec)
-  "Returns NIL if PATHSPEC does not designate a directory."
-  (let ((name (pathname-name pathspec))
-	(type (pathname-type pathspec)))
-    (and (or (null name) (eql name :unspecific))
-	 (or (null type) (eql type :unspecific)))))
-
-(defun find-file (filepath &optional readonlyp)
-  (cond ((null filepath)
-	 (display-message "No file name given.")
-	 (beep))
-	((directory-pathname-p filepath)
-	 (display-message "~A is a directory name." filepath)
-	 (beep))
-        (t
-         (flet ((usable-pathname (pathname)
-                   (if (probe-file pathname)
-                       (truename pathname)
-                       pathname)))
-           (let ((existing-buffer (find filepath (buffers *application-frame*)
-                                        :key #'filepath
-                                        :test #'(lambda (fp1 fp2)
-                                                  (and fp1 fp2
-                                                       (equal (usable-pathname fp1)
-                                                              (usable-pathname fp2)))))))
-             (if (and existing-buffer (if readonlyp (read-only-p existing-buffer) t))
-                 (switch-to-buffer existing-buffer)
-                 (progn
-                   (when readonlyp
-                     (unless (probe-file filepath)
-                       (beep)
-                       (display-message "No such file: ~A" filepath)
-                       (return-from find-file nil)))
-                   (let ((buffer (make-buffer))
-                         (pane (current-window)))
-                     ;; Clear the pane's cache; otherwise residue from the
-                     ;; previously displayed buffer may under certain
-                     ;; circumstances be displayed.
-                     (clear-cache pane)
-                     (setf (syntax buffer) nil)
-                     (setf (offset (point (buffer pane))) (offset (point pane)))
-                     (setf (buffer (current-window)) buffer)
-                     ;; Don't want to create the file if it doesn't exist.
-                     (when (probe-file filepath)
-                       (with-open-file (stream filepath :direction :input)
-                         (input-from-stream stream buffer 0))
-                       (setf (file-write-time buffer) (file-write-date filepath))
-                       ;; A file! That means we may have a local options
-                       ;; line to parse.
-                       (evaluate-attributes-line buffer))
-                     ;; If the local options line didn't set a syntax, do
-                     ;; it now.
-                     (when (null (syntax buffer))
-                       (setf (syntax buffer)
-                             (make-instance (syntax-class-name-for-filepath filepath)
-                                            :buffer buffer)))
-                     (setf (filepath buffer) filepath
-                           (name buffer) (filepath-filename filepath)
-                           (needs-saving buffer) nil
-                           (read-only-p buffer) readonlyp)
-                     (beginning-of-buffer (point pane))
-                     (update-syntax buffer (syntax buffer))
-                     (clear-modify buffer)
-                     buffer))))))))
-
-(defun directory-of-buffer (buffer)
-  "Extract the directory part of the filepath to the file in BUFFER.
-   If BUFFER does not have a filepath, the path to the user's home 
-   directory will be returned."
-  (make-pathname
-   :directory
-   (pathname-directory
-    (or (filepath buffer)
-	(user-homedir-pathname)))))
 
 (define-command (com-find-file :name t :command-table buffer-table)
     ((filepath 'pathname
@@ -332,13 +163,6 @@ When a buffer is readonly, attempts to change the contents of the buffer signal 
 (set-key 'com-read-only
 	 'buffer-table
 	 '((#\x :control) (#\q :control)))
-
-(defun set-visited-file-name (filename buffer)
-  (setf (filepath buffer) filename
-	(file-saved-p buffer) nil
-	(file-write-time buffer) nil
-	(name buffer) (filepath-filename filename)
-	(needs-saving buffer) t))
 
 (define-command (com-set-visited-file-name :name t :command-table buffer-table)
     ((filename 'pathname :prompt "New file name"
@@ -395,66 +219,6 @@ Signals an error if the file does not exist."
 	   (display-message "No file ~A" filepath)
 	   (beep))))))
 
-(defun extract-version-number (pathname)
-  "Extracts the emacs-style version-number from a pathname."
-  (let* ((type (pathname-type pathname))
-	 (length (length type)))
-    (when (and (> length 2) (char= (char type (1- length)) #\~))
-      (let ((tilde (position #\~ type :from-end t :end (- length 2))))
-	(when tilde
-	  (parse-integer type :start (1+ tilde) :junk-allowed t))))))
-
-(defun version-number (pathname)
-  "Return the number of the highest versioned backup of PATHNAME
-or 0 if there is no versioned backup. Looks for name.type~X~,
-returns highest X."
-  (let* ((wildpath (merge-pathnames (make-pathname :type :wild) pathname))
-	 (possibilities (directory wildpath)))
-    (loop for possibility in possibilities
-	  for version = (extract-version-number possibility) 
-	  if (numberp version)
-	    maximize version into max
-	  finally (return max))))
-
-(defun check-file-times (buffer filepath question answer)
-  "Return NIL if filepath newer than buffer and user doesn't want to overwrite"
-  (let ((f-w-d (file-write-date filepath))
-	(f-w-t (file-write-time buffer)))
-    (if (and f-w-d f-w-t (> f-w-d f-w-t))
-	(if (accept 'boolean
-		    :prompt (format nil "File has changed on disk. ~a anyway?"
-				    question))
-	    t
-	    (progn (display-message "~a not ~a" filepath answer)
-		   nil))
-	t)))
-
-(defun save-buffer (buffer)
-  (let ((filepath (or (filepath buffer)
-		      (accept 'pathname :prompt "Save Buffer to File"))))
-    (cond
-      ((directory-pathname-p filepath)
-       (display-message "~A is a directory." filepath)
-       (beep))
-      (t
-       (unless (check-file-times buffer filepath "Overwrite" "written")
-	 (return-from save-buffer))
-       (when  (and (probe-file filepath) (not (file-saved-p buffer)))
-	 (let ((backup-name (pathname-name filepath))
-	       (backup-type (format nil "~A~~~D~~"
-				    (pathname-type filepath)
-				    (1+ (version-number filepath)))))
-	   (rename-file filepath (make-pathname :name backup-name
-						:type backup-type)))
-	 (setf (file-saved-p buffer) t))
-       (with-open-file (stream filepath :direction :output :if-exists :supersede)
-	 (output-to-stream stream buffer 0 (size buffer)))
-       (setf (filepath buffer) filepath
-	     (file-write-time buffer) (file-write-date filepath)
-	     (name buffer) (filepath-filename filepath))
-       (display-message "Wrote: ~a" filepath)
-       (setf (needs-saving buffer) nil)))))
-
 (define-command (com-save-buffer :name t :command-table buffer-table) ()
   "Write the contents of the buffer to a file.
 If there is filename associated with the buffer, write to that file, replacing its contents. If not, prompt for a filename."
@@ -467,24 +231,6 @@ If there is filename associated with the buffer, write to that file, replacing i
 (set-key 'com-save-buffer
 	 'buffer-table
 	 '((#\x :control) (#\s :control)))
-
-(defmethod frame-exit :around ((frame climacs) #-mcclim &key)
-  (loop for buffer in (buffers frame)
-	when (and (needs-saving buffer)
-		  (filepath buffer)
-		  (handler-case (accept 'boolean
-					:prompt (format nil "Save buffer: ~a ?" (name buffer)))
-		    (error () (progn (beep)
-				     (display-message "Invalid answer")
-				     (return-from frame-exit nil)))))
-	  do (save-buffer buffer))
-  (when (or (notany #'(lambda (buffer) (and (needs-saving buffer) (filepath buffer)))
-		    (buffers frame))
-	    (handler-case (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?")
-	      (error () (progn (beep)
-			       (display-message "Invalid answer")
-			       (return-from frame-exit nil)))))
-    (call-next-method)))
 
 (define-command (com-write-buffer :name t :command-table buffer-table)
     ((filepath 'pathname :prompt "Write Buffer to File"
@@ -509,3 +255,76 @@ Changes the file visted by the buffer to the given file."
 	 'buffer-table
 	 '((#\x :control) (#\w :control)))
 
+(defun load-file (file-name)
+  (cond ((directory-pathname-p file-name)
+	 (display-message "~A is a directory name." file-name)
+	 (beep))
+	(t
+	 (cond ((probe-file file-name)
+		(load file-name))
+	       (t
+		(display-message "No such file: ~A" file-name)
+		(beep))))))
+
+(define-command (com-load-file :name t :command-table base-table) ()
+  "Prompt for a filename and CL:LOAD that file.
+Signals and error if the file does not exist."
+  (let ((filepath (accept 'pathname :prompt "Load File")))
+    (load-file filepath)))
+
+(set-key 'com-load-file
+	 'base-table
+	 '((#\c :control) (#\l :control)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Buffer commands
+
+(define-command (com-switch-to-buffer :name t :command-table pane-table) ()
+  "Prompt for a buffer name and switch to that buffer.
+If the a buffer with that name does not exist, create it. Uses the name of the next buffer (if any) as a default."
+  (let* ((default (second (buffers *application-frame*)))
+	 (buffer (if default
+		     (accept 'buffer
+			     :prompt "Switch to buffer"
+			     :default default)
+		     (accept 'buffer
+			     :prompt "Switch to buffer"))))
+    (switch-to-buffer buffer)))
+
+(set-key 'com-switch-to-buffer
+	 'pane-table
+	 '((#\x :control) (#\b)))
+
+(define-command (com-kill-buffer :name t :command-table pane-table)
+    ((buffer 'buffer
+             :prompt "Kill buffer"
+             :default (buffer (current-window))
+             :default-type 'buffer))
+  "Prompt for a buffer name and kill that buffer.
+If the buffer needs saving, will prompt you to do so before killing it. Uses the current buffer as a default."
+  (kill-buffer buffer))
+
+(set-key `(com-kill-buffer ,*unsupplied-argument-marker*)
+	 'pane-table
+	 '((#\x :control) (#\k)))
+
+(define-command (com-toggle-read-only :name t :command-table base-table)
+    ((buffer 'buffer :default (current-buffer)))
+  (setf (read-only-p buffer) (not (read-only-p buffer))))
+
+(define-presentation-to-command-translator toggle-read-only
+    (read-only com-toggle-read-only base-table
+               :gesture :menu)
+    (object)
+  (list object))
+
+(define-command (com-toggle-modified :name t :command-table base-table)
+    ((buffer 'buffer :default (current-buffer)))
+  (setf (needs-saving buffer) (not (needs-saving buffer))))
+
+(define-presentation-to-command-translator toggle-modified
+    (modified com-toggle-modified base-table
+              :gesture :menu)
+    (object)
+  (list object))

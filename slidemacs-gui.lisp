@@ -530,11 +530,11 @@
   (full-redisplay (climacs-gui::current-window)))
 
 (define-command (com-first-talking-point :name t :command-table slidemacs-table) ()
-  (climacs-gui::com-beginning-of-buffer)
+  (climacs-commands::com-beginning-of-buffer)
   (com-next-talking-point))
 
 (define-command (com-last-talking-point :name t :command-table slidemacs-table) ()
-  (climacs-gui::com-end-of-buffer)
+  (climacs-commands::com-end-of-buffer)
   (com-previous-talking-point))
 
 (define-command (com-flip-slidemacs-syntax :name t :command-table slidemacs-table) ()

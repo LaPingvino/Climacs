@@ -214,24 +214,6 @@
     ((type modified) record stream state)
   nil)
 
-(define-command (com-toggle-read-only :name t :command-table base-table)
-    ((buffer 'buffer))
-  (setf (read-only-p buffer) (not (read-only-p buffer))))
-(define-presentation-to-command-translator toggle-read-only
-    (read-only com-toggle-read-only base-table
-     :gesture :menu)
-    (object)
-  (list object))
-
-(define-command (com-toggle-modified :name t :command-table base-table)
-    ((buffer 'buffer))
-  (setf (needs-saving buffer) (not (needs-saving buffer))))
-(define-presentation-to-command-translator toggle-modified
-    (modified com-toggle-modified base-table
-     :gesture :menu)
-    (object)
-  (list object))
-
 (defun display-info (frame pane)
   (let* ((master-pane (master-pane pane))
 	 (buffer (buffer master-pane))
@@ -352,27 +334,6 @@ FIXME: does this really have that effect?"
 	 'base-table
 	 '((#\l :control)))
 
-(defun load-file (file-name)
-  (cond ((directory-pathname-p file-name)
-	 (display-message "~A is a directory name." file-name)
-	 (beep))
-	(t
-	 (cond ((probe-file file-name)
-		(load file-name))
-	       (t
-		(display-message "No such file: ~A" file-name)
-		(beep))))))
-
-(define-command (com-load-file :name t :command-table base-table) ()
-  "Prompt for a filename and CL:LOAD that file.
-Signals and error if the file does not exist."
-  (let ((filepath (accept 'pathname :prompt "Load File")))
-    (load-file filepath)))
-
-(set-key 'com-load-file
-	 'base-table
-	 '((#\c :control) (#\l :control)))
-
 (define-command com-self-insert ((count 'integer))
   (loop repeat count do (insert-character *current-gesture*)))
 
@@ -387,7 +348,7 @@ Signals and error if the file does not exist."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Pane/buffer functions
+;;; Pane functions
 
 (defun replace-constellation (constellation additional-constellation vertical-p)
   (let* ((parent (sheet-parent constellation))
@@ -530,12 +491,6 @@ If with-scrollbars nil, omit the scroller."
 				     (list first second other)
 				     (list first other)))))))
 
-(defun make-buffer (&optional name)
-  (let ((buffer (make-instance 'climacs-buffer)))
-    (when name (setf (name buffer) name))
-    (push buffer (buffers *application-frame*))
-    buffer))
-
 (defun other-window (&optional pane)
   (if (and pane (find pane (windows *application-frame*)))
       (setf (windows *application-frame*)
@@ -549,132 +504,6 @@ If with-scrollbars nil, omit the scroller."
            (> (length (windows *application-frame*)) 1))
       (other-window)
       (setf *standard-output* (car (windows *application-frame*)))))
-
-(defgeneric erase-buffer (buffer))
-
-(defmethod erase-buffer ((buffer string))
-  (let ((b (find buffer (buffers *application-frame*)
-		 :key #'name :test #'string=)))
-    (when b (erase-buffer b))))
-
-(defmethod erase-buffer ((buffer climacs-buffer))
-  (let* ((point (point buffer))
-	 (mark (clone-mark point)))
-    (beginning-of-buffer mark)
-    (end-of-buffer point)
-    (delete-region mark point)))
-
-(define-presentation-method present (object (type buffer)
-					    stream
-					    (view textual-view)
-					    &key acceptably for-context-type)
-  (declare (ignore acceptably for-context-type))
-  (princ (name object) stream))
-
-(define-presentation-method accept
-    ((type buffer) stream (view textual-view) &key (default nil defaultp)
-     (default-type type))
-  (multiple-value-bind (object success string)
-      (complete-input stream
-		      (lambda (so-far action)
-			(complete-from-possibilities
-			 so-far (buffers *application-frame*) '() :action action
-			 :name-key #'name
-			 :value-key #'identity))
-		      :partial-completers '(#\Space)
-		      :allow-any-input t)
-    (cond (success
-	   (values object type))
-	  ((and (zerop (length string)) defaultp)
-	    (values default default-type))
-	  (t (values string 'string)))))
-
-(defgeneric switch-to-buffer (buffer))
-
-(defmethod switch-to-buffer ((buffer climacs-buffer))
-  (let* ((buffers (buffers *application-frame*))
-	 (position (position buffer buffers))
-	 (pane (current-window)))
-    (when position
-      (setf buffers (delete buffer buffers)))
-    (push buffer (buffers *application-frame*))
-    (setf (offset (point (buffer pane))) (offset (point pane)))
-    (setf (buffer pane) buffer)
-    (full-redisplay pane)
-    buffer))
-
-(defmethod switch-to-buffer ((name string))
-  (let ((buffer (find name (buffers *application-frame*)
-		      :key #'name :test #'string=)))
-    (switch-to-buffer (or buffer
-			  (make-buffer name)))))
-
-;;placeholder
-(defmethod switch-to-buffer ((symbol (eql 'nil)))  
-  (let ((default (second (buffers *application-frame*))))
-    (when default
-      (switch-to-buffer default))))
-
-;; ;;; FIXME: see the comment by (SETF SYNTAX) :AROUND.  -- CSR,
-;; ;;; 2005-10-31.
-;; (defmethod (setf buffer) :around (buffer (pane extended-pane))
-;;   (call-next-method)
-;;   (note-pane-syntax-changed pane (syntax buffer)))
-
-(define-command (com-switch-to-buffer :name t :command-table pane-table) ()
-  "Prompt for a buffer name and switch to that buffer.
-If the a buffer with that name does not exist, create it. Uses the name of the next buffer (if any) as a default."
-  (let* ((default (second (buffers *application-frame*)))
-	 (buffer (if default
-		     (accept 'buffer
-			     :prompt "Switch to buffer"
-			     :default default)
-		     (accept 'buffer
-			     :prompt "Switch to buffer"))))
-    (switch-to-buffer buffer)))
-
-(set-key 'com-switch-to-buffer
-	 'pane-table
-	 '((#\x :control) (#\b)))
-
-(defgeneric kill-buffer (buffer))
-
-(defmethod kill-buffer ((buffer climacs-buffer))
-  (with-slots (buffers) *application-frame*
-     (when (and (needs-saving buffer)
-		(handler-case (accept 'boolean :prompt "Save buffer first?")
-		  (error () (progn (beep)
-				   (display-message "Invalid answer")
-				   (return-from kill-buffer nil)))))
-       (com-save-buffer))
-     (setf buffers (remove buffer buffers))
-     ;; Always need one buffer.
-     (when (null buffers)
-       (make-buffer "*scratch*"))
-     (setf (buffer (current-window)) (car buffers))
-     (full-redisplay (current-window))
-     (buffer (current-window))))
-
-(defmethod kill-buffer ((name string))
-  (let ((buffer (find name (buffers *application-frame*)
-		      :key #'name :test #'string=)))
-    (when buffer (kill-buffer buffer))))
-
-(defmethod kill-buffer ((symbol (eql 'nil)))
-  (kill-buffer (buffer (current-window))))
-
-(define-command (com-kill-buffer :name t :command-table pane-table)
-    ((buffer 'buffer
-             :prompt "Kill buffer"
-             :default (buffer (current-window))
-             :default-type 'buffer))
-  "Prompt for a buffer name and kill that buffer.
-If the buffer needs saving, will prompt you to do so before killing it. Uses the current buffer as a default."
-  (kill-buffer buffer))
-
-(set-key `(com-kill-buffer ,*unsupplied-argument-marker*)
-	 'pane-table
-	 '((#\x :control) (#\k)))
 
 ;;; For the ESA help functions.
 
