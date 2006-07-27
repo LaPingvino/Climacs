@@ -1999,9 +1999,12 @@ contents with a sequence constructed of new and pre-existing SORP objects.  This
 latter method is refered to as a ``concatenating push''.
 
 For data retrievial the kill ring class provides a ``yank point'' which
-allows focus to be shifted from the SORP to other positions within the kill ring. 
-The yank point is limited to two types of motition, one being a rotation away from the SORP 
-and the other being an immediate return or ``reset'' to the start position.
+allows focus to be shifted from the SORP to other positions within the
+kill ring.  The yank point is limited to two types of motition, one
+being a rotation away from the SORP and the other being an immediate
+return or ``reset'' to the start position. When the kill ring is
+modified, for example by a push, the yank point will be reset to the
+start position.
 
 @section General
 
@@ -2038,7 +2041,13 @@ will be removed from the ring until the maximum size is reached.
 @deffn {generic function} kill-ring-concatenating-push kill-ring vector
 Concatenates the contents of vector onto the end of the contents of
 the current top of the kill-ring.  If the kill-ring is empty, a new
-entry is pushed..
+entry is pushed.
+@end deffn
+
+@deffn {generic function} kill-ring-reverse-concatenating-push kill-ring vector
+Concatenates the contents of vector onto the front of the current
+contents of the top of the kill ring. If the kill ring is empty a new
+entry is pushed.
 @end deffn
 
 @deffn {generic function} rotate-yank-position kill-ring &optional times
@@ -2053,9 +2062,10 @@ the start of ring position.
 @end deffn
 
 @deffn {generic function} kill-ring-yank kill-ring &optional reset
-Returns the vector of objects currently pointed to by the cursor.  If reset is T, then a 
-call to reset-yank-position is called before the object is yanked.  The default for reset 
-is NIL.
+Returns the vector of objects currently pointed to by the cursor.  If
+reset is T, then a call to reset-yank-position is called before the
+object is yanked.  The default for reset is NIL. If the kill ring is
+empty, a condition of type `empty-kill-ring' is signalled.
 @end deffn
 
 @section Implementation

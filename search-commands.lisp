@@ -179,7 +179,7 @@ If found, leaves point before the word. If not, leaves point where it is."
   (let* ((pane (current-window))
 	 (states (isearch-states pane))
 	 (yank (handler-case (kill-ring-yank *kill-ring*)
-                 (flexichain:at-end-error ()
+                 (empty-kill-ring ()
                    "")))
 	 (string (concatenate 'string
 			      (search-string (first states))

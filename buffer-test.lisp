@@ -5,7 +5,8 @@
 
 (cl:defpackage :climacs-tests
   (:use :cl :rtest :climacs-buffer :climacs-base :climacs-motion
-        :climacs-editing :automaton :climacs-core))
+        :climacs-editing :automaton :climacs-core
+        :climacs-kill-ring))
 
 (cl:in-package :climacs-tests)
 

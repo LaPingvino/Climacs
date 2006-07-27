@@ -114,6 +114,7 @@
   ((:file "rt" :pathname #p"testing/rt.lisp")
    (:file "buffer-test" :depends-on ("rt"))
    (:file "base-test" :depends-on ("rt" "buffer-test"))
+   (:file "kill-ring-test" :depends-on ("buffer-test"))
    (:module
     "cl-automaton"
     :depends-on ("rt")

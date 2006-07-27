@@ -36,6 +36,14 @@
 		  :accessor append-next-p))
   (:documentation "A class for all kill rings"))
 
+(define-condition empty-kill-ring (simple-error)
+  ()
+  (:report (lambda (condition stream)
+	     (declare (ignore condition))
+	     (format stream "The kill ring is empty")))
+  (:documentation "This condition is signaled whenever a yank
+  operation is performed on an empty kill ring."))
+
 (defmethod initialize-instance :after((kr kill-ring) &rest args)
   "Adds in the yankpoint"
   (declare (ignore args))
@@ -82,10 +90,13 @@ of the current contents of the top of the kill ring. If the kill ring
 is empty a new entry is pushed."))
 
 (defgeneric kill-ring-yank (kr &optional reset)
-  (:documentation "Returns the vector of objects currently pointed to
-                   by the cursor.  If reset is T, a call to
-                   reset-yank-position is called befor the object is 
-                   yanked.  The default for reset is NIL"))
+  (:documentation "Returns the vector of objects currently
+                   pointed to by the cursor.  If reset is T, a
+                   call to reset-yank-position is called before
+                   the object is yanked.  The default for reset
+                   is NIL.  If the kill ring is empty, a
+                   condition of type `empty-kill-ring' is
+                   signalled."))
 
 (defmethod kill-ring-length ((kr kill-ring))
   (nb-elements (kill-ring-chain kr)))
@@ -117,6 +128,7 @@ is empty a new entry is pushed."))
 	  (setf (cursor-pos curs) pos))))
 
 (defmethod kill-ring-standard-push ((kr kill-ring) vector)
+  (check-type vector vector)
   (cond ((append-next-p kr)
 	 (kill-ring-concatenating-push kr vector)
 	 (setf (append-next-p kr) nil))
@@ -130,25 +142,31 @@ is empty a new entry is pushed."))
 	 (reset-yank-position kr))))
 
 (defmethod kill-ring-concatenating-push ((kr kill-ring) vector)
+  (check-type vector vector)
   (let ((chain (kill-ring-chain kr)))
     (if (zerop (kill-ring-length kr))
 	(push-start chain vector)
         (push-start chain 
 		    (concatenate 'vector 
 				 (pop-start chain) 
-				 vector))))
-  (reset-yank-position kr))
+				 vector)))
+    (reset-yank-position kr)))
 
 (defmethod kill-ring-reverse-concatenating-push ((kr kill-ring) vector)
+  (check-type vector vector)
   (let ((chain (kill-ring-chain kr)))
     (if (zerop (kill-ring-length kr))
 	(push-start chain vector)
 	(push-start chain
 		    (concatenate 'vector
 				 vector
-				 (pop-start chain))))))
+				 (pop-start chain))))
+    (reset-yank-position kr)))
 
 (defmethod kill-ring-yank ((kr kill-ring) &optional (reset nil))
+  (assert (plusp (kill-ring-length kr))
+          ()
+          (make-condition 'empty-kill-ring))
   (if reset (reset-yank-position kr))
   (element> (kill-ring-cursor kr)))
 

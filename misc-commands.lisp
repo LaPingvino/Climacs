@@ -459,7 +459,7 @@ point at the beginning of the last line of the buffer."
 (define-command (com-yank :name t :command-table editing-table) ()
   "Insert the objects most recently added to the kill ring at point."
   (handler-case (insert-sequence (point (current-window)) (kill-ring-yank *kill-ring*))
-    (flexichain:at-end-error ()
+    (empty-kill-ring ()
       (display-message "Kill ring is empty"))))
 
 (set-key 'com-yank
@@ -503,7 +503,7 @@ objects in the kill ring."
                         (delete-range point (* -1 (length last-yank)))
                         (rotate-yank-position *kill-ring*)))
                   (insert-sequence point (kill-ring-yank *kill-ring*)))
-    (flexichain:at-end-error ()
+    (empty-kill-ring ()
       (display-message "Kill ring is empty"))))
 
 (set-key 'com-rotate-yank
