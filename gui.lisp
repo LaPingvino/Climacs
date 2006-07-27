@@ -444,7 +444,7 @@ If with-scrollbars nil, omit the scroller."
 (defun make-typeout-constellation (&optional label)
   (let* ((typeout-pane
 	  (make-pane 'typeout-pane :foreground *fg-color* :background *bg-color*
-		     :width 900 :height 400 :display-time nil))
+                     :width 900 :height 400 :display-time nil :name label))
 	 (label
 	  (make-pane 'label-pane :label label))
 	 (vbox
@@ -453,16 +453,20 @@ If with-scrollbars nil, omit the scroller."
     (values vbox typeout-pane)))
 
 (defun typeout-window (&optional (label "Typeout") (pane (current-window)))
+  "Get a typeout pane labelled `label'. If a pane with this label
+already exists, it will be returned. Otherwise, a new pane will
+be created."
   (with-look-and-feel-realization
       ((frame-manager *application-frame*) *application-frame*)
-    (multiple-value-bind (vbox new-pane) (make-typeout-constellation label)
-      (let* ((current-window pane)
-	     (constellation-root (find-parent current-window)))
-	(push new-pane (windows *application-frame*))
-	(other-window)
-	(replace-constellation constellation-root vbox t)
-	(full-redisplay current-window)
-	new-pane))))
+    (or (find label (windows *application-frame*) :key #'pane-name)
+        (multiple-value-bind (vbox new-pane) (make-typeout-constellation label)
+          (let* ((current-window pane)
+                 (constellation-root (find-parent current-window)))
+            (push new-pane (windows *application-frame*))
+            (other-window)
+            (replace-constellation constellation-root vbox t)
+            (full-redisplay current-window)
+            new-pane)))))
 
 (defun delete-window (&optional (window (current-window)))
   (unless (null (cdr (windows *application-frame*)))
