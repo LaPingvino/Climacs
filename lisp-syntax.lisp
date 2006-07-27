@@ -1672,9 +1672,10 @@ after `string'."
   (with-slots (top bot) pane
     (loop for child in (children parse-symbol)
        when (and (start-offset child) 
-                 (mark< (start-offset child) bot)
                  (mark> (end-offset child) top))
-       do (display-parse-tree child syntax pane))))
+         do (if (mark< (start-offset child) bot)
+                (display-parse-tree child syntax pane)
+                (return)))))
 
 (defmethod display-parse-tree ((parse-symbol error-symbol) (syntax lisp-syntax) pane)
   (let ((children (children parse-symbol)))
@@ -1953,7 +1954,9 @@ after `string'."
 (defun form-around-in-children (children offset)
   (loop for child in children
 	if (typep child 'form)
-	do (cond ((<= (start-offset child) offset (end-offset child))
+	do (cond ((or (<= (start-offset child) offset (end-offset child))
+                      (= offset (end-offset child))
+                      (= offset (start-offset child)))
 		  (return (if (null (first-form (children child)))
 			      (when (typep child 'form)
 				child)
@@ -1967,8 +1970,8 @@ after `string'."
 (defun form-around (syntax offset)
   (with-slots (stack-top) syntax
     (if (or (null (start-offset stack-top))
-	    (>= offset (end-offset stack-top))
-	    (<= offset (start-offset stack-top)))
+	    (> offset (end-offset stack-top))
+	    (< offset (start-offset stack-top)))
 	nil
 	(form-around-in-children (children stack-top) offset))))
 
@@ -3832,8 +3835,6 @@ retrieved for the operator, nothing will be displayed."
 
 ;;; Symbol completion
 
-(defvar *completion-pane* nil)
-
 (defun relevant-keywords (arglist arg-indices)
   "Return a list of the keyword arguments that it would make
   sense to use at the position `arg-indices' relative to the
@@ -3936,20 +3937,22 @@ For example:
                  (transpose-lists (mapcar #'cdr lists))))))
 
 (defun clear-completions ()
-  (when *completion-pane*
-    (delete-window *completion-pane*)
-    (setf *completion-pane* nil)))
+  (let ((completions-pane
+         (find "Completions" (esa:windows *application-frame*)
+               :key #'pane-name
+               :test #'string=)))
+    (unless (null completions-pane)
+     (delete-window completions-pane)
+     (setf completions-pane nil))))
 
-(defun show-completions-by-fn (fn symbol package)
+(defun find-completion-by-fn (fn symbol package)
   (esa:display-message (format nil "~a completions" symbol))
   (let* ((result (funcall fn symbol (package-name package)))
          (set (first result))
          (longest (second result)))
     (cond ((<=(length set) 1)
            (clear-completions))
-          (t (let ((stream (or *completion-pane*
-                               (typeout-window "Simple Completions"))))
-               (setf *completion-pane* stream)
+          (t (let ((stream (typeout-window "Completions")))
                (window-clear stream)
                (format stream "~{~A~%~}" set))))
        (if (not (null longest))
@@ -3957,9 +3960,9 @@ For example:
            (esa:display-message "No completions found"))
     longest))
 
-(defun show-completions (syntax token package)
+(defun find-completion (syntax token package)
   (let ((symbol-name (token-string syntax token)))
-    (show-completions-by-fn
+    (find-completion-by-fn
      #'(lambda (&rest args)
          (find-if #'identity
                   (list
@@ -3974,19 +3977,47 @@ For example:
                   :key #'first))
      symbol-name package)))
 
-(defun show-fuzzy-completions (syntax symbol-name package)
-  (esa:display-message (format nil "~a completions" symbol-name))
-  (let* ((set (fuzzy-completions (get-usable-image syntax) symbol-name package 10))
-         (best (caar set)))
-    (cond ((<= (length set) 1)
-           (clear-completions))
-          (t (let ((stream (or *completion-pane*
-                               (typeout-window "Simple Completions"))))
-               (setf *completion-pane* stream)
-               (window-clear stream)
-               (loop for completed-string in set
-                  do (format stream "~{~A  ~}~%" completed-string)))))
-    (esa:display-message (if (not (null best))
-                             (format nil "Best is ~a|" best)
-                             "No fuzzy completions found"))        
-    best))
+(defun find-fuzzy-completion (syntax token package)
+  (let ((symbol-name (token-string syntax token)))
+   (esa:display-message (format nil "~a completions" symbol-name))
+   (let* ((set (fuzzy-completions (get-usable-image syntax) symbol-name package 10))
+          (best (caar set)))
+     (cond ((<= (length set) 1)
+            (clear-completions))
+           (t (let ((stream (typeout-window "Completions")))
+                (window-clear stream)
+                (loop for completed-string in set
+                   do (format stream "~{~A  ~}~%" completed-string)))))
+     (esa:display-message (if (not (null best))
+                              (format nil "Best is ~a|" best)
+                              "No fuzzy completions found"))        
+     best)))
+
+(defun complete-symbol-at-mark-with-fn (syntax mark &optional (fn #'find-completion))
+  "Attempt to find and complete the symbol at `mark' using the
+  function `fn' to get the list of completions. If the completion
+  is ambiguous, a list of possible completions will be
+  displayed. If no symbol can be found at `mark', return nil."
+  (let ((token (form-around syntax (offset mark))))
+    (when (and (not (null token))
+               (typep token 'complete-token-lexeme)
+               (not (= (start-offset token)
+                       (offset mark))))
+      (with-syntax-package syntax mark (package)
+        (let ((completion (funcall fn syntax token package)))
+          (unless (= (length completion) 0)
+            (replace-symbol-at-mark mark syntax completion))))
+      t)))
+
+(defun complete-symbol-at-mark (syntax mark)
+  "Attempt to find and complete the symbol at `mark'. If the
+  completion is ambiguous, a list of possible completions will be
+  displayed. If no symbol can be found at `mark', return nil."
+  (complete-symbol-at-mark-with-fn syntax mark))
+
+(defun fuzzily-complete-symbol-at-mark (syntax mark)
+  "Attempt to find and complete the symbol at `mark' using fuzzy
+  completion. If the completion is ambiguous, a list of possible
+  completions will be displayed. If no symbol can be found at
+  `mark', return nil."
+  (complete-symbol-at-mark-with-fn syntax mark #'find-fuzzy-completion))

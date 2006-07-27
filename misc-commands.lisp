@@ -251,9 +251,12 @@ Uses TAB-SPACE-COUNT of the STREAM-DEFAULT-VIEW of the pane."
 	 '((#\i :control)))
 
 (define-command (com-newline-and-indent :name t :command-table indent-table) ()
+  "Inserts a newline and indents the new line."
   (let* ((pane (current-window))
 	 (point (point pane)))
     (insert-object point #\Newline)
+    (update-syntax (current-buffer)
+                   (syntax (current-buffer)))
     (indent-current-line pane point)))
 
 (set-key 'com-newline-and-indent

@@ -253,14 +253,8 @@ possible completions will be displayed."
   (let* ((pane (current-window))
          (buffer (buffer pane))
          (syntax (syntax buffer))
-         (mark (point pane))
-	 (token (symbol-at-mark mark
-                                syntax)))
-    (when token
-      (with-syntax-package syntax mark (package)
-        (let ((completion (show-completions syntax token package)))
-          (unless (= (length completion) 0)
-            (replace-symbol-at-mark mark syntax completion)))))))
+         (mark (point pane)))
+    (complete-symbol-at-mark syntax mark)))
 
 (define-command (com-fuzzily-complete-symbol :name t :command-table lisp-table) ()
   "Attempt to fuzzily complete the abbreviation at mark.
@@ -271,14 +265,24 @@ will be displayed."
   (let* ((pane (current-window))
          (buffer (buffer pane))
          (syntax (syntax buffer))
-         (mark (mark pane))
-	 (name (symbol-name-at-mark mark
-				    syntax)))
-    (when name
-      (with-syntax-package syntax mark (package)
-        (let ((completion (show-fuzzy-completions syntax name package)))
-          (unless (= (length completion) 0)
-            (replace-symbol-at-mark mark syntax completion)))))))
+         (mark (point pane)))
+    (fuzzily-complete-symbol-at-mark syntax mark)))
+
+(define-command (com-indent-line-and-complete-symbol :name t :command-table lisp-table) ()
+  "Indents the current line and performs symbol completion.
+First indents the line.  If the line was already indented,
+completes the symbol.  If there's no symbol at the point, shows
+the arglist for the most recently enclosed operator."
+  (let* ((pane (current-window))
+         (point (point pane))
+         (old-offset (offset point)))
+    (indent-current-line pane point)
+    (when (= old-offset
+             (offset point))
+      (let* ((buffer (buffer pane))
+             (syntax (syntax buffer)))
+        (or (complete-symbol-at-mark syntax point)
+            (show-arglist-for-form-at-mark point syntax))))))
 
 (define-presentation-to-command-translator lookup-symbol-arglist
     (symbol com-lookup-arglist lisp-table
@@ -366,11 +370,11 @@ will be displayed."
 	     'lisp-table
 	     '((#\c :control) (#\k :control)))
 
-(esa:set-key  'com-compile-file
-	      'lisp-table
-	      '((#\c :control) (#\k :meta)))
+(esa:set-key 'com-compile-file
+             'lisp-table
+             '((#\c :control) (#\k :meta)))
 
-(esa:set-key `(com-edit-this-definition)
+(esa:set-key 'com-edit-this-definition
              'lisp-table
              '((#\. :meta)))
 
@@ -382,7 +386,7 @@ will be displayed."
               'lisp-table
               '((#\c :control) (#\d :control) (#\h)))
 
-(esa:set-key `(com-lookup-arglist-for-this-symbol)
+(esa:set-key 'com-lookup-arglist-for-this-symbol
              'lisp-table
              '((#\c :control) (#\d :control) (#\a)))
 
@@ -398,3 +402,10 @@ will be displayed."
 	     'lisp-table
 	     '((#\c :control) (#\i :meta)))
 
+(esa:set-key 'com-indent-line-and-complete-symbol
+             'lisp-table
+             '((#\Tab)))
+
+(esa:set-key 'climacs-commands::com-newline-and-indent
+             'lisp-table
+             '(#\Newline))
