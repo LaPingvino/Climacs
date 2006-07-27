@@ -60,7 +60,7 @@
   ((buffer :initarg :buffer)))
 
 (defclass simple-undo-record (climacs-undo-record)
-  ((offset :initarg :offset)))
+  ((offset :initarg :offset :reader undo-offset)))
 
 (defclass insert-record (simple-undo-record)
   ((objects :initarg :objects)))

@@ -1771,7 +1771,7 @@ call undo when the application is in its initial state.
 The base class for all undo trees. 
 @end deftp
 
-@deftp {protocol class} undo-record
+@deftp {protocol class} standard-undo-record
 
 The base class for all undo records.
 
@@ -1851,36 +1851,37 @@ at the state clicked on.
 
 @section How the buffer handles undo
 
-@deftp {class} undoable-buffer
+@deftp {class} undo-mixin
 
-This is a subclass of standard-buffer.  Instantiating this class
-creates an empy undo-tree for the buffer.
+This is a mixin class that buffer classes can inherit from. It contains
+an undo tree, an undo accumulator and a flag specifyng whether or not it
+is currently performing undo. The undo tree and undo accumulators are
+initially empty.
 @end deftp
 
-@deffn {generic function} undo-tree undoable-buffer
+@deffn {generic function} undo-tree undo-mixin
 
-Return the undo-tree of the buffer. 
+A slot reader.  Returns the undo-tree of the buffer.
 @end deffn
 
-Undo is implemented as :after methods on, insert-buffer-object,
+Undo is implemented as :before methods on, insert-buffer-object,
 insert-buffer-sequence and delete-buffer-range specialized on
-undoable-buffer.
+undo-mixin.
 
-@deftp {special variable} *undo-accumulate*
+@deffn {generic-function} undo-accumulate undo-mixin
+A slot accessor.  This list returned by thus function is initially nil
+(the empty list).  The :before methods on insert-buffer-object,
+insert-buffer-sequence, and delete-buffer-range push undo records on to
+this list.
+@end deffn
 
-This variable is initially nil (the empty list).  The :after methods
-on insert-buffer-object, insert-buffer-sequence, and
-delete-buffer-range push undo records on to this list.
-@end deftp
+@deffn {generic-function} performing-undo undo-mixin
 
-@deftp {special variable} *performing-undo*
-
-This variable is initially nil.  The :after methods on
+A slot accessor.  This slot is initially nil.  The :before methods on
 insert-buffer-object, insert-buffer-sequence, and delete-buffer-range
-push undo records onto *undo-accumulate* only if *performing-undo* is
-nil so that no undo information is added as a result of an undo
-operation.
-@end deftp
+push undo records onto the undo accumulator only if this slot is nil so
+that no undo information is added as a result of an undo operation.
+@end deffn
 
 Three subclasses `insert-record', `delete-record', and
 `compound-record' of undo-record are used.  An insert record stores a
@@ -1888,20 +1889,21 @@ position and some sequence of objects to be inserted, a delete record
 stores a position and the length of the sequence to be deleted, and a
 compound record stores a list of other undo records.
 
-The :after methods on insert-buffer-object and insert-buffer-sequence
-push a record of type delete-record onto *undo-accumulate*, and the
-:after method on delete-buffer-range pushes a record of type
-insert-record onto *undo-accumulate*.
+The :before methods on insert-buffer-object and insert-buffer-sequence
+push a record of type delete-record onto the undo accumulator for the
+buffer, and the :before method on delete-buffer-range pushes a record of
+type insert-record onto the undo accumulator.
 
-@deffn {macro} with-undo buffer &body body
+@deffn {macro} with-undo (get-buffers-exp) &body body
 
-This macro first binds *undo-accumulate* to nil.  Then it executes
-the forms of body.  Finally, it calls add-undo with an undo record
-and the undo tree of the buffer.  If *undo-accumulate* contains a
-single undo record, it is passed as is to add-undo.  If it contains
-several undo records, a compound undo record is constructed out of
-the list and passed to add-undo.  Finally, if *undo-accumulate* is
-nil, add-undo is not called at all.
+This macro executes the forms of `body', registering changes made to the
+list of buffers retrieved by evaluating `get-buffers-exp'. When `body'
+has run, for each buffer it will call add-undo with an undo record and
+the undo tree of the buffer.  If the changes done by `body' to the
+buffer has resulted in only a single undo record, it is passed as is to
+add-undo.  If it contains several undo records, a compound undo record
+is constructed out of the list and passed to add-undo.  Finally, if the
+buffer has no undo records, add-undo is not called at all.
 @end deffn
 
 To avoid storing an undo record for each object that is inserted,
@@ -1909,29 +1911,34 @@ the with-undo macro may in some cases just increment the length of
 the sequence in the last delete-record.
 
 The method on flip-undo-record specialized on insert-record binds
-*performing-undo* to t, inserts the sequence of objects in the
-buffer, and calls change-class to convert the insert-record to a
+performing-undo for the buffer to t, inserts the sequence of objects in
+the buffer, and calls change-class to convert the insert-record to a
 delete-record, giving it a the length of the stored sequence.
 
 The method on flip-undo-record specialized on delete-record binds
-*performing-undo* to t, deletes the range from the buffer, and calls
-change-class to convert the delete-record to an insert-record, giving
-it the sequence at the stored offset in the buffer with the specified
-length.
+performing-undo for the buffer to t, deletes the range from the buffer,
+and calls change-class to convert the delete-record to an insert-record,
+giving it the sequence at the stored offset in the buffer with the
+specified length.
 
 The method on flip-undo-record specialized on compound-record binds
-*performing-undo* to t, recursively calls flip-undo-record on each
-element of the list of undo records, and finally destructively
+performing-undo for the buffer to t, recursively calls flip-undo-record
+on each element of the list of undo records, and finally destructively
 reverses the list.
 
-@deftp {class} buffer-undo-record
+@deftp {class} climacs-undo-record
 
-A subclass of undo-record.
+A subclass of standard-undo-record.
 @end deftp
 
 @deftp {initarg} :buffer
 
 The buffer to which the record belongs. 
+@end deftp
+
+@deftp {class} simple-undo-record
+
+A subclass of climacs-undo-record.
 @end deftp
 
 @deftp {initarg} :offset
@@ -1960,7 +1967,7 @@ flip-undo-record is called on an instance of delete-record.
 
 @deftp {class} insert-record
 
-A subclass of buffer-undo-record.  Whenever objects are deleted, the
+A subclass of simple-undo-record.  Whenever objects are deleted, the
 sequence of objectgs is stored in an insert record containing a mark.
 @end deftp
 
@@ -1972,11 +1979,13 @@ flip-undo-record is called on an instance of insert-record.
 
 @deftp {class} compound-record
 
-A subclass of buffer-undo-record.  This record simply contains a list
+A subclass of simple-undo-record.  This record simply contains a list
 of other records.
 @end deftp
 
 @deftp {initarg} :records
+
+A list of output records.
 @end deftp
 
 @chapter Kill Ring Protocol
