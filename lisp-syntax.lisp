@@ -3043,7 +3043,8 @@ Each newline and following whitespace is replaced by a single space."
      (beep)
      (return-from goto-location))
    (switch-to-buffer buffer)
-   (goto-position (source-position location))))
+   (goto-position (point (current-window))
+                  (char-position (source-position location)))))
 
 (defmethod goto-location ((location file-location))
  (let ((buffer (find (file-name location)
@@ -3055,7 +3056,8 @@ Each newline and following whitespace is replaced by a single space."
    (if buffer
        (switch-to-buffer buffer)
        (climacs-commands::find-file (file-name location)))
-   (goto-position (source-position location))))
+   (goto-position (point (current-window))
+                  (char-position (source-position location)))))
 
 ;;; Macroexpansion and evaluation
 
