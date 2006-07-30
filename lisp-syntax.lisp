@@ -1,7 +1,7 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-LISP-SYNTAX -*-
 
 ;;;  (c) copyright 2005 by
-;;;           Robert Strandh (strandh@labri.fr)
+;;;           Robert Strandh (7strandh@labri.fr)
 ;;;
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -3631,11 +3631,13 @@ Returns NIL if an arglist cannot be displayed."
          (pure-arglist (remove-if #'arglist-keyword-p arglist))
          (arg (when (< index (length pure-arglist))
                 (elt pure-arglist index))))
-    (cond ((and (>= index (or (position #'arglist-keyword-p arglist) 0))
-                (not (null (rest arg-indices)))
-                (> (length pure-arglist)
-                   index)
-                (not (listp (elt pure-arglist index))))
+    (cond ((or (and (>= index (or (position-if #'arglist-keyword-p arglist)
+                                  (1+ index)))
+                    (not (null (rest arg-indices))))
+               (and (not (null (rest arg-indices)))
+                    (> (length pure-arglist)
+                       index)
+                    (not (listp (elt pure-arglist index)))))
            nil)
           ((and (not (null arg))
                 (listp arg)
