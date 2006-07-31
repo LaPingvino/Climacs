@@ -1,7 +1,9 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-LISP-SYNTAX -*-
 
 ;;;  (c) copyright 2005 by
-;;;           Robert Strandh (7strandh@labri.fr)
+;;;           Robert Strandh (strandh@labri.fr)
+;;;  (c) copyright 2006 by
+;;;           Troels Henriksen (athas@sigkill.dk)
 ;;;
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -3154,7 +3156,8 @@ results."
 
 (defun arglist-keyword-p (arg)
   "Return T if `arg' is an arglist keyword. NIL otherwise."
-  (member arg +cl-arglist-keywords+))
+  (when (member arg +cl-arglist-keywords+)
+    t))
 
 (defun split-arglist-on-keywords (arglist)
   "Return an alist keying lambda list keywords of `arglist'
@@ -3957,15 +3960,7 @@ For example:
   (let* ((result (funcall fn symbol (package-name package)))
          (set (first result))
          (longest (second result)))
-    (cond ((<=(length set) 1)
-           (clear-completions))
-          (t (let ((stream (typeout-window "Completions")))
-               (window-clear stream)
-               (format stream "~{~A~%~}" set))))
-       (if (not (null longest))
-           (esa:display-message (format nil "Longest is ~a|" longest))
-           (esa:display-message "No completions found"))
-    longest))
+       (values longest set)))
 
 (defun find-completion (syntax token package)
   (let ((symbol-name (token-string syntax token)))
@@ -3989,16 +3984,7 @@ For example:
    (esa:display-message (format nil "~a completions" symbol-name))
    (let* ((set (fuzzy-completions (get-usable-image syntax) symbol-name package 10))
           (best (caar set)))
-     (cond ((<= (length set) 1)
-            (clear-completions))
-           (t (let ((stream (typeout-window "Completions")))
-                (window-clear stream)
-                (loop for completed-string in set
-                   do (format stream "~{~A  ~}~%" completed-string)))))
-     (esa:display-message (if (not (null best))
-                              (format nil "Best is ~a|" best)
-                              "No fuzzy completions found"))        
-     best)))
+     (values best set))))
 
 (defun complete-symbol-at-mark-with-fn (syntax mark &optional (fn #'find-completion))
   "Attempt to find and complete the symbol at `mark' using the
@@ -4011,9 +3997,26 @@ For example:
                (not (= (start-offset token)
                        (offset mark))))
       (with-syntax-package syntax mark (package)
-        (let ((completion (funcall fn syntax token package)))
-          (unless (= (length completion) 0)
-            (replace-symbol-at-mark mark syntax completion))))
+        (multiple-value-bind (longest completions) (funcall fn syntax token package)
+          (if (> (length longest) 0)
+              (if (= (length completions) 1)
+                  (replace-symbol-at-mark mark syntax longest)
+                  (progn
+                    (esa:display-message (format nil "Longest is ~a|" longest))
+                    (let ((selection (menu-choose (mapcar
+                                                   ;; FIXME: this can
+                                                   ;; get ugly.
+                                                   #'(lambda (completion)
+                                                       (if (listp completion)
+                                                           (cons completion
+                                                                 (first completion))
+                                                           completion))
+                                                   completions)
+                                                  :label "Possible completions"
+                                                  :scroll-bars :vertical)))
+                      (replace-symbol-at-mark mark syntax (or selection
+                                                              longest)))))
+              (esa:display-message "No completions found"))))
       t)))
 
 (defun complete-symbol-at-mark (syntax mark)
