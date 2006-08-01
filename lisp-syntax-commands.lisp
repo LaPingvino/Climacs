@@ -85,6 +85,18 @@ string at point."
                                      syntax
                                      t)))))
 
+(define-command (com-set-base :name t :command-table lisp-table)
+    ((base '(integer 2 36)))
+  "Set the base for the current buffer."
+  (setf (base (syntax (current-buffer)))
+        base))
+
+(define-command (com-set-package :name t :command-table lisp-table)
+    ((package 'package))
+  "Set the package for the current buffer."
+  (setf (option-specified-package (syntax (current-buffer)))
+        package))
+
 (define-command (com-indent-expression :name t :command-table lisp-table)
     ((count 'integer :prompt "Number of expressions"))
   (let* ((pane (current-window))

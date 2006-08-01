@@ -201,6 +201,19 @@ in the specific syntax.")
                             ,value-symbol)
       ,@body)))
 
+(defgeneric current-attributes-for-syntax (syntax)
+  (:method-combination append)
+  (:method append (syntax)
+           (list (cons :syntax (name syntax)))))
+
+(defun make-attribute-line (syntax)
+  (apply #'concatenate 'string
+         (loop for (name . value) in (current-attributes-for-syntax syntax)
+            collect (string-downcase (symbol-name name) :start 1)
+            collect ": "
+            collect value
+            collect "; ")))
+
 #+nil
 (defmacro define-syntax (class-name (name superclasses) &body body)
   `(progn (push '(,name . ,class-name) *syntaxes*)

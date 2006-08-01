@@ -113,6 +113,16 @@
           (setf (base syntax) integer-base)
           (esa:display-message "Invalid base specified: outside the interval 2 to 36.")))))
 
+(defmethod current-attributes-for-syntax append ((syntax lisp-syntax))
+  (list (cons :package (or (if (packagep (option-specified-package syntax))
+                               (package-name (option-specified-package syntax))
+                               (option-specified-package syntax))
+                           (package-name (package-at-mark
+                                          syntax
+                                          (or (caar (last (package-list syntax)))
+                                              0)))))
+        (cons :base (format nil "~A" (base syntax)))))
+
 (defmethod initialize-instance :after ((syntax lisp-syntax) &rest args)
   (declare (ignore args))
   (with-slots (buffer scan) syntax
@@ -1366,8 +1376,14 @@ invalid, return the CLIM-USER package."
                            'cl:in-package)))))))
       (with-slots (stack-top) syntax
         (or (not (slot-boundp syntax 'package-list))
-            (loop for child in (children stack-top)
+            (loop
+               for child in (children stack-top)
                when (test child)
+               do (return t))
+            (loop
+               for (offset . nil) in (package-list syntax)
+               unless (let ((form (form-around syntax offset)))
+                        (and form (typep form 'complete-list-form)))
                do (return t)))))))
 
 (defun update-package-list (buffer syntax)
@@ -1409,9 +1425,9 @@ invalid, return the CLIM-USER package."
                                   (new-state syntax
                                              (parser-state stack-top)
                                              stack-top)))
-          (loop do (parse-patch syntax))))))
-  (when (need-to-update-package-list-p buffer syntax)
-    (update-package-list buffer syntax)))
+          (loop do (parse-patch syntax)))))
+    (when (need-to-update-package-list-p buffer syntax)
+      (update-package-list buffer syntax))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

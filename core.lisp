@@ -474,7 +474,9 @@ spaces only."))
                                    (string-equal name "MODE")))
                            options
                            :key #'first)))))
-    (when specified-syntax
+    (when (and specified-syntax
+               (not (eq (class-of (syntax buffer))
+                        specified-syntax)))
       (setf (syntax buffer)
             (make-instance specified-syntax
                            :buffer buffer))))
@@ -503,35 +505,79 @@ spaces only."))
   (mapcar (lambda (pair) (split-attribute pair #\:))
 	  (split-attribute line #\;)))
 
-(defun get-attribute-line (buffer)
+(defun find-attribute-line-position (buffer)
   (let ((scan (beginning-of-buffer (clone-mark (point buffer)))))
     ;; skip the leading whitespace
     (loop until (end-of-buffer-p scan)
-	  until (not (whitespacep (syntax buffer) (object-after scan)))
-	  do (forward-object scan))
+       until (not (whitespacep (syntax buffer) (object-after scan)))
+       do (forward-object scan))
     ;; stop looking if we're already 1,000 objects into the buffer
     (unless (> (offset scan) 1000)
       (let ((start-found
 	     (loop with newlines = 0
-		   when (end-of-buffer-p scan)
-		     do (return nil)
-		   when (eql (object-after scan) #\Newline)
-		     do (incf newlines)
-		   when (> newlines 1)
-		     do (return nil)
-		   do (forward-object scan)
-		   until (looking-at scan "-*-")
-		   finally (return t))))
+                when (end-of-buffer-p scan)
+                do (return nil)
+                when (eql (object-after scan) #\Newline)
+                do (incf newlines)
+                when (> newlines 1)
+                do (return nil)
+                until (looking-at scan "-*-")
+                do (forward-object scan)
+                finally (return t))))
 	(when start-found
-	  (let ((line (buffer-substring buffer
-					(offset scan)
-					(offset (end-of-line (clone-mark scan))))))
-	    (when (>= (length line) 6)
-	      (let ((end (search "-*-" line :from-end t :start2 3)))
-		(when end
-		  (string-trim '(#\Space #\Tab) (subseq line 3 end)))))))))))
+          (let* ((end-scan (clone-mark scan))
+                 (end-found
+                  (loop when (end-of-buffer-p end-scan)
+                     do (return nil)
+                     when (eql (object-after end-scan) #\Newline)
+                     do (return nil)
+                     do (forward-object end-scan)
+                     until (looking-at end-scan "-*-")
+                     finally (return t))))
+            (when end-found
+              (values scan
+                      (progn (forward-object end-scan 3)
+                             end-scan)))))))))
 
-(defun evaluate-attributes-line (buffer)
+(defun get-attribute-line (buffer)
+  (multiple-value-bind (start-mark end-mark) (find-attribute-line-position buffer)
+   (let ((line (buffer-substring buffer
+                                 (offset start-mark)
+                                 (offset end-mark))))
+     (when (>= (length line) 6)
+       (let ((end (search "-*-" line :from-end t :start2 3)))
+         (when end
+           (string-trim '(#\Space #\Tab) (subseq line 3 end))))))))
+
+(defun replace-attribute-line (buffer new-attribute-line)
+  (let ((full-attribute-line (concatenate 'string
+                                          "-*- "
+                                          new-attribute-line
+                                          "-*-")))
+   (multiple-value-bind (start-mark end-mark) (find-attribute-line-position buffer)
+     (cond ((not (null end-mark))
+            ;; We have an existing attribute line.
+            (delete-region start-mark end-mark)
+            (let ((new-line-start (clone-mark start-mark :left)))
+              (insert-sequence start-mark full-attribute-line)
+              (comment-region (syntax buffer)
+                              new-line-start
+                              start-mark)))
+           (t
+            ;; Create a new attribute line at beginning of buffer.
+            (let* ((mark1 (beginning-of-buffer (clone-mark (point buffer) :left)))
+                   (mark2 (clone-mark mark1 :right)))
+              (insert-sequence mark2 full-attribute-line)
+              (insert-object mark2 #\Newline)
+              (comment-region (syntax buffer)
+                              mark1
+                              mark2)))))))
+
+(defun update-attribute-line (buffer)
+  (replace-attribute-line buffer
+                          (make-attribute-line (syntax buffer))))
+
+(defun evaluate-attribute-line (buffer)
   (evaluate-attributes
    buffer
    (split-attribute-line (get-attribute-line buffer))))
@@ -579,6 +625,9 @@ spaces only."))
                      (setf (syntax buffer) nil)
                      (setf (offset (point (buffer pane))) (offset (point pane)))
                      (setf (buffer (current-window)) buffer)
+                     (setf (syntax buffer)
+                           (make-instance (syntax-class-name-for-filepath filepath)
+                                          :buffer buffer))
                      ;; Don't want to create the file if it doesn't exist.
                      (when (probe-file filepath)
                        (with-open-file (stream filepath :direction :input)
@@ -586,13 +635,7 @@ spaces only."))
                        (setf (file-write-time buffer) (file-write-date filepath))
                        ;; A file! That means we may have a local options
                        ;; line to parse.
-                       (evaluate-attributes-line buffer))
-                     ;; If the local options line didn't set a syntax, do
-                     ;; it now.
-                     (when (null (syntax buffer))
-                       (setf (syntax buffer)
-                             (make-instance (syntax-class-name-for-filepath filepath)
-                                            :buffer buffer)))
+                       (evaluate-attribute-line buffer))
                      (setf (filepath buffer) filepath
                            (name buffer) (filepath-filename filepath)
                            (needs-saving buffer) nil

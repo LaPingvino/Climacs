@@ -122,6 +122,8 @@
   (:export #:syntax #:define-syntax
            #:eval-option
            #:define-option-for-syntax
+           #:current-attributes-for-syntax
+           #:make-attribute-line
 	   #:syntax-from-name
 	   #:basic-syntax
 	   #:update-syntax #:update-syntax-for-display
@@ -399,7 +401,8 @@
            #:kill-buffer
 
            #:filepath-filename
-           #:evaluate-attributes-line
+           #:update-attribute-line
+           #:evaluate-attribute-line
            #:directory-pathname-p
            #:find-file
            #:directory-of-buffer
