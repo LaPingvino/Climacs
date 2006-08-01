@@ -2777,7 +2777,7 @@ object. Otherwise, nil will be returned.")
 (define-simple-indentor (clim:define-application-frame indent-list indent-list))
 
 (defun compute-path-in-trees (trees n offset)
-  (cond ((or (null trees)
+  (cond ((or (null (first-noncomment trees))
 	     (>= (start-offset (first-noncomment trees)) offset))    
 	 (list n))
 	((or (< (start-offset (first-noncomment trees)) offset (end-offset (first-noncomment trees)))
