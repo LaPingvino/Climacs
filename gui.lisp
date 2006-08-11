@@ -257,7 +257,7 @@
              (column-number point)))
     (with-text-family (pane :sans-serif)
       (princ #\( pane)
-      (princ (name-for-info-pane (syntax buffer) :pane (master-pane pane)) pane)
+      (display-syntax-name (syntax buffer) pane :pane (master-pane pane))
       (format pane "~{~:[~*~; ~A~]~}" (list
 				       (slot-value master-pane 'overwrite-mode)
 				       "Ovwrt"

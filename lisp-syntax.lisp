@@ -80,9 +80,11 @@
    (option-specified-package :accessor option-specified-package
                              :initform nil
                              :documentation "The package
-                             specified in the attribute
-                             line (may be overridden
-                             by (in-package) forms).")
+                             specified in the attribute line (may
+                             be overridden by (in-package)
+                             forms). This may be either a
+                             string (the name of the intended
+                             package) or a package object.")
    (image :accessor image
           :initform nil
           :documentation "An image object (or NIL) that
@@ -130,7 +132,16 @@
 
 (defmethod name-for-info-pane ((syntax lisp-syntax) &key pane)
   (format nil "Lisp~@[:~(~A~)~]"
-          (package-name (package-at-mark syntax (point pane)))))
+          (provided-package-name-at-mark syntax (point pane))))
+
+(defmethod display-syntax-name ((syntax lisp-syntax) (stream extended-output-stream) &key pane)
+  (princ "Lisp:" stream)                ; FIXME: should be `present'ed
+                                        ; as something.
+  (let ((package-name (provided-package-name-at-mark syntax (point pane))))
+    (if (find-package package-name)
+        (present (find-package package-name) 'package :stream stream)
+        (with-text-face (stream :italic)
+          (princ package-name stream)))))
 
 (defgeneric default-image ()
   (:documentation "The default image for when the current syntax
@@ -1336,14 +1347,41 @@ invalid, return the CLIM-USER package."
      (or (handler-case (find-package designator)
            (type-error ()
              nil))
+         (let ((osp (option-specified-package syntax)))
+          (typecase osp
+            (package osp)
+            (string osp)))
          (find-package (option-specified-package syntax))
          (find-package :clim-user)))))
 
-(defmacro with-syntax-package (syntax offset (package-sym) &body
+(defun provided-package-name-at-mark (syntax mark-or-offset)
+  "Get the name of the specified Lisp package for the
+syntax. This will return a normalised version of
+whatever (in-package) form precedes `mark-or-offset', even if the
+package specified in that form does not exist. If no (in-package)
+form can be found, return the package specified in the attribute
+list. If no such package is specified, return \"CLIM-USER\"."
+  (as-offsets ((mark-or-offset offset))
+    (flet ((normalise (designator)
+             (typecase designator
+               (symbol
+                (symbol-name designator))
+               (string
+                designator)
+               (package
+                (package-name designator)))))
+     (let* ((designator (rest (find offset (package-list syntax)
+                                    :key #'first
+                                    :test #'>=))))
+       (normalise (or designator
+                      (option-specified-package syntax)
+                      :clim-user))))))
+
+(defmacro with-syntax-package ((syntax offset) &body
                                body)
-  "Evaluate `body' with `package-sym' bound to a valid package,
+  "Evaluate `body' with `*package*' bound to a valid package,
   preferably taken from `syntax' based on `offset'.."
-  `(let ((,package-sym (package-at-mark ,syntax ,offset)))
+  `(let ((*package* (package-at-mark ,syntax ,offset)))
      ,@body))
 
 (defun need-to-update-package-list-p (buffer syntax)
@@ -2340,16 +2378,16 @@ object. Otherwise, nil will be returned.")
            ;; Ensure that every symbol that is READ will be looked up
            ;; in the correct package. Also handle quoting.
            (flet ((act ()
-                    (with-syntax-package syntax (start-offset token)
-                        (syntax-package)
-                     (let ((*package* (or package syntax-package)))
-                       (cond (read
-                              (read-from-string (token-string syntax token)))
-                             (quote
-                              (setf (getf args :quote) nil)
-                              `',(call-next-method))
-                             (t
-                              (call-next-method)))))))
+                    (let ((*package* (or package
+                                         (package-at-mark
+                                     syntax (start-offset token)))))
+                      (cond (read
+                             (read-from-string (token-string syntax token)))
+                            (quote
+                             (setf (getf args :quote) nil)
+                             `',(call-next-method))
+                            (t
+                             (call-next-method))))))
              (if no-error 
                  (ignore-errors (act))
                  (act))))
@@ -3115,9 +3153,8 @@ results."
 
 (defun eval-region (start end syntax)
   ;; Must be (mark>= end start).
-  (with-syntax-package syntax start (package)
-    (let ((*package* package)
-          (*read-base* (base syntax)))
+  (with-syntax-package (syntax start)
+    (let ((*read-base* (base syntax)))
       (let* ((string (buffer-substring (buffer start)
                                        (offset start)
                                        (offset end)))
@@ -3129,19 +3166,19 @@ results."
         (esa:display-message result)))))
 
 (defun compile-definition-interactively (mark syntax)
-  (with-syntax-package syntax mark (package)
-    (let* ((token (definition-at-mark mark syntax))
-           (string (token-string syntax token))
-           (m (clone-mark mark))
-           (buffer-name (name (buffer syntax)))
-           (*read-base* (base syntax)))
+  (let* ((token (definition-at-mark mark syntax))
+         (string (token-string syntax token))
+         (m (clone-mark mark))
+         (buffer-name (name (buffer syntax)))
+         (*read-base* (base syntax)))
+    (with-syntax-package (syntax mark)
       (forward-definition m syntax)
       (backward-definition m syntax)
       (multiple-value-bind (result notes)
           (compile-form-for-climacs (get-usable-image syntax)
                                     (token-to-object syntax token
                                                      :read t
-                                                     :package package)
+                                                     :package (package-at-mark syntax mark))
                                     (buffer syntax)
                                     m)
         (show-note-counts notes (second result))
@@ -3150,17 +3187,19 @@ results."
                       (one-line-ify (subseq string 0 (min (length string) 20)))))))))
 
 (defun compile-file-interactively (buffer &optional load-p)
-  (when (and (needs-saving buffer)
-             (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name buffer))))
-    (save-buffer buffer))
-  (with-syntax-package (syntax buffer) 0 (package)
-    (let ((*read-base* (base (syntax buffer))))
-      (multiple-value-bind (result notes)
-          (compile-file-for-climacs (get-usable-image (syntax buffer))
-                                    (filepath buffer)
-                                    package load-p)
-        (show-note-counts notes (second result))
-        (when notes (show-notes notes (name buffer) ""))))))
+  (cond ((null (filepath buffer))
+         (esa:display-message "Buffer ~A is not associated with a file" (name buffer)))
+         (t
+         (when (and (needs-saving buffer)
+                    (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name buffer))))
+           (save-buffer buffer))
+         (let ((*read-base* (base (syntax buffer))))
+           (multiple-value-bind (result notes)
+               (compile-file-for-climacs (get-usable-image (syntax buffer))
+                                         (filepath buffer)
+                                         (package-at-mark (syntax buffer) 0) load-p)
+             (show-note-counts notes (second result))
+             (when notes (show-notes notes (name buffer) "")))))))
 
 ;;; Parameter hinting
 
@@ -4012,27 +4051,27 @@ For example:
                (typep token 'complete-token-lexeme)
                (not (= (start-offset token)
                        (offset mark))))
-      (with-syntax-package syntax mark (package)
-        (multiple-value-bind (longest completions) (funcall fn syntax token package)
-          (if (> (length longest) 0)
-              (if (= (length completions) 1)
-                  (replace-symbol-at-mark mark syntax longest)
-                  (progn
-                    (esa:display-message (format nil "Longest is ~a|" longest))
-                    (let ((selection (menu-choose (mapcar
-                                                   ;; FIXME: this can
-                                                   ;; get ugly.
-                                                   #'(lambda (completion)
-                                                       (if (listp completion)
-                                                           (cons completion
-                                                                 (first completion))
-                                                           completion))
-                                                   completions)
-                                                  :label "Possible completions"
-                                                  :scroll-bars :vertical)))
-                      (replace-symbol-at-mark mark syntax (or selection
-                                                              longest)))))
-              (esa:display-message "No completions found"))))
+      (multiple-value-bind (longest completions)
+          (funcall fn syntax token (package-at-mark syntax mark))
+        (if (> (length longest) 0)
+            (if (= (length completions) 1)
+                (replace-symbol-at-mark mark syntax longest)
+                (progn
+                  (esa:display-message (format nil "Longest is ~a|" longest))
+                  (let ((selection (menu-choose (mapcar
+                                                 ;; FIXME: this can
+                                                 ;; get ugly.
+                                                 #'(lambda (completion)
+                                                     (if (listp completion)
+                                                         (cons completion
+                                                               (first completion))
+                                                         completion))
+                                                 completions)
+                                                :label "Possible completions"
+                                                :scroll-bars :vertical)))
+                    (replace-symbol-at-mark mark syntax (or selection
+                                                            longest)))))
+            (esa:display-message "No completions found")))
       t)))
 
 (defun complete-symbol-at-mark (syntax mark)

@@ -114,6 +114,10 @@ in the specific syntax.")
   (:documentation "Return the name that should be used for the
   info-pane for panes displaying a buffer in this syntax."))
 
+(defgeneric display-syntax-name (syntax stream &key &allow-other-keys)
+  (:documentation "Draw the name of the syntax `syntax' to
+  `stream'. This is meant to be called for the info-pane."))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Syntax completion
@@ -265,6 +269,9 @@ in the specific syntax.")
 
 (defmethod name-for-info-pane ((syntax basic-syntax) &key)
   (name syntax))
+
+(defmethod display-syntax-name ((syntax basic-syntax) stream &rest args &key)
+  (princ (apply #'name-for-info-pane syntax args) stream))
 
 (defmethod syntax-line-indentation (mark tab-width (syntax basic-syntax))
   (declare (ignore mark tab-width))

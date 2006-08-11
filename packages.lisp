@@ -140,6 +140,7 @@
 	   #:parse-stack-parse-trees #:map-over-parse-trees
 	   #:no-such-operation #:no-expression
 	   #:name-for-info-pane
+           #:display-syntax-name
            #:syntax-line-indentation
 	   #:forward-expression #:backward-expression
 	   #:eval-defun

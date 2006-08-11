@@ -115,9 +115,8 @@ string at point."
          (mark (point (current-window)))
          (token (form-before syntax (offset mark))))
     (if token
-        (with-syntax-package syntax mark (package)
-          (let ((*package* package)
-                (*read-base* (base syntax)))
+        (with-syntax-package (syntax mark)
+          (let ((*read-base* (base syntax)))
             (climacs-commands::com-eval-expression
              (token-to-object syntax token :read t)
              insertp)))
