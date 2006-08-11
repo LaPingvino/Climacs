@@ -502,8 +502,9 @@ spaces only."))
     (nreverse pairs)))
 
 (defun split-attribute-line (line)
-  (mapcar (lambda (pair) (split-attribute pair #\:))
-	  (split-attribute line #\;)))
+  (when line
+    (mapcar (lambda (pair) (split-attribute pair #\:))
+	    (split-attribute line #\;))))
 
 (defun find-attribute-line-position (buffer)
   (let ((scan (beginning-of-buffer (clone-mark (point buffer)))))
@@ -540,21 +541,24 @@ spaces only."))
                              end-scan)))))))))
 
 (defun get-attribute-line (buffer)
-  (multiple-value-bind (start-mark end-mark) (find-attribute-line-position buffer)
-   (let ((line (buffer-substring buffer
-                                 (offset start-mark)
-                                 (offset end-mark))))
-     (when (>= (length line) 6)
-       (let ((end (search "-*-" line :from-end t :start2 3)))
-         (when end
-           (string-trim '(#\Space #\Tab) (subseq line 3 end))))))))
+  (multiple-value-bind (start-mark end-mark)
+      (find-attribute-line-position buffer)
+   (when (and start-mark end-mark)
+     (let ((line (buffer-substring buffer
+				   (offset start-mark)
+				   (offset end-mark))))
+       (when (>= (length line) 6)
+	 (let ((end (search "-*-" line :from-end t :start2 3)))
+	   (when end
+	     (string-trim '(#\Space #\Tab) (subseq line 3 end)))))))))
 
 (defun replace-attribute-line (buffer new-attribute-line)
   (let ((full-attribute-line (concatenate 'string
                                           "-*- "
                                           new-attribute-line
                                           "-*-")))
-   (multiple-value-bind (start-mark end-mark) (find-attribute-line-position buffer)
+   (multiple-value-bind (start-mark end-mark)
+       (find-attribute-line-position buffer)
      (cond ((not (null end-mark))
             ;; We have an existing attribute line.
             (delete-region start-mark end-mark)
