@@ -27,7 +27,7 @@
   t)
 
 (deftest kill-ring-standard-push.test-1
-    (let* ((random-size (min 3 (random 20)))
+    (let* ((random-size (max 3 (random 20)))
            (instance (make-instance 'kill-ring :max-size random-size)))
       (kill-ring-standard-push instance #(#\A))
       (kill-ring-standard-push instance #(#\B))
