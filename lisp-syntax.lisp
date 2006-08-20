@@ -28,9 +28,9 @@
 ;;;
 ;;; Convenience functions and macros:
 
-(defun unlisted (obj)
+(defun unlisted (obj &optional (fn #'first))
   (if (listp obj)
-      (first obj)
+      (funcall fn obj)
       obj))
 
 (defun listed (obj)
@@ -614,57 +614,66 @@ along with any default values) that can be used in a
 	  (t (fo) (make-instance 'delimiter-lexeme)))))
 
 (defun lex-token (syntax scan)
-  ;; May need more work. Can recognize symbols and numbers.
-  (flet ((fo () (forward-object scan)))
-    (let ((could-be-number t)
-          sign-seen dot-seen slash-seen nondot-seen)
-      (flet ((return-token-or-number-lexeme ()
-               (return-from lex-token
-                 (if could-be-number
-                     (if nondot-seen
-                         (make-instance 'number-lexeme)
-                         (make-instance 'dot-lexeme))
-                     (make-instance 'complete-token-lexeme))))
-             (this-object ()
-               (object-after scan)))
-        (tagbody
-         START
+  ;; May need more work. Can recognize symbols and numbers. This can
+  ;; get very ugly and complicated (out of necessity I believe).
+  (let ((could-be-number t)
+        sign-seen dot-seen slash-seen nondot-seen number-seen exponent-seen)
+    (flet ((fo () (forward-object scan))
+           (return-token-or-number-lexeme ()
+             (return-from lex-token
+               (if (and could-be-number
+                        (if exponent-seen
+                            nondot-seen t))
+                   (if nondot-seen
+                       (make-instance 'number-lexeme)
+                       (make-instance 'dot-lexeme))
+                   (make-instance 'complete-token-lexeme))))
+           (this-object ()
+             (object-after scan)))
+      (tagbody
+       START
+         (when (end-of-buffer-p scan)
+           (return-token-or-number-lexeme))
+         (when (constituentp (object-after scan))
+           (when (not (eql (this-object) #\.))
+             (setf nondot-seen t))
+           (cond ((or (eql (this-object) #\+)
+                      (eql (this-object) #\-))
+                  (when (or sign-seen number-seen slash-seen)
+                    (setf could-be-number nil))
+                  (setf sign-seen t))
+                 ((eql (this-object) #\.)
+                  (when (or dot-seen exponent-seen)
+                    (setf could-be-number nil))
+                  (setf dot-seen t))
+                 ((member (this-object)
+                          '(#\e #\f #\l #\s #\d)
+                          :test #'equalp)
+                  (when exponent-seen
+                    (setf could-be-number nil))
+                  (setf exponent-seen t)
+                  (setf number-seen nil)
+                  (setf sign-seen nil))
+                 ((eql (this-object) #\/)
+                  (when (or slash-seen dot-seen exponent-seen)
+                    (setf could-be-number nil))
+                  (setf slash-seen t))
+                 ((not (digit-char-p (this-object)
+                                     (base syntax)))
+                  (setf could-be-number nil))
+                 (t (setf number-seen t)))
+           (fo)
+           (go START))
+         (when (eql (object-after scan) #\\)
+           (fo)
            (when (end-of-buffer-p scan)
-             (return-token-or-number-lexeme))
-           (when (constituentp (object-after scan))
-             (when (not (eql (this-object) #\.))
-               (setf nondot-seen t))
-             (cond ((or (eql (this-object) #\+)
-                        (eql (this-object) #\-))
-                    (when sign-seen
-                      (setf could-be-number nil))
-                    (setf sign-seen t))
-                   ((eql (this-object) #\.)
-                    (when dot-seen
-                      (setf could-be-number nil))
-                    (setf dot-seen t))
-                   ((eql (this-object) #\/)
-                    (when slash-seen
-                      (setf could-be-number nil))
-                    (setf slash-seen t))
-                   ;; We obey the base specified in the file when
-                   ;; determining whether or not this character is an
-                   ;; integer.
-                   ((not (digit-char-p (this-object)
-                                       (base syntax)))
-                    (setf could-be-number nil)))
-             (fo)
-             (go START))
-           (when (eql (object-after scan) #\\)
-             (fo)
-             (when (end-of-buffer-p scan)
-               (return-from lex-token (make-instance 'incomplete-lexeme)))
-             (fo)
-             (go START))
-           (when (eql (object-after scan) #\|)
-             (fo)
-             (return-from lex-token (make-instance 'multiple-escape-start-lexeme)))
-           (return-token-or-number-lexeme))))))
+             (return-from lex-token (make-instance 'incomplete-lexeme)))
+           (fo)
+           (go START))
+         (when (eql (object-after scan) #\|)
+           (fo)
+           (return-from lex-token (make-instance 'multiple-escape-start-lexeme)))
+         (return-token-or-number-lexeme)))))
 
 (defmethod lex ((syntax lisp-syntax) (state lexer-escaped-token-state) scan)
   (let ((bars-seen 0))
@@ -1380,7 +1389,7 @@ list. If no such package is specified, return \"CLIM-USER\"."
 (defmacro with-syntax-package ((syntax offset) &body
                                body)
   "Evaluate `body' with `*package*' bound to a valid package,
-  preferably taken from `syntax' based on `offset'.."
+  preferably taken from `syntax' based on `offset'."
   `(let ((*package* (package-at-mark ,syntax ,offset)))
      ,@body))
 
@@ -1555,10 +1564,9 @@ object. Returns nil if none can be found.")
   (:method (form syntax) nil))
 
 (defmethod form-operands ((form list-form) syntax)
-  (mapcar #'(lambda (operand)
-              (if (typep operand 'form)
-                  (token-to-object syntax operand :no-error t)))
-          (rest-forms (children form))))
+  (loop for operand in (rest-forms (children form))
+     when (typep operand 'form)
+       collect (token-to-object syntax operand :no-error t)))
 
 (defun form-toplevel (form syntax)
   "Return the top-level form of `form'."
@@ -1588,9 +1596,9 @@ or inside, a top-level-form, or if there are no forms after
 returned. Otherwise, the form following `mark-or-offset' is
 returned."
   (as-offsets ((mark-or-offset offset))
-   (or (form-around syntax offset)
-       (form-after syntax offset)
-       (form-before syntax offset))))
+    (or (form-around syntax offset)
+        (form-after syntax offset)
+        (form-before syntax offset))))
 
 (defun definition-at-mark (mark-or-offset syntax)
   "Return the top-level form at `mark-or-offset'. If `mark-or-offset' is just after,
@@ -1610,6 +1618,24 @@ is returned. Otherwise, the top-level-form following
                    ((typep form 'complete-token-lexeme)
                     form))))
     (unwrap-form (expression-at-mark mark-or-offset syntax))))
+
+(defun fully-quoted-form (token)
+  "Return the top token object for `token', return `token' or the
+top quote-form that `token' is buried in. "
+  (labels ((ascend (form)
+             (cond ((typep (parent form) 'quote-form)
+                    (ascend (parent form)))
+                   (t form))))
+    (ascend token)))
+
+(defun fully-unquoted-form (token)
+  "Return the bottom token object for `token', return `token' or
+the form that `token' quotes, peeling away all quote forms."
+  (labels ((descend (form)
+             (cond ((typep form 'quote-form)
+                    (descend (first-form (children form))))
+                   (t form))))
+    (descend token)))
 
 (defun this-form (mark-or-offset syntax)
   "Return a form at `mark-or-offset'. This function defines which
@@ -2597,7 +2623,7 @@ object. Otherwise, nil will be returned.")
   (if (null (cdr path))
       ;; top level
       (let* ((arglist (when (fboundp symbol)
-                        (arglist-for-form symbol)))
+                        (arglist-for-form syntax symbol)))
              (body-or-rest-pos (or (position '&body arglist)
                                    (position '&rest arglist))))
         (if (and (or (macro-function symbol)
@@ -2609,7 +2635,7 @@ object. Otherwise, nil will be returned.")
                 ;; &body arg.
                 (values (elt-noncomment (children tree) 1) 1)
                 ;; non-&body-arg.
-                (values (elt-noncomment (children tree) 1) 3))
+                (values (elt-noncomment (children tree) 1) 1))
             ;; normal form.
             (if (= (car path) 2)
                 ;; indent like first child
@@ -2867,1222 +2893,3 @@ object. Otherwise, nil will be returned.")
 
 (defmethod uncomment-region ((syntax lisp-syntax) mark1 mark2)
   (line-uncomment-region syntax mark1 mark2))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; Swine
-
-;;; Compiler note hyperlinking code
-
-(defun make-compiler-note (note-list)
- (let ((severity (getf note-list :severity))
-       (message (getf note-list :message))
-       (location (getf note-list :location))
-       (references (getf note-list :references))
-       (short-message (getf note-list :short-message)))
-   (make-instance
-    (ecase severity
-      (:error 'error-compiler-note)
-      (:read-error 'read-error-compiler-note)
-      (:warning 'warning-compiler-note)
-      (:style-warning 'style-warning-compiler-note)
-      (:note 'note-compiler-note))
-      :message message :location location
-      :references references :short-message short-message)))
-
-(defclass compiler-note ()
-    ((message :initarg :message :initform nil :accessor message)
-     (location :initarg :location :initform nil :accessor location)
-     (references :initarg :references :initform nil :accessor references)
-     (short-message :initarg :short-message :initform nil :accessor short-message))
- (:documentation "The base for all compiler-notes."))
-
-(defclass error-compiler-note (compiler-note) ())
-
-(defclass read-error-compiler-note (compiler-note) ())
-
-(defclass warning-compiler-note (compiler-note) ())
-
-(defclass style-warning-compiler-note (compiler-note) ())
-
-(defclass note-compiler-note (compiler-note) ())
-
-(defclass location ()()
- (:documentation "The base for all locations."))
-
-(defclass error-location (location)
-    ((error-message :initarg :error-message :accessor error-message)))
-
-(defclass actual-location (location)
-    ((source-position :initarg :position :accessor source-position)
-     (snippet :initarg :snippet :accessor snippet :initform nil))
- (:documentation "The base for all non-error locations."))
-
-(defclass buffer-location (actual-location)
-    ((buffer-name :initarg :buffer :accessor buffer-name)))
-
-(defclass file-location (actual-location)
-    ((file-name :initarg :file :accessor file-name)))
-
-(defclass source-location (actual-location)
-    ((source-form :initarg :source-form :accessor source-form)))
-
-(defclass basic-position () ()
- (:documentation "The base for all positions."))
-
-(defclass char-position (basic-position)
-    ((char-position :initarg :position :accessor char-position)
-     (align-p :initarg :align-p :initform nil :accessor align-p)))
-
-(defun make-char-position (position-list)
- (make-instance 'char-position :position (second position-list)
-                :align-p (third position-list)))
-
-(defclass line-position (basic-position)
-    ((start-line :initarg :line :accessor start-line)
-     (end-line :initarg :end-line :initform nil :accessor end-line)))
-
-(defun make-line-position (position-list)
- (make-instance 'line-position :line (second position-list)
-                :end-line (third position-list)))
-
-(defclass function-name-position (basic-position)
-    ((function-name :initarg :function-name)))
-
-(defun make-function-name-position (position-list)
- (make-instance 'function-name-position :function-name (second position-list)))
-
-(defclass source-path-position (basic-position)
-    ((path :initarg :source-path :accessor path)
-     (start-position :initarg :start-position :accessor start-position)))
-
-(defun make-source-path-position (position-list)
- (make-instance 'source-path-position :source-path (second position-list)
-                :start-position (third position-list)))
-
-(defclass text-anchored-position (basic-position)
-    ((start :initarg :text-anchored :accessor start)
-     (text :initarg :text :accessor text)
-     (delta :initarg :delta :accessor delta)))
-
-(defun make-text-anchored-position (position-list)
- (make-instance 'text-anchored-position :text-anchored (second position-list)
-                :text (third position-list)
-                :delta (fourth position-list)))
-
-(defclass method-position (basic-position)
-    ((name :initarg :method :accessor name)
-     (specializers :initarg :specializers :accessor specializers)
-     (qualifiers :initarg :qualifiers :accessor qualifiers)))
-
-(defun make-method-position (position-list)
- (make-instance 'method-position :method (second position-list)
-                :specializers (third position-list)
-                :qualifiers (last position-list)))
-
-(defun make-location (location-list)
- (ecase (first location-list)
-   (:error (make-instance 'error-location :error-message (second location-list)))
-   (:location
-    (destructuring-bind (l buf pos hints) location-list
-      (declare (ignore l))
-      (let ((location
-             (apply #'make-instance
-                    (ecase (first buf)
-                      (:file 'file-location)
-                      (:buffer 'buffer-location)
-                      (:source-form 'source-location))
-                    buf))
-            (position
-             (funcall
-              (ecase (first pos)
-                (:position #'make-char-position)
-                (:line #'make-line-position)
-                (:function-name #'make-function-name-position)
-                (:source-path #'make-source-path-position)
-                (:text-anchored #'make-text-anchored-position)
-                (:method #'make-method-position))
-              pos)))
-        (setf (source-position location) position)
-        (when hints
-          (setf (snippet location) (rest hints)))
-        location)))))
-
-(defmethod initialize-instance :after ((note compiler-note) &rest args)
- (declare (ignore args))
- (setf (location note) (make-location (location note))))
-
-(defun show-note-counts (notes &optional seconds)
- (loop with nerrors = 0
-       with nwarnings = 0
-       with nstyle-warnings = 0
-       with nnotes = 0
-       for note in notes
-       do (etypecase note
-            (error-compiler-note (incf nerrors))
-            (read-error-compiler-note (incf nerrors))
-            (warning-compiler-note (incf nwarnings))
-            (style-warning-compiler-note (incf nstyle-warnings))
-            (note-compiler-note (incf nnotes)))
-       finally
-    (esa:display-message "Compilation finished: ~D error~:P ~
-                            ~D warning~:P ~D style-warning~:P ~D note~:P ~
-                            ~@[[~D secs]~]"
-            nerrors nwarnings nstyle-warnings nnotes seconds)))
-
-(defun one-line-ify (string)
-  "Return a single-line version of STRING.
-Each newline and following whitespace is replaced by a single space."
-  (loop with count = 0
-     while (< count (length string))
-     with new-string = (make-array 0 :element-type 'character :adjustable t
-                                   :fill-pointer 0)
-     when (char= (char string count) #\Newline)
-     do (loop while (and (< count (length string))
-                         (whitespacep nil (char string count)))
-           do (incf count)
-           ;; Just ignore whitespace if it is last in the
-           ;; string.
-           finally (when (< count (length string))
-                     (vector-push-extend #\Space new-string)))
-     else
-     do (vector-push-extend (char string count) new-string)
-     (incf count)
-     finally (return new-string)))
-
-(defgeneric print-for-menu (object stream))
-
-(defun print-note-for-menu (note stream severity ink)
- (with-accessors ((message message) (short-message short-message)) note
-   (with-drawing-options (stream :ink ink
-                                 :text-style (make-text-style :sans-serif :italic nil))
-     (princ severity stream)
-     (princ " " stream))
-   (princ (if short-message
-              (one-line-ify short-message)
-              (one-line-ify message))
-          stream)))
-
-(defmacro def-print-for-menu (class name colour)
- `(defmethod print-for-menu ((object ,class) stream)
-    (print-note-for-menu object stream ,name ,colour)))
-
-(def-print-for-menu error-compiler-note "Error" +red+)
-(def-print-for-menu read-error-compiler-note "Read Error" +red+)
-(def-print-for-menu warning-compiler-note "Warning" +dark-red+)
-(def-print-for-menu style-warning-compiler-note "Style Warning" +brown+)
-(def-print-for-menu note-compiler-note "Note" +brown+)
-
-(defun show-notes (notes buffer-name definition)
- (let ((stream (typeout-window
-                (format nil "~10TCompiler Notes: ~A  ~A" buffer-name definition))))
-   (loop for note in notes
-         do (with-output-as-presentation (stream note 'compiler-note)
-              (print-for-menu note stream))
-            (terpri stream)
-         count note into length
-         finally (change-space-requirements stream
-                        :height (* length (stream-line-height stream)))
-                 (scroll-extent stream 0 0))))
-
-(defgeneric goto-location (location))
-
-(defmethod goto-location ((location error-location))
- (esa:display-message (error-message location)))
-
-(defmethod goto-location ((location buffer-location))
- (let ((buffer (find (buffer-name location)
-                     (buffers *application-frame*)
-                     :test #'string= :key #'name)))
-   (unless buffer
-     (esa:display-message "No buffer ~A" (buffer-name location))
-     (beep)
-     (return-from goto-location))
-   (switch-to-buffer buffer)
-   (goto-position (point (current-window))
-                  (char-position (source-position location)))))
-
-(defmethod goto-location ((location file-location))
- (let ((buffer (find (file-name location)
-                     (buffers *application-frame*)
-                     :test #'string= :key #'(lambda (buffer)
-                                              (let ((path (filepath buffer)))
-                                                (when path
-                                                  (namestring path)))))))
-   (if buffer
-       (switch-to-buffer buffer)
-       (climacs-commands::find-file (file-name location)))
-   (goto-position (point (current-window))
-                  (char-position (source-position location)))))
-
-;;; Macroexpansion and evaluation
-
-(defun macroexpand-token (syntax token &optional (all nil))
-  (with-syntax-package syntax (start-offset token) (package)
-    (let ((*package* package))
-      (let* ((string (token-string syntax token))
-             (expression (read-from-string string))
-             (expansion (macroexpand-for-climacs (get-usable-image syntax)
-                                                 expression
-                                                 all))
-             (expansion-string (with-output-to-string (s)
-                                 (pprint expansion s))))
-        (let ((buffer (switch-to-buffer "*Macroexpansion*")))
-          (set-syntax buffer "Lisp"))
-        (let ((point (point (current-window)))
-              (header-string (one-line-ify (subseq string 0
-                                                   (min 40 (length string))))))
-          (end-of-buffer point)
-          (unless (beginning-of-buffer-p point)
-            (insert-object point #\Newline))
-          (insert-sequence point
-                           (format nil ";;; Macroexpand-~:[1~;all~] ~A...~%"
-                                   all header-string))
-          (insert-sequence point expansion-string)
-          (insert-object point #\Newline))))))
-
-(defun eval-string (syntax string)
-  "Evaluate all expressions in STRING and return a list of
-results."
-  (with-input-from-string (stream string)
-    (loop for form = (read stream nil stream)
-       while (not (eq form stream))
-       collecting (multiple-value-list
-                   (eval-form-for-climacs (get-usable-image syntax)
-                                          form)))))
-
-(defun eval-region (start end syntax)
-  ;; Must be (mark>= end start).
-  (with-syntax-package (syntax start)
-    (let ((*read-base* (base syntax)))
-      (let* ((string (buffer-substring (buffer start)
-                                       (offset start)
-                                       (offset end)))
-             (values (multiple-value-list
-                      (eval-string syntax string)))
-             ;; Enclose each set of values in {}.
-             (result (apply #'format nil "~{{~:[No values~;~:*~{~S~^,~}~]}~}"
-                            values)))
-        (esa:display-message result)))))
-
-(defun compile-definition-interactively (mark syntax)
-  (let* ((token (definition-at-mark mark syntax))
-         (string (token-string syntax token))
-         (m (clone-mark mark))
-         (buffer-name (name (buffer syntax)))
-         (*read-base* (base syntax)))
-    (with-syntax-package (syntax mark)
-      (forward-definition m syntax)
-      (backward-definition m syntax)
-      (multiple-value-bind (result notes)
-          (compile-form-for-climacs (get-usable-image syntax)
-                                    (token-to-object syntax token
-                                                     :read t
-                                                     :package (package-at-mark syntax mark))
-                                    (buffer syntax)
-                                    m)
-        (show-note-counts notes (second result))
-        (when (not (null notes))
-          (show-notes notes buffer-name
-                      (one-line-ify (subseq string 0 (min (length string) 20)))))))))
-
-(defun compile-file-interactively (buffer &optional load-p)
-  (cond ((null (filepath buffer))
-         (esa:display-message "Buffer ~A is not associated with a file" (name buffer)))
-         (t
-         (when (and (needs-saving buffer)
-                    (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name buffer))))
-           (save-buffer buffer))
-         (let ((*read-base* (base (syntax buffer))))
-           (multiple-value-bind (result notes)
-               (compile-file-for-climacs (get-usable-image (syntax buffer))
-                                         (filepath buffer)
-                                         (package-at-mark (syntax buffer) 0) load-p)
-             (show-note-counts notes (second result))
-             (when notes (show-notes notes (name buffer) "")))))))
-
-;;; Parameter hinting
-
-(defparameter +cl-arglist-keywords+
-  lambda-list-keywords)
-
-(defparameter +cl-garbage-keywords+
-  '(&whole &environment))
-
-(defun arglist-keyword-p (arg)
-  "Return T if `arg' is an arglist keyword. NIL otherwise."
-  (when (member arg +cl-arglist-keywords+)
-    t))
-
-(defun split-arglist-on-keywords (arglist)
-  "Return an alist keying lambda list keywords of `arglist'
-to the symbols affected by the keywords."
-  (let ((sing-result '())
-        (env (position '&environment arglist)))
-    (when env
-      (push (list '&environment (elt arglist (1+ env))) sing-result)
-      (setf arglist (remove-if (constantly t) arglist :start env :end (+ env 2))))
-    (when (eq '&whole (first arglist))
-      (push (subseq arglist 0 2) sing-result)
-      (setf arglist (cddr arglist)))
-    (do ((llk '(&mandatory &optional &key &allow-other-keys &aux &rest &body))
-         (args (if (arglist-keyword-p (first arglist))
-                   arglist
-                   (cons '&mandatory arglist))
-               (cdr args))
-         (chunk '())
-         (result '()))
-        ((null args)
-         (when chunk (push (nreverse chunk) result))
-         (nreverse (nconc sing-result result)))
-      (if (member (car args) llk)
-          (progn
-            (when chunk (push (nreverse chunk) result))
-            (setf chunk (list (car args))))
-          (push (car args) chunk)))))
-
-(defun find-optional-argument-values (arglist provided-args &optional
-                                      (split-arglist
-                                       (split-arglist-on-keywords
-                                        arglist)))
-  "Return an association list mapping symbols of optional or
-  keyword arguments from `arglist' to the specified values in
-  `provided-args'. `Split-arglist' should be either a split
-  arglist or nil, in which case it will be calculated from
-  `arglist'."
-  ;; First we check whether any optional arguments have even been
-  ;; provided.
-  (flet ((get-args (keyword)
-           (rest (assoc keyword split-arglist))))
-    (let* ((mandatory-args-count (length (get-args '&mandatory)))
-           (optional-args-count (length (get-args '&optional)))
-           (keyword-args-count (length (get-args '&key)))
-           (provided-args-count (length provided-args))
-           (nonmandatory-args-count (+ keyword-args-count
-                                       optional-args-count)))
-      (when (> provided-args-count
-               mandatory-args-count)
-        ;; We have optional arguments.
-        (let (
-              ;; Find the part of the provided arguments that concern
-              ;; optional arguments.
-              (opt-args-values (subseq provided-args
-                                       mandatory-args-count
-                                       (min provided-args-count
-                                            nonmandatory-args-count)))
-              ;; Find the part of the provided arguments that concern
-              ;; keyword arguments.
-              (keyword-args-values (subseq provided-args
-                                           (min (+ mandatory-args-count
-                                                   optional-args-count)
-                                                provided-args-count))))
-          (append (mapcar #'cons
-                          (mapcar #'unlisted (get-args '&optional))
-                          opt-args-values)
-
-                  (loop
-                     ;; Loop over the provided keyword symbols and
-                     ;; values in the argument list. Note that
-                     ;; little checking is done to ensure that the
-                     ;; given symbols are valid - this is not a
-                     ;; compiler, so extra mappings do not
-                     ;; matter.
-                     for (keyword value) on keyword-args-values by #'cddr
-                     if (keywordp keyword)
-                     collect (let ((argument-symbol
-                                    (unlisted (find (symbol-name keyword)
-                                                    (get-args '&key)
-                                                    :key #'(lambda (arg)
-                                                             (symbol-name (unlisted arg)))
-                                                    :test #'string=))))
-                               ;; We have to find the associated
-                               ;; symbol in the argument list... ugly.
-                               (cons argument-symbol
-                                     value)))))))))
-
-(defun find-affected-simple-arguments (arglist current-arg-index preceding-arg
-                                       &optional (split-arglist (split-arglist-on-keywords arglist)))
-  "Find the simple arguments of `arglist' that would be affected
-  if an argument was intered at index `current-arg-index' in the
-  arglist. If `current-arg-index' is nil, no calculation will be
-  done (this function will just return nil). `Preceding-arg'
-  should either be nil or the argument directly preceding
-  point. `Split-arglist' should either be a split arglist or nil,
-  in which case `split-arglist' will be computed from
-  `arglist'. This function returns two values: The primary value
-  is a list of symbols that should be emphasized, the secondary
-  value is a list of symbols that should be highlighted."
-  (when current-arg-index
-    (flet ((get-args (keyword)
-             (rest (assoc keyword split-arglist))))
-      (let ((mandatory-argument-count (length (get-args '&mandatory))))
-        (cond ((> mandatory-argument-count
-                  current-arg-index)
-               ;; We are in the main, mandatory, positional arguments.
-               (let ((relevant-arg (elt (get-args '&mandatory)
-                                        current-arg-index)))
-                 ;; We do not handle complex argument lists here, only
-                 ;; pure standard arguments.
-                 (unless (and (listp relevant-arg)
-                              (< current-arg-index mandatory-argument-count))
-                   (values nil (list (unlisted relevant-arg))))))
-              ((> (+ (length (get-args '&optional))
-                     (length (get-args '&mandatory)))
-                  current-arg-index)
-               ;; We are in the &optional arguments.
-               (values nil
-                       (list (unlisted (elt (get-args '&optional)
-                                            (- current-arg-index
-                                               (length (get-args '&mandatory))))))))
-              (t
-               (let ((body-or-rest-args (or (get-args '&rest)
-                                            (get-args '&body)))
-                     (key-arg (find (format nil "~A" preceding-arg)
-                                    (get-args '&key)
-                                    :test #'string=
-                                    :key #'(lambda (arg)
-                                             (symbol-name (unlisted arg))))))
-                 ;; We are in the &body, &rest or &key arguments.
-                 (values
-                  ;; Only emphasize the &key
-                  ;; symbol if we are in a position to add a new
-                  ;; keyword-value pair, and not just in a position to
-                  ;; specify a value for a keyword.
-                  (when (and (null key-arg)
-                             (get-args '&key))
-                    '(&key))
-                  (append (when key-arg
-                            (list (unlisted key-arg)))
-                          body-or-rest-args)))))))))
-
-(defun analyze-arglist-impl (arglist current-arg-indices preceding-arg provided-args)
-  "The implementation for `analyze-arglist'."
-  (let* ((split-arglist (split-arglist-on-keywords arglist))
-         (user-supplied-arg-values (find-optional-argument-values
-                                    arglist
-                                    provided-args
-                                    split-arglist))
-         (mandatory-argument-count
-          (length (rest (assoc '&mandatory split-arglist))))
-         
-         (current-arg-index (or (first current-arg-indices)
-                                0))
-         ret-arglist
-         emphasized-symbols
-         highlighted-symbols)
-    ;; First, we find any standard arguments that should be
-    ;; highlighted or emphasized, more complex, destructuring
-    ;; arguments will be handled specially.
-    (multiple-value-bind (es hs)
-        (find-affected-simple-arguments arglist
-                                        ;; if `current-arg-indices' is
-                                        ;; nil, that means that we do
-                                        ;; not have enough information
-                                        ;; to properly highlight
-                                        ;; symbols in the arglist.
-                                        (and current-arg-indices
-                                             current-arg-index)
-                                        preceding-arg
-                                        split-arglist)
-      (setf emphasized-symbols es)
-      (setf highlighted-symbols hs))
-    ;; We loop over the arglist and build a new list, and if we have a
-    ;; default value for a given argument, we insert it into the
-    ;; list. Also, whenever we encounter a list in a mandatory
-    ;; argument position, we assume that it is a destructuring arglist
-    ;; and recursively call `analyze-arglist' on it to find the
-    ;; arglist and emphasized and highlighted symbols for it.
-    (labels ((generate-arglist (arglist)
-               (loop
-                  for arg-element in arglist
-                  for arg-name = (unlisted arg-element)
-                  for index from 0
-                    
-                  if (and (listp arg-element)
-                          (> mandatory-argument-count
-                             index))
-                  collect (multiple-value-bind (arglist
-                                                sublist-emphasized-symbols
-                                                sublist-highlighted-symbols)
-                              (analyze-arglist arg-element
-                                               (rest current-arg-indices)
-                                               preceding-arg
-                                               (when (< index (length provided-args))
-                                                 (listed (elt provided-args index))))
-                            ;; Unless our `current-arg-index'
-                            ;; actually refers to this sublist, its
-                            ;; highlighted and emphasized symbols
-                            ;; are ignored. Also, if
-                            ;; `current-arg-indices' is nil, we do
-                            ;; not have enough information to
-                            ;; properly highlight symbols in the
-                            ;; arglist.
-                            (when (and current-arg-indices
-                                       (= index current-arg-index))
-                              (if (and (rest current-arg-indices))
-                                  (setf emphasized-symbols
-                                        (union (mapcar #'unlisted
-                                                       sublist-emphasized-symbols)
-                                               emphasized-symbols)
-                                        highlighted-symbols
-                                        (union sublist-highlighted-symbols
-                                               highlighted-symbols))
-                                  (setf emphasized-symbols
-                                        (union (mapcar #'unlisted
-                                                       arg-element)
-                                               emphasized-symbols))))
-                            arglist)
-                  else if (assoc arg-name user-supplied-arg-values)
-                  collect (list arg-name
-                                (rest (assoc
-                                       arg-name
-                                       user-supplied-arg-values)))
-                  else
-                  collect arg-element)))
-      (setf ret-arglist (generate-arglist arglist)))
-    (list ret-arglist emphasized-symbols highlighted-symbols)))
-
-(defun analyze-arglist (arglist current-arg-indices
-                        preceding-arg provided-args)
-  "Analyze argument list and provide information for highlighting
-it. `Arglist' is the argument list that is to be analyzed,
-`current-arg-index' is the index where the next argument would be
-written (0 is just after the operator), `preceding-arg' is the
-written argument preceding point and `provided-args' is a list of
-the args already written.
-
-Three values are returned: 
-
-* An argument list with values for &optional and &key arguments
-inserted from `provided-args'.
-
-* A list of symbols that should be emphasized.
-
-* A list of symbols that should be highlighted."
-  (apply #'values (analyze-arglist-impl
-                   arglist
-                   current-arg-indices
-                   preceding-arg
-                   provided-args)))
-
-(defun cleanup-arglist (arglist)
-  "Remove elements of `arglist' that we are not interested in."
-  (loop
-     for arg in arglist
-     with in-&aux                       ; If non-NIL, we are in the
-                                        ; &aux parameters that should
-                                        ; not be displayed.
-                    
-     with in-garbage                    ; If non-NIL, the next
-                                        ; argument is a garbage
-                                        ; parameter that should not be
-                                        ; displayed.
-     if in-garbage
-     do (setf in-garbage nil)
-     else if (not in-&aux)
-     if (eq arg '&aux)
-     do (setf in-&aux t)
-     else if (member arg +cl-garbage-keywords+ :test #'eq)
-     do (setf in-garbage t)
-     else
-     collect arg))
-
-(defgeneric arglist-for-form (operator &optional arguments)
-  (:documentation
-   "Return an arglist for `operator'")
-  (:method (operator &optional arguments)
-    (declare (ignore arguments))
-    (cleanup-arglist
-     (arglist (get-usable-image (syntax (current-buffer))) operator))))
-
-;; Proof of concept, just to make sure it can be done. Also, we need a
-;; more elegant interface. Perhaps it could be integrated with the
-;; indentation definition macros, in order to create some sort of
-;; `define-form-traits'-supermacro. That could be cool. Also, that way
-;; various libraries could trivially create a Climacs-extension-file
-;; containing calls to this super-macro that would make Climacs aware
-;; of the libraries indentation- and completion-needs.
-(defmethod arglist-for-form ((operator (eql 'cl:make-instance)) &optional arguments)
-  (let ((arglist (call-next-method)))
-    (if (and (plusp (length arguments))
-             (listp (first arguments))
-             (> (length (first arguments)) 1)
-             (eq (caar arguments) 'cl:quote))
-        (append arglist
-                (cons '&key (get-class-keyword-parameters
-                             (get-usable-image (syntax (current-buffer)))
-                             (first arguments))))
-        arglist)))
-
-(defmethod arglist-for-form ((operator list) &optional arguments)
-  (declare (ignore arguments))
-  (case (first operator)
-    ('cl:lambda (cleanup-arglist (second operator)))))
-
-(defgeneric operator-for-display (operator)
-  (:documentation "Return what should be displayed whenever
-  `operator' is displayed as an operator.")
-  (:method (operator)
-    operator))
-
-(defmethod operator-for-display ((operator list))
-  (case (first operator)
-    ('cl:lambda '|Lambda-Expression|)))
-
-(defun display-arglist-to-stream (stream operator arglist
-                                  &optional emphasized-symbols
-                                  highlighted-symbols)
-  "Display the operator and arglist to stream, format as
-  appropriate."
-  ;; FIXME: This is fairly ugly.
-  (labels ((display-symbol (symbol)
-             (with-text-style
-                 (stream
-                  `(nil
-                    ,(cond ((member symbol
-                                    highlighted-symbols)
-                            :bold)
-                           ((member symbol
-                                    emphasized-symbols)
-                            :italic))
-                    nil))
-               (format stream "~A" symbol)))
-           (display-list (list)
-             (if (and (eq (first list) 'quote)
-                      (= (length list) 2))
-                 (progn
-                   (format stream "'")
-                   (display-argument (second list)))
-                 (progn
-                   (format stream "(")
-                   (display-argument (first list))
-                   (dolist (arg (rest list))
-                     (format stream " ")
-                     (display-argument arg))
-                   (format stream ")"))))
-           (display-argument (arg)
-             (if (and (listp arg)
-                      (not (null arg)))
-                 (display-list arg)
-                 (display-symbol arg))))
-    (display-argument (cons (operator-for-display operator)
-                            arglist))))
-
-(defun show-arglist-silent (operator &optional
-                            current-arg-indices
-                            preceding-arg arguments)
-  "Display the arglist for `operator' in the minibuffer, do not
-complain if `operator' is not bound to, or is not, a function.
-
-`Current-arg-index' and `preceding-arg' are used to add extra
-information to the arglist display. `Arguments' should be either
-nil or a list of provided arguments in the form housing symbol.
-
-Returns NIL if an arglist cannot be displayed."
-  (multiple-value-bind (arglist emphasized-symbols highlighted-symbols)
-      (analyze-arglist
-       (arglist-for-form operator arguments)
-       current-arg-indices
-       preceding-arg
-       arguments)
-    (esa:with-minibuffer-stream (minibuffer)
-      (display-arglist-to-stream minibuffer operator
-                                 arglist emphasized-symbols
-                                 highlighted-symbols))))
-
-(defun show-arglist (symbol)
-  (unless (and (fboundp symbol)
-               (show-arglist-silent symbol))
-    (esa:display-message "Function ~a not found." symbol)))
-
-(defun find-argument-indices-for-operand (syntax operand-form operator-form)
-  "Return a list of argument indices for `argument-form' relative
-  to `operator-form'. These lists take the form of (n m p), which
-  means (aref form-operand-list n m p). A list of
-  argument indices can have arbitrary length (but they are
-  practically always at most 2 elements long). "
-  (declare (ignore syntax))
-  (let ((operator (first-form (children operator-form))))
-    (labels ((worker (operand-form &optional the-first)
-               ;; Cannot find index for top-level-form.
-               (when (parent operand-form)
-                 (let ((form-operand-list
-                        (remove-if #'(lambda (form)
-                                       (or (not (typep form 'form))
-                                           (eq form operator)))
-                                   (children (parent operand-form)))))
-
-                   (let ((operand-position (position operand-form form-operand-list))
-                         (go-on (not (eq operator-form (parent operand-form)))))
-                     ;; If we find anything, we have to increment the
-                     ;; position by 1, since we consider the existance
-                     ;; of a first operand to mean point is at operand
-                     ;; 2. Likewise, a position of nil is interpreted
-                     ;; as 0.
-                     (cons (if operand-position
-                               (if (or the-first)
-                                   (1+ operand-position)
-                                   operand-position)
-                               0)
-                           (when go-on
-                             (worker (parent operand-form)))))))))
-      (nreverse (worker operand-form t)))))
-
-(defun find-operand-info (mark-or-offset syntax operator-form)
-  "Returns two values: The operand preceding `mark-or-offset' and
-  the path from `operator-form' to the operand."
-  (as-offsets ((mark-or-offset offset))
-    (let* ((preceding-arg-token (form-before syntax offset))
-           (indexing-start-arg
-            (let* ((candidate-before preceding-arg-token)
-                   (candidate-after (when (null candidate-before)
-                                      (let ((after (form-after syntax offset)))
-                                        (when after
-                                          (parent after)))))
-                   (candidate-around (when (null candidate-after)
-                                       (form-around syntax offset)))
-                   (candidate (or candidate-before
-                                  candidate-after
-                                  candidate-around)))
-              (if (or (and candidate-before
-                           (typep candidate-before 'incomplete-list-form))
-                      (and (null candidate-before)
-                           (typep (or candidate-after candidate-around)
-                                  'list-form)))
-                  ;; HACK: We should not attempt to find the location of
-                  ;; the list form itself, so we create a new parser
-                  ;; symbol, attach the list form as a parent and try to
-                  ;; find the new symbol. That way we can get a list of
-                  ;; argument-indices to the first element of the list
-                  ;; form, even if it is empty or incomplete.
-                  (let ((obj (make-instance 'parser-symbol)))
-                    (setf (parent obj) candidate)
-                    obj)
-                  candidate)))
-           (argument-indices (find-argument-indices-for-operand
-                              syntax
-                              indexing-start-arg
-                              operator-form))
-           (preceding-arg-obj (when preceding-arg-token
-                                (token-to-object syntax preceding-arg-token
-                                                 :no-error t))))
-      (values preceding-arg-obj argument-indices))))
-
-(defun valid-operator-p (operator)
-  "Check whether or not `operator' is a valid
-  operator. `Operator' is considered a valid operator if it is a
-  symbol bound to a function, or if it is a lambda expression."
-  (cond ((symbolp operator)
-         (or (fboundp operator)
-             (macro-function operator)
-             (special-operator-p operator)))
-        ((listp operator)
-         (eq (first operator) 'cl:lambda))))
-
-(defun indices-match-arglist (arglist arg-indices)
-  "Check whether the argument indices `arg-indices' could refer
-  to a direct argument for the operator with the argument list
-  `arglist'. Returns T if they could, NIL otherwise. This
-  functions does not care about the argument quantity, only their
-  structure."
-  (let* ((index (first arg-indices))
-         (pure-arglist (remove-if #'arglist-keyword-p arglist))
-         (arg (when (< index (length pure-arglist))
-                (elt pure-arglist index))))
-    (cond ((or (and (>= index (or (position-if #'arglist-keyword-p arglist)
-                                  (1+ index)))
-                    (not (null (rest arg-indices))))
-               (and (not (null (rest arg-indices)))
-                    (> (length pure-arglist)
-                       index)
-                    (not (listp (elt pure-arglist index)))))
-           nil)
-          ((and (not (null arg))
-                (listp arg)
-                (rest arg-indices))
-           (indices-match-arglist arg (rest arg-indices)))
-          (t t))))
-
-(defun direct-arg-p (form syntax)
-  "Check whether `form' is a direct argument to one of its
-   parents."
-  (labels ((recurse (parent)
-             (let ((operator (form-operator
-                              parent
-                              syntax)))
-               (or (and
-                    ;; An operator is not an argument to itself...
-                    (not (= (start-offset form)
-                            (start-offset (first-form (children parent)))))
-                    (valid-operator-p operator)
-                    (indices-match-arglist
-                     (arglist (image syntax)
-                              operator)
-                     (second
-                      (multiple-value-list
-                       (find-operand-info
-                        (start-offset form)
-                        syntax
-                        parent)))))
-                   (when (parent parent)
-                     (recurse (parent parent)))))))
-    (when (parent form)
-      (recurse (parent form)))))
-
-(defmacro with-code-insight (mark-or-offset syntax (&key operator preceding-operand
-                                                         form preceding-operand-indices
-                                                         operands)
-                             &body body)
-  "Evaluate `body' with the provided symbols lexically bound to
-  interesting details about the code at `mark'. If `mark' is not
-  within a form, everything will be bound to nil."
-  (let ((operator-sym (or operator (gensym)))
-        (preceding-operand-sym (or preceding-operand (gensym)))
-        (operands-sym (or operands (gensym)))
-        (form-sym (or form (gensym)))
-        (operand-indices-sym (or preceding-operand-indices (gensym)))
-        ;; My kingdom for with-gensyms (or once-only)!
-        (mark-value-sym (gensym))
-        (syntax-value-sym (gensym)))
-    `(let* ((,mark-value-sym ,mark-or-offset)
-            (,syntax-value-sym ,syntax)
-            (,form-sym
-             ;; Find a form with a valid (fboundp) operator.
-             (let ((immediate-form
-                    (preceding-form ,mark-value-sym ,syntax-value-sym)))
-               ;; Recurse upwards until we find a form with a valid
-               ;; operator. This could be improved a lot, as we could
-               ;; inspect the lambda list of the found operator and
-               ;; check if the position of mark makes sense with
-               ;; regard to the structure of the lambda list. If we
-               ;; cannot find a form with a valid operator, just
-               ;; return the form `mark' is in.
-               (unless (null immediate-form)
-                 (labels ((recurse (form)
-                            (unless (null (parent form))
-                              (or (unless (eq (first-form (children (parent form)))
-                                              form)
-                                    (recurse (parent form)))
-                                  (and (valid-operator-p (form-operator
-                                                          form
-                                                          ,syntax-value-sym))
-                                       (indices-match-arglist
-                                        (arglist-for-form
-                                         (form-operator
-                                          form
-                                          ,syntax-value-sym)
-                                         (form-operands
-                                          form
-                                          ,syntax-value-sym))
-                                        (second
-                                         (multiple-value-list
-                                          (find-operand-info ,mark-value-sym ,syntax-value-sym form))))
-                                       (not (direct-arg-p form ,syntax-value-sym))
-                                       form)))))
-                   (or (recurse (parent immediate-form))
-                       (parent immediate-form))))))
-            ;; If we cannot find a form, there's no point in looking
-            ;; up any of this stuff.
-            (,operator-sym (when ,form-sym (form-operator ,form-sym ,syntax-value-sym)))
-            (,operands-sym (when ,form-sym (form-operands ,form-sym ,syntax-value-sym))))
-       (declare (ignorable ,mark-value-sym ,syntax-value-sym ,form-sym
-                           ,operator-sym ,operands-sym))
-       (multiple-value-bind (,preceding-operand-sym ,operand-indices-sym)
-           (when ,form-sym (find-operand-info ,mark-value-sym ,syntax-value-sym ,form-sym))
-         (declare (ignorable ,preceding-operand-sym ,operand-indices-sym))
-         ,@body))))
-
-(defun show-arglist-for-form-at-mark (mark syntax)
-  "Display the argument list for the operator of `form'. The
-list need not be complete. If an argument list cannot be
-retrieved for the operator, nothing will be displayed."
-  (with-code-insight mark syntax (:operator operator
-                                            :preceding-operand preceding-operand
-                                            :preceding-operand-indices preceding-operand-indices
-                                            :operands operands)
-    (when (valid-operator-p operator) 
-      (show-arglist-silent operator preceding-operand-indices preceding-operand operands))))
-
-;;; Definition editing
-
-(defparameter *find-definition-stack* '())
-
-(defun pop-find-definition-stack ()
- (unless (null *find-definition-stack*)
-   (let* ((offset+buffer (pop *find-definition-stack*))
-          (offset (first offset+buffer))
-          (buffer (second offset+buffer)))
-     (if (find buffer (buffers *application-frame*))
-         (progn (switch-to-buffer buffer)
-                (goto-position (point (current-window)) offset))
-         (pop-find-definition-stack)))))
-
-;; KLUDGE: We need to put more info in the definition objects to begin
-;; with.
-(defun definition-type (definition)
-  (let ((data (read-from-string (first definition))))
-     (case (first data)
-      ((or cl:defclass)
-       'cl:class)
-      ((or cl:defgeneric
-           cl:defmethod
-           cl:defun
-           cl:defmacro)
-       'cl:function)
-      (t t))))
-
-(defun edit-definition (symbol &optional type)
-  (let ((all-definitions (find-definitions-for-climacs
-                          (get-usable-image (syntax (current-buffer)))
-                          symbol)))
-    (let ((definitions (if (not type)
-                           all-definitions
-                           (remove-if-not #'(lambda (definition)
-                                              (eq (definition-type definition) type))
-                                          all-definitions))))
-      (cond ((null definitions)
-             (esa:display-message "No known definitions for: ~A" symbol)
-             (beep))
-            (t
-             (goto-definition symbol definitions))))))
-
-(defun goto-definition (name definitions)
- (let* ((pane (current-window))
-        (buffer (buffer pane))
-        (point (point pane))
-        (offset (offset point)))
-   (push (list offset buffer) *find-definition-stack*))
- (cond ((null (cdr definitions))
-        (let* ((def (car definitions))
-               (xref (make-xref def)))
-          (goto-location xref)))
-       (t
-        (let ((xref (show-definitions name definitions)))
-          (when xref (goto-location xref))))))
-
-(defclass xref ()
-  ((dspec :initarg :dspec :accessor dspec)
-   (location :initarg :location :accessor location)))
-
-(defun make-xref (xref-list)
- (destructuring-bind (dspec location) xref-list
-     (make-instance 'xref
-        :dspec dspec
-        :location (make-location location))))
-
-(defmethod goto-location ((xref xref))
- (goto-location (location xref)))
-
-(defun show-definitions (name definitions)
- (show-xrefs (loop for xref-list in definitions
-                   collect (make-xref xref-list))
-             'definition name))
-
-(defun show-xrefs (xrefs type symbol)
- (cond ((null xrefs)
-        (esa:display-message "No references found for ~A." symbol)
-        (beep))
-       (t
-        (flet ((printer (item stream)
-                 (with-drawing-options (stream :ink +dark-blue+
-                                               :text-style (make-text-style :fixed nil nil))
-                   (princ (dspec item) stream))))
-         (let ((stream (typeout-window
-                        (format nil "~10T~A ~A" type symbol))))
-             (loop for xref in xrefs
-                   do (with-output-as-presentation (stream xref 'xref)
-                        (printer xref stream))
-                      (terpri stream)
-                   count xref into length
-                   finally (change-space-requirements stream
-                                  :height (* length (stream-line-height stream)))
-                           (scroll-extent stream 0 0)))))))
-
-;;; Symbol completion
-
-(defun relevant-keywords (arglist arg-indices)
-  "Return a list of the keyword arguments that it would make
-  sense to use at the position `arg-indices' relative to the
-  operator that has the argument list `arglist'."
-  (let* ((key-position (position '&key arglist))
-         (rest-position (position '&rest arglist))
-         (cleaned-arglist (remove-if #'arglist-keyword-p
-                                     arglist))
-         (index (first arg-indices))
-         (difference (+ (- (length arglist)
-                           (length cleaned-arglist))
-                        (if rest-position 1 0))))
-    (cond ((and (null key-position)
-                (rest arg-indices)
-                (> (length cleaned-arglist)
-                   index)
-                (listp (elt cleaned-arglist index)))
-           ;; Look in a nested argument list.
-           (relevant-keywords (elt cleaned-arglist index)
-                              (rest arg-indices)))
-          ((and (not (null key-position))
-                (>= (+ index
-                       difference) 
-                    key-position)
-                (evenp (- index (- key-position
-                                   (1- difference)))))
-           (mapcar #'unlisted (subseq cleaned-arglist
-                                      (+ (- key-position
-                                            difference)
-                                         (if rest-position 2 1))))))))
-
-(defun completions-from-keywords (syntax token)
-  "Assume that `token' is a (partial) keyword argument
-keyword. Find out which operator it is applicable to, and return
-a completion list based on the valid keywords, or NIL, if no
-keyword arguments would be valid (for example, if the operator
-doesn't take keyword arguments)."
-  (with-code-insight (start-offset token) syntax
-      (:preceding-operand-indices poi
-                                  :operator operator
-                                  :operands operands)
-    (when (valid-operator-p operator)
-      (let* ((relevant-keywords
-              (relevant-keywords (arglist-for-form operator operands)
-                                 poi))
-             (completions (simple-completions
-                           (get-usable-image syntax)
-                           (token-string syntax token)
-                           +keyword-package+))
-             (relevant-completions
-              (remove-if-not #'(lambda (compl)
-                                 (member compl relevant-keywords
-                                         :test #'(lambda (a b)
-                                                   (string-equal a b
-                                                                 :start1 1))
-                                         :key #'symbol-name))
-                             (mapcar #'string-downcase (first completions)))))
-        (list relevant-completions
-              (longest-completion relevant-completions))))))
-
-;; The following stuff is from Swank.
-
-(defun longest-completion (completions)
-  "Return the longest completion of `completions', which must be a
-list of sequences."
-  (untokenize-completion
-   (mapcar #'longest-common-prefix
-           (transpose-lists (mapcar #'tokenize-completion completions)))))
-
-(defun tokenize-completion (string)
-  "Return all substrings of STRING delimited by #\-."
-  (loop with end
-        for start = 0 then (1+ end)
-        until (> start (length string))
-        do (setq end (or (position #\- string :start start) (length string)))
-        collect (subseq string start end)))
-
-(defun untokenize-completion (tokens)
-  (format nil "~{~A~^-~}" tokens))
-
-(defun longest-common-prefix (strings)
-  "Return the longest string that is a common prefix of STRINGS."
-  (if (null strings)
-      ""
-      (flet ((common-prefix (s1 s2)
-               (let ((diff-pos (mismatch s1 s2)))
-                 (if diff-pos (subseq s1 0 diff-pos) s1))))
-        (reduce #'common-prefix strings))))
-
-(defun transpose-lists (lists)
-  "Turn a list-of-lists on its side.
-If the rows are of unequal length, truncate uniformly to the shortest.
-
-For example:
-\(transpose-lists '((ONE TWO THREE) (1 2)))
-  => ((ONE 1) (TWO 2))"
-  (cond ((null lists) '())
-        ((some #'null lists) '())
-        (t (cons (mapcar #'car lists)
-                 (transpose-lists (mapcar #'cdr lists))))))
-
-(defun clear-completions ()
-  (let ((completions-pane
-         (find "Completions" (esa:windows *application-frame*)
-               :key #'pane-name
-               :test #'string=)))
-    (unless (null completions-pane)
-     (delete-window completions-pane)
-     (setf completions-pane nil))))
-
-(defun find-completion-by-fn (fn symbol package)
-  (esa:display-message (format nil "~a completions" symbol))
-  (let* ((result (funcall fn symbol (package-name package)))
-         (set (first result))
-         (longest (second result)))
-       (values longest set)))
-
-(defun find-completion (syntax token package)
-  (let ((symbol-name (token-string syntax token)))
-    (find-completion-by-fn
-     #'(lambda (&rest args)
-         (find-if #'identity
-                  (list
-                   ;; If we are in a position where only keyword parameters
-                   ;; make sense, only complete from the available keyword
-                   ;; parameters.
-                   (completions-from-keywords syntax token)
-                   ;; Plain, complete symbol completion.
-                   (apply #'simple-completions
-                          (get-usable-image syntax)
-                          args))
-                  :key #'first))
-     symbol-name package)))
-
-(defun find-fuzzy-completion (syntax token package)
-  (let ((symbol-name (token-string syntax token)))
-   (esa:display-message (format nil "~a completions" symbol-name))
-   (let* ((set (fuzzy-completions (get-usable-image syntax) symbol-name package 10))
-          (best (caar set)))
-     (values best set))))
-
-(defun complete-symbol-at-mark-with-fn (syntax mark &optional (fn #'find-completion))
-  "Attempt to find and complete the symbol at `mark' using the
-  function `fn' to get the list of completions. If the completion
-  is ambiguous, a list of possible completions will be
-  displayed. If no symbol can be found at `mark', return nil."
-  (let ((token (form-around syntax (offset mark))))
-    (when (and (not (null token))
-               (typep token 'complete-token-lexeme)
-               (not (= (start-offset token)
-                       (offset mark))))
-      (multiple-value-bind (longest completions)
-          (funcall fn syntax token (package-at-mark syntax mark))
-        (if (> (length longest) 0)
-            (if (= (length completions) 1)
-                (replace-symbol-at-mark mark syntax longest)
-                (progn
-                  (esa:display-message (format nil "Longest is ~a|" longest))
-                  (let ((selection (menu-choose (mapcar
-                                                 ;; FIXME: this can
-                                                 ;; get ugly.
-                                                 #'(lambda (completion)
-                                                     (if (listp completion)
-                                                         (cons completion
-                                                               (first completion))
-                                                         completion))
-                                                 completions)
-                                                :label "Possible completions"
-                                                :scroll-bars :vertical)))
-                    (replace-symbol-at-mark mark syntax (or selection
-                                                            longest)))))
-            (esa:display-message "No completions found")))
-      t)))
-
-(defun complete-symbol-at-mark (syntax mark)
-  "Attempt to find and complete the symbol at `mark'. If the
-  completion is ambiguous, a list of possible completions will be
-  displayed. If no symbol can be found at `mark', return nil."
-  (complete-symbol-at-mark-with-fn syntax mark))
-
-(defun fuzzily-complete-symbol-at-mark (syntax mark)
-  "Attempt to find and complete the symbol at `mark' using fuzzy
-  completion. If the completion is ambiguous, a list of possible
-  completions will be displayed. If no symbol can be found at
-  `mark', return nil."
-  (complete-symbol-at-mark-with-fn syntax mark #'find-fuzzy-completion))

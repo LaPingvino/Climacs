@@ -88,13 +88,13 @@ string at point."
 (define-command (com-set-base :name t :command-table lisp-table)
     ((base '(integer 2 36)))
   "Set the base for the current buffer."
-  (setf (base (syntax (current-buffer)))
+  (setf (base (syntax (current-buffer *application-frame*)))
         base))
 
 (define-command (com-set-package :name t :command-table lisp-table)
     ((package 'package))
   "Set the package for the current buffer."
-  (setf (option-specified-package (syntax (current-buffer)))
+  (setf (option-specified-package (syntax (current-buffer *application-frame*)))
         package))
 
 (define-command (com-indent-expression :name t :command-table lisp-table)

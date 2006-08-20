@@ -47,7 +47,7 @@
       (handler-case (asdf:oos 'asdf:load-op :swank)
         (asdf:missing-component ()
           (esa:display-message "Swank not available.")))))
-  (setf (image (syntax (current-buffer)))
+  (setf (image (syntax (current-buffer *application-frame*)))
         (make-instance 'swank-local-image)))
 
 (defmethod compile-string-for-climacs ((image swank-local-image) string package buffer buffer-mark)
