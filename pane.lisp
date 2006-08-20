@@ -371,6 +371,7 @@ is made to alter a buffer which has been set read only."))
 	     (unless (null saved-index)
 	       (let ((contents (coerce (subseq line saved-index index) 'string)))
 		 (updating-output (pane :unique-id (incf id)
+                                        :id-test #'=
 					:cache-value contents
 					:cache-test #'string=)
 		   (present-contents contents pane)))
@@ -400,13 +401,16 @@ is made to alter a buffer which has been set read only."))
 			((characterp obj)
 			 (output-word index)
 			 (updating-output (pane :unique-id (incf id)
-						:cache-value obj)
+                                                :id-test #'=
+						:cache-value obj
+                                                :cache-test #'equal)
 			   (present obj 'character :stream pane)))
 			(t
 			 (output-word index)
 			 (updating-output (pane :unique-id (incf id)
+                                                :id-test #'=
 						:cache-value obj
-						:cache-test #'eq)
+						:cache-test #'equal)
 			   (present obj 'character :stream pane))))
 		  (incf scan)
 	       finally (output-word index)
@@ -547,15 +551,12 @@ is made to alter a buffer which has been set read only."))
 	   for id from 0 below (nb-elements cache)
 	   do (setf scan start-offset)
 	      (updating-output
-		  (pane :unique-id (element* cache id)
-			:cache-value (if (<= start-offset
-					     (offset (point pane))
-					     (+ start-offset (length (element* cache id))))
-					 (cons nil nil)
-					 (element* cache id))
-			:cache-test #'eq)
-		(display-line pane (element* cache id) start-offset
-			      (syntax (buffer pane)) (stream-default-view pane)))
+		  (pane :unique-id id
+                        :id-test #'equal
+			:cache-value (element* cache id)
+			:cache-test #'equal)
+ 		(display-line pane (element* cache id) start-offset
+ 			      (syntax (buffer pane)) (stream-default-view pane)))
 	      (incf start-offset (1+ (length (element* cache id)))))
      (when (mark= scan (point pane))
        (multiple-value-bind (x y) (stream-cursor-position pane)
