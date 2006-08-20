@@ -255,8 +255,8 @@ Uses TAB-SPACE-COUNT of the STREAM-DEFAULT-VIEW of the pane."
   (let* ((pane (current-window))
 	 (point (point pane)))
     (insert-object point #\Newline)
-    (update-syntax (current-buffer)
-                   (syntax (current-buffer)))
+    (update-syntax (current-buffer *application-frame*)
+                   (syntax (current-buffer *application-frame*)))
     (indent-current-line pane point)))
 
 (set-key 'com-newline-and-indent
@@ -453,7 +453,7 @@ point at the beginning of the last line of the buffer."
       :prompt "Name of syntax"))
   "Prompts for a syntax to set for the current buffer.
    Setting a syntax will cause the buffer to be reparsed using the new syntax."
-  (set-syntax (current-buffer) syntax))
+  (set-syntax (current-buffer *application-frame*) syntax))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Kill ring commands

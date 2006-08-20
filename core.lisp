@@ -336,10 +336,14 @@ spaces only."))
 ;;; 
 ;;; Buffer handling
 
-(defun make-buffer (&optional name)
+(defmethod make-new-buffer ((application-frame climacs))
   (let ((buffer (make-instance 'climacs-buffer)))
+    (push buffer (buffers application-frame))
+    buffer))
+
+(defun make-new-named-buffer (&optional name)
+  (let ((buffer (make-new-buffer *application-frame*)))
     (when name (setf (name buffer) name))
-    (push buffer (buffers *application-frame*))
     buffer))
 
 (defgeneric erase-buffer (buffer))
@@ -399,7 +403,7 @@ spaces only."))
   (let ((buffer (find name (buffers *application-frame*)
 		      :key #'name :test #'string=)))
     (switch-to-buffer (or buffer
-			  (make-buffer name)))))
+			  (make-new-named-buffer name)))))
 
 ;;placeholder
 (defmethod switch-to-buffer ((symbol (eql 'nil)))  
@@ -422,11 +426,11 @@ spaces only."))
 		  (error () (progn (beep)
 				   (display-message "Invalid answer")
 				   (return-from kill-buffer nil)))))
-       (save-buffer buffer))
+       (save-buffer buffer *application-frame*))
      (setf buffers (remove buffer buffers))
      ;; Always need one buffer.
      (when (null buffers)
-       (make-buffer "*scratch*"))
+       (make-new-named-buffer "*scratch*"))
      (setf (buffer (current-window)) (car buffers))
      (full-redisplay (current-window))
      (buffer (current-window))))
@@ -594,7 +598,7 @@ spaces only."))
     (and (or (null name) (eql name :unspecific))
 	 (or (null type) (eql type :unspecific)))))
 
-(defun find-file (filepath &optional readonlyp)
+(defun find-file-impl (filepath &optional readonlyp)
   (cond ((null filepath)
 	 (display-message "No file name given.")
 	 (beep))
@@ -603,9 +607,9 @@ spaces only."))
 	 (beep))
         (t
          (flet ((usable-pathname (pathname)
-                   (if (probe-file pathname)
-                       (truename pathname)
-                       pathname)))
+                  (if (probe-file pathname)
+                      (truename pathname)
+                      pathname)))
            (let ((existing-buffer (find filepath (buffers *application-frame*)
                                         :key #'filepath
                                         :test #'(lambda (fp1 fp2)
@@ -619,35 +623,35 @@ spaces only."))
                      (unless (probe-file filepath)
                        (beep)
                        (display-message "No such file: ~A" filepath)
-                       (return-from find-file nil)))
-                   (let ((buffer (make-buffer))
+                       (return-from find-file-impl nil)))
+                   (let ((buffer (if (probe-file filepath)
+                                     (with-open-file (stream filepath :direction :input)
+                                       (make-buffer-from-stream stream *application-frame*))
+                                     (make-new-buffer *application-frame*)))
                          (pane (current-window)))
                      ;; Clear the pane's cache; otherwise residue from the
                      ;; previously displayed buffer may under certain
                      ;; circumstances be displayed.
                      (clear-cache pane)
-                     (setf (syntax buffer) nil)
-                     (setf (offset (point (buffer pane))) (offset (point pane)))
-                     (setf (buffer (current-window)) buffer)
-                     (setf (syntax buffer)
-                           (make-instance (syntax-class-name-for-filepath filepath)
-                                          :buffer buffer))
-                     ;; Don't want to create the file if it doesn't exist.
-                     (when (probe-file filepath)
-                       (with-open-file (stream filepath :direction :input)
-                         (input-from-stream stream buffer 0))
-                       (setf (file-write-time buffer) (file-write-date filepath))
-                       ;; A file! That means we may have a local options
-                       ;; line to parse.
-                       (evaluate-attribute-line buffer))
+                     (setf (offset (point (buffer pane))) (offset (point pane))
+                           (buffer (current-window)) buffer
+                           (syntax buffer) (make-instance (syntax-class-name-for-filepath filepath)
+                                                          :buffer buffer)
+                           (file-write-time buffer) (file-write-date filepath))
+                     (evaluate-attribute-line buffer)
                      (setf (filepath buffer) filepath
                            (name buffer) (filepath-filename filepath)
-                           (needs-saving buffer) nil
                            (read-only-p buffer) readonlyp)
                      (beginning-of-buffer (point pane))
                      (update-syntax buffer (syntax buffer))
                      (clear-modify buffer)
                      buffer))))))))
+
+(defmethod find-file (filepath (application-frame climacs))
+  (find-file-impl filepath nil))
+
+(defmethod find-file-read-only (filepath (application-frame climacs))
+  (find-file-impl filepath t))
 
 (defun directory-of-buffer (buffer)
   "Extract the directory part of the filepath to the file in BUFFER.
@@ -659,33 +663,12 @@ spaces only."))
     (or (filepath buffer)
 	(user-homedir-pathname)))))
 
-(defun set-visited-file-name (filename buffer)
-  (setf (filepath buffer) filename
+(defmethod set-visited-filename (filepath buffer (application-frame climacs))
+  (setf (filepath buffer) filepath
 	(file-saved-p buffer) nil
 	(file-write-time buffer) nil
-	(name buffer) (filepath-filename filename)
+	(name buffer) (filepath-filename filepath)
 	(needs-saving buffer) t))
-
-(defun extract-version-number (pathname)
-  "Extracts the emacs-style version-number from a pathname."
-  (let* ((type (pathname-type pathname))
-	 (length (length type)))
-    (when (and (> length 2) (char= (char type (1- length)) #\~))
-      (let ((tilde (position #\~ type :from-end t :end (- length 2))))
-	(when tilde
-	  (parse-integer type :start (1+ tilde) :junk-allowed t))))))
-
-(defun version-number (pathname)
-  "Return the number of the highest versioned backup of PATHNAME
-or 0 if there is no versioned backup. Looks for name.type~X~,
-returns highest X."
-  (let* ((wildpath (merge-pathnames (make-pathname :type :wild) pathname))
-	 (possibilities (directory wildpath)))
-    (loop for possibility in possibilities
-	  for version = (extract-version-number possibility) 
-	  if (numberp version)
-	    maximize version into max
-	  finally (return max))))
 
 (defun check-file-times (buffer filepath question answer)
   "Return NIL if filepath newer than buffer and user doesn't want
@@ -700,32 +683,6 @@ to overwrite."
 	    (progn (display-message "~a not ~a" filepath answer)
 		   nil))
 	t)))
-
-(defun save-buffer (buffer)
-  (let ((filepath (or (filepath buffer)
-		      (accept 'pathname :prompt "Save Buffer to File"))))
-    (cond
-      ((directory-pathname-p filepath)
-       (display-message "~A is a directory." filepath)
-       (beep))
-      (t
-       (unless (check-file-times buffer filepath "Overwrite" "written")
-	 (return-from save-buffer))
-       (when  (and (probe-file filepath) (not (file-saved-p buffer)))
-	 (let ((backup-name (pathname-name filepath))
-	       (backup-type (format nil "~A~~~D~~"
-				    (pathname-type filepath)
-				    (1+ (version-number filepath)))))
-	   (rename-file filepath (make-pathname :name backup-name
-						:type backup-type)))
-	 (setf (file-saved-p buffer) t))
-       (with-open-file (stream filepath :direction :output :if-exists :supersede)
-	 (output-to-stream stream buffer 0 (size buffer)))
-       (setf (filepath buffer) filepath
-	     (file-write-time buffer) (file-write-date filepath)
-	     (name buffer) (filepath-filename filepath))
-       (display-message "Wrote: ~a" filepath)
-       (setf (needs-saving buffer) nil)))))
 
 (defmethod frame-exit :around ((frame climacs) #-mcclim &key)
   (loop for buffer in (buffers frame)

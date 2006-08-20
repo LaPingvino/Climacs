@@ -1,7 +1,9 @@
-;;; -*- Mode: Lisp; Package: CLIMACS-BUFFER -*-
+;;; -*- Mode: Lisp; Package: CLIMACS-CORE -*-
 
 ;;;  (c) copyright 2004 by
 ;;;           Robert Strandh (strandh@labri.fr)
+;;;  (c) copyright 2006 by
+;;;           Troels Henriksen (athas@sigkill.dk)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -20,20 +22,23 @@
 
 ;;; Input/Output of buffers to and from streams.
 
-(in-package :climacs-base)
+(in-package :climacs-core)
+
+(defmethod save-buffer-to-stream ((buffer climacs-buffer) stream)
+  (let ((seq (buffer-sequence buffer 0 (size buffer))))
+    (write-sequence seq stream)))
 
 (defun input-from-stream (stream buffer offset)
-  (loop with vec = (make-array 10000 :element-type 'character)
-	for count = (#+mcclim read-sequence #-mcclim cl:read-sequence
-			      vec stream)
-	while (plusp count)
-	do (if (= count (length vec))
-	       (insert-buffer-sequence buffer offset vec)
-	       (insert-buffer-sequence buffer offset
-				       (subseq vec 0 count)))
-	   (incf offset count)))
+  (let* ((seq (make-string (file-length stream)))
+         (count (#+mcclim read-sequence #-mcclim cl:read-sequence
+                          seq stream)))
+    (if (= count (length seq))
+        (insert-buffer-sequence buffer offset
+                                (if (= count (length seq))
+                                    seq
+                                    (subseq seq 0 count))))))
 
-(defun output-to-stream (stream buffer offset1 offset2)
-  (loop for offset from offset1 below offset2
-	when (characterp (buffer-object buffer offset))
-	  do (write-char (buffer-object buffer offset) stream)))
+(defmethod make-buffer-from-stream (stream (application-frame climacs))
+  (let* ((buffer (make-new-buffer application-frame)))
+    (input-from-stream stream buffer 0)
+    buffer))

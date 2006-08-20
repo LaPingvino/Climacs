@@ -297,8 +297,6 @@ spaces. `Mark' will be moved to after any spaces inserted."
 ;;; 
 ;;; Named objects
 
-(defgeneric name (obj))
-
 (defclass name-mixin ()
   ((name :initarg :name :accessor name)))
 

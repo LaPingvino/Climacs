@@ -24,7 +24,9 @@
 ;;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;;; Boston, MA  02111-1307  USA.
 
-;;; File (and buffer) commands for the Climacs editor. 
+;;; File (and buffer) commands for the Climacs editor. Note that many
+;;; basic commands (such as Find File) are defined in ESA and made
+;;; available to Climacs via the ESA-IO-TABLE command table.
 
 (in-package :climacs-commands)
 
@@ -151,52 +153,6 @@ appropriate for the syntax of the buffer."
   (update-attribute-line (buffer (current-window)))
   (evaluate-attribute-line (buffer (current-window))))
 
-(define-command (com-find-file :name t :command-table buffer-table)
-    ((filepath 'pathname
-	       :prompt "Find File"
-	       :default (directory-of-buffer (buffer (current-window)))
-	       :default-type 'pathname
-	       :insert-default t))
-  "Prompt for a filename then edit that file.
-If a buffer is already visiting that file, switch to that buffer. Does not create a file if the filename given does not name an existing file."
-  (find-file filepath))
-
-(set-key `(com-find-file ,*unsupplied-argument-marker*)
-	 'buffer-table
-	 '((#\x :control) (#\f :control)))
-
-(define-command (com-find-file-read-only :name t :command-table buffer-table)
-    ((filepath 'pathname :Prompt "Find file read only"
-	       :default (directory-of-buffer (buffer (current-window)))
-	       :default-type 'pathname
-	       :insert-default t))
-  "Prompt for a filename then open that file readonly.
-If a buffer is already visiting that file, switch to that buffer. If the filename given does not name an existing file, signal an error."
-  (find-file filepath t))
-
-(set-key `(com-find-file-read-only ,*unsupplied-argument-marker*)
-	 'buffer-table
-	 '((#\x :control) (#\r :control)))
-
-(define-command (com-read-only :name t :command-table buffer-table) ()
-  "Toggle the readonly status of the current buffer.
-When a buffer is readonly, attempts to change the contents of the buffer signal an error."
-  (let ((buffer (buffer (current-window))))
-    (setf (read-only-p buffer) (not (read-only-p buffer)))))
-
-(set-key 'com-read-only
-	 'buffer-table
-	 '((#\x :control) (#\q :control)))
-
-(define-command (com-set-visited-file-name :name t :command-table buffer-table)
-    ((filename 'pathname :prompt "New file name"
-	       :default (directory-of-buffer (buffer (current-window)))
-	       :default-type 'pathname
-	       :insert-default t))
-  "Prompt for a new filename for the current buffer.
-The next time the buffer is saved it will be saved to a file with that filename."
-  (set-visited-file-name filename (buffer (current-window))))
-
 (define-command (com-insert-file :name t :command-table buffer-table)
     ((filename 'pathname :prompt "Insert File"
 	       :default (directory-of-buffer (buffer (current-window)))
@@ -242,42 +198,6 @@ Signals an error if the file does not exist."
 	  (t
 	   (display-message "No file ~A" filepath)
 	   (beep))))))
-
-(define-command (com-save-buffer :name t :command-table buffer-table) ()
-  "Write the contents of the buffer to a file.
-If there is filename associated with the buffer, write to that file, replacing its contents. If not, prompt for a filename."
-  (let ((buffer (buffer (current-window))))
-    (if (or (null (filepath buffer))
-	    (needs-saving buffer))
-	(save-buffer buffer)
-	(display-message "No changes need to be saved from ~a" (name buffer)))))
-
-(set-key 'com-save-buffer
-	 'buffer-table
-	 '((#\x :control) (#\s :control)))
-
-(define-command (com-write-buffer :name t :command-table buffer-table)
-    ((filepath 'pathname :prompt "Write Buffer to File"
-	       :default (directory-of-buffer (buffer (current-window)))
-	       :default-type 'pathname
-	       :insert-default t))
-  "Prompt for a filename and write the current buffer to it.
-Changes the file visted by the buffer to the given file."
-  (let ((buffer (buffer (current-window))))
-    (cond
-      ((directory-pathname-p filepath)
-       (display-message "~A is a directory name." filepath))
-      (t
-       (with-open-file (stream filepath :direction :output :if-exists :supersede)
-	 (output-to-stream stream buffer 0 (size buffer)))
-       (setf (filepath buffer) filepath
-	     (name buffer) (filepath-filename filepath)
-	     (needs-saving buffer) nil)
-       (display-message "Wrote: ~a" (filepath buffer))))))
-
-(set-key `(com-write-buffer ,*unsupplied-argument-marker*)
-	 'buffer-table
-	 '((#\x :control) (#\w :control)))
 
 (defun load-file (file-name)
   (cond ((directory-pathname-p file-name)
@@ -334,7 +254,7 @@ If the buffer needs saving, will prompt you to do so before killing it. Uses the
 	 '((#\x :control) (#\k)))
 
 (define-command (com-toggle-read-only :name t :command-table base-table)
-    ((buffer 'buffer :default (current-buffer)))
+    ((buffer 'buffer :default (current-buffer *application-frame*)))
   (setf (read-only-p buffer) (not (read-only-p buffer))))
 
 (define-presentation-to-command-translator toggle-read-only
@@ -344,7 +264,7 @@ If the buffer needs saving, will prompt you to do so before killing it. Uses the
   (list object))
 
 (define-command (com-toggle-modified :name t :command-table base-table)
-    ((buffer 'buffer :default (current-buffer)))
+    ((buffer 'buffer :default (current-buffer *application-frame*)))
   (setf (needs-saving buffer) (not (needs-saving buffer))))
 
 (define-presentation-to-command-translator toggle-modified

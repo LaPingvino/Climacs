@@ -133,6 +133,7 @@
    (kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring))
   (:command-table (global-climacs-table
 		   :inherit-from (global-esa-table
+                                  esa-io-table
 				  keyboard-macro-table
 				  climacs-help-table
 				  base-table
@@ -201,9 +202,9 @@
   "Return the current panes point."
   (point (current-window)))
 
-(defun current-buffer ()
+(defmethod current-buffer ((application-frame climacs))
   "Return the current buffer."
-  (buffer (current-window)))
+  (buffer (car (windows application-frame))))
 
 (define-presentation-type read-only ())
 (define-presentation-method highlight-presentation 

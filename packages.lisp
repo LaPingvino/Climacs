@@ -76,7 +76,7 @@
   (:documentation "An implementation of a kill ring."))
 
 (defpackage :climacs-base
-  (:use :clim-lisp :climacs-buffer :climacs-kill-ring)
+  (:use :clim-lisp :climacs-buffer :climacs-kill-ring :esa-buffer)
   (:export #:as-offsets
            #:do-buffer-region
            #:do-buffer-region-lines
@@ -91,7 +91,6 @@
            #:just-n-spaces
            #:buffer-whitespacep
            #:buffer-region-case
-	   #:input-from-stream #:output-to-stream
 	   #:name-mixin #:name
 	   #:buffer-looking-at #:looking-at
 	   #:buffer-search-forward #:buffer-search-backward
@@ -171,7 +170,7 @@
 
 (defpackage :climacs-pane
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
-	:climacs-syntax :flexichain :undo)
+	:climacs-syntax :flexichain :undo :esa-buffer :esa-io)
   (:export #:climacs-buffer #:needs-saving
 	   #:filepath #:file-saved-p #:file-write-time
 	   #:read-only-p #:buffer-read-only
@@ -316,7 +315,7 @@
     (:use :clim-lisp :clim :climacs-buffer :climacs-base
           :climacs-abbrev :climacs-syntax :climacs-motion
           :climacs-kill-ring :climacs-pane :clim-extensions
-          :undo :esa :climacs-editing :climacs-motion)
+          :undo :esa :climacs-editing :climacs-motion :esa-buffer :esa-io)
     ;;(:import-from :lisp-string)
     (:export #:climacs                  ; Frame.
 
@@ -370,7 +369,7 @@
 (defpackage :climacs-core
   (:use :clim-lisp :climacs-base :climacs-buffer
         :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring
-        :climacs-editing :climacs-gui :clim :climacs-abbrev :esa)
+        :climacs-editing :climacs-gui :clim :climacs-abbrev :esa :esa-buffer :esa-io)
   (:export #:display-string
            #:object-equal
            #:object=
@@ -397,7 +396,8 @@
            #:set-syntax
 
            #:switch-to-buffer
-           #:make-buffer
+           #:make-new-buffer
+           #:make-new-named-buffer
            #:erase-buffer
            #:kill-buffer
 
@@ -405,11 +405,15 @@
            #:update-attribute-line
            #:evaluate-attribute-line
            #:directory-pathname-p
-           #:find-file
+           #:find-file #:find-file-read-only
            #:directory-of-buffer
-           #:set-visited-file-name
+           #:set-visited-filename
            #:check-file-times
-           #:save-buffer)
+           #:save-buffer
+
+           #:input-from-stream
+           #:save-buffer-to-stream
+           #:make-buffer-from-stream)
   (:documentation "Package for editor functionality that is
   syntax-aware, but yet not specific to certain
   syntaxes. Contains stuff like indentation, filling and other
@@ -439,7 +443,7 @@
 
 (defpackage :climacs-prolog-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-syntax :flexichain :climacs-pane)
+	:climacs-syntax :flexichain :climacs-pane :climacs-core)
   (:shadow #:atom #:close #:exp #:integer #:open #:variable))
 
 (defpackage :climacs-cl-syntax

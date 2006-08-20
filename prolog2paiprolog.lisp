@@ -44,7 +44,7 @@
   (let ((buffer (make-instance 'prolog-buffer)))
     (when (probe-file filepath)
       (with-open-file (stream filepath :direction :input)
-        (input-from-stream stream buffer 0)))
+        (save-buffer-to-stream stream buffer)))
     (setf (filepath buffer) filepath
           (offset (low-mark buffer)) 0
           (offset (high-mark buffer)) (size buffer))

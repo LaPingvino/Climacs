@@ -168,7 +168,7 @@ If found, leaves point before the word. If not, leaves point where it is."
       (isearch-from-mark pane mark string forwardp))))
 
 (define-command (com-isearch-append-word :name t :command-table isearch-climacs-table) ()
-  (let ((syntax (syntax (current-buffer))))
+  (let ((syntax (syntax (current-buffer *application-frame*))))
    (isearch-append-text #'(lambda (mark)
                             (forward-word mark syntax)))))
 

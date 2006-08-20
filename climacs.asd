@@ -63,7 +63,6 @@
           :depends-on ("packages" "buffer" "Persistent"))
 
    (:file "base" :depends-on ("packages" "buffer" "persistent-buffer" "kill-ring"))
-   (:file "io" :depends-on ("packages" "buffer"))
    (:file "abbrev" :depends-on ("packages" "buffer" "base"))
    (:file "syntax" :depends-on ("packages" "buffer" "base"))
    (:file "text-syntax" :depends-on ("packages" "base" "buffer" "syntax" "motion"))
@@ -86,14 +85,16 @@
 						 "pane"))
    (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"
 						"window-commands" "gui"))
-   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax" "motion" "gui" "motion-commands" "editing-commands"
-                                                            "misc-commands" "window-commands" "file-commands" "core"))
+   (:file "lisp-syntax-swine" :depends-on ("lisp-syntax"))
+   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax-swine" "motion-commands"
+                                                                  "editing-commands" "misc-commands"))
    #.(if (find-swank)
          '(:file "lisp-syntax-swank" :depends-on ("lisp-syntax"))
          (values))
    (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
-                                        "kill-ring" "io" "text-syntax"
+                                        "kill-ring" "text-syntax"
 					"abbrev" "editing" "motion"))
+   (:file "io" :depends-on ("packages" "gui"))
    (:file "core" :depends-on ("gui"))
    (:file "climacs" :depends-on ("gui" "core"))
 ;;    (:file "buffer-commands" :depends-on ("gui"))
