@@ -1349,7 +1349,7 @@ the (in-package) preceding `mark-or-offset'. If none can be
 found, return the package specified in the attribute list. If no
 package can be found at all, or the otherwise found packages are
 invalid, return the CLIM-USER package."
-  (as-offsets ((mark-or-offset offset))
+  (as-offsets ((offset mark-or-offset))
    (let* ((designator (rest (find offset (package-list syntax)
                                   :key #'first
                                   :test #'>=))))
@@ -1370,7 +1370,7 @@ whatever (in-package) form precedes `mark-or-offset', even if the
 package specified in that form does not exist. If no (in-package)
 form can be found, return the package specified in the attribute
 list. If no such package is specified, return \"CLIM-USER\"."
-  (as-offsets ((mark-or-offset offset))
+  (as-offsets ((offset mark-or-offset))
     (flet ((normalise (designator)
              (typecase designator
                (symbol
@@ -1595,7 +1595,7 @@ or inside, a top-level-form, or if there are no forms after
 `mark-or-offset', the form preceding `mark-or-offset' is
 returned. Otherwise, the form following `mark-or-offset' is
 returned."
-  (as-offsets ((mark-or-offset offset))
+  (as-offsets ((offset mark-or-offset))
     (or (form-around syntax offset)
         (form-after syntax offset)
         (form-before syntax offset))))
@@ -1640,13 +1640,13 @@ the form that `token' quotes, peeling away all quote forms."
 (defun this-form (mark-or-offset syntax)
   "Return a form at `mark-or-offset'. This function defines which
   forms the COM-FOO-this commands affect."
-  (as-offsets ((mark-or-offset offset))
+  (as-offsets ((offset mark-or-offset))
     (or (form-around syntax offset)
         (form-before syntax offset))))
 
 (defun preceding-form (mark-or-offset syntax)
   "Return a form at `mark-or-offset'."
-  (as-offsets ((mark-or-offset offset))
+  (as-offsets ((offset mark-or-offset))
    (or (form-before syntax offset)
        (form-around syntax offset))))
 

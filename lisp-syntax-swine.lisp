@@ -361,7 +361,7 @@ inserted from `provided-args'.
 (defun find-operand-info (mark-or-offset syntax operator-form)
   "Returns two values: The operand preceding `mark-or-offset' and
   the path from `operator-form' to the operand."
-  (as-offsets ((mark-or-offset offset))
+  (as-offsets ((offset mark-or-offset))
     (let* ((preceding-arg-token (form-before syntax offset))
            (indexing-start-arg
             (let* ((candidate-before preceding-arg-token)
