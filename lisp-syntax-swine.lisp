@@ -325,6 +325,17 @@ inserted from `provided-args'.
   (case (first operator)
     ('cl:lambda (cleanup-arglist (second operator)))))
 
+;; HACK ALERT: SBCL, and some implementations I guess, provides us
+;; with an arglist that is too simple, confusing the code
+;; analysers. We fix that here.
+(defmethod arglist-for-form (syntax (operator (eql 'clim-lisp:defclass)) &optional arguments)
+  (declare (ignore arguments))
+  '(name (&rest superclasses) (&rest slots) &rest options))
+
+(defmethod arglist-for-form (syntax (operator (eql 'cl:defclass)) &optional arguments)
+  (declare (ignore arguments))
+  '(name (&rest superclasses) (&rest slots) &rest options))
+
 (defun find-argument-indices-for-operand (syntax operand-form operator-form)
   "Return a list of argument indices for `argument-form' relative
   to `operator-form'. These lists take the form of (n m p), which
@@ -520,109 +531,166 @@ inserted from `provided-args'.
               relevant-completions))
           completions))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defgeneric code-for-argument-type-completion (argument-type syntax-symbol token-symbol all-completions-symbol)
-    (:documentation "Generate completion code for an argument of
-   type `argument-type'.")
-    (:method (argument-type syntax-symbol token-symbol all-completions-symbol)
-      '(call-next-method)))
+(defgeneric complete-argument-of-type (argument-type syntax token all-completions)
+  (:documentation "")
+  (:method (argument-type syntax token all-completions)
+    all-completions))
 
-  (defgeneric code-for-argument-list-modification (argument-type syntax-symbol arglist-symbol arguments-symbol)
-    (:documentation "Generate argument list modification code for
-    a form having an argument of type `argument-type'.")
-    (:method (argument-type syntax-symbol arglist-symbol arguments-symbol)))
+(defgeneric modify-argument-list (argument-type syntax arglist arguments arg-position)
+  (:documentation "")
+  (:method (syntax argument-type arglist arguments arg-position)
+    arglist))
 
-  (defmacro define-argument-type (name (&optional inherit-from)
-                                  &rest options)
-    (let ((completion-code (rest (assoc :completion options)))
-          (modification-code (rest (assoc :arglist-modification options))))
-        `(progn
-           ,(if (or completion-code inherit-from)
-                `(defmethod code-for-argument-type-completion ((argument-type (eql ',name))
-                                                               ,@(if completion-code
-                                                                     (first completion-code)
-                                                                     '(syntax token)))
-                   ,(if completion-code
-                        `'(let ((,(third (first completion-code))
-                                 (call-next-method)))
-                           ,@(rest completion-code))
-                        (code-for-argument-type-completion inherit-from 'syntax 'token 'all-completions)))
-                (let ((method (find-method #'code-for-argument-type-completion nil `((eql ,name) t t t) nil)))
-                  (when method
-                    (remove-method #'code-for-argument-type-completion method))))
-           ,(if (or modification-code inherit-from)
-                `(defmethod code-for-argument-list-modification ((argument-type (eql ',name))
-                                                                 ,@(if modification-code
-                                                                       (first modification-code)
-                                                                       '(syntax arglist arguments)))
-                   ,(if modification-code
-                        `'(progn ,@(rest modification-code))
-                        `',(code-for-argument-list-modification inherit-from 'syntax 'arglist 'arguments)))
-                (let ((method (find-method #'code-for-argument-list-modification nil `((eql ,name) t t t) nil)))
-                  (when method
-                    (remove-method #'code-for-argument-list-modification method)))))))
+(defmacro define-argument-type (name (&optional inherit-from)
+                                &rest options)
+  "Define an argument type for use in `define-form-traits'."
+  (let ((completion-code (rest (assoc :completion options)))
+        (modification-code (rest (assoc :arglist-modification options))))
+    (assert (or (null completion-code) (= (length (first completion-code)) 3)))
+    (assert (or (null modification-code) (= (length (first modification-code)) 4)))
+    `(progn
+       ,(if (or completion-code inherit-from)
+            (let ((lambda-list (if completion-code
+                                   (first completion-code)
+                                   '(argument-type syntax token all-completions))))
+              `(defmethod complete-argument-of-type ((argument-type (eql ',name))
+                                                     ,@lambda-list)
+                 ,@(or (rest completion-code)
+                       `((complete-argument-of-type ',inherit-from ,@lambda-list)))))
+            ;; If no completion rule has been specified for this
+            ;; type, we must check whether an earlier definition had
+            ;; completion rules - if so, remove the method
+            ;; implementing the rules.
+            `(let ((method (find-method #'complete-argument-of-type nil `((eql ,name) t t t) nil)))
+               (when method
+                 (remove-method #'complete-argument-of-type method))))
+       ,(if (or modification-code inherit-from)
+            (let ((lambda-list (if modification-code
+                                   (first modification-code)
+                                   '(syntax arglist arguments arg-position))))
+             `(defmethod modify-argument-list ((argument-type (eql ',name))
+                                               ,@lambda-list)
+                ,@(or (rest modification-code)
+                      `((modify-argument-list ',inherit-from ,@lambda-list)))))
+            ;; If no arglist modification rule has been specified
+            ;; for this type, we must check whether an earlier
+            ;; definition had arglist modification rules - if so,
+            ;; remove the method implementing the rules.
+            `(let ((method (find-method #'modify-argument-list nil '((eql ,name) t t t t) nil)))
+               (when method
+                 (remove-method #'modify-argument-list method)))))))
 
-  (define-argument-type class-name ()
-    (:completion (syntax token all-completions)
-                 (loop for completion in all-completions
-                    when (find-class (ignore-errors (read-from-string (string-upcase completion)))
-                                     nil)
-                    collect completion))
-    (:arglist-modification (syntax arglist arguments)
-                           (if (and (plusp (length arguments))
-                                    (listp (first arguments))
-                                    (> (length (first arguments)) 1)
-                                    (eq (caar arguments) 'cl:quote))
-                               (nconc arglist
-                                      (cons '&key (get-class-keyword-parameters
-                                                   (get-usable-image syntax)
-                                                   (first arguments)))))))
+(define-argument-type class-name ()
+  (:completion (syntax token all-completions)
+               (loop for completion in all-completions
+                  when (find-class (ignore-errors (read-from-string completion))
+                                   nil)
+                  collect completion))
+  (:arglist-modification (syntax arglist arguments arg-position)
+                         (if (and (> (length arguments) arg-position)
+                                  (listp (elt arguments arg-position))
+                                  (> (length (elt arguments arg-position)) 1)
+                                  (eq (first (elt arguments arg-position)) 'cl:quote)
+                                  (ignore-errors (find-class (second (elt arguments arg-position)))))
+                             (nconc arglist
+                                     (cons '&key (get-class-keyword-parameters
+                                                  (get-usable-image syntax)
+                                                  (elt arguments arg-position))))
+                             arglist)))
 
-  (define-argument-type package-designator ()
-    (:completion (syntax token all-completions)
-                 (declare (ignore all-completions))
-                 (let* ((string (token-string syntax token))
-                        (keyworded (char= (aref string 0) #\:)))
-                   (loop for package in (list-all-packages)
-                      for package-name = (if keyworded
-                                             (concatenate 'string ":" (package-name package))
-                                             (package-name package))
-                      when (search string package-name
-                                   :test #'char-equal
-                                   :end2 (min (length string)
-                                              (length package-name)))
-                      collect (if (every #'upper-case-p string)
-                                  package-name
-                                  (string-downcase package-name)))))))
+(define-argument-type package-designator ()
+  (:completion (syntax token all-completions)
+               (declare (ignore all-completions))
+               (let* ((string (token-string syntax token))
+                      (keyworded (char= (aref string 0) #\:)))
+                 (loop for package in (list-all-packages)
+                    for package-name = (if keyworded
+                                           (concatenate 'string ":" (package-name package))
+                                           (package-name package))
+                    when (search string package-name
+                                 :test #'char-equal
+                                 :end2 (min (length string)
+                                            (length package-name)))
+                    collect (if (every #'upper-case-p string)
+                                package-name
+                                (string-downcase package-name))))))
 
-(defmacro define-form-traits ((operator &rest arguments))
+(defmacro define-form-traits ((operator &rest arguments)
+                              &key no-typed-completion no-smart-arglist)
+  "Define \"traits\" for a form with the operator that is eql to
+`operator'. Traits is a common designator for
+intelligent (type-aware) completion and intelligent modification
+of argument lists (for example, adding keyword arguments for the
+initargs of the class being instantiated to the arglist of
+`make-instance').
+
+`Arguments' is a lambda-list-like list that describes the types
+of the operands of `operator'. You can use the lambda-list
+keywords `&rest' and `&key' to tie all, or specific keyword
+arguments, to types.
+
+If `no-typed-completion' or `no-smart-arglist' is non-NIL, no
+code for performing typed completion or smart arglist
+modification will be generated, respectively."
   ;; FIXME: This macro should also define indentation rules.
-  (labels ((build-completions-codd-body (arguments)
-             (append (loop for argument in arguments
-                        for i from 0
-                        collect `((and (= (first indices) ,i))
-                                  ,(cond ((listp argument)
-                                          (if (eq (first argument) 'quote)
-                                              `(cond ((typep token 'quote-form)
-                                                      ,(code-for-argument-type-completion (second argument) 'syntax 'token 'all-completions))
-                                                     (t (call-next-method)))
-                                              `(cond ((not (endp (rest indices)))
-                                                      (pop indices)
-                                                      (cond ,@(build-completions-codd-body argument)))
-                                                     (t (call-next-method)))))
-                                         (t
-                                          (code-for-argument-type-completion argument 'syntax 'token 'all-completions)))))
+  (labels ((process-keyword-arg-descs (arguments)
+             ;; We expect `arguments' to be a plist mapping keyword
+             ;; symbols to type/class designators/names. We use a
+             ;; `case' form to map from the keyword preceding the
+             ;; symbol to be completed, to the code that generates the
+             ;; possible completions.
+             `((t
+                (let* ((keyword (token-to-object syntax (form-before syntax (1- (start-offset token)))))
+                       (type (getf ',arguments keyword)))
+                  (if (null type)
+                      (call-next-method)
+                      (complete-argument-of-type type syntax token all-completions))))))
+           (process-arg-descs (arguments index)
+             (let ((argument (first arguments)))
+               (cond ((null arguments)
+                      nil)
+                     ((eq argument '&rest)
+                      `(((>= (first indices) ,index)
+                         (complete-argument-of-type ',(second arguments) syntax token all-completions))))
+                     ((eq argument '&key)
+                      (process-keyword-arg-descs (rest arguments)))
+                     ((listp argument)
+                      `(((= (first indices) ,index)
+                         ,(if (eq (first argument) 'quote)
+                              `(cond ((typep token 'quote-form)
+                                      (complete-argument-of-type ',(second argument) syntax token all-completions))
+                                     (t (call-next-method)))
+                              `(cond ((not (null (rest indices)))
+                                      (pop indices)
+                                      (cond ,@(build-completions-cond-body argument)))
+                                     (t (call-next-method)))))))
+                     (t
+                      (cons `((= (first indices) ,index)
+                              (complete-argument-of-type ',argument syntax token all-completions))
+                            (process-arg-descs (rest arguments)
+                                               (1+ index)))))))
+           (build-completions-cond-body (arguments)
+             (append (process-arg-descs arguments 0)
                      '((t (call-next-method))))))
     `(progn
        (defmethod possible-completions (syntax (operator (eql ',operator)) token operands indices)
-         (cond ,@(build-completions-codd-body arguments)))
-       (defmethod arglist-for-form (syntax (operator (eql ',operator)) &optional arguments)
-         (let ((arglist (call-next-method)))
-           ,@(mapcar #'(lambda (arg)
-                         (code-for-argument-list-modification
-                          (unlisted arg #'second)
-                          'syntax 'arglist 'arguments))
-                     arguments))))))
+         ,(if no-typed-completion
+              '(call-next-method)
+              `(let ((all-completions (call-next-method)))
+                 (cond ,@(build-completions-cond-body arguments)))))
+       ,(unless no-smart-arglist
+                `(defmethod arglist-for-form (syntax (operator (eql ',operator)) &optional arguments)
+                   (declare (ignorable arguments))
+                   (let ((arglist (call-next-method))
+                         (arg-position 0))
+                     (declare (ignorable arg-position))
+                     ,@(loop for arg in arguments
+                          collect `(setf arglist
+                                         (modify-argument-list
+                                          ',(unlisted arg #'second)
+                                          syntax arglist arguments arg-position))
+                          collect '(incf arg-position))
+                     arglist))))))
 
 (defmacro with-code-insight (mark-or-offset syntax (&key operator preceding-operand
                                                          form preceding-operand-indices
@@ -670,15 +738,9 @@ inserted from `provided-args'.
                                        (indices-match-arglist
                                         (arglist-for-form
                                          ,syntax-value-sym
-                                         (form-operator
-                                          form
-                                          ,syntax-value-sym)
-                                         (form-operands
-                                          form
-                                          ,syntax-value-sym))
-                                        (second
-                                         (multiple-value-list
-                                          (find-operand-info ,mark-value-sym ,syntax-value-sym form))))
+                                         (form-operator form ,syntax-value-sym)
+                                         (form-operands form ,syntax-value-sym))
+                                        (nth-value 1 (find-operand-info ,mark-value-sym ,syntax-value-sym form)))
                                        (not (direct-arg-p form ,syntax-value-sym))
                                        form)))))
                    (or (recurse (parent immediate-form))
@@ -699,9 +761,19 @@ inserted from `provided-args'.
 ;;; Form trait definitions
 
 (define-form-traits (make-instance 'class-name))
+(define-form-traits (find-class 'class-name)
+    :no-smart-arglist t)
+(define-form-traits (change-class t 'class-name))
 (define-form-traits (make-pane 'class-name))
-(define-form-traits (find-class 'class-name))
+(define-form-traits (make-instances-obsolete 'class-name)
+    :no-smart-arglist t)
+(define-form-traits (typep t 'class-name))
 (define-form-traits (in-package package-designator))
+(define-form-traits (clim-lisp:defclass t (&rest class-name))
+    :no-smart-arglist t)
+(define-form-traits (cl:defclass t (&rest class-name))
+    :no-smart-arglist t)
+(define-form-traits (define-application-frame t (&rest class-name)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -1026,7 +1098,7 @@ results."
         (t
          (when (and (needs-saving buffer)
                     (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name buffer))))
-           (save-buffer buffer))
+           (save-buffer buffer *application-frame*))
          (let ((*read-base* (base (syntax buffer))))
            (multiple-value-bind (result notes)
                (compile-file-for-climacs (get-usable-image (syntax buffer))
