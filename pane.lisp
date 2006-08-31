@@ -368,7 +368,7 @@ is made to alter a buffer which has been set read only."))
 		 (updating-output (pane :unique-id (incf id)
                                         :id-test #'=
 					:cache-value contents
-					:cache-test #'string=)
+					:cache-test #'equal)
 		   (present-contents contents pane)))
 	       (setf saved-index nil))))
       (with-slots (bot scan cursor-x cursor-y) pane
@@ -561,11 +561,8 @@ is made to alter a buffer which has been set read only."))
 (defgeneric fix-pane-viewport (pane))
 
 (defmethod fix-pane-viewport ((pane climacs-pane))
-  (let* ((v (window-viewport pane))
-	(x (rectangle-width v))
-	(y (rectangle-height v)))
-    (resize-sheet pane x y)
-    (setf (window-viewport-position pane) (values 0 0))))
+  (setf (window-viewport-position pane) (values 0 0))
+  (change-space-requirements pane :min-width (bounding-rectangle-width (stream-current-output-record pane))))
 
 
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax basic-syntax) current-p)
@@ -582,9 +579,9 @@ is made to alter a buffer which has been set read only."))
 	     (setf (full-redisplay-p pane) nil))
       (adjust-cache pane))
   (fill-cache pane)
-  (fix-pane-viewport pane)
   (update-syntax-for-display (buffer pane) (syntax (buffer pane)) (top pane) (bot pane))
-  (redisplay-pane-with-syntax pane (syntax (buffer pane)) current-p))
+  (redisplay-pane-with-syntax pane (syntax (buffer pane)) current-p)
+  (fix-pane-viewport pane))
 
 
 (defgeneric full-redisplay (pane))
