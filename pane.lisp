@@ -561,9 +561,7 @@ is made to alter a buffer which has been set read only."))
 (defgeneric fix-pane-viewport (pane))
 
 (defmethod fix-pane-viewport ((pane climacs-pane))
-  (setf (window-viewport-position pane) (values 0 0))
   (change-space-requirements pane :min-width (bounding-rectangle-width (stream-current-output-record pane))))
-
 
 (defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax basic-syntax) current-p)
   (display-cache pane)
@@ -583,7 +581,6 @@ is made to alter a buffer which has been set read only."))
   (redisplay-pane-with-syntax pane (syntax (buffer pane)) current-p)
   (fix-pane-viewport pane))
 
-
 (defgeneric full-redisplay (pane))
 
 (defmethod full-redisplay ((pane climacs-pane))
@@ -595,11 +592,25 @@ is made to alter a buffer which has been set read only."))
   (let ((point (point pane)))
     (multiple-value-bind (cursor-x cursor-y line-height)
 	(offset-to-screen-position (offset point) pane)
-      (updating-output (pane :unique-id -1)
+      (updating-output (pane :unique-id -1 :cache-value (offset point))
 	(draw-rectangle* pane
 			 (1- cursor-x) cursor-y
 			 (+ cursor-x 2) (+ cursor-y line-height)
-			 :ink (if current-p +red+ +blue+))))))
+			 :ink (if current-p +red+ +blue+))
+        ;; Move the position of the viewport if point is outside the
+        ;; visible area. The trick is that we do this inside the body
+        ;; of `updating-output', so the view will only be re-focused
+        ;; when point is actually moved.
+        (let ((x-position (abs (transform-position (sheet-transformation pane) 0 0)))
+              (viewport-width (bounding-rectangle-width (or (pane-viewport pane) pane))))
+          #+nil(print (list cursor-x (+ x-position (bounding-rectangle-width (pane-viewport pane)))) *terminal-io*)
+          (cond ((> cursor-x (+ x-position viewport-width))
+                 (move-sheet pane (round (- (- cursor-x viewport-width))) 0))
+                ((> x-position cursor-x)
+                 (move-sheet pane (if (> viewport-width cursor-x)
+                                      0
+                                      (round (- cursor-x)))
+                             0))))))))
 
 (defgeneric display-region (pane syntax))
 
