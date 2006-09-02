@@ -118,13 +118,12 @@
 
 (defpackage :climacs-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
-  (:export #:syntax #:define-syntax
+  (:export #:syntax #:define-syntax #:*default-syntax*
            #:eval-option
            #:define-option-for-syntax
            #:current-attributes-for-syntax
            #:make-attribute-line
 	   #:syntax-from-name
-	   #:basic-syntax
 	   #:update-syntax #:update-syntax-for-display
 	   #:grammar #:grammar-rule #:add-rule
 	   #:parser #:initial-state
@@ -179,6 +178,7 @@
 	   #:redisplay-pane #:full-redisplay
 	   #:display-cursor
 	   #:display-region
+           #:offset-to-screen-position
 	   #:page-down #:page-up
 	   #:top #:bot
            #:tab-space-count #:space-width #:tab-width
@@ -311,6 +311,11 @@
   manipulating belong to. These functions are also directly used
   to implement the editing commands."))
 
+(defpackage :climacs-fundamental-syntax
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
+	:climacs-syntax :flexichain :climacs-pane)
+  (:export #:fundamental-syntax))
+
 (defpackage :climacs-gui
     (:use :clim-lisp :clim :climacs-buffer :climacs-base
           :climacs-abbrev :climacs-syntax :climacs-motion
@@ -367,7 +372,7 @@
              ))
 
 (defpackage :climacs-core
-  (:use :clim-lisp :climacs-base :climacs-buffer
+  (:use :clim-lisp :climacs-base :climacs-buffer :climacs-fundamental-syntax
         :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring
         :climacs-editing :climacs-gui :clim :climacs-abbrev :esa :esa-buffer :esa-io)
   (:export #:display-string
@@ -432,28 +437,23 @@
   command definitions, as well as some useful automatic
   command-defining facilities."))
 
-(defpackage :climacs-fundamental-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane)
-  (:export #:fundamental-syntax))
-
 (defpackage :climacs-html-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-syntax :flexichain :climacs-pane))
+	:climacs-syntax :flexichain :climacs-pane :climacs-fundamental-syntax))
 
 (defpackage :climacs-prolog-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-syntax :flexichain :climacs-pane :climacs-core)
+	:climacs-syntax :flexichain :climacs-pane :climacs-core :climacs-fundamental-syntax)
   (:shadow #:atom #:close #:exp #:integer #:open #:variable))
 
 (defpackage :climacs-cl-syntax
   (:use :clim-lisp :clim :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane)
+	:climacs-syntax :flexichain :climacs-pane :climacs-fundamental-syntax)
   (:export))
 
 (defpackage :climacs-lisp-syntax
   (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane :climacs-gui
+	:climacs-syntax :climacs-fundamental-syntax :flexichain :climacs-pane :climacs-gui
         :climacs-motion :climacs-editing :climacs-core)
   (:export #:lisp-string
            #:edit-definition))

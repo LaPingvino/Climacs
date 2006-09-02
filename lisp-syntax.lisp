@@ -60,7 +60,7 @@
 ;;;
 ;;; the syntax object
 
-(define-syntax lisp-syntax (basic-syntax)
+(define-syntax lisp-syntax (fundamental-syntax)
   ((stack-top :initform nil)
    (potentially-valid-trees)
    (lookahead-lexeme :initform nil :accessor lookahead-lexeme)

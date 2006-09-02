@@ -459,7 +459,7 @@ spaces only."))
 	     :test (lambda (x y)
 		     (member x y :test #'string-equal))
 	     :key #'climacs-syntax::syntax-description-pathname-types))
-      'basic-syntax))
+      *default-syntax*))
 
 (defun evaluate-attributes (buffer options)
   "Evaluate the attributes `options' and modify `buffer' as
@@ -627,10 +627,6 @@ spaces only."))
                                        (make-buffer-from-stream stream *application-frame*))
                                      (make-new-buffer *application-frame*)))
                          (pane (current-window)))
-                     ;; Clear the pane's cache; otherwise residue from the
-                     ;; previously displayed buffer may under certain
-                     ;; circumstances be displayed.
-                     (clear-cache pane)
                      (setf (offset (point (buffer pane))) (offset (point pane))
                            (buffer (current-window)) buffer
                            (syntax buffer) (make-instance (syntax-class-name-for-filepath filepath)

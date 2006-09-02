@@ -111,7 +111,7 @@
 		    (make-instance 'other-entry))))))))
 
 
-(define-syntax cl-syntax (basic-syntax)
+(define-syntax cl-syntax (fundamental-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
    (parser))

@@ -65,7 +65,7 @@
             (setf low-position (floor (+ low-position 1 high-position) 2)))
      finally (return low-position)))
 
-(define-syntax text-syntax (basic-syntax)
+(define-syntax text-syntax (climacs-fundamental-syntax:fundamental-syntax)
   ((paragraphs :initform (make-instance 'standard-flexichain))
    (sentence-beginnings :initform (make-instance 'standard-flexichain))
    (sentence-endings :initform (make-instance 'standard-flexichain)))
@@ -79,74 +79,75 @@
       (let ((pos1 (index-of-mark-after-offset paragraphs low-offset))
 	    (pos-sentence-beginnings (index-of-mark-after-offset sentence-beginnings low-offset))
 	    (pos-sentence-endings (index-of-mark-after-offset sentence-endings low-offset)))
-	 ;; start by deleting all syntax marks that are between the low and
-	 ;; the high marks
-	 (loop repeat (- (nb-elements paragraphs) pos1)
-	       while (mark<= (element* paragraphs pos1) high-offset)
-	       do (delete* paragraphs pos1))
-	 (loop repeat (- (nb-elements sentence-beginnings) pos-sentence-beginnings)
-	       while (mark<= (element* sentence-beginnings pos-sentence-beginnings) high-offset)
-	       do (delete* sentence-beginnings pos-sentence-beginnings))
-	 (loop repeat (- (nb-elements sentence-endings) pos-sentence-endings)
-	       while (mark<= (element* sentence-endings pos-sentence-endings) high-offset)
-	       do (delete* sentence-endings pos-sentence-endings))
+        ;; start by deleting all syntax marks that are between the low and
+        ;; the high marks
+        (loop repeat (- (nb-elements paragraphs) pos1)
+           while (mark<= (element* paragraphs pos1) high-offset)
+           do (delete* paragraphs pos1))
+        (loop repeat (- (nb-elements sentence-beginnings) pos-sentence-beginnings)
+           while (mark<= (element* sentence-beginnings pos-sentence-beginnings) high-offset)
+           do (delete* sentence-beginnings pos-sentence-beginnings))
+        (loop repeat (- (nb-elements sentence-endings) pos-sentence-endings)
+           while (mark<= (element* sentence-endings pos-sentence-endings) high-offset)
+           do (delete* sentence-endings pos-sentence-endings))
 
-	 ;; check the zone between low-offset and high-offset for
-	 ;; paragraph delimiters and sentence delimiters
-	 (loop with buffer-size = (size buffer)
-	       for offset from low-offset to high-offset              ;; Could be rewritten with even fewer buffer-object calls,
-	       for current-object = nil then (if (>= offset high-offset) nil (buffer-object buffer offset)) ;;  but it'd be premature optimization, and messy besides.  
-	       for next-object =  nil then (if (>= offset (- high-offset 1)) nil (buffer-object buffer (1+ offset)))
-	       for prev-object =  nil then (if (= offset low-offset) nil (buffer-object buffer (1- offset)))
-	       for before-prev-object = nil then (if (<= offset (1+ low-offset)) nil (buffer-object buffer (- offset 2)))
-	       do (progn 
- 		    (cond ((and (< offset buffer-size)
-				(member prev-object '(#\. #\? #\!))
- 				(or (= offset (1- buffer-size))
- 				    (and (member current-object '(#\Newline #\Space #\Tab))
- 					 (or (= offset 1)
- 					     (not (member before-prev-object '(#\Newline #\Space #\Tab)))))))
- 			   (let ((m (clone-mark (low-mark buffer) :left)))
- 			     (setf (offset m) offset)
- 			     (insert* sentence-endings pos-sentence-endings m))
- 			   (incf pos-sentence-endings))
+        ;; check the zone between low-offset and high-offset for
+        ;; paragraph delimiters and sentence delimiters
+        (loop with buffer-size = (size buffer)
+           for offset from low-offset to high-offset ;; Could be rewritten with even fewer buffer-object calls,
+           for current-object = nil then (if (>= offset high-offset) nil (buffer-object buffer offset)) ;;  but it'd be premature optimization, and messy besides.  
+           for next-object =  nil then (if (>= offset (- high-offset 1)) nil (buffer-object buffer (1+ offset)))
+           for prev-object =  nil then (if (= offset low-offset) nil (buffer-object buffer (1- offset)))
+           for before-prev-object = nil then (if (<= offset (1+ low-offset)) nil (buffer-object buffer (- offset 2)))
+           do (progn 
+                (cond ((and (< offset buffer-size)
+                            (member prev-object '(#\. #\? #\!))
+                            (or (= offset (1- buffer-size))
+                                (and (member current-object '(#\Newline #\Space #\Tab))
+                                     (or (= offset 1)
+                                         (not (member before-prev-object '(#\Newline #\Space #\Tab)))))))
+                       (let ((m (clone-mark (low-mark buffer) :left)))
+                         (setf (offset m) offset)
+                         (insert* sentence-endings pos-sentence-endings m))
+                       (incf pos-sentence-endings))
 
- 			((and (>= offset 0)
- 			      (not (member current-object '(#\. #\? #\! #\Newline #\Space #\Tab)))
- 			      (or (= offset 0)
- 				  (member prev-object '(#\Newline #\Space #\Tab)))
- 			      (or (<= offset 1)
- 				  (member before-prev-object '(#\. #\? #\! #\Newline #\Space #\Tab))))
- 			 (let ((m (clone-mark (low-mark buffer) :right)))
- 			   (setf (offset m) offset)
- 			   (insert* sentence-beginnings pos-sentence-beginnings m))
- 			 (incf pos-sentence-beginnings))
- 			(t nil))
+                      ((and (>= offset 0)
+                            (not (member current-object '(#\. #\? #\! #\Newline #\Space #\Tab)))
+                            (or (= offset 0)
+                                (member prev-object '(#\Newline #\Space #\Tab)))
+                            (or (<= offset 1)
+                                (member before-prev-object '(#\. #\? #\! #\Newline #\Space #\Tab))))
+                       (let ((m (clone-mark (low-mark buffer) :right)))
+                         (setf (offset m) offset)
+                         (insert* sentence-beginnings pos-sentence-beginnings m))
+                       (incf pos-sentence-beginnings))
+                      (t nil))
 
-		    ;; Paragraphs
+                ;; Paragraphs
 
-		    (cond ((and (< offset buffer-size) ;; Ends
-			      (not (eql current-object #\Newline))
-			      (or (zerop offset)
-				  (and (eql prev-object #\Newline)
-				       (or (= offset 1)
-					   (eql before-prev-object #\Newline)))))
-			 (let ((m (clone-mark (low-mark buffer) :left)))
-			   (setf (offset m) offset)
-			   (insert* paragraphs pos1 m))
-			 (incf pos1))
+                (cond ((and (< offset buffer-size) ;; Ends
+                            (not (eql current-object #\Newline))
+                            (or (zerop offset)
+                                (and (eql prev-object #\Newline)
+                                     (or (= offset 1)
+                                         (eql before-prev-object #\Newline)))))
+                       (let ((m (clone-mark (low-mark buffer) :left)))
+                         (setf (offset m) offset)
+                         (insert* paragraphs pos1 m))
+                       (incf pos1))
 
-			((and (plusp offset) ;;Beginnings
-			      (not (eql prev-object #\Newline))
-			      (or (= offset buffer-size)
-				  (and (eql current-object #\Newline)
-				       (or (= offset (1- buffer-size))
-					   (eql next-object #\Newline)))))
-			 (let ((m (clone-mark (low-mark buffer) :right)))
-			   (setf (offset m) offset)
-			   (insert* paragraphs pos1 m))
-			 (incf pos1))
-			(t nil))))))))
+                      ((and (plusp offset) ;;Beginnings
+                            (not (eql prev-object #\Newline))
+                            (or (= offset buffer-size)
+                                (and (eql current-object #\Newline)
+                                     (or (= offset (1- buffer-size))
+                                         (eql next-object #\Newline)))))
+                       (let ((m (clone-mark (low-mark buffer) :right)))
+                         (setf (offset m) offset)
+                         (insert* paragraphs pos1 m))
+                       (incf pos1))
+                      (t nil)))))))
+  (call-next-method))
 
 (defmethod backward-one-paragraph (mark (syntax text-syntax))
   (with-slots (paragraphs) syntax

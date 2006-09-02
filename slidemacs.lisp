@@ -22,7 +22,7 @@
 
 (defpackage :climacs-slidemacs-editor
   (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane)
+	:climacs-syntax :flexichain :climacs-pane :climacs-fundamental-syntax)
   (:export))
 
 (in-package :climacs-slidemacs-editor)
@@ -105,7 +105,7 @@
                  (make-instance 'slidemacs-keyword))
                 (t (fo) (make-instance 'other-entry)))))))))
 
-(define-syntax slidemacs-editor-syntax (basic-syntax)
+(define-syntax slidemacs-editor-syntax (fundamental-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1) (parser))
   (:name "Slidemacs-Editor")

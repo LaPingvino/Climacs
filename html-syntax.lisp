@@ -22,7 +22,7 @@
 
 (in-package :climacs-html-syntax)
 
-(define-syntax html-syntax (basic-syntax)
+(define-syntax html-syntax (fundamental-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
    (parser))

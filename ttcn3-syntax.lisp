@@ -22,7 +22,7 @@
 
 (defpackage :climacs-ttcn3-syntax
   (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane)
+	:climacs-syntax :flexichain :climacs-pane :climacs-fundamental-syntax)
   (:export))
 (in-package :climacs-ttcn3-syntax)
 
@@ -119,7 +119,7 @@
 	     (make-instance 'identifier))
 	    (t (fo) (make-instance 'other-entry)))))))))
 
-(define-syntax ttcn3-syntax (basic-syntax)
+(define-syntax ttcn3-syntax (fundamental-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
    (parser))

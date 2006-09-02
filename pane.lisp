@@ -260,7 +260,7 @@ is made to alter a buffer which has been set read only."))
   (declare (ignore args))
   (with-slots (syntax point) buffer
      (setf syntax (make-instance
-		   'basic-syntax :buffer (implementation buffer))
+		   *default-syntax* :buffer (implementation buffer))
 	   point (clone-mark (low-mark buffer) :right))))
 
 (defmethod (setf syntax) :after (syntax (buffer climacs-buffer))
@@ -286,21 +286,9 @@ is made to alter a buffer which has been set read only."))
    (query-replace-mode :initform nil :accessor query-replace-mode)
    (query-replace-state :initform nil :accessor query-replace-state)
    (region-visible-p :initform nil :accessor region-visible-p)
-   (full-redisplay-p :initform nil :accessor full-redisplay-p)
-   (cache :initform (let ((cache (make-instance 'standard-flexichain)))
-		      (insert* cache 0 nil)
-		      cache)))
+   (full-redisplay-p :initform nil :accessor full-redisplay-p))
   (:default-initargs
    :default-view +climacs-textual-view+))
-
-(defgeneric clear-cache (pane)
-  (:documentation "Clear the cache for `pane.'"))
-
-(defmethod clear-cache ((pane climacs-pane))
-  (with-slots (cache) pane
-    (setf cache (let ((cache (make-instance 'standard-flexichain)))
-                  (insert* cache 0 nil)
-                  cache))))
 
 (defmethod tab-width ((pane climacs-pane))
   (tab-width (stream-default-view pane)))
@@ -343,94 +331,9 @@ is made to alter a buffer which has been set read only."))
 	     top (clone-mark (low-mark buffer) :left)
 	     bot (clone-mark (high-mark buffer) :right))))
 
+;; FIXME: Move this somewhere else.
 (define-presentation-type url ()
   :inherit-from 'string)
-
-(defgeneric present-contents (contents pane))
-
-(defmethod present-contents (contents pane)
-  (unless (null contents)
-    (present contents
-	     (if (and (>= (length contents) 7) (string= (subseq contents 0 7) "http://"))
-		 'url
-		 'string)
-	     :stream pane)))
-
-(defgeneric display-line (pane line offset syntax view))
-
-(defmethod display-line (pane line offset (syntax basic-syntax) (view textual-view))
-  (declare (ignore offset))
-  (let ((saved-index nil)
-	(id 0))
-    (flet ((output-word (index)
-	     (unless (null saved-index)
-	       (let ((contents (coerce (subseq line saved-index index) 'string)))
-		 (updating-output (pane :unique-id (incf id)
-                                        :id-test #'=
-					:cache-value contents
-					:cache-test #'equal)
-		   (present-contents contents pane)))
-	       (setf saved-index nil))))
-      (with-slots (bot scan cursor-x cursor-y) pane
-	 (loop with space-width = (space-width pane)
-	       with tab-width = (tab-width pane)
-	       for index from 0
-	       for obj across line
-	       when (mark= scan (point pane))
-		 do (multiple-value-bind (x y) (stream-cursor-position pane)
-		      (setf cursor-x (+ x (if (null saved-index)
-					      0
-					      (* space-width (- index saved-index))))
-			    cursor-y y))
-	       do (cond ((eql obj #\Space)
-			 (output-word index)
-			 (stream-increment-cursor-position pane space-width 0))
-			((eql obj #\Tab)
-			 (output-word index)
-			 (let ((x (stream-cursor-position pane)))
-			   (stream-increment-cursor-position
-			    pane (- tab-width (mod x tab-width)) 0)))
-			((constituentp obj)
-			 (when (null saved-index)
-			   (setf saved-index index)))
-			((characterp obj)
-			 (output-word index)
-			 (updating-output (pane :unique-id (incf id)
-                                                :id-test #'=
-						:cache-value obj
-                                                :cache-test #'equal)
-			   (present obj 'character :stream pane)))
-			(t
-			 (output-word index)
-			 (updating-output (pane :unique-id (incf id)
-                                                :id-test #'=
-						:cache-value obj
-						:cache-test #'equal)
-			   (present obj 'character :stream pane))))
-		  (incf scan)
-	       finally (output-word index)
-		       (when (mark= scan (point pane))
-			 (multiple-value-bind (x y) (stream-cursor-position pane)
-			   (setf cursor-x x
-				 cursor-y y)))
-		       (terpri pane)
-		       (incf scan))))))
-
-(defgeneric fill-cache (pane)
-  (:documentation "fill nil cache entries from the buffer"))
-
-(defmethod fill-cache (pane)
-  (with-slots (top bot cache) pane
-     (let ((mark1 (clone-mark top))
-	   (mark2 (clone-mark top)))
-       (loop for line from 0 below (nb-elements cache)
-	     do (beginning-of-line mark1)
-		(end-of-line mark2)
-	     when (null (element* cache line))
-	       do (setf (element* cache line) (region-to-sequence mark1 mark2))
-	     unless (end-of-buffer-p mark2)
-	       do (setf (offset mark1) (1+ (offset mark2))
-			(offset mark2) (offset mark1))))))
 
 (defun nb-lines-in-pane (pane)
   (let* ((medium (sheet-medium pane))
@@ -441,91 +344,53 @@ is made to alter a buffer which has been set read only."))
       (max 1 (floor h (+ height (stream-vertical-spacing pane)))))))
 
 ;;; make the region on display fit the size of the pane as closely as
-;;; possible by adjusting bot leaving top intact.  Also make the cache
-;;; size fit the size of the region on display.
-(defun adjust-cache-size-and-bot (pane)
+;;; possible by adjusting bot leaving top intact.
+(defun adjust-pane-bot (pane)
   (let ((nb-lines-in-pane (nb-lines-in-pane pane)))
-    (with-slots (top bot cache) pane
+    (with-slots (top bot) pane
        (setf (offset bot) (offset top))
        (end-of-line bot)
        (loop until (end-of-buffer-p bot)
 	     repeat (1- nb-lines-in-pane)
 	     do (forward-object bot)
-		(end-of-line bot))
-       (let ((nb-lines-on-display (1+ (number-of-lines-in-region top bot))))
-	 (loop repeat (- (nb-elements cache) nb-lines-on-display)
-	       do (pop-end cache))
-	 (loop repeat (- nb-lines-on-display (nb-elements cache))
-	       do (push-end cache nil))))))
+		(end-of-line bot)))))
 
-;;; put all-nil entries in the cache
-(defun empty-cache (cache)
-  (loop for i from 0 below (nb-elements cache)
-	do (setf (element* cache i) nil)))	     
-
-;;; empty the cache and try to put point close to the middle
-;;; of the pane by moving top half a pane-size up.
-(defun reposition-window (pane)
+;;; Try to put point close to the middle of the pane by moving top
+;;; half a pane-size up.
+(defun reposition-pane (pane)
   (let ((nb-lines-in-pane (nb-lines-in-pane pane)))
-    (with-slots (top cache) pane
-       (empty-cache cache)
-       (setf (offset top) (offset (point pane)))
-       (loop do (beginning-of-line top)
-	     repeat (floor nb-lines-in-pane 2)
-	     until (beginning-of-buffer-p top)
-	     do (decf (offset top))
-		(beginning-of-line top)))))
+    (with-slots (top) pane
+      (setf (offset top) (offset (point pane)))
+      (loop do (beginning-of-line top)
+         repeat (floor nb-lines-in-pane 2)
+         until (beginning-of-buffer-p top)
+         do (decf (offset top))
+         (beginning-of-line top)))))
 
-;;; Make the cache reflect the contents of the buffer starting at top,
-;;; trying to preserve contents as much as possible, and inserting a
-;;; nil entry where buffer contents is unknonwn.  The size of the
-;;; cache at the end may be smaller than, equal to, or greater than
-;;; the number of lines in the pane.
-(defun adjust-cache (pane)
+;; Adjust the bottom and top marks of the pane to be correct, and
+;; reposition the pane if point is outside the visible area.
+(defun adjust-pane (pane)
   (let* ((buffer (buffer pane))
-	 (high-mark (high-mark buffer))
 	 (low-mark (low-mark buffer))
 	 (nb-lines-in-pane (nb-lines-in-pane pane)))
-    (with-slots (top bot cache) pane
-       (beginning-of-line top)
-       (end-of-line bot)
-       (if (or (mark< (point pane) top)
-	       (>= (number-of-lines-in-region top (point pane)) nb-lines-in-pane)
-	       (and (mark< low-mark top)
-		    (>= (number-of-lines-in-region top high-mark) (nb-elements cache))))
-	   (reposition-window pane)
-	   (when (mark>= high-mark low-mark)
-	     (let* ((n1 (number-of-lines-in-region top low-mark))
-		    (n2 (1+ (number-of-lines-in-region low-mark high-mark)))
-		    (n3 (number-of-lines-in-region high-mark bot))
-		    (diff (- (+ n1 n2 n3) (nb-elements cache))))
-	       (cond ((>= (+ n1 n2 n3) (+ (nb-elements cache) 20))
-		      (setf (offset bot) (offset top))
-		      (end-of-line bot)
-		      (loop for i from n1 below (nb-elements cache)
-			    do (setf (element* cache i) nil)))
-		     ((>= diff 0)
-		      (loop repeat diff do (insert* cache n1 nil))
-		      (loop for i from (+ n1 diff) below (+ n1 n2)
-			    do (setf (element* cache i) nil)))
-		     (t
-		      (loop repeat (- diff) do (delete* cache n1))
-		      (loop for i from n1 below (+ n1 n2)
-			    do (setf (element* cache i) nil)))))))))
-  (adjust-cache-size-and-bot pane))
+    (with-slots (top bot) pane
+      (beginning-of-line top)
+      (end-of-line bot)
+      (when (or (mark< (point pane) top)
+                (>= (number-of-lines-in-region top (point pane)) nb-lines-in-pane)
+                (mark< low-mark top))
+        (reposition-pane pane))))
+  (adjust-pane-bot pane))
 
 (defun page-down (pane)
-  (adjust-cache pane)
-  (with-slots (top bot cache) pane
+  (with-slots (top bot) pane
      (when (mark> (size (buffer bot)) bot)
-       (empty-cache cache)
        (setf (offset top) (offset bot))
        (beginning-of-line top)
        (setf (offset (point pane)) (offset top)))))
 
 (defun page-up (pane)
-  (adjust-cache pane)
-  (with-slots (top bot cache) pane
+  (with-slots (top bot) pane
      (when (> (offset top) 0)
        (let ((nb-lines-in-region (number-of-lines-in-region top bot)))
 	 (setf (offset bot) (offset top))
@@ -535,48 +400,25 @@ is made to alter a buffer which has been set read only."))
 	       do (decf (offset top))
 		  (beginning-of-line top))
 	 (setf (offset (point pane)) (offset top))
-	 (adjust-cache pane)
 	 (setf (offset (point pane)) (offset bot))
-	 (beginning-of-line (point pane))
-	 (empty-cache cache)))))
-
-(defun display-cache (pane)
-  (with-slots (top bot scan cache cursor-x cursor-y) pane
-     (loop with start-offset = (offset top)
-	   for id from 0 below (nb-elements cache)
-	   do (setf scan start-offset)
-	      (updating-output
-		  (pane :unique-id id
-                        :id-test #'equal
-			:cache-value (element* cache id)
-			:cache-test #'equal)
- 		(display-line pane (element* cache id) start-offset
- 			      (syntax (buffer pane)) (stream-default-view pane)))
-	      (incf start-offset (1+ (length (element* cache id)))))
-     (when (mark= scan (point pane))
-       (multiple-value-bind (x y) (stream-cursor-position pane)
-	 (setf cursor-x x
-	       cursor-y y)))))  
+	 (beginning-of-line (point pane))))))
 
 (defgeneric fix-pane-viewport (pane))
 
 (defmethod fix-pane-viewport ((pane climacs-pane))
-  (change-space-requirements pane :min-width (bounding-rectangle-width (stream-current-output-record pane))))
-
-(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax basic-syntax) current-p)
-  (display-cache pane)
-  (when (region-visible-p pane) (display-region pane syntax))
-  (display-cursor pane syntax current-p))
+  (change-space-requirements
+   pane
+   :min-width (bounding-rectangle-width (stream-current-output-record pane))
+   :max-height (bounding-rectangle-width (or (pane-viewport pane) pane))))
 
 (defgeneric redisplay-pane (pane current-p))
 
 (defmethod redisplay-pane ((pane climacs-pane) current-p)
   (if (full-redisplay-p pane)
-      (progn (reposition-window pane)
-	     (adjust-cache-size-and-bot pane)
+      (progn (reposition-pane pane)
+	     (adjust-pane-bot pane)
 	     (setf (full-redisplay-p pane) nil))
-      (adjust-cache pane))
-  (fill-cache pane)
+      (adjust-pane pane))
   (update-syntax-for-display (buffer pane) (syntax (buffer pane)) (top pane) (bot pane))
   (redisplay-pane-with-syntax pane (syntax (buffer pane)) current-p)
   (fix-pane-viewport pane))
@@ -588,164 +430,7 @@ is made to alter a buffer which has been set read only."))
 
 (defgeneric display-cursor (pane syntax current-p))
 
-(defmethod display-cursor ((pane climacs-pane) (syntax basic-syntax) current-p)
-  (let ((point (point pane)))
-    (multiple-value-bind (cursor-x cursor-y line-height)
-	(offset-to-screen-position (offset point) pane)
-      (updating-output (pane :unique-id -1 :cache-value (offset point))
-	(draw-rectangle* pane
-			 (1- cursor-x) cursor-y
-			 (+ cursor-x 2) (+ cursor-y line-height)
-			 :ink (if current-p +red+ +blue+))
-        ;; Move the position of the viewport if point is outside the
-        ;; visible area. The trick is that we do this inside the body
-        ;; of `updating-output', so the view will only be re-focused
-        ;; when point is actually moved.
-        (let ((x-position (abs (transform-position (sheet-transformation pane) 0 0)))
-              (viewport-width (bounding-rectangle-width (or (pane-viewport pane) pane))))
-          #+nil(print (list cursor-x (+ x-position (bounding-rectangle-width (pane-viewport pane)))) *terminal-io*)
-          (cond ((> cursor-x (+ x-position viewport-width))
-                 (move-sheet pane (round (- (- cursor-x viewport-width))) 0))
-                ((> x-position cursor-x)
-                 (move-sheet pane (if (> viewport-width cursor-x)
-                                      0
-                                      (round (- cursor-x)))
-                             0))))))))
-
 (defgeneric display-region (pane syntax))
-
-(defmethod display-region ((pane climacs-pane) (syntax basic-syntax))
-  (highlight-region pane (point pane) (mark pane)))
-
-(defgeneric highlight-region (pane mark1 offset2 &optional ink))
-
-(defmethod highlight-region ((pane climacs-pane) (offset1 integer) (offset2 integer)
-			     &optional (ink (compose-in +green+ (make-opacity .1))))
-  ;; FIXME stream-vertical-spacing between lines
-  ;; FIXME note sure updating output is working properly...
-  ;; we'll call offset1 CURSOR and offset2 MARK
-  (multiple-value-bind (cursor-x cursor-y line-height)
-      (offset-to-screen-position offset1 pane)
-    (multiple-value-bind (mark-x mark-y)
-	(offset-to-screen-position offset2 pane)
-      (cond
-	;; mark and point are above the screen
-	((and (null cursor-y) (null mark-y)
-	      (null cursor-x) (null mark-x))
-	 nil)
-	;; mark and point are below the screen
-	((and (null cursor-y) (null mark-y)
-	      cursor-x mark-x)
-	 nil)
-	;; mark or point is above the screen, and point or mark below it
-	((and (null cursor-y) (null mark-y)
-	      (or (and cursor-x (null mark-x))
-		  (and (null cursor-x) mark-x)))
-	 (let ((width (stream-text-margin pane))
-	       (height (bounding-rectangle-height
-			(window-viewport pane))))
-	   (updating-output (pane :unique-id -3
-				  :cache-value (list cursor-y mark-y cursor-x mark-x
-						     height width ink))
-	     (draw-rectangle* pane
-			      0 0
-			      width height
-			      :ink ink))))
-	;; mark is above the top of the screen
-	((and (null mark-y) (null mark-x))
-	 (let ((width (stream-text-margin pane)))
-	   (updating-output (pane :unique-id -3
-				  :cache-value ink)
-	     (updating-output (pane :cache-value (list mark-y mark-x cursor-y width))
-	       (draw-rectangle* pane
-				0 0
-				width cursor-y
-				:ink ink))
-	     (updating-output (pane :cache-value (list cursor-y cursor-x))
-	       (draw-rectangle* pane
-				0 cursor-y 
-				cursor-x (+ cursor-y line-height)
-				:ink ink)))))
-	;; mark is below the bottom of the screen
-	((and (null mark-y) mark-x)
-	 (let ((width (stream-text-margin pane))
-	       (height (bounding-rectangle-height
-			(window-viewport pane))))
-	   (updating-output (pane :unique-id -3
-				  :cache-value ink)
-	     (updating-output (pane :cache-value (list cursor-y width height))
-	       (draw-rectangle* pane
-				0 (+ cursor-y line-height)
-				width height
-				:ink ink))
-	     (updating-output (pane :cache-value (list cursor-x cursor-y width))
-	       (draw-rectangle* pane
-				cursor-x cursor-y
-				width (+ cursor-y line-height)
-				:ink ink)))))
-	;; mark is at point
-	((and (= mark-x cursor-x) (= mark-y cursor-y))
-	 nil)
-	;; mark and point are on the same line
-	((= mark-y cursor-y)
-	 (updating-output (pane :unique-id -3
-				:cache-value (list offset1 offset2 ink))
-	   (draw-rectangle* pane
-			    mark-x mark-y
-			    cursor-x (+ cursor-y line-height)
-			    :ink ink)))
-	;; mark and point are both visible, mark above point
-	((< mark-y cursor-y)
-	 (let ((width (stream-text-margin pane)))
-	   (updating-output (pane :unique-id -3
-				  :cache-value ink)
-	     (updating-output (pane :cache-value (list mark-x mark-y width))
-	       (draw-rectangle* pane
-				mark-x mark-y
-				width (+ mark-y line-height)
-				:ink ink))
-	     (updating-output (pane :cache-value (list cursor-x cursor-y))
-	       (draw-rectangle* pane
-				0 cursor-y
-				cursor-x (+ cursor-y line-height)
-				:ink ink))
-	     (updating-output (pane :cache-value (list mark-y cursor-y width))
-	       (draw-rectangle* pane
-				0 (+ mark-y line-height)
-				width cursor-y
-				:ink ink)))))
-	;; mark and point are both visible, point above mark
-	(t
-	 (let ((width (stream-text-margin pane)))
-	   (updating-output (pane :unique-id -3
-				  :cache-value ink)
-	     (updating-output (pane :cache-value (list cursor-x cursor-y width))
-	       (draw-rectangle* pane
-				cursor-x cursor-y
-				width (+ cursor-y line-height)
-				:ink ink))
-	     (updating-output (pane :cache-value (list mark-x mark-y))
-	       (draw-rectangle* pane
-				0 mark-y
-				mark-x (+ mark-y line-height)
-				:ink ink))
-	     (updating-output (pane :cache-value (list cursor-y mark-y width))
-	       (draw-rectangle* pane
-				0 (+ cursor-y line-height)
-				width mark-y
-				:ink ink)))))))))
-
-(defmethod highlight-region ((pane climacs-pane) (mark1 mark) (mark2 mark)
-			     &optional (ink (compose-in +green+ (make-opacity .1))))
-  (highlight-region pane (offset mark1) (offset mark2) ink))
-
-(defmethod highlight-region ((pane climacs-pane) (mark1 mark) (offset2 integer)
-			     &optional (ink (compose-in +green+ (make-opacity .1))))
-  (highlight-region pane (offset mark1) offset2 ink))
-
-(defmethod highlight-region ((pane climacs-pane) (offset1 integer) (mark2 mark)
-			     &optional (ink (compose-in +green+ (make-opacity .1))))
-  (highlight-region pane offset1 (offset mark2) ink))
 
 (defun offset-to-screen-position (offset pane)
   "Returns the position of offset as a screen position.

@@ -26,7 +26,7 @@
 (defclass prolog-parse-tree (parse-tree)
   ())
 
-(define-syntax prolog-syntax (basic-syntax)
+(define-syntax prolog-syntax (fundamental-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
    (parser)

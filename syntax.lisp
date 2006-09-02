@@ -112,17 +112,27 @@ in the specific syntax.")
 
 (defgeneric name-for-info-pane (syntax &key &allow-other-keys)
   (:documentation "Return the name that should be used for the
-  info-pane for panes displaying a buffer in this syntax."))
+  info-pane for panes displaying a buffer in this syntax.")
+  (:method (syntax &key &allow-other-keys)
+    (name syntax)))
 
 (defgeneric display-syntax-name (syntax stream &key &allow-other-keys)
   (:documentation "Draw the name of the syntax `syntax' to
-  `stream'. This is meant to be called for the info-pane."))
+  `stream'. This is meant to be called for the info-pane.")
+  (:method (syntax stream &rest args &key)
+    (princ (apply #'name-for-info-pane syntax args) stream)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Syntax completion
 
 (defparameter *syntaxes* '())
+
+(defvar *default-syntax* nil
+  "The name of the default syntax. Must be a symbol.
+
+This syntax will be used by default, when no other syntax is
+mandated by file types or attribute lists.")
 
 (defstruct (syntax-description (:type list))
   (name (error "required argument") :type string)
@@ -248,37 +258,6 @@ in the specific syntax.")
 			   :test #'string-equal)))
     (when description
       (find-class (syntax-description-class-name description)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; Basic syntax
-
-;;; FIXME: this is a really bad name.  It's even worse if it's
-;;; case-insensitive.  Emacs' "Fundamental" isn't too bad.
-(define-syntax basic-syntax (syntax)
-  ()
-  (:name "Basic"))
-
-(defmethod update-syntax (buffer (syntax basic-syntax))
-  (declare (ignore buffer))
-  nil)
-
-(defmethod update-syntax-for-display (buffer (syntax basic-syntax) from to)
-  (declare (ignore buffer from to))
-  nil)
-
-(defmethod name-for-info-pane ((syntax basic-syntax) &key)
-  (name syntax))
-
-(defmethod display-syntax-name ((syntax basic-syntax) stream &rest args &key)
-  (princ (apply #'name-for-info-pane syntax args) stream))
-
-(defmethod syntax-line-indentation (mark tab-width (syntax basic-syntax))
-  (declare (ignore mark tab-width))
-  0)
-
-(defmethod eval-defun (mark syntax)
-  (error 'no-such-operation))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
