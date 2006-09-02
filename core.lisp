@@ -145,14 +145,13 @@ otherwise it is case-sensitive."
 ;;; 
 ;;; Character case
 
-(defun downcase-word (mark &optional (n 1))
+(defun downcase-word (mark syntax &optional (n 1))
   "Convert the next N words to lowercase, leaving mark after the last word."
-  (let ((syntax (syntax (buffer mark))))
-    (loop repeat n
-       do (forward-to-word-boundary mark syntax)
-       (let ((offset (offset mark)))
-         (forward-word mark syntax 1 nil)
-         (downcase-region offset mark)))))
+  (loop repeat n
+     do (forward-to-word-boundary mark syntax)
+     (let ((offset (offset mark)))
+       (forward-word mark syntax 1 nil)
+       (downcase-region offset mark))))
 
 (defun upcase-word (mark syntax &optional (n 1))
   "Convert the next N words to uppercase, leaving mark after the last word."
@@ -162,14 +161,13 @@ otherwise it is case-sensitive."
        (forward-word mark syntax 1 nil)
        (upcase-region offset mark))))
 
-(defun capitalize-word (mark &optional (n 1))
+(defun capitalize-word (mark syntax &optional (n 1))
   "Capitalize the next N words, leaving mark after the last word."
-  (let ((syntax (syntax (buffer mark))))
-    (loop repeat n
-       do (forward-to-word-boundary mark syntax)
-       (let ((offset (offset mark)))
-         (forward-word mark syntax 1 nil)
-         (capitalize-region offset mark)))))
+  (loop repeat n
+     do (forward-to-word-boundary mark syntax)
+     (let ((offset (offset mark)))
+       (forward-word mark syntax 1 nil)
+       (capitalize-region offset mark))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -693,7 +691,7 @@ to overwrite."
 		    (error () (progn (beep)
 				     (display-message "Invalid answer")
 				     (return-from frame-exit nil)))))
-	  do (save-buffer buffer))
+	  do (save-buffer buffer frame))
   (when (or (notany #'(lambda (buffer) (and (needs-saving buffer) (filepath buffer)))
 		    (buffers frame))
 	    (handler-case (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?")

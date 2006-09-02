@@ -203,7 +203,8 @@ Leave point at the word end."
 (define-command (com-downcase-word :name t :command-table case-table) ()
   "Convert the characters from point until the next word end to lower case.
 Leave point at the word end."
-  (downcase-word (point (current-window))))
+  (downcase-word (point (current-window))
+                 (syntax (buffer (current-window)))))
 
 (set-key 'com-downcase-word
 	 'case-table
@@ -217,7 +218,8 @@ If point is before the start of a word, convert the first character
 of that word to upper case and the rest of the letters to lower case. 
 
 Leave point at the word end."
-  (capitalize-word (point (current-window))))
+  (capitalize-word (point (current-window))
+                   (syntax (buffer (current-window)))))
 
 (set-key 'com-capitalize-word
 	 'case-table

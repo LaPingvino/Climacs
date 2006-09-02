@@ -772,7 +772,7 @@ internal state of the parser.  Do not alter it!"
     '(#\Newline #\Page)))
 
 (defgeneric paragraph-delimiter (syntax)
-  (:documentation "Return the object used as a paragraph
+  (:documentation "Return the object sequence used as a paragraph
   deliminter in `syntax'.")
   (:method (syntax)
     '(#\Newline #\Newline)))
