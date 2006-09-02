@@ -32,11 +32,10 @@
   (let* ((seq (make-string (file-length stream)))
          (count (#+mcclim read-sequence #-mcclim cl:read-sequence
                           seq stream)))
-    (if (= count (length seq))
-        (insert-buffer-sequence buffer offset
-                                (if (= count (length seq))
-                                    seq
-                                    (subseq seq 0 count))))))
+    (insert-buffer-sequence buffer offset
+                            (if (= count (length seq))
+                                seq
+                                (subseq seq 0 count)))))
 
 (defmethod make-buffer-from-stream (stream (application-frame climacs))
   (let* ((buffer (make-new-buffer application-frame)))
