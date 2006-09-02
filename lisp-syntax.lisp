@@ -139,7 +139,8 @@
                                         ; as something.
   (let ((package-name (provided-package-name-at-mark syntax (point pane))))
     (if (find-package package-name)
-        (present (find-package package-name) 'package :stream stream)
+        (with-output-as-presentation (stream (find-package package-name) 'expression)
+          (princ package-name stream))
         (with-text-face (stream :italic)
           (princ package-name stream)))))
 
