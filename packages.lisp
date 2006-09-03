@@ -334,6 +334,7 @@
              #:current-point
              #:current-buffer
              #:current-point
+             #:current-mark
              #:point
              #:syntax
              #:mark

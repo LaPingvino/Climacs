@@ -202,7 +202,11 @@
   "Return the current panes point."
   (point (current-window)))
 
-(defmethod current-buffer ((application-frame climacs))
+(defun current-mark ()
+  "Return the current panes mark."
+  (mark (current-window)))
+
+(defmethod frame-current-buffer ((application-frame climacs))
   "Return the current buffer."
   (buffer (car (windows application-frame))))
 
