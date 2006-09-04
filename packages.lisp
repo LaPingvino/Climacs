@@ -89,6 +89,7 @@
 	   #:number-of-lines-in-region
 	   #:constituentp
            #:just-n-spaces
+           #:move-to-column
            #:buffer-whitespacep
            #:buffer-region-case
 	   #:name-mixin #:name

@@ -266,6 +266,17 @@ spaces. `Mark' will be moved to after any spaces inserted."
                                (- existing-spaces n))
                             mark1))))))
 
+(defun move-to-column (mark column &optional force)
+  "Move the position of `mark' to column number `column'. If the
+  line is too short, put `mark' at end of line, unless `force' is
+  non-NIL, in which case spaces will be added to the end of the
+  line."
+  (let ((set-column (setf (column-number mark) column)))
+    (when (and (not (= set-column column))
+               force)
+      (insert-sequence mark (make-string (- column set-column)
+                                         :initial-element #\Space)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Character case
