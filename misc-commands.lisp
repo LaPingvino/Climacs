@@ -755,3 +755,108 @@ FIXME: no it doesn't."
 (define-command (com-visible-region :name t :command-table marking-table) ()
   "Toggle the visibility of the region in the current pane."
   (setf (region-visible-p (current-window)) (not (region-visible-p (current-window)))))
+
+(define-command (com-kill-rectangle :name t :command-table deletion-table)
+    ()
+  "Kill the rectangle bounded by current point and mark.   
+
+The rectangle will be put in a rectangle kill buffer, from which it can
+later be yanked with Yank Rectangle. This kill buffer is completely
+disjunct from the standard kill ring and can only hold a single rectangle at a time."
+  (setf *killed-rectangle*
+        (map-rectangle-lines (current-buffer)
+                             #'extract-and-delete-rectangle-line
+                             (current-point)
+                             (current-mark))))
+
+(set-key 'com-kill-rectangle
+         'deletion-table
+         '((#\x :control) (#\r) (#\k)))
+
+(define-command (com-delete-rectangle :name t :command-table deletion-table)
+    ()
+  "Delete the rectangle bounded by current point and mark.
+
+The rectangle will be deleted and NOT put in the kill buffer."
+  (map-rectangle-lines (current-buffer)
+                       #'extract-and-delete-rectangle-line
+                       (current-point)
+                       (current-mark)))
+
+(set-key 'com-delete-rectangle
+         'deletion-table
+         '((#\x :control) (#\r) (#\d)))
+
+(define-command (com-yank-rectangle :name t :command-table editing-table)
+    ()
+  "Insert the rectangle from the rectangle kill buffer at mark.  
+
+The rectangle kill buffer will not be emptied, so it is possible to yank
+the same rectangle several times."
+  (insert-rectangle-at-mark (current-buffer)
+                            (current-point)
+                            *killed-rectangle*))
+
+(set-key 'com-yank-rectangle
+         'editing-table
+         '((#\x :control) (#\r) (#\y)))
+
+(define-command (com-clear-rectangle :name t :command-table deletion-table)
+    ()
+  "Clear the rectangle bounded by current point and mark by filling it with spaces."
+  (map-rectangle-lines (current-buffer)
+                       #'clear-rectangle-line
+                       (current-point)
+                       (current-mark)))
+
+(set-key 'com-clear-rectangle
+         'editing-table
+         '((#\x :control) (#\r) (#\c)))
+
+(define-command (com-open-rectangle :name t :command-table editing-table)
+    ()
+  "Open the rectangle bounded by current point and mark.  
+
+The rectangle will not be deleted, but instead pushed to the right, with
+the area previously inhabited by it filled with spaces."
+  (map-rectangle-lines (current-buffer)
+                       #'open-rectangle-line
+                       (current-point)
+                       (current-mark)))
+
+(set-key 'com-open-rectangle
+         'editing-table
+         '((#\x :control) (#\r) (#\o)))
+
+(define-command (com-string-rectangle :name t :command-table editing-table)
+    ((string 'string :prompt "String rectangle"))
+  "Replace each line of the rectangle bounded by current point of mark with `string'.
+
+The length of the string need not be equal to the width of the rectangle."
+  (map-rectangle-lines (current-buffer)
+                       #'(lambda (mark startcol endcol)
+                           (replace-rectangle-line mark startcol endcol string))
+                       (current-point)
+                       (current-mark)))
+
+(set-key 'com-string-rectangle
+         'editing-table
+         '((#\x :control) (#\r) (#\t)))
+
+(define-command (com-string-insert-rectangle :name t :command-table editing-table)
+    ((string 'string :prompt "String rectangle"))
+  "Insert `string' in each line of the rectangle bounded by current point of mark.
+
+Text in the rectangle will be shifted right."
+  (map-rectangle-lines (current-buffer)
+                       #'(lambda (mark startcol endcol)
+                           (insert-in-rectangle-line mark startcol endcol string))
+                       (current-point)
+                       (current-mark)))
+
+(define-command (com-delete-whitespace-rectangle :name t :command-table editing-table)
+    ()
+  (map-rectangle-lines (current-buffer)
+                       #'delete-rectangle-line-whitespace
+                       (current-point)
+                       (current-mark)))

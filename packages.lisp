@@ -420,7 +420,17 @@
 
            #:input-from-stream
            #:save-buffer-to-stream
-           #:make-buffer-from-stream)
+           #:make-buffer-from-stream
+
+           #:*killed-rectangle*
+           #:map-rectangle-lines
+           #:extract-and-delete-rectangle-line
+           #:insert-rectangle-at-mark
+           #:clear-rectangle-line
+           #:open-rectangle-line
+           #:replace-rectangle-line
+           #:insert-in-rectangle-line
+           #:delete-rectangle-line-whitespace)
   (:documentation "Package for editor functionality that is
   syntax-aware, but yet not specific to certain
   syntaxes. Contains stuff like indentation, filling and other
