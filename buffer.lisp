@@ -425,13 +425,17 @@ at the end of the buffer if no following newline character exists. Returns mark.
   (buffer-column-number (buffer mark) (offset mark)))
 
 (defgeneric (setf column-number) (number mark)
-  (:documentation "Set the column number of the mark."))
+  (:documentation "Set the column number of the mark, return the
+  column number. Note that if `number' is larger than the length
+  of the line `mark' is in, `mark' will be moved to end of
+  line."))
 
 (defmethod (setf column-number) (number mark)
   (beginning-of-line mark)
   (loop repeat number
        until (end-of-line-p mark)
-       do (incf (offset mark))))
+       do (incf (offset mark))
+       finally (return (column-number mark))))
 
 (defgeneric insert-buffer-object (buffer offset object)
   (:documentation "Insert the object at the offset in the buffer.  Any left-sticky marks
