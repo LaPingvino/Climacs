@@ -96,6 +96,7 @@
 					"abbrev" "editing" "motion"))
    (:file "io" :depends-on ("packages" "gui"))
    (:file "core" :depends-on ("gui"))
+   (:file "rectangle" :depends-on ("core"))
    (:file "climacs" :depends-on ("gui" "core"))
 ;;    (:file "buffer-commands" :depends-on ("gui"))
    (:file "developer-commands" :depends-on ("gui" "lisp-syntax" "core"))
