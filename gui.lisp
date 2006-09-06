@@ -130,6 +130,8 @@
 (define-application-frame climacs (standard-application-frame
 				   esa-frame-mixin)
   ((buffers :initform '() :accessor buffers)
+   (groups :initform (make-hash-table :test #'equal) :accessor groups)
+   (active-group :initform nil :accessor active-group)
    (kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring))
   (:command-table (global-climacs-table
 		   :inherit-from (global-esa-table

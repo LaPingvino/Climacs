@@ -317,15 +317,19 @@ using the case of those objects if USE-REGION-CASE is true."
   (with-accessors ((string string1)
                    (buffers buffers)
                    (mark mark)) state
-    (let ((offset-before (offset mark)))
-      (search-forward mark string :test (case-relevant-test string))
-      (or (/= (offset mark) offset-before)
-          (unless (null (rest buffers))
-            (pop buffers)
-            (switch-to-buffer (first buffers))
-            (setf mark (point (first buffers)))
-            (beginning-of-buffer mark)
-            (query-replace-find-next-match state))))))
+    (flet ((head-to-buffer (buffer)
+             (switch-to-buffer buffer)
+             (setf mark (point (current-window)))
+             (beginning-of-buffer mark)))
+      (unless (eq (current-buffer) (first buffers))
+        (when t buffers
+          (head-to-buffer (first buffers))))
+      (let ((offset-before (offset mark)))
+        (search-forward mark string :test (case-relevant-test string))
+        (or (/= (offset mark) offset-before)
+            (unless (null (rest buffers))
+              (pop buffers)
+              (query-replace-find-next-match state)))))))
 
 (define-command (com-query-replace :name t :command-table search-table) ()
   (let* ((pane (current-window))
@@ -357,19 +361,20 @@ using the case of those objects if USE-REGION-CASE is true."
          (point (point pane))
 	 (occurrences 0))
     (declare (special string1 string2 occurrences))
-    (setf (query-replace-state pane) (make-instance 'query-replace-state
-                                                    :string1 string1
-                                                    :string2 string2
-                                                    :mark point
-                                                    :buffers (list (buffer pane))))
-    (when (query-replace-find-next-match (query-replace-state pane))
-      (setf (query-replace-mode pane) t)
-      (display-message "Replace ~A with ~A:"
-		       string1 string2)
-      (simple-command-loop 'query-replace-climacs-table
-			   (query-replace-mode pane)
-			   ((setf (query-replace-mode pane) nil))))
-    (display-message "Replaced ~A occurrence~:P" occurrences)))
+    (with-group-buffers (buffers (get-active-group))
+      (setf (query-replace-state pane) (make-instance 'query-replace-state
+                                                      :string1 string1
+                                                      :string2 string2
+                                                      :mark point
+                                                      :buffers buffers))
+      (when (query-replace-find-next-match (query-replace-state pane))
+        (setf (query-replace-mode pane) t)
+        (display-message "Replace ~A with ~A:"
+                         string1 string2)
+        (simple-command-loop 'query-replace-climacs-table
+                             (query-replace-mode pane)
+                             ((setf (query-replace-mode pane) nil))))
+      (display-message "Replaced ~A occurrence~:P" occurrences))))
 
 (set-key 'com-query-replace
 	 'search-table

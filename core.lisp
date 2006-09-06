@@ -596,6 +596,33 @@ spaces only."))
     (and (or (null name) (eql name :unspecific))
 	 (or (null type) (eql type :unspecific)))))
 
+(defun findablep (pathname)
+  "Return non-NIL if `pathname' can be opened by Climacs. That
+  is, check whether the file exists and is not a directory."
+  (and (probe-file pathname)
+       (not (directory-pathname-p pathname))))
+
+(defun find-buffer-with-pathname (pathname)
+  "Return the (first) buffer associated with the file designated
+by `pathname'. Returns NIL if no buffer can be found."
+  (flet ((usable-pathname (pathname)
+           (if (probe-file pathname)
+               (truename pathname)
+               pathname)))
+    (find pathname (buffers *application-frame*)
+          :key #'filepath
+          :test #'(lambda (fp1 fp2)
+                    (and fp1 fp2
+                         (equal (usable-pathname fp1)
+                                (usable-pathname fp2)))))))
+
+(defun ensure-open-file (pathname)
+  "Make sure a buffer opened on `pathname' exists, finding the
+file if necessary."
+  (when (and (findablep pathname)
+             (not (find-buffer-with-pathname pathname)))
+    (find-file pathname *application-frame*)))
+
 (defun find-file-impl (filepath &optional readonlyp)
   (cond ((null filepath)
 	 (display-message "No file name given.")
@@ -604,42 +631,33 @@ spaces only."))
 	 (display-message "~A is a directory name." filepath)
 	 (beep))
         (t
-         (flet ((usable-pathname (pathname)
-                  (if (probe-file pathname)
-                      (truename pathname)
-                      pathname)))
-           (let ((existing-buffer (find filepath (buffers *application-frame*)
-                                        :key #'filepath
-                                        :test #'(lambda (fp1 fp2)
-                                                  (and fp1 fp2
-                                                       (equal (usable-pathname fp1)
-                                                              (usable-pathname fp2)))))))
-             (if (and existing-buffer (if readonlyp (read-only-p existing-buffer) t))
-                 (switch-to-buffer existing-buffer)
-                 (progn
-                   (when readonlyp
-                     (unless (probe-file filepath)
-                       (beep)
-                       (display-message "No such file: ~A" filepath)
-                       (return-from find-file-impl nil)))
-                   (let ((buffer (if (probe-file filepath)
-                                     (with-open-file (stream filepath :direction :input)
-                                       (make-buffer-from-stream stream *application-frame*))
-                                     (make-new-buffer *application-frame*)))
-                         (pane (current-window)))
-                     (setf (offset (point (buffer pane))) (offset (point pane))
-                           (buffer (current-window)) buffer
-                           (syntax buffer) (make-instance (syntax-class-name-for-filepath filepath)
-                                                          :buffer buffer)
-                           (file-write-time buffer) (file-write-date filepath))
-                     (evaluate-attribute-line buffer)
-                     (setf (filepath buffer) filepath
-                           (name buffer) (filepath-filename filepath)
-                           (read-only-p buffer) readonlyp)
-                     (beginning-of-buffer (point pane))
-                     (update-syntax buffer (syntax buffer))
-                     (clear-modify buffer)
-                     buffer))))))))
+         (let ((existing-buffer (find-buffer-with-pathname filepath)))
+           (if (and existing-buffer (if readonlyp (read-only-p existing-buffer) t))
+               (switch-to-buffer existing-buffer)
+               (progn
+                 (when readonlyp
+                   (unless (probe-file filepath)
+                     (beep)
+                     (display-message "No such file: ~A" filepath)
+                     (return-from find-file-impl nil)))
+                 (let ((buffer (if (probe-file filepath)
+                                   (with-open-file (stream filepath :direction :input)
+                                     (make-buffer-from-stream stream *application-frame*))
+                                   (make-new-buffer *application-frame*)))
+                       (pane (current-window)))
+                   (setf (offset (point (buffer pane))) (offset (point pane))
+                         (buffer (current-window)) buffer
+                         (syntax buffer) (make-instance (syntax-class-name-for-filepath filepath)
+                                                        :buffer buffer)
+                         (file-write-time buffer) (file-write-date filepath))
+                   (evaluate-attribute-line buffer)
+                   (setf (filepath buffer) filepath
+                         (name buffer) (filepath-filename filepath)
+                         (read-only-p buffer) readonlyp)
+                   (beginning-of-buffer (point pane))
+                   (update-syntax buffer (syntax buffer))
+                   (clear-modify buffer)
+                   buffer)))))))
 
 (defmethod find-file (filepath (application-frame climacs))
   (find-file-impl filepath nil))

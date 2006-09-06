@@ -340,6 +340,8 @@
              #:syntax
              #:mark
              #:buffers
+             #:active-group
+             #:groups
              #:insert-character
              #:display-window
              #:split-window
@@ -430,7 +432,23 @@
            #:open-rectangle-line
            #:replace-rectangle-line
            #:insert-in-rectangle-line
-           #:delete-rectangle-line-whitespace)
+           #:delete-rectangle-line-whitespace
+
+           #:group
+           #:group-element
+           #:standard-group
+           #:current-buffer-group
+           #:add-group
+           #:get-group
+           #:get-active-group
+           #:deselect-group
+           #:with-group-buffers
+           #:define-group
+           #:group-not-found
+           #:group-buffers
+           #:ensure-group-buffers
+           #:select-group
+           #:display-group-contents)
   (:documentation "Package for editor functionality that is
   syntax-aware, but yet not specific to certain
   syntaxes. Contains stuff like indentation, filling and other

@@ -756,6 +756,10 @@ FIXME: no it doesn't."
   "Toggle the visibility of the region in the current pane."
   (setf (region-visible-p (current-window)) (not (region-visible-p (current-window)))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Rectangle editing
+
 (define-command (com-kill-rectangle :name t :command-table deletion-table)
     ()
   "Kill the rectangle bounded by current point and mark.   
@@ -860,3 +864,68 @@ Text in the rectangle will be shifted right."
                        #'delete-rectangle-line-whitespace
                        (current-point)
                        (current-mark)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Groups
+
+(define-command (com-define-group :name t :command-table global-climacs-table)
+    ((name 'string :prompt "Name")
+     (buffers '(sequence climacs-buffer) :prompt "Buffers"))
+  (when (or (not (get-group name))
+            (accept 'boolean :prompt "Group already exists. Overwrite existing group?"))
+    (add-group name buffers))
+  (select-group (get-group name)))
+
+(set-key `(com-define-group ,*unsupplied-argument-marker* ,*unsupplied-argument-marker*)
+         'global-climacs-table
+         '((#\x :control) (#\g) (#\d)))
+
+(define-command (com-define-file-group :name t :command-table global-climacs-table)
+    ((name 'string :prompt "Name")
+     (pathnames '(sequence pathname) :prompt "Files"))
+  (when (or (not (get-group name))
+            (accept 'boolean :prompt "Group already exists. Overwrite existing group?"))
+    (add-group name pathnames))
+  (select-group (get-group name)))
+
+(set-key `(com-define-file-group ,*unsupplied-argument-marker* ,*unsupplied-argument-marker*)
+         'global-climacs-table
+         '((#\x :control) (#\g) (#\f)))
+
+(define-command (com-select-group :name t :command-table global-climacs-table)
+    ((group 'group))
+  (select-group group))
+
+(set-key `(com-select-group ,*unsupplied-argument-marker*)
+         'global-climacs-table
+         '((#\x :control) (#\g) (#\s)))
+
+(define-command (com-deselect-group :name t :command-table global-climacs-table)
+    ()
+  (deselect-group)
+  (display-message "Group deselected"))
+
+(set-key 'com-deselect-group
+         'global-climacs-table
+         '((#\x :control) (#\g) (#\u)))
+
+(define-command (com-current-group :name t :command-table global-climacs-table)
+    ()
+  (with-minibuffer-stream (s)
+    (format s "Active group is: ")
+    (present (get-active-group) 'group :stream s)))
+
+(set-key 'com-current-group
+         'global-climacs-table
+         '((#\x :control) (#\g) (#\c)))
+
+(define-command (com-list-group-contents :name t :command-table global-climacs-table)
+    ()
+  (with-minibuffer-stream (s)
+    (format s "Active group designates: ")
+    (display-group-contents (get-active-group) s)))
+
+(set-key 'com-list-group-contents
+         'global-climacs-table
+         '((#\x :control) (#\g) (#\l)))
