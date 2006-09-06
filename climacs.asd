@@ -103,7 +103,7 @@
    (:file "motion-commands" :depends-on ("gui" "core"))
    (:file "editing-commands" :depends-on ("gui" "core"))
    (:file "file-commands" :depends-on ("gui" "core"))
-   (:file "misc-commands" :depends-on ("gui" "core"))
+   (:file "misc-commands" :depends-on ("gui" "core" "rectangle"))
    (:file "search-commands" :depends-on ("gui" "core"))
    (:file "window-commands" :depends-on ("gui" "core"))
    (:file "unicode-commands" :depends-on ("gui" "core"))

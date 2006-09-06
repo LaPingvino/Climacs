@@ -42,6 +42,7 @@ Common Lisp
 * Basic editing commands::
 * Different editing modes::
 * Kill ring::
+* Groups::
 * Advanced editing commands::
 * Getting help::
 * Proposal for new buffer/pane relations::
@@ -532,6 +533,94 @@ by using the @key{Insert}
 Many @climacs{} commands that remove objects from a buffer save these
 objects on a global @emph{kill ring}.
 @cindex kill ring
+
+@node Groups
+@chapter Groups
+
+@menu
+* The group metaphor::
+* Group commands::
+@end menu
+
+@node The group metaphor
+@section The group metaphor
+
+@climacs{} supports a useful and powerful concept called @emph{groups}.
+@cindex group
+Groups are conceptually just lists of buffers or files, and when used in
+conjunction with a command, means that the command operates on all
+buffers or files designated by the group. For example, a
+string-replaceable command might perform string-replacement in several
+buffers, and not just the current one. A command that supports
+operations on multiple files or buffers at a time, via groups, is called
+a @emph{group-aware command}.
+@cindex group-aware command. 
+However, a group is not limited to designating a simple list of static
+elements, the exact elements designated by a group may depend on the
+context in which a group-using command is invoked - for example, a group
+may designate ``all files in the same directory as the current
+buffer''. In this case, the specific files designated by the group can
+change if the user switches to another buffer. Every group has a unique
+name and all references to the group are performed with this name as the
+key.
+
+At all times, Climacs may have an @emph{active group}.
+@cindex active group
+The active group is used to control the scope of effect of group-aware
+commands - when such a command is executed, it will look at the active
+group to get a list of files and buffers, and perform its operations on
+all elements in the group. The exact behavior of commands with respect
+to groups is dependent on the command itself, though. The act of setting
+the active group is called @emph{selecting a group},
+@cindex selecting a group
+specifically, selecting the group that is set as the active group. It is
+also possible to deselect the active group, in which case most
+group-aware commands will simply perform their operations on the current
+buffer.
+
+Specifically, there are two different kind of groups - @emph{specific
+groups}
+@cindex specific groups
+and @emph{persistent groups}.
+@cindex persistent groups
+Specific groups can be defined by the user through the command
+interface, @pxref{Group commands}. They are simple lists of buffers or
+files, and if a buffer named in a group is killed, it will be removed
+from the group. Creating a buffer with the same name, or the same file,
+will not result in the buffer being re-added to the group. Specific
+groups are also lost when @climacs{} is terminated. Persistent groups,
+on the other hand, are usually pre-defined groups with more complex
+behavior. Their exact list of designated files and buffers is usually
+context-dependent and not calculated until they are needed. It is not
+currently possible to define persistent groups through the command
+interface, though some persistent groups support user-defined filters
+and options. When a persistent group is selected as the active group, it
+may query the user for values - for example, a persistent group
+designating all files in a given directory, may ask the user for a
+directory when it is selected.
+
+@node Group commands
+@section Group commands
+
+Specific groups can be defined by using the order @kbd{C-x g d}
+@kindex C-x g d
+(@command{Define Group}). You will be queried for a name for the group
+and a list of buffers, and a group with the specified name and buffers
+will be created and selected as the active group. Alternatively, you can
+use the order @kbd{C-x g f}
+@kindex C-x g f
+(@command{Define File Group}, which will query for files instead of
+buffers. If you wish to select an already existing group (persistent or
+specific) as the active group, you can use the order @kbd{C-x g s}.
+@kindex C-x g s
+You can deselect the active group with the order @kbd{C-x g u}
+@kindex C-x g u
+(@command{Deselect Group}) - this will usually make all group-aware
+commands operate on just the current buffer. To see which group is the
+active group, use the order @kbd{C-x g c}
+@kindex C-x g c
+(@command{Current Group}), and to see the buffers and files designated
+by the active group, use @kbd{C-x g l} (@command{List Group Contents}).
 
 @node Advanced editing commands
 @chapter Advanced editing commands
