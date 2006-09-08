@@ -24,7 +24,7 @@
 
 (in-package :climacs-core)
 
-(defmethod save-buffer-to-stream ((buffer climacs-buffer) stream)
+(defmethod frame-save-buffer-to-stream ((application-frame climacs) (buffer climacs-buffer) stream)
   (let ((seq (buffer-sequence buffer 0 (size buffer))))
     (write-sequence seq stream)))
 
@@ -37,7 +37,7 @@
                                 seq
                                 (subseq seq 0 count)))))
 
-(defmethod make-buffer-from-stream (stream (application-frame climacs))
+(defmethod frame-make-buffer-from-stream ((application-frame climacs) stream)
   (let* ((buffer (make-new-buffer application-frame)))
     (input-from-stream stream buffer 0)
     buffer))

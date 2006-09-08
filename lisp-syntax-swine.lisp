@@ -1016,7 +1016,7 @@ Each newline and following whitespace is replaced by a single space."
                                                    (namestring path)))))))
     (if buffer
         (switch-to-buffer buffer)
-        (find-file (file-name location) *application-frame*))
+        (find-file (file-name location)))
     (goto-position (point (current-window))
                    (char-position (source-position location)))))
 
@@ -1098,7 +1098,7 @@ results."
         (t
          (when (and (needs-saving buffer)
                     (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name buffer))))
-           (save-buffer buffer *application-frame*))
+           (save-buffer buffer))
          (let ((*read-base* (base (syntax buffer))))
            (multiple-value-bind (result notes)
                (compile-file-for-climacs (get-usable-image (syntax buffer))
@@ -1173,7 +1173,7 @@ nil or a list of provided arguments in the form housing symbol.
 Returns NIL if an arglist cannot be displayed."
   (multiple-value-bind (arglist emphasized-symbols highlighted-symbols)
       (analyze-arglist
-       (arglist-for-form (syntax (current-buffer *application-frame*)) operator arguments)
+       (arglist-for-form (syntax (current-buffer)) operator arguments)
        current-arg-indices
        preceding-arg
        arguments)
@@ -1230,7 +1230,7 @@ retrieved for the operator, nothing will be displayed."
 
 (defun edit-definition (symbol &optional type)
   (let ((all-definitions (find-definitions-for-climacs
-                          (get-usable-image (syntax (current-buffer *application-frame*)))
+                          (get-usable-image (syntax (current-buffer)))
                           symbol)))
     (let ((definitions (if (not type)
                            all-definitions

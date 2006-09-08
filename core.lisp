@@ -334,14 +334,10 @@ spaces only."))
 ;;; 
 ;;; Buffer handling
 
-(defmethod make-new-buffer ((application-frame climacs))
-  (let ((buffer (make-instance 'climacs-buffer)))
+(defmethod frame-make-new-buffer ((application-frame climacs)
+                                  &key (name "*scratch*"))
+  (let ((buffer (make-instance 'climacs-buffer :name name)))
     (push buffer (buffers application-frame))
-    buffer))
-
-(defun make-new-named-buffer (&optional name)
-  (let ((buffer (make-new-buffer *application-frame*)))
-    (when name (setf (name buffer) name))
     buffer))
 
 (defgeneric erase-buffer (buffer))
@@ -401,7 +397,7 @@ spaces only."))
   (let ((buffer (find name (buffers *application-frame*)
 		      :key #'name :test #'string=)))
     (switch-to-buffer (or buffer
-			  (make-new-named-buffer name)))))
+			  (make-new-buffer :name name)))))
 
 ;;placeholder
 (defmethod switch-to-buffer ((symbol (eql 'nil)))  
@@ -424,11 +420,11 @@ spaces only."))
 		  (error () (progn (beep)
 				   (display-message "Invalid answer")
 				   (return-from kill-buffer nil)))))
-       (save-buffer buffer *application-frame*))
+       (save-buffer buffer))
      (setf buffers (remove buffer buffers))
      ;; Always need one buffer.
      (when (null buffers)
-       (make-new-named-buffer "*scratch*"))
+       (make-new-buffer :name "*scratch*"))
      (setf (buffer (current-window)) (car buffers))
      (full-redisplay (current-window))
      (buffer (current-window))))
@@ -621,7 +617,7 @@ by `pathname'. Returns NIL if no buffer can be found."
 file if necessary."
   (when (and (findablep pathname)
              (not (find-buffer-with-pathname pathname)))
-    (find-file pathname *application-frame*)))
+    (find-file pathname)))
 
 (defun find-file-impl (filepath &optional readonlyp)
   (cond ((null filepath)
@@ -642,8 +638,8 @@ file if necessary."
                      (return-from find-file-impl nil)))
                  (let ((buffer (if (probe-file filepath)
                                    (with-open-file (stream filepath :direction :input)
-                                     (make-buffer-from-stream stream *application-frame*))
-                                   (make-new-buffer *application-frame*)))
+                                     (make-buffer-from-stream stream))
+                                   (make-new-buffer)))
                        (pane (current-window)))
                    (setf (offset (point (buffer pane))) (offset (point pane))
                          (buffer (current-window)) buffer
@@ -659,10 +655,10 @@ file if necessary."
                    (clear-modify buffer)
                    buffer)))))))
 
-(defmethod find-file (filepath (application-frame climacs))
+(defmethod frame-find-file ((application-frame climacs) filepath)
   (find-file-impl filepath nil))
 
-(defmethod find-file-read-only (filepath (application-frame climacs))
+(defmethod frame-find-file-read-only ((application-frame climacs) filepath)
   (find-file-impl filepath t))
 
 (defun directory-of-buffer (buffer)
@@ -675,7 +671,7 @@ file if necessary."
     (or (filepath buffer)
 	(user-homedir-pathname)))))
 
-(defmethod set-visited-filename (filepath buffer (application-frame climacs))
+(defmethod frame-set-visited-filename ((application-frame climacs) filepath buffer)
   (setf (filepath buffer) filepath
 	(file-saved-p buffer) nil
 	(file-write-time buffer) nil
@@ -705,7 +701,7 @@ to overwrite."
 		    (error () (progn (beep)
 				     (display-message "Invalid answer")
 				     (return-from frame-exit nil)))))
-	  do (save-buffer buffer frame))
+	  do (save-buffer buffer))
   (when (or (notany #'(lambda (buffer) (and (needs-saving buffer) (filepath buffer)))
 		    (buffers frame))
 	    (handler-case (accept 'boolean :prompt "Modified buffers exist.  Quit anyway?")

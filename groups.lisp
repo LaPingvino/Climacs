@@ -287,7 +287,7 @@ is run."
          (unwind-protect (progn ,@body)
            (unless ,keep
              (loop for buffer in ,buffer-diff-sym
-                  do (save-buffer buffer *application-frame*)
+                  do (save-buffer buffer)
                   do (kill-buffer buffer))))))))
 
 (defmacro define-group (name (group-arg &rest args) &body body)
