@@ -38,6 +38,6 @@
                                 (subseq seq 0 count)))))
 
 (defmethod frame-make-buffer-from-stream ((application-frame climacs) stream)
-  (let* ((buffer (make-new-buffer application-frame)))
+  (let* ((buffer (make-new-buffer)))
     (input-from-stream stream buffer 0)
     buffer))
