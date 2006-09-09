@@ -76,7 +76,9 @@ characters."
     (let ((str (concatenate 'string (buffer-substring (buffer mark)
                                                       (offset start-mark)
                                                       (offset end-mark))
-                            (make-string (- endcol (column-number end-mark)) :initial-element #\Space))))
+                            (make-string (- (- endcol startcol)
+                                            (- (column-number end-mark) (column-number start-mark)))
+                                         :initial-element #\Space))))
       (delete-range start-mark (- (offset end-mark) (offset start-mark)))
       str)))
 
