@@ -54,18 +54,16 @@ part of the line that `mark' is situated in, that lies between the
 columns `startcol' and `endcol'. If `force-start' or `force-end' is
 non-NIL, the line will be padded with space characters in order to put
 `start-mark' or `end-mark' at their specified columns respectively."
-  (let ((mark-val-sym (gensym))
-        (startcol-val-sym (gensym))
-        (endcol-val-sym (gensym)))
+  (once-only (mark startcol endcol)
     `(progn
-      (let ((,mark-val-sym ,mark)
-            (,startcol-val-sym ,startcol)
-            (,endcol-val-sym ,endcol))
-       (move-to-column ,mark-val-sym ,startcol-val-sym ,force-start)
-       (let ((,start-mark (clone-mark ,mark-val-sym)))
-        (let ((,end-mark (clone-mark ,mark-val-sym)))
-         (move-to-column ,end-mark ,endcol-val-sym ,force-end)
-         ,@body))))))
+       (let ((,mark ,mark)
+             (,startcol ,startcol)
+             (,endcol ,endcol))
+         (move-to-column ,mark ,startcol ,force-start)
+         (let ((,start-mark (clone-mark ,mark)))
+           (let ((,end-mark (clone-mark ,mark)))
+             (move-to-column ,end-mark ,endcol ,force-end)
+             ,@body))))))
 
 (defun extract-and-delete-rectangle-line (mark startcol endcol)
   "For the line that `mark' is in, delete and return the string

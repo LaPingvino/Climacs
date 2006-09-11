@@ -741,33 +741,29 @@ modification will be generated, respectively."
         (preceding-operand-sym (or preceding-operand (gensym)))
         (operands-sym (or operands (gensym)))
         (form-sym (or form (gensym)))
-        (operand-indices-sym (or preceding-operand-indices (gensym)))
-        ;; My kingdom for with-gensyms (or once-only)!
-        (mark-value-sym (gensym))
-        (syntax-value-sym (gensym)))
-    `(let* ((,mark-value-sym ,mark-or-offset)
-            (,syntax-value-sym ,syntax)
-            (,form-sym
-             ;; Find a form with a valid (fboundp) operator.
-             (let ((immediate-form
-                    (preceding-form ,mark-value-sym ,syntax-value-sym)))
-               (unless (null immediate-form)
-                 (or (find-applicable-form ,syntax-value-sym immediate-form)
-                     ;; If nothing else can be found, and `arg-form'
-                     ;; is the operator of its enclosing form, we use
-                     ;; the enclosing form.
-                     (when (eq (first-form (children (parent immediate-form))) immediate-form)
-                       (parent immediate-form))))))
-            ;; If we cannot find a form, there's no point in looking
-            ;; up any of this stuff.
-            (,operator-sym (when ,form-sym (form-operator ,form-sym ,syntax-value-sym)))
-            (,operands-sym (when ,form-sym (form-operands ,form-sym ,syntax-value-sym))))
-       (declare (ignorable ,mark-value-sym ,syntax-value-sym ,form-sym
-                           ,operator-sym ,operands-sym))
-       (multiple-value-bind (,preceding-operand-sym ,operand-indices-sym)
-           (when ,form-sym (find-operand-info ,syntax-value-sym ,mark-value-sym ,form-sym))
-         (declare (ignorable ,preceding-operand-sym ,operand-indices-sym))
-         ,@body))))
+        (operand-indices-sym (or preceding-operand-indices (gensym))))
+    (once-only (mark-or-offset syntax)
+      `(declare (ignorable ,mark-or-offset ,syntax))
+      `(let* ((,form-sym
+               ;; Find a form with a valid (fboundp) operator.
+               (let ((immediate-form
+                      (preceding-form ,mark-or-offset ,syntax)))
+                 (unless (null immediate-form)
+                   (or (find-applicable-form ,syntax immediate-form)
+                       ;; If nothing else can be found, and `arg-form'
+                       ;; is the operator of its enclosing form, we use
+                       ;; the enclosing form.
+                       (when (eq (first-form (children (parent immediate-form))) immediate-form)
+                         (parent immediate-form))))))
+              ;; If we cannot find a form, there's no point in looking
+              ;; up any of this stuff.
+              (,operator-sym (when ,form-sym (form-operator ,form-sym ,syntax)))
+              (,operands-sym (when ,form-sym (form-operands ,form-sym ,syntax))))
+         (declare (ignorable ,form-sym ,operator-sym ,operands-sym))
+         (multiple-value-bind (,preceding-operand-sym ,operand-indices-sym)
+             (when ,form-sym (find-operand-info ,syntax ,mark-or-offset ,form-sym))
+           (declare (ignorable ,preceding-operand-sym ,operand-indices-sym))
+           ,@body)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

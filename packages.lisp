@@ -26,6 +26,14 @@
 
 (in-package :cl-user)
 
+(defpackage :climacs-utils
+  (:use :clim-lisp)
+  (:export #:with-gensyms
+           #:once-only
+           #:unlisted
+           #:fully-unlisted
+           #:listed))
+
 (defpackage :climacs-buffer
   (:use :clim-lisp :flexichain :binseq)
   (:export #:buffer #:standard-buffer
@@ -76,7 +84,7 @@
   (:documentation "An implementation of a kill ring."))
 
 (defpackage :climacs-base
-  (:use :clim-lisp :climacs-buffer :climacs-kill-ring :esa-buffer)
+  (:use :clim-lisp :climacs-buffer :climacs-kill-ring :esa-buffer :climacs-utils)
   (:export #:as-offsets
            #:do-buffer-region
            #:do-buffer-region-lines
@@ -118,7 +126,7 @@
 	   #:add-abbrev))
 
 (defpackage :climacs-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain)
+  (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain :climacs-utils)
   (:export #:syntax #:define-syntax #:*default-syntax*
            #:eval-option
            #:define-option-for-syntax
@@ -170,7 +178,7 @@
 
 (defpackage :climacs-pane
   (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
-	:climacs-syntax :flexichain :undo :esa-buffer :esa-io)
+	:climacs-syntax :flexichain :undo :esa-buffer :esa-io :climacs-utils)
   (:export #:climacs-buffer #:needs-saving
 	   #:filepath #:file-saved-p #:file-write-time
 	   #:read-only-p #:buffer-read-only
@@ -378,7 +386,8 @@
 (defpackage :climacs-core
   (:use :clim-lisp :climacs-base :climacs-buffer :climacs-fundamental-syntax
         :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring
-        :climacs-editing :climacs-gui :clim :climacs-abbrev :esa :esa-buffer :esa-io)
+        :climacs-editing :climacs-gui :clim :climacs-abbrev :esa :esa-buffer :esa-io
+        :climacs-utils)
   (:export #:display-string
            #:object-equal
            #:object=
@@ -484,7 +493,7 @@
 (defpackage :climacs-lisp-syntax
   (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
 	:climacs-syntax :climacs-fundamental-syntax :flexichain :climacs-pane :climacs-gui
-        :climacs-motion :climacs-editing :climacs-core)
+        :climacs-motion :climacs-editing :climacs-core :climacs-utils)
   (:export #:lisp-string
            #:edit-definition))
 

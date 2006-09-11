@@ -273,22 +273,20 @@ buffers created by this macro will be saved and killed after
 `body' has run. Also, `buffers' will be bound to a list of the
 buffers containing the files designated by `group' while `body'
 is run."
-  (let ((buffers-before-sym (gensym))
-        (buffers-after-sym (gensym))
-        (buffer-diff-sym (gensym))
-        (group-val-sym (gensym)))
-    `(let ((,buffers-before-sym (buffers *application-frame*))
-           (,group-val-sym ,group))
-       (ensure-group-buffers ,group-val-sym)
-       (let* ((,buffers-after-sym (buffers *application-frame*))
-              (,buffer-diff-sym (set-difference ,buffers-after-sym
-                                                ,buffers-before-sym))
-              (,buffers (group-buffers ,group-val-sym)))
-         (unwind-protect (progn ,@body)
-           (unless ,keep
-             (loop for buffer in ,buffer-diff-sym
+  (with-gensyms (buffers-before buffers-after buffer-diff)
+    (once-only (group keep)
+      `(let ((,buffers-before (buffers *application-frame*))
+             (,group ,group))
+         (ensure-group-buffers ,group)
+         (let* ((,buffers-after (buffers *application-frame*))
+                (,buffer-diff (set-difference ,buffers-after
+                                                  ,buffers-before))
+                (,buffers (group-buffers ,group)))
+           (unwind-protect (progn ,@body)
+             (unless ,keep
+               (loop for buffer in ,buffer-diff
                   do (save-buffer buffer)
-                  do (kill-buffer buffer))))))))
+                  do (kill-buffer buffer)))))))))
 
 (defmacro define-group (name (group-arg &rest args) &body body)
   "Define a persistent group named `name'. `Body' should return a
@@ -297,25 +295,25 @@ designated by the group. `Args' should be two-element lists, with
 the first element bound to the result of evaluating the second
 element. The second element will be evaluated when the group is
 selected to be the active group by the user."
-  (let ((name-val-sym (gensym))
-        (group-val-sym (gensym)))
-    `(let ((,name-val-sym ,name))
-       (assert (stringp ,name-val-sym))
-       (setf (gethash ,name-val-sym *persistent-groups*)
-             (make-instance 'custom-group
-                            :name ,name-val-sym
-                            :pathname-lister #'(lambda (,group-val-sym)
-                                                 (destructuring-bind
-                                                       (&key ,@(mapcar #'(lambda (arg)
-                                                                                `((,arg ,arg)))
-                                                                            (mapcar #'first args)))
-                                                     (value-plist ,group-val-sym)
-                                                   (let ((,group-arg ,group-val-sym))
-                                                     ,@body)))
-                            :select-response #'(lambda (group)
-                                                 (declare (ignorable group))
-                                                 ,@(loop for (name form) in args
-                                                      collect `(setf (getf (value-plist group) ',name) ,form))))))))
+  (with-gensyms (group)
+   (once-only (name)
+     `(let ((,name ,name))
+        (assert (stringp ,name))
+        (setf (gethash ,name *persistent-groups*)
+              (make-instance 'custom-group
+                             :name ,name
+                             :pathname-lister #'(lambda (,group)
+                                                  (destructuring-bind
+                                                        (&key ,@(mapcar #'(lambda (arg)
+                                                                            `((,arg ,arg)))
+                                                                        (mapcar #'first args)))
+                                                      (value-plist ,group)
+                                                    (let ((,group-arg ,group))
+                                                      ,@body)))
+                             :select-response #'(lambda (group)
+                                                  (declare (ignorable group))
+                                                  ,@(loop for (name form) in args
+                                                       collect `(setf (getf (value-plist group) ',name) ,form)))))))))
 
 (define-group "Current Directory Files" (group)
   (declare (ignore group))

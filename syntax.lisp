@@ -207,13 +207,13 @@ mandated by file types or attribute lists.")
   of the option."
   ;; The name is converted to a keyword symbol which is used for all
   ;; further identification.
-  (let ((name-symbol (gensym))
-        (symbol (intern (string-upcase option-name)
-                        (find-package :keyword))))
-   `(defmethod eval-option ((,syntax-symbol ,syntax)
-                            (,name-symbol (eql ,symbol))
-                            ,value-symbol)
-      ,@body)))
+  (with-gensyms (name)
+    (let ((symbol (intern (string-upcase option-name)
+                          (find-package :keyword))))
+      `(defmethod eval-option ((,syntax-symbol ,syntax)
+                               (,name (eql ,symbol))
+                               ,value-symbol)
+         ,@body))))
 
 (defgeneric current-attributes-for-syntax (syntax)
   (:method-combination append)

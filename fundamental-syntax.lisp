@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: CLIMACS-FUNDAMENTAL-SYNTAX -*-
+;; -*- Mode: Lisp; Package: CLIMACS-FUNDAMENTAL-SYNTAX -*-
 
 ;;;  (c) copyright 2005 by
 ;;;           Robert Strandh (strandh@labri.fr)

@@ -28,21 +28,6 @@
 ;;;
 ;;; Convenience functions and macros:
 
-(defun unlisted (obj &optional (fn #'first))
-  (if (listp obj)
-      (funcall fn obj)
-      obj))
-
-(defun fully-unlisted (obj &optional (fn #'first))
-  (if (listp obj)
-      (fully-unlisted (funcall fn obj))
-      obj))
-
-(defun listed (obj)
-  (if (listp obj)
-      obj
-      (list obj)))
-
 (defun usable-package (package-designator)
   "Return a usable package based on `package-designator'."
   (or (find-package package-designator)

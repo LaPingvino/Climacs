@@ -55,6 +55,7 @@
                          (:file "binseq2" :depends-on ("binseq-package" "obinseq" "binseq"))))
 
    (:file "packages" :depends-on ("cl-automaton" "Persistent"))
+   (:file "utils" :depends-on ("packages"))
    (:file "buffer" :depends-on ("packages"))
    (:file "motion" :depends-on ("packages" "buffer" "syntax"))
    (:file "editing" :depends-on ("packages" "buffer" "syntax" "motion" "kill-ring"))
@@ -62,9 +63,9 @@
           :pathname #p"Persistent/persistent-buffer.lisp"
           :depends-on ("packages" "buffer" "Persistent"))
 
-   (:file "base" :depends-on ("packages" "buffer" "persistent-buffer" "kill-ring"))
+   (:file "base" :depends-on ("packages" "utils" "buffer" "persistent-buffer" "kill-ring"))
    (:file "abbrev" :depends-on ("packages" "buffer" "base"))
-   (:file "syntax" :depends-on ("packages" "buffer" "base"))
+   (:file "syntax" :depends-on ("packages" "utils" "buffer" "base"))
    (:file "text-syntax" :depends-on ("packages" "base" "buffer" "syntax" "motion"))
    (:file "delegating-buffer" :depends-on ("packages" "buffer"))
    (:file "kill-ring" :depends-on ("packages"))
@@ -72,7 +73,7 @@
    (:file "persistent-undo"
           :pathname #p"Persistent/persistent-undo.lisp"
           :depends-on ("packages" "buffer" "persistent-buffer" "undo"))
-   (:file "pane" :depends-on ("packages" "syntax" "buffer" "base"
+   (:file "pane" :depends-on ("packages" "utils" "syntax" "buffer" "base"
                                          "persistent-undo" "persistent-buffer" "abbrev"
                                          "delegating-buffer" "undo"))
    (:file "fundamental-syntax" :depends-on ("packages" "syntax" "buffer" "pane"
@@ -83,7 +84,7 @@
    (:file "prolog2paiprolog" :depends-on ("prolog-syntax"))
    (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base"
 						 "pane"))
-   (:file "lisp-syntax" :depends-on ("packages" "syntax" "buffer" "base" "pane"
+   (:file "lisp-syntax" :depends-on ("packages" "utils" "syntax" "buffer" "base" "pane"
 						"window-commands" "gui"))
    (:file "lisp-syntax-swine" :depends-on ("lisp-syntax"))
    (:file "lisp-syntax-commands" :depends-on ("lisp-syntax-swine" "motion-commands"
@@ -91,7 +92,7 @@
    #.(if (find-swank)
          '(:file "lisp-syntax-swank" :depends-on ("lisp-syntax"))
          (values))
-   (:file "gui" :depends-on ("packages" "syntax" "base" "buffer" "undo" "pane"
+   (:file "gui" :depends-on ("packages" "utils" "syntax" "base" "buffer" "undo" "pane"
                                         "kill-ring" "text-syntax"
 					"abbrev" "editing" "motion"))
    (:file "io" :depends-on ("packages" "gui"))

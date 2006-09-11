@@ -71,8 +71,7 @@ The body is executed for each element, with object being the current object
    at the beginning of the line and `body' will be executed. Note
    that the iteration will always start from the mark specifying
    the earliest position in the buffer."
-  (let ((mark-sym (gensym))
-        (mark2-sym (gensym)))
+  (with-gensyms (mark-sym mark2-sym)
     `(progn
        (let* ((,mark-sym (clone-mark ,mark1))
               (,mark2-sym (clone-mark ,mark2)))
