@@ -118,7 +118,7 @@ to the symbols affected by the keywords."
                                     (unlisted (find (symbol-name keyword)
                                                     (get-args '&key)
                                                     :key #'(lambda (arg)
-                                                             (symbol-name (unlisted arg)))
+                                                             (symbol-name (fully-unlisted arg)))
                                                     :test #'string=))))
                                ;; We have to find the associated
                                ;; symbol in the argument list... ugly.
@@ -166,7 +166,7 @@ to the symbols affected by the keywords."
                                     (get-args '&key)
                                     :test #'string=
                                     :key #'(lambda (arg)
-                                             (symbol-name (unlisted arg))))))
+                                             (symbol-name (fully-unlisted arg))))))
                  ;; We are in the &body, &rest or &key arguments.
                  (values
                   ;; Only emphasize the &key
@@ -369,7 +369,7 @@ inserted from `provided-args'.
                              (worker (parent operand-form)))))))))
       (nreverse (worker operand-form t)))))
 
-(defun find-operand-info (mark-or-offset syntax operator-form)
+(defun find-operand-info (syntax mark-or-offset operator-form)
   "Returns two values: The operand preceding `mark-or-offset' and
   the path from `operator-form' to the operand."
   (as-offsets ((offset mark-or-offset))
@@ -444,31 +444,62 @@ inserted from `provided-args'.
            (indices-match-arglist arg (rest arg-indices)))
           (t t))))
 
-(defun direct-arg-p (form syntax)
-  "Check whether `form' is a direct argument to one of its
-   parents."
-  (labels ((recurse (parent)
-             (let ((operator (form-operator
-                              parent
-                              syntax)))
-               (or (and
-                    ;; An operator is not an argument to itself...
-                    (not (= (start-offset form)
-                            (start-offset (first-form (children parent)))))
-                    (valid-operator-p operator)
-                    (indices-match-arglist
-                     (arglist (image syntax)
-                              operator)
-                     (second
-                      (multiple-value-list
-                       (find-operand-info
-                        (start-offset form)
-                        syntax
-                        parent)))))
-                   (when (parent parent)
-                     (recurse (parent parent)))))))
-    (when (parent form)
-      (recurse (parent form)))))
+(defun direct-arg-p (syntax operator-form arg-form)
+  "Is `arg-form' a direct argument to `operator-form'? A \"direct
+argument\" is defined as an argument that would be directly bound
+to a symbol when evaluating the operators body, or as an argument
+that would be a direct component of a &body or &rest argument."
+  (let ((operator (token-to-object syntax operator-form)))
+    (and
+     ;; An operator is not an argument to itself.
+     (not (eq arg-form
+              (first-form (children (parent operator-form)))))
+     ;; An operator must be valid.
+     (valid-operator-p operator)
+     ;; The argument must match the operators argument list.
+     (indices-match-arglist
+      (arglist (image syntax)
+               operator)
+      (nth-value 1 (find-operand-info
+                    syntax
+                    (start-offset arg-form)
+                    (parent operator-form)))))))
+
+(defun find-direct-operator (syntax arg-form)
+  "Check whether `arg-form' is a direct argument to one of its
+parents. If it is, return the form with the operator that
+`arg-form' is a direct argument to. If not, return NIL."
+  (labels ((recurse (form)
+             ;; Check whether `arg-form' is a direct argument to
+             ;; the operator of `form'.
+             (when (parent form)
+               (if (direct-arg-p syntax (first-form (children form)) arg-form)
+                   form
+                   (recurse (parent form))))))
+    (recurse (parent arg-form))))
+
+(defun find-applicable-form (syntax arg-form)
+  "Find the enclosing form that has `arg-form' as a valid
+argument. Return NIL if none can be found."
+  ;; The algorithm for finding the applicable form:
+  ;;
+  ;; From `arg-form', we wander up the tree looking enclosing forms,
+  ;; until we find a a form with an operator, the form-operator, that
+  ;; has `arg-form' as a direct argument (this is checked by comparing
+  ;; argument indices for `arg-form', relative to form-operator, with
+  ;; the arglist ofform-operator). However, if form-operator itself is
+  ;; a direct argument to one of its parents, we ignore it (unless
+  ;; form-operators form-operator is itself a direct argument,
+  ;; etc). This is so we can properly handle nested/destructuring
+  ;; argument lists such as those found in macros.
+  (labels ((recurse (candidate-form)
+             (when (parent candidate-form)
+               (if (and (direct-arg-p syntax (first-form (children candidate-form))
+                                      arg-form)
+                        (not (find-applicable-form syntax (first-form (children candidate-form)))))
+                   candidate-form
+                   (recurse (parent candidate-form))))))
+    (recurse (parent arg-form))))
 
 (defun relevant-keywords (arglist arg-indices)
   "Return a list of the keyword arguments that it would make
@@ -526,7 +557,8 @@ inserted from `provided-args'.
                                                :test #'(lambda (a b)
                                                          (string-equal a b
                                                                        :start1 1))
-                                               :key #'symbol-name))
+                                               :key #'(lambda (s)
+                                                        (symbol-name (fully-unlisted s)))))
                                    (mapcar #'string-downcase completions))))
               relevant-completions))
           completions))))
@@ -719,31 +751,12 @@ modification will be generated, respectively."
              ;; Find a form with a valid (fboundp) operator.
              (let ((immediate-form
                     (preceding-form ,mark-value-sym ,syntax-value-sym)))
-               ;; Recurse upwards until we find a form with a valid
-               ;; operator. This could be improved a lot, as we could
-               ;; inspect the lambda list of the found operator and
-               ;; check if the position of mark makes sense with
-               ;; regard to the structure of the lambda list. If we
-               ;; cannot find a form with a valid operator, just
-               ;; return the form `mark' is in.
                (unless (null immediate-form)
-                 (labels ((recurse (form)
-                            (unless (null (parent form))
-                              (or (unless (eq (first-form (children (parent form)))
-                                              form)
-                                    (recurse (parent form)))
-                                  (and (valid-operator-p (form-operator
-                                                          form
-                                                          ,syntax-value-sym))
-                                       (indices-match-arglist
-                                        (arglist-for-form
-                                         ,syntax-value-sym
-                                         (form-operator form ,syntax-value-sym)
-                                         (form-operands form ,syntax-value-sym))
-                                        (nth-value 1 (find-operand-info ,mark-value-sym ,syntax-value-sym form)))
-                                       (not (direct-arg-p form ,syntax-value-sym))
-                                       form)))))
-                   (or (recurse (parent immediate-form))
+                 (or (find-applicable-form ,syntax-value-sym immediate-form)
+                     ;; If nothing else can be found, and `arg-form'
+                     ;; is the operator of its enclosing form, we use
+                     ;; the enclosing form.
+                     (when (eq (first-form (children (parent immediate-form))) immediate-form)
                        (parent immediate-form))))))
             ;; If we cannot find a form, there's no point in looking
             ;; up any of this stuff.
@@ -752,7 +765,7 @@ modification will be generated, respectively."
        (declare (ignorable ,mark-value-sym ,syntax-value-sym ,form-sym
                            ,operator-sym ,operands-sym))
        (multiple-value-bind (,preceding-operand-sym ,operand-indices-sym)
-           (when ,form-sym (find-operand-info ,mark-value-sym ,syntax-value-sym ,form-sym))
+           (when ,form-sym (find-operand-info ,syntax-value-sym ,mark-value-sym ,form-sym))
          (declare (ignorable ,preceding-operand-sym ,operand-indices-sym))
          ,@body))))
 
