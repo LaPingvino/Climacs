@@ -85,7 +85,7 @@
    (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base"
 						 "pane"))
    (:file "lisp-syntax" :depends-on ("packages" "utils" "syntax" "buffer" "base" "pane"
-						"window-commands" "gui"))
+						"window-commands" "gui" "groups"))
    (:file "lisp-syntax-swine" :depends-on ("lisp-syntax"))
    (:file "lisp-syntax-commands" :depends-on ("lisp-syntax-swine" "motion-commands"
                                                                   "editing-commands" "misc-commands"))

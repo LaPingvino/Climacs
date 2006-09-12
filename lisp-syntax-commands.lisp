@@ -69,7 +69,7 @@ string at point."
          (token (form-around syntax (offset (point pane))))
          (fill-column (auto-fill-column pane))
          (tab-width (tab-space-count (stream-default-view pane))))
-    (when (typep token 'string-form)
+    (when (form-string-p token)
       (with-accessors ((offset1 start-offset) 
                        (offset2 end-offset)) token
         (climacs-core:fill-region (make-instance 'standard-right-sticky-mark
@@ -227,7 +227,7 @@ Definition command was issued."
          (syntax (syntax buffer))
          (mark (point pane))
          (token (this-form mark syntax)))
-    (if (and token (typep token 'complete-token-lexeme))
+    (if (and token (form-token-p token))
         (com-lookup-arglist (token-to-object syntax token))
         (esa:display-message "Could not find symbol at point."))))
 

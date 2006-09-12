@@ -1408,7 +1408,7 @@ list. If no such package is specified, return \"CLIM-USER\"."
                                  end-offset))
                          (typep x 'complete-list-form))
                 (let ((candidate (first-form (children x))))
-                  (and (typep candidate 'token-mixin)
+                  (and (form-token-p candidate)
                        (eq (token-to-object syntax candidate
                                             :no-error t)
                            'cl:in-package)))))))
@@ -1421,16 +1421,16 @@ list. If no such package is specified, return \"CLIM-USER\"."
             (loop
                for (offset . nil) in (package-list syntax)
                unless (let ((form (form-around syntax offset)))
-                        (and form (typep form 'complete-list-form)))
+                        (form-list-p form))
                do (return t)))))))
 
 (defun update-package-list (buffer syntax)
   (declare (ignore buffer))
   (setf (package-list syntax) nil)
   (flet ((test (x)
-           (when (typep x 'complete-list-form)
+           (when (form-list-p x)
              (let ((candidate (first-form (children x))))
-               (and (typep candidate 'token-mixin)
+               (and (form-token-p candidate)
                     (eq (token-to-object syntax candidate
                                          :no-error t)
                         'cl:in-package)))))
@@ -1473,13 +1473,13 @@ list. If no such package is specified, return \"CLIM-USER\"."
 
 (defun first-noncomment (list)
   "Returns the first non-comment in list."
-  (find-if-not #'(lambda (item) (typep item 'comment)) list))
+  (find-if-not #'comment-p list))
 
 (defun rest-noncomments (list)
   "Returns the remainder of the list after the first non-comment,
 stripping leading comments."
   (loop for rest on list
-	count (not (typep (car rest) 'comment))
+	count (not (comment-p (car rest)))
 	  into forms
 	until (= forms 2)
 	finally (return rest)))
@@ -1487,7 +1487,7 @@ stripping leading comments."
 (defun nth-noncomment (n list)
   "Returns the nth non-comment in list."
   (loop for item in list
-	count (not (typep item 'comment))
+	count (not (comment-p item))
 	  into forms
 	until (> forms n)
 	finally (return item)))
@@ -1508,7 +1508,7 @@ stripping leading comments."
   "Returns the remainder of the list after the first form,
 stripping leading non-forms."
   (loop for rest on list
-     count (typep (car rest) 'form)
+     count (formp (car rest))
        into forms
      until (= forms 2)
      finally (return rest)))
@@ -1516,7 +1516,7 @@ stripping leading non-forms."
 (defun nth-form (n list)
   "Returns the nth form in list or `nil'."
   (loop for item in list
-     count (typep item 'form)
+     count (formp item)
        into forms
      until (> forms n)
      finally (when (> forms n)
@@ -1538,26 +1538,21 @@ stripping leading non-forms."
   "Returns the third formw in list."
   (nth-form 2 list))
 
-(defgeneric form-operator (form syntax)
-  (:documentation "Return the operator of `form' as a Lisp
-object. Returns nil if none can be found.")
+(defgeneric form-operator (syntax form)
+  (:documentation "Return the operator of `form' as a
+  token. Returns nil if none can be found.")
   (:method (form syntax) nil))
 
-(defmethod form-operator ((form list-form) syntax)
-  (let* ((operator-token (first-form (rest (children form))))
-         (operator-symbol (when operator-token
-                            (token-to-object syntax operator-token :no-error t))))
-    operator-symbol))
+(defmethod form-operator (syntax (form list-form))
+  (first-form (rest (children form))))
 
-(defgeneric form-operands (form syntax)
+(defgeneric form-operands (syntax form)
   (:documentation "Returns the operands of `form' as a list of
-  Lisp objects. Returns nil if none can be found.")
+  tokens. Returns nil if none can be found.")
   (:method (form syntax) nil))
 
-(defmethod form-operands ((form list-form) syntax)
-  (loop for operand in (rest-forms (children form))
-     when (typep operand 'form)
-       collect (token-to-object syntax operand :no-error t)))
+(defmethod form-operands (syntax (form list-form))
+  (remove-if-not #'formp (rest-forms (children form))))
 
 (defun form-toplevel (form syntax)
   "Return the top-level form of `form'."
@@ -1565,15 +1560,15 @@ object. Returns nil if none can be found.")
       form
       (form-toplevel (parent form) syntax)))
 
-(defgeneric operator-p (token syntax)
+(defgeneric form-operator-p (token syntax)
   (:documentation "Return true if `token' is the operator of its form. Otherwise,
   return nil.")
   (:method (token syntax)
     (with-accessors ((pre-token preceding-parse-tree)) token
       (cond ((typep pre-token 'left-parenthesis-lexeme)
              t)
-            ((typep pre-token 'comment)
-             (operator-p pre-token syntax))
+            ((comment-p pre-token)
+             (form-operator-p pre-token syntax))
             (t nil)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1604,9 +1599,9 @@ is returned. Otherwise, the top-level-form following
   \"unwrap\" quote-forms in order to return the symbol token. If
   no symbol token can be found, NIL will be returned."
   (labels ((unwrap-form (form)
-             (cond ((typep form 'quote-form)
+             (cond ((form-quoted-p form)
                     (unwrap-form (first-form (children form))))
-                   ((typep form 'complete-token-lexeme)
+                   ((form-token-p form)
                     form))))
     (unwrap-form (expression-at-mark mark-or-offset syntax))))
 
@@ -1614,7 +1609,7 @@ is returned. Otherwise, the top-level-form following
   "Return the top token object for `token', return `token' or the
 top quote-form that `token' is buried in. "
   (labels ((ascend (form)
-             (cond ((typep (parent form) 'quote-form)
+             (cond ((form-quoted-p (parent form))
                     (ascend (parent form)))
                    (t form))))
     (ascend token)))
@@ -1623,7 +1618,7 @@ top quote-form that `token' is buried in. "
   "Return the bottom token object for `token', return `token' or
 the form that `token' quotes, peeling away all quote forms."
   (labels ((descend (form)
-             (cond ((typep form 'quote-form)
+             (cond ((form-quoted-p form)
                     (descend (first-form (children form))))
                    (t form))))
     (descend token)))
@@ -1657,6 +1652,32 @@ the form that `token' quotes, peeling away all quote forms."
   "Return the text of the symbol at `mark-or-offset'."
   (let ((token (symbol-at-mark mark-or-offset syntax)))
     (when token (token-string syntax token))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Querying forms for data
+
+(defmacro define-form-predicate (name (&rest t-classes) &optional documentation)
+  "Define a generic function named `name', taking a single
+  argument. A default method that returns NIL will be defined,
+  and methods returning T will be defined for all classes in
+  `t-classes'."
+  `(progn
+     (defgeneric ,name (form)
+       (:documentation ,(or documentation "Check `form' for something."))
+       (:method (form) nil))
+     ,@(loop for class in t-classes collecting
+            `(defmethod ,name ((form ,class))
+               t))))
+
+(define-form-predicate formp (form))
+(define-form-predicate form-list-p (complete-list-form incomplete-list-form))
+(define-form-predicate form-incomplete-p (incomplete-form-mixin))
+(define-form-predicate form-token-p (token-mixin))
+(define-form-predicate form-string-p (string-form))
+(define-form-predicate form-quoted-p (quote-form backquote-form))
+
+(define-form-predicate comment-p (comment))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -1792,11 +1813,11 @@ after `string'."
                    (with-face (:lambda-list-keyword)
                      (call-next-method)))
                   ((and (macro-function symbol)
-                        (operator-p parse-symbol syntax))
+                        (form-operator-p parse-symbol syntax))
                    (with-face (:macro)
                      (call-next-method)))
                   ((and (special-operator-p symbol)
-                        (operator-p parse-symbol syntax))
+                        (form-operator-p parse-symbol syntax))
                    (with-face (:special-form)
                      (call-next-method)))
                   (t (call-next-method))))))
@@ -1910,7 +1931,7 @@ after `string'."
 			       (nthcdr
 				2
 				(remove-if
-				 #'(lambda (child) (typep child 'comment))
+				 #'comment-p
 				 children))))
 	       (type-string (token-string syntax type))
 	       (type-symbol (parse-symbol type-string :package +keyword-package+)))
@@ -1971,7 +1992,7 @@ after `string'."
 
 (defun form-before-in-children (children offset)
   (loop for (first . rest) on children
-     if (typep first 'form)
+     if (formp first)
      do
        (cond ((< (start-offset first) offset (end-offset first))
               (return (if (null (children first))
@@ -1981,14 +2002,14 @@ after `string'."
                    (or (null (first-form rest))
                        (<= offset (start-offset (first-form rest)))))
               (return (let ((potential-form
-                             (when (typep first 'list-form)
+                             (when (form-list-p first)
                                (form-before-in-children (children first) offset))))
                         (if (not (null potential-form))
                             (if (<= (end-offset first)
                                     (end-offset potential-form))
                                 potential-form
                                 first)
-                            (when (typep first 'form)
+                            (when (formp first)
                               first)))))
              (t nil))))
 		 
@@ -2001,7 +2022,7 @@ after `string'."
 
 (defun form-after-in-children (children offset)
   (loop for child in children
-     if (typep child 'form)
+     if (formp child)
      do (cond ((< (start-offset child) offset (end-offset child))
                (return (if (null (children child))
                            nil
@@ -2013,7 +2034,7 @@ after `string'."
                                      (start-offset potential-form))
                                  child
                                  potential-form)
-                             (when (typep child 'form)
+                             (when (formp child)
                                child)))))
               (t nil))))
 		 
@@ -2026,15 +2047,15 @@ after `string'."
 	     
 (defun form-around-in-children (children offset)
   (loop for child in children
-	if (typep child 'form)
+	if (formp child)
 	do (cond ((or (<= (start-offset child) offset (end-offset child))
                       (= offset (end-offset child))
                       (= offset (start-offset child)))
 		  (return (if (null (first-form (children child)))
-			      (when (typep child 'form)
+			      (when (formp child)
 				child)
 			      (or (form-around-in-children (children child) offset)
-                                  (when (typep child 'form)
+                                  (when (formp child)
                                     child)))))
 		 ((< offset (start-offset child))
 		  (return nil))
@@ -2054,7 +2075,7 @@ applied to this parent token. `Fn' should be a function
 that returns an offset when applied to a 
 token (eg. `start-offset' or `end-offset'). If a list
 parent cannot be found, return `fn' applied to `form'."
-  (when (not (typep form 'form*))
+  (when (not (formp form))
     (let ((parent (parent form)))
       (typecase parent
         (form* (funcall fn form))
@@ -2070,7 +2091,7 @@ token (eg. `start-offset' or `end-offset'). If a list child cannot
 be found, return nil."
   (labels ((has-list-child (form)
               (some #'(lambda (child)
-                                   (if (and (typep child 'list-form)
+                                   (if (and (form-list-p child)
                                             (>= (start-offset child)
                                                 min-offset))
                                        child
@@ -2108,7 +2129,7 @@ Return T if successful, or NIL if the buffer limit was reached."))
                (and (= start
                        (end-offset potential-form))
                     (null (form-after syntax start))))
-     when (typep potential-form 'list-form)
+     when (form-list-p potential-form)
      do (setf (offset mark) (end-offset potential-form))
      (return t)))
 
@@ -2126,7 +2147,7 @@ NIL if the buffer limit was reached."))
                (and (= start
                        (start-offset potential-form))
                     (null (form-before syntax start))))
-     when (typep potential-form 'list-form)
+     when (form-list-p potential-form)
      do (setf (offset mark) (start-offset potential-form))
      (return t)))
 
@@ -2182,14 +2203,14 @@ NIL if the buffer limit was reached."))
   (with-slots (stack-top) syntax
     (loop for form in (children stack-top)
 	  with last-toplevel-list = nil
-	  when (and (typep form 'form)
+	  when (and (formp form)
 		    (mark< mark (end-offset form)))
           do (if (mark< (start-offset form) mark)
 		 (setf (offset mark) (start-offset form))
 		 (when last-toplevel-list form
 		       (setf (offset mark) (start-offset last-toplevel-list))))
 	     (return t)
-	  when (typep form 'form)
+	  when (formp form)
 	  do (setf last-toplevel-list form)
 	  finally (when last-toplevel-list form
 		       (setf (offset mark)
@@ -2199,7 +2220,7 @@ NIL if the buffer limit was reached."))
 (defmethod forward-one-definition (mark (syntax lisp-syntax))
   (with-slots (stack-top) syntax
     (loop for form in (children stack-top)
-	  when (and (typep form 'form)
+	  when (and (formp form)
 		    (mark< mark (end-offset form)))
 	  do (setf (offset mark) (end-offset form))
 	     (loop-finish)
@@ -2441,7 +2462,7 @@ object. Otherwise, nil will be returned.")
      if (typep child 'comma-at-form)
        ;; How should we handle this?
        collect (apply #'token-to-object syntax child args)
-     else if (typep child 'form)
+     else if (formp child)
        collect (apply #'token-to-object syntax child args)))
 
 (defmethod token-to-object (syntax (token simple-vector-form) &key)
@@ -2466,7 +2487,7 @@ object. Otherwise, nil will be returned.")
 ;; convenience function.
 (defmethod token-to-object (syntax (token backquote-form) &rest args)
   (let ((backquoted-form (first-form (children token))))
-    (if (typep backquoted-form 'list-form)
+    (if (form-list-p backquoted-form)
         `'(,@(apply #'token-to-object syntax backquoted-form args))
         `',(apply #'token-to-object syntax backquoted-form args))))
 
@@ -2485,7 +2506,7 @@ object. Otherwise, nil will be returned.")
 
 (defmethod token-to-object (syntax (token cons-cell-form) &key)
   (let ((components (remove-if #'(lambda (token)
-                                   (not (typep token 'form)))
+                                   (not (formp token)))
                                (children token))))
     (if (<= (length components) 2)
         (cons (token-to-object syntax (first components))
@@ -2548,7 +2569,7 @@ object. Otherwise, nil will be returned.")
       ;; before first element
       (values tree 1)
       (let ((first-child (elt-noncomment (children tree) 1)))
-	(cond ((and (typep first-child 'token-mixin)
+	(cond ((and (form-token-p first-child)
 		    (token-to-object syntax first-child))
 	       (compute-list-indentation syntax (token-to-object syntax first-child) tree path))
 	      ((null (cdr path))
@@ -2730,9 +2751,8 @@ object. Otherwise, nil will be returned.")
 
 (defmethod compute-list-indentation
     ((syntax lisp-syntax) (symbol (eql 'defmethod)) tree path)
-  (let ((lambda-list-pos (position-if (lambda (x) (typep x 'list-form))
-				      (remove-if
-				       (lambda (x) (typep x 'comment)) (children tree)))))
+  (let ((lambda-list-pos (position-if #'form-list-p
+				      (remove-if #'comment-p (children tree)))))
     (cond ((null (cdr path))
 	   ;; top level
 	   (values tree (if (or (null lambda-list-pos)
@@ -2792,7 +2812,7 @@ object. Otherwise, nil will be returned.")
       ;; the symbol existing in the current image.  (Arguably, too,
       ;; this is a broken indentation form because it doesn't carry
       ;; over to the implicit tagbodies in macros such as DO.
-      (if (typep (elt-noncomment (children tree) (car path)) 'token-mixin) 
+      (if (form-token-p (elt-noncomment (children tree) (car path))) 
           (values tree 2)
           (values tree 4))
       (indent-form syntax (elt-noncomment (children tree) (car path)) (cdr path))))
@@ -2884,3 +2904,18 @@ object. Otherwise, nil will be returned.")
 
 (defmethod uncomment-region ((syntax lisp-syntax) mark1 mark2)
   (line-uncomment-region syntax mark1 mark2))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Some group support
+
+;; WARNING, using this group can be dangerous, as Climacs is not
+;; really suited to opening up a large amount of buffers that each
+;; require a full syntax reparse.
+(define-group "ASDF System Files" (group (system (asdf:find-system (accept 'symbol :prompt "System"))))
+  (declare (ignore group))
+  (when system
+    (mapcar #'asdf:component-pathname
+            (remove-if-not (lambda (c)
+                             (typep c 'asdf:cl-source-file))
+                           (asdf:module-components system)))))

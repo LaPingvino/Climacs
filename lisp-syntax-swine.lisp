@@ -349,7 +349,7 @@ inserted from `provided-args'.
                (when (parent operand-form)
                  (let ((form-operand-list
                         (remove-if #'(lambda (form)
-                                       (or (not (typep form 'form))
+                                       (or (not (formp form))
                                            (eq form operator)))
                                    (children (parent operand-form)))))
 
@@ -388,8 +388,7 @@ inserted from `provided-args'.
               (if (or (and candidate-before
                            (typep candidate-before 'incomplete-list-form))
                       (and (null candidate-before)
-                           (typep (or candidate-after candidate-around)
-                                  'list-form)))
+                           (form-list-p (or candidate-after candidate-around))))
                   ;; HACK: We should not attempt to find the location of
                   ;; the list form itself, so we create a new parser
                   ;; symbol, attach the list form as a parent and try to
@@ -689,7 +688,7 @@ modification will be generated, respectively."
                      ((listp argument)
                       `(((= (first indices) ,index)
                          ,(if (eq (first argument) 'quote)
-                              `(cond ((typep token 'quote-form)
+                              `(cond ((form-quoted-p token)
                                       (complete-argument-of-type ',(second argument) syntax token all-completions))
                                      (t (call-next-method)))
                               `(cond ((not (null (rest indices)))
@@ -757,8 +756,10 @@ modification will be generated, respectively."
                          (parent immediate-form))))))
               ;; If we cannot find a form, there's no point in looking
               ;; up any of this stuff.
-              (,operator-sym (when ,form-sym (form-operator ,form-sym ,syntax)))
-              (,operands-sym (when ,form-sym (form-operands ,form-sym ,syntax))))
+              (,operator-sym (when ,form-sym (token-to-object ,syntax (form-operator ,syntax ,form-sym))))
+              (,operands-sym (when ,form-sym (mapcar #'(lambda (operand)
+                                                         (token-to-object ,syntax operand))
+                                                     (form-operands ,syntax ,form-sym)))))
          (declare (ignorable ,form-sym ,operator-sym ,operands-sym))
          (multiple-value-bind (,preceding-operand-sym ,operand-indices-sym)
              (when ,form-sym (find-operand-info ,syntax ,mark-or-offset ,form-sym))
@@ -1394,7 +1395,7 @@ For example:
   displayed. If no symbol can be found at `mark', return nil."
   (let ((token (form-around syntax (offset mark))))
     (when (and (not (null token))
-               (typep token 'complete-token-lexeme)
+               (form-token-p token)
                (not (= (start-offset token)
                        (offset mark))))
       (multiple-value-bind (longest completions)
