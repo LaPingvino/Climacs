@@ -179,8 +179,8 @@ Some key sequences result in the execution of a @climacs{}
 @cindex command
 Such a key sequence is called a @emph{complete key sequence}
 @cindex complete key sequence
-or an @emph{order}.
-@cindex order
+or a @emph{gesture}.
+@cindex gesture
 
 @node Basic editing commands
 @chapter Basic editing commands
@@ -239,7 +239,7 @@ from command to command.
 Typically, a numeric argument prefix makes the command repeat its
 action a number of times indicated by the numeric argument prefix.
 For instance, the command @command{Delete Object}, usually associated
-with the order @kbd{C-d}, normally deletes a single object from the
+with the gesture @kbd{C-d}, normally deletes a single object from the
 buffer.  However, if given a numeric argument, it deletes that many
 objects. 
 
@@ -262,7 +262,7 @@ There are two ways of giving a numeric argument to a @climacs{}
 command.  One way is to first type @kbd{C-u}, 
 @kindex C-u
 then a sequence of
-decimal digits, and finally the order that invokes the command.  For
+decimal digits, and finally the gesture that invokes the command.  For
 instance, to delete the next 15 objects after point, you could type
 @kbd{C-u 1 5 C-d}.  The other way is to hold down the @key{Meta} key
 (usually the one marked @key{Alt}) while typing the decimal digits, as
@@ -300,19 +300,19 @@ key, which deletes the object immediately to the left of the point.
 To delete an object @emph{to the right} of the point, use the
 @kbd{C-d} 
 @kindex C-d
-(@command{Delete Object}) order.  When used with a numeric
+(@command{Delete Object}) gesture.  When used with a numeric
 argument, these commands delete that many objects. 
 
 @node Deleting by words
 @subsection Deleting by words
 
 It is also possible to delete larger chunks of buffer contents.  The
-order @kbd{M-d} 
+gesture @kbd{M-d} 
 @kindex M-d
 (@command{Kill Word}) is used to delete the @emph{word}
 @cindex word
 @emph{following} point.  If point is not at the beginning of a word,
-then the part of the word that follows point is deleted.  The order
+then the part of the word that follows point is deleted.  the gesture
 @kbd{M-@key{Backspace}} 
 @kindex M-@key{Backspace}
 (@command{Backward Kill Word}) is used to
@@ -326,7 +326,7 @@ use the kill-ring (@pxref{kill-ring}).
 @subsection Deleting by lines
 
 @climacs{} allows you to delete buffer objects one or more lines at a
-time.  The order @kbd{C-k}
+time.  The gesture @kbd{C-k}
 @kindex C-k
 (@command{Kill Line}) lets you do this.  When point is @emph{not} at
 the end of a line, then this command kills the buffer contents from
@@ -357,14 +357,14 @@ deleted objects on the @emph{kill ring} (@pxref{kill-ring}).
 The most frequent way of moving around is by one buffer position at a
 time.  
 
-The order @kbd{C-f}
+The gesture @kbd{C-f}
 @kindex C-f
 (@command{Forward Object}) allows you to
 advance the position of point by one position.  If given a numeric
 argument, it advances by that many positions.  The @command{Forward
 Object} command is also associated with the @emph{right-arrow key}. 
 
-The order @kbd{C-b} 
+The gesture @kbd{C-b} 
 @kindex C-b
 (@command{Backward Object}) allows you to move the
 position of point backward by one position.  If given a numeric
@@ -377,14 +377,14 @@ Object} command is also associated with the @emph{left-arrow key}.
 @climacs{} will allow you to move around by larger units than
 objects.
 
-The order @kbd{M-f}
+The gesture @kbd{M-f}
 @kindex M-f
 (@command{Forward Word}) lets you move forward over the @emph{word}
 @cindex word
 following point. With a numeric argument, this command moves point
 forward that many words. 
 
-The order @kbd{M-b}
+The gesture @kbd{M-b}
 @kindex M-b
 (@command{Backward Word}) lets you move backward over the @emph{word}
 @cindex word
@@ -401,7 +401,7 @@ Notice the analogy between the commands for moving by objects
 @climacs{} has commands to move by one or several @emph{lines} at a
 time.  
 
-The order @kbd{C-p}
+The gesture @kbd{C-p}
 @kindex C-p
 (@command{Previous Line}) allows you to
 move point @emph{up} to the previous line.  If given a numeric
@@ -409,7 +409,7 @@ argument, it moves up by that many lines.  The command
 @command{Previous Line} is also associated with the @emph{up-arrow
 key}.  
 
-The order @kbd{C-n}
+The gesture @kbd{C-n}
 @kindex C-n
 (@command{Next Line}) allows you to
 move point @emph{down} to the next line.  If given a numeric
@@ -431,7 +431,7 @@ sequence of commands is interrupted by some unrelated command.
 
 In order to make editing as efficient as possible, many @climacs{}
 commands can be invoked by key sequences.  It is, however, possible to
-invoke most @climacs{} commands by using the order @kbd{M-x} which
+invoke most @climacs{} commands by using the gesture @kbd{M-x} which
 invokes the command @command{Extended Command} which lets you type the
 @emph{name} of the command in the minibuffer at the prompt.
 In general, you do not have to type the full name of the command,
@@ -467,7 +467,7 @@ contents of a buffer that has no associated file to some file.
 @node Finding a file
 @subsection Finding a file
 
-To find a file, use the order @kbd{C-x C-f}
+To find a file, use the gesture @kbd{C-x C-f}
 @kindex C-x C-f
 (@command{Find File}).
 
@@ -483,7 +483,7 @@ that buffer when the content is saved.
 @node Saving a buffer
 @subsection Saving a buffer
 
-To save a buffer, use the order @kbd{C-x C-s}
+To save a buffer, use the gesture @kbd{C-x C-s}
 @kindex C-x C-s
 (@command{Save Buffer}).
 The contents of the buffer will be transfered to the file associated
@@ -495,7 +495,7 @@ Buffer} (@pxref{write-buffer}).
 @subsection Writing a buffer
 @anchor{write-buffer}
 
-To write a buffer to a file, use the order @kbd{C-x C-w}
+To write a buffer to a file, use the gesture @kbd{C-x C-w}
 @kindex C-x C-w
 (@command{Write Buffer}).  @climacs{} will prompt for the name of a
 file to save the buffer contents in.  Completion (by using the
@@ -602,22 +602,22 @@ directory when it is selected.
 @node Group commands
 @section Group commands
 
-Specific groups can be defined by using the order @kbd{C-x g d}
+Specific groups can be defined by using the gesture @kbd{C-x g d}
 @kindex C-x g d
 (@command{Define Group}). You will be queried for a name for the group
 and a list of buffers, and a group with the specified name and buffers
 will be created and selected as the active group. Alternatively, you can
-use the order @kbd{C-x g f}
+use the gesture @kbd{C-x g f}
 @kindex C-x g f
 (@command{Define File Group}, which will query for files instead of
 buffers. If you wish to select an already existing group (persistent or
-specific) as the active group, you can use the order @kbd{C-x g s}.
+specific) as the active group, you can use the gesture @kbd{C-x g s}.
 @kindex C-x g s
-You can deselect the active group with the order @kbd{C-x g u}
+You can deselect the active group with the gesture @kbd{C-x g u}
 @kindex C-x g u
 (@command{Deselect Group}) - this will usually make all group-aware
 commands operate on just the current buffer. To see which group is the
-active group, use the order @kbd{C-x g c}
+active group, use the gesture @kbd{C-x g c}
 @kindex C-x g c
 (@command{Current Group}), and to see the buffers and files designated
 by the active group, use @kbd{C-x g l} (@command{List Group Contents}).
@@ -641,20 +641,20 @@ called @emph{keyboard macros}.
 the keyboard, and then making it possibly to @emph{replay} the
 recorded sequence.
 
-To start recording a sequence of keystrokes, use the order @kbd{C-x (}
+To start recording a sequence of keystrokes, use the gesture @kbd{C-x (}
 @kindex C-x (
 (@command{Start Kbd Macro}).  You will see the word @samp{Def}
 appearing on the mode line, indicating that a keyboard macro is being
 defined.  As long as recording is in effect, every keystroke will be
 saved for later use.  
 
-To stop recording a sequence of keystrokes, use the order @kbd{C-x )}
+To stop recording a sequence of keystrokes, use the gesture @kbd{C-x )}
 @kindex C-x )
 (@command{End Kbd Macro}).  The word @samp{Def} will disappear from
 the mode line, indicating that keystrokes are no longer being
 recorded. 
 
-To replay a previously recorded sequence of keystrokes, use the order
+To replay a previously recorded sequence of keystrokes, use the gesture
 @kbd{C-x e}
 @kindex C-x e
 (@command{Call Last Kbd Macro}).  When used with a numeric argument,
@@ -713,7 +713,7 @@ while the search string is being entered, thus, the user receives
 immediate feedback while entering the search string. Incremental search
 is controlled through a command loop. @xref{The isearch command loop}.
 
-Incremental search can be entered via two orders, @kbd{C-s}
+Incremental search can be entered via two gestures, @kbd{C-s}
 @kindex C-s
 (@command{Isearch Forward}) and  @kbd{C-r}
 @kindex C-r
@@ -729,7 +729,7 @@ The isearch command loop consists of the user typing in characters for
 the search string, and @climacs{} moving point ahead to the most immediate
 instance of the provided string, while the user is typing. Apart from
 simply entering text, the user can manipulate the command loop by
-entering the following orders:
+entering the following gestures:
 
 @table @kbd
 @item C-s
@@ -749,7 +749,7 @@ Append the head of the kill ring to the search string.
 @item @key{Backspace}
 Delete the last element of the search string. This is not the same as
 deleting the last character - for example, if the word at point has been
-appended to the search string via @kbd{C-w}, this order will delete the
+appended to the search string via @kbd{C-w}, this gesture will delete the
 entire word, not just the last character of the word.
 @item @key{Newline}
 Exit the isearch command loop.
@@ -758,14 +758,14 @@ Exit the isearch command loop.
 @node Replacing single strings
 @subsection Replacing single strings
 
-The basic string-replacement command can be accessed through the order
+The basic string-replacement command can be accessed through the gesture
 @kbd{C-x e}
 @kindex C-x e
 (@command{Replace String}). This command will prompt for two strings,
 and replace all instances of the first string following point in the
 current buffer, with the second string. This command is not querying,
 and will thus not prompt before each replacement, so if you desire this
-behavior, use the order @kbd{M-%}
+behavior, use the gesture @kbd{M-%}
 @kindex M-%
 (@command{Query Replace}) instead. @xref{The query-replace command loop}.
 
@@ -795,7 +795,7 @@ command loop with specialized commands for manipulating the replacement
 process.
 
 The command loop will loop across the buffer, and for each match, the
-command loop will read an order from the user. The following orders and
+command loop will read a gesture from the user. The following gestures and
 their corresponding commands are available:
 
 @table @kbd
@@ -818,7 +818,7 @@ Replace all matches with the provided replacement strings.
 
 In addition to this manual, @climacs{} contains an online help
 facility.  There are several different topics that you can get help
-with.  Most of these topics are obtained by some order using the
+with.  Most of these topics are obtained by some gesture using the
 @kbd{C-h}
 @kindex C-h
 prefix key.  The key following @kbd{C-h} determines what kind of help
@@ -829,13 +829,13 @@ information is displayed.
 * Help with a key binding::
 * Help with a particular key sequence::
 * Help finding a command::
-* Help finding an order for a command::
+* Help finding a gesture for a command::
 @end menu
 
 @node Help with a command
 @section Help with a command
 
-To get documentation about a particular command, use the order @kbd{C-h
+To get documentation about a particular command, use the gesture @kbd{C-h
 f} 
 @kindex C-h f
 (@command{Describe Command}). You will be prompted for the name of a
@@ -847,24 +847,24 @@ the command, will be displayed.
 @node Help with a key binding
 @section Help with a key binding
 
-To obtain a list of all orders and the associated commands that are
-valid in a particular context, use the order @kbd{C-h b}
+To obtain a list of all gestures and the associated commands that are
+valid in a particular context, use the gesture @kbd{C-h b}
 @kindex C-h b
 (@command{Describe Bindings}).  A table with each command name and
-associated order (if any) is displayed in a new window. 
+associated gesture (if any) is displayed in a new window. 
 
 @node Help with a particular key sequence
 @section Help with a particular key sequence
 
-To obtain a description of what some putative order will do, use the
-order @kbd{C-h c}p
+To obtain a description of what some putative gesture will do, use the
+gesture @kbd{C-h c}p
 @kindex C-h c
 (@command{Describe Key Briefly}).  You will be prompted for a key
 sequence.  If the key sequence you type is bound to a command, the
 command name will be displayed in the minibuffer.  Otherwise, a message
 indicating that the key is not bound to a command will be displayed.
 
-For more detailed information, use the order @kbd{C-h c} 
+For more detailed information, use the gesture @kbd{C-h c} 
 @kindex C-h k
 (@command{Describe Key}). You will be prompted for a key sequence, and
 if the key sequence you provide is bound to a command, documentation for
@@ -875,7 +875,7 @@ command with, will be shown in a typeout pane.
 @section Help finding a command
 
 If you do not know which commands are applicable to a given situation,
-you can use the order @kbd{C-h a}
+you can use the gesture @kbd{C-h a}
 @kindex C-h a
 (@command{Apropos Command}) to perform a keyword-based search for
 commands. You will be prompted for a keyword, after which @climacs{}
@@ -885,18 +885,18 @@ in a typeout pane along with the gestures you can use to invoke
 them. You can also click on the names of the commands to get more
 thorough documentation.
 
-@node Help finding an order for a command
-@section Help finding an order for a command
+@node Help finding a gesture for a command
+@section Help finding a gesture for a command
 
 Sometimes, you know the name of a command, and would like to find out
-whether it is bound to any order, and if so, which one(s).  For that,
-you can use the order @kbd{C-h w}
+whether it is bound to any gesture, and if so, which one(s).  For that,
+you can use the gesture @kbd{C-h w}
 @kindex C-h w
 (@command{Where Is}).  You will be prompted for a command name
 (completion can be used as usual), and if the command name given is
-bound to an order, that order will displayed in the minibuffer.
+bound to a a gesture, that gesture will displayed in the minibuffer.
 Otherwise, a message indicating that the command is not bound to any
-order will be displayed. 
+gesture will be displayed. 
 
 @node Proposal for new buffer/pane relations
 @chapter Proposal for new buffer/pane relations
