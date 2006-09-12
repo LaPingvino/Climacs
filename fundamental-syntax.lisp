@@ -194,7 +194,7 @@
   (let ((point (point pane)))
     (multiple-value-bind (cursor-x cursor-y line-height)
 	(offset-to-screen-position (offset point) pane)
-      (updating-output (pane :unique-id -1 :cache-value (offset point))
+      (updating-output (pane :unique-id -1 :cache-value (cons (offset point) current-p))
 	(draw-rectangle* pane
 			 (1- cursor-x) cursor-y
 			 (+ cursor-x 2) (+ cursor-y line-height)

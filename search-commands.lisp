@@ -318,7 +318,7 @@ using the case of those objects if USE-REGION-CASE is true."
                    (buffers buffers)
                    (mark mark)) state
     (flet ((head-to-buffer (buffer)
-             (switch-to-buffer buffer)
+             (switch-to-buffer (current-window) buffer)
              (setf mark (point (current-window)))
              (beginning-of-buffer mark)))
       (unless (eq (current-buffer) (first buffers))

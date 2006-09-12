@@ -373,37 +373,42 @@ spaces only."))
 			 :value-key #'identity))
 		      :partial-completers '(#\Space)
 		      :allow-any-input t)
-    (cond (success
-	   (values object type))
+    (cond ((and success (plusp (length string)))
+           (if object
+               (values object type)
+               (values string 'string)))
 	  ((and (zerop (length string)) defaultp)
-	    (values default default-type))
-	  (t (values string 'string)))))
+           (values default default-type))
+	  (t
+           (values string 'string)))))
 
-(defgeneric switch-to-buffer (buffer))
+(defgeneric switch-to-buffer (pane buffer))
 
-(defmethod switch-to-buffer ((buffer climacs-buffer))
-  (let* ((buffers (buffers *application-frame*))
-	 (position (position buffer buffers))
-	 (pane (current-window)))
-    (when position
-      (setf buffers (delete buffer buffers)))
-    (push buffer (buffers *application-frame*))
-    (setf (offset (point (buffer pane))) (offset (point pane)))
-    (setf (buffer pane) buffer)
-    (full-redisplay pane)
-    buffer))
+(defmethod switch-to-buffer ((pane extended-pane) (buffer climacs-buffer))
+  (with-accessors ((buffers buffers)) *application-frame*
+   (let* ((position (position buffer buffers))
+          (pane (current-window)))
+     (when position
+       (setf buffers (delete buffer buffers)))
+     (push buffer buffers)
+     (setf (offset (point (buffer pane))) (offset (point pane)))
+     (setf (buffer pane) buffer)
+     (full-redisplay pane)
+     buffer)))
 
-(defmethod switch-to-buffer ((name string))
+(defmethod switch-to-buffer ((pane typeout-pane) (buffer climacs-buffer))
+  (let ((usable-pane (or (find-if #'(lambda (pane)
+                                      (typep pane 'extended-pane))
+                                  (windows *application-frame*))
+                         (split-window t))))
+    (switch-to-buffer usable-pane buffer)))
+
+(defmethod switch-to-buffer (pane (name string))
   (let ((buffer (find name (buffers *application-frame*)
 		      :key #'name :test #'string=)))
-    (switch-to-buffer (or buffer
+    (switch-to-buffer pane
+                      (or buffer
 			  (make-new-buffer :name name)))))
-
-;;placeholder
-(defmethod switch-to-buffer ((symbol (eql 'nil)))  
-  (let ((default (second (buffers *application-frame*))))
-    (when default
-      (switch-to-buffer default))))
 
 ;; ;;; FIXME: see the comment by (SETF SYNTAX) :AROUND.  -- CSR,
 ;; ;;; 2005-10-31.

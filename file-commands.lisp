@@ -224,27 +224,22 @@ Signals and error if the file does not exist."
 ;;; 
 ;;; Buffer commands
 
-(define-command (com-switch-to-buffer :name t :command-table pane-table) ()
+(define-command (com-switch-to-buffer :name t :command-table pane-table)
+    ((buffer 'buffer :default (or (second (buffers *application-frame*))
+                                  (any-buffer))))
   "Prompt for a buffer name and switch to that buffer.
-If the a buffer with that name does not exist, create it. Uses the name of the next buffer (if any) as a default."
-  (let* ((default (second (buffers *application-frame*)))
-	 (buffer (if default
-		     (accept 'buffer
-			     :prompt "Switch to buffer"
-			     :default default)
-		     (accept 'buffer
-			     :prompt "Switch to buffer"))))
-    (switch-to-buffer buffer)))
+If the a buffer with that name does not exist, create it. Uses
+the name of the next buffer (if any) as a default."
+  (switch-to-buffer (current-window) buffer))
 
-(set-key 'com-switch-to-buffer
+(set-key `(com-switch-to-buffer ,*unsupplied-argument-marker*)
 	 'pane-table
 	 '((#\x :control) (#\b)))
 
 (define-command (com-kill-buffer :name t :command-table pane-table)
     ((buffer 'buffer
              :prompt "Kill buffer"
-             :default (buffer (current-window))
-             :default-type 'buffer))
+             :default (buffer (current-window))))
   "Prompt for a buffer name and kill that buffer.
 If the buffer needs saving, will prompt you to do so before killing it. Uses the current buffer as a default."
   (kill-buffer buffer))
@@ -253,22 +248,22 @@ If the buffer needs saving, will prompt you to do so before killing it. Uses the
 	 'pane-table
 	 '((#\x :control) (#\k)))
 
-(define-command (com-toggle-read-only :name t :command-table base-table)
+(define-command (com-toggle-read-only :name t :command-table buffer-table)
     ((buffer 'buffer :default (current-buffer *application-frame*)))
   (setf (read-only-p buffer) (not (read-only-p buffer))))
 
 (define-presentation-to-command-translator toggle-read-only
-    (read-only com-toggle-read-only base-table
+    (read-only com-toggle-read-only buffer-table
                :gesture :menu)
     (object)
   (list object))
 
-(define-command (com-toggle-modified :name t :command-table base-table)
+(define-command (com-toggle-modified :name t :command-table buffer-table)
     ((buffer 'buffer :default (current-buffer *application-frame*)))
   (setf (needs-saving buffer) (not (needs-saving buffer))))
 
 (define-presentation-to-command-translator toggle-modified
-    (modified com-toggle-modified base-table
+    (modified com-toggle-modified buffer-table
               :gesture :menu)
     (object)
   (list object))

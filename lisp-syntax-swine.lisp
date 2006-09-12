@@ -1013,7 +1013,7 @@ Each newline and following whitespace is replaced by a single space."
       (esa:display-message "No buffer ~A" (buffer-name location))
       (beep)
       (return-from goto-location))
-    (switch-to-buffer buffer)
+    (switch-to-buffer (current-window) buffer)
     (goto-position (point (current-window))
                    (char-position (source-position location)))))
 

@@ -40,6 +40,8 @@
 (defclass typeout-pane (application-pane esa-pane-mixin)
   ())
 
+(defmethod full-redisplay ((pane typeout-pane)))
+
 (defgeneric buffer-pane-p (pane)
   (:documentation "Returns T when a pane contains a buffer."))
 
@@ -119,6 +121,17 @@
 (make-command-table 'climacs-help-table :inherit-from '(help-table)
                     :errorp nil)
 
+;; We have a special command table for typeout panes because we want
+;; to keep being able to do window, buffer, etc, management, but we do
+;; not want any actual editing commands.
+(make-command-table 'typeout-pane-table
+                    :errorp nil
+                    :inherit-from '(global-esa-table
+                                    base-table
+                                    pane-table
+                                    window-table
+                                    development-table
+                                    climacs-help-table))
 
 (defvar *bg-color* +white+)
 (defvar *fg-color* +black+)
@@ -211,6 +224,10 @@
 (defmethod frame-current-buffer ((application-frame climacs))
   "Return the current buffer."
   (buffer (car (windows application-frame))))
+
+(defun any-buffer ()
+  "Return some buffer, any buffer, as long as it is a buffer!"
+  (first (buffers *application-frame*)))
 
 (define-presentation-type read-only ())
 (define-presentation-method highlight-presentation 
@@ -322,15 +339,16 @@
                (setf (needs-saving buffer) t)))))
 
 (defmethod find-applicable-command-table ((frame climacs))
-  (or
-   (let ((syntax (and (buffer-pane-p (current-window))
-		      (syntax (buffer (current-window))))))
-      (and syntax
-	   (slot-exists-p syntax 'command-table)
-	   (slot-boundp syntax 'command-table)
-	   (slot-value syntax 'command-table)
-	   (find-command-table (slot-value syntax 'command-table))))
-   (find-command-table 'global-climacs-table)))
+  (cond ((typep (current-window) 'typeout-pane)
+         (find-command-table 'typeout-pane-table))
+        ((buffer-pane-p (current-window))
+         (or (let ((syntax (syntax (buffer (current-window)))))
+               ;; Why all this absurd checking? Smells fishy.
+               (and (slot-exists-p syntax 'command-table)
+                    (slot-boundp syntax 'command-table)
+                    (slot-value syntax 'command-table)
+                    (find-command-table (slot-value syntax 'command-table))))
+             (find-command-table 'global-climacs-table)))))
 
 (define-command (com-full-redisplay :name t :command-table base-table) ()
   "Redisplay the contents of the current window.
@@ -431,16 +449,27 @@ If with-scrollbars nil, omit the scroller."
 		       :width 900))))
     (values vbox extended-pane)))
 
+(defgeneric setup-split-pane (orig-pane new-pane)
+  (:documentation "Perform split-setup operations `new-pane',
+  which is supposed to be a pane that has been freshly split from
+  `orig-pane'."))
+
+(defmethod setup-split-pane ((orig-pane extended-pane) (new-pane extended-pane))
+  (setf (offset (point (buffer orig-pane))) (offset (point orig-pane))
+        (buffer new-pane) (buffer orig-pane)
+        (auto-fill-mode new-pane) (auto-fill-mode orig-pane)
+        (auto-fill-column new-pane) (auto-fill-column orig-pane)))
+
+(defmethod setup-split-pane ((orig-pane typeout-pane) (new-pane extended-pane))
+  (setf (buffer new-pane) (any-buffer)))
+
 (defun split-window (&optional (vertically-p nil) (pane (current-window)))
   (with-look-and-feel-realization
       ((frame-manager *application-frame*) *application-frame*)
     (multiple-value-bind (vbox new-pane) (make-pane-constellation)
       (let* ((current-window pane)
 	     (constellation-root (find-parent current-window)))
-        (setf (offset (point (buffer current-window))) (offset (point current-window))
-	      (buffer new-pane) (buffer current-window)
-              (auto-fill-mode new-pane) (auto-fill-mode current-window)
-              (auto-fill-column new-pane) (auto-fill-column current-window))
+        (setup-split-pane current-window new-pane)
 	(push new-pane (windows *application-frame*))
 	(setf *standard-output* new-pane)
 	(replace-constellation constellation-root vbox vertically-p)
@@ -510,11 +539,7 @@ be created."
       (setf (windows *application-frame*)
             (append (cdr (windows *application-frame*))
                     (list (car (windows *application-frame*))))))
-  ;; Try to avoid setting the point in a typeout pane. FIXME: This is a kludge.
-  (if (and (subtypep 'typeout-pane (type-of (car (windows *application-frame*))))
-           (> (length (windows *application-frame*)) 1))
-      (other-window)
-      (setf *standard-output* (car (windows *application-frame*)))))
+  (setf *standard-output* (car (windows *application-frame*))))
 
 ;;; For the ESA help functions.
 
