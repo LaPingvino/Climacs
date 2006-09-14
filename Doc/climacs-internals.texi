@@ -2235,14 +2235,14 @@ run. Also, @var{buffers} will be bound to a list of the buffers
 containing the files designated by @var{group} while @var{body} is run.
 @end deffn
 
-@deffn {Macro} {define-group} (name (group-arg &rest args) &body body)
+@deffn {Macro} {define-group} name (group-arg &rest args) &body body
 Define a persistent group named @var{name}. @var{Body} should return a
 list of pathnames and will be used to calculate which files are
 designated by the group. @var{Args} should be two-element lists, with
 the first element bound to the result of evaluating the second
 element. The second element will be evaluated when the group is
 selected to be the active group by the user.
-@node Index
+@end deffn
 
 @deftp {Error Condition} group-not-found
 This condition is signaled whenever a synonym group is unable to find
