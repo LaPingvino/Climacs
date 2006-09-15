@@ -49,3 +49,9 @@
   (if (listp obj)
       obj
       (list obj)))
+
+(defun list-aref (list &rest subscripts)
+  (if subscripts
+      (apply #'list-aref (nth (first subscripts) list)
+             (rest subscripts))
+      list))

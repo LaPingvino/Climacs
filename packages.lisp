@@ -32,7 +32,8 @@
            #:once-only
            #:unlisted
            #:fully-unlisted
-           #:listed))
+           #:listed
+           #:list-aref))
 
 (defpackage :climacs-buffer
   (:use :clim-lisp :flexichain :binseq)

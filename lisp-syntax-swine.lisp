@@ -339,9 +339,9 @@ inserted from `provided-args'.
 (defun find-argument-indices-for-operand (syntax operand-form operator-form)
   "Return a list of argument indices for `argument-form' relative
   to `operator-form'. These lists take the form of (n m p), which
-  means (aref form-operand-list n m p). A list of
-  argument indices can have arbitrary length (but they are
-  practically always at most 2 elements long). "
+  means (list-aref form-operand-list n m p). A list of argument
+  indices can have arbitrary length (but they are practically
+  always at most 2 elements long). "
   (declare (ignore syntax))
   (let ((operator (first-form (children operator-form))))
     (labels ((worker (operand-form &optional the-first)
@@ -482,15 +482,16 @@ parents. If it is, return the form with the operator that
 argument. Return NIL if none can be found."
   ;; The algorithm for finding the applicable form:
   ;;
-  ;; From `arg-form', we wander up the tree looking enclosing forms,
-  ;; until we find a a form with an operator, the form-operator, that
-  ;; has `arg-form' as a direct argument (this is checked by comparing
-  ;; argument indices for `arg-form', relative to form-operator, with
-  ;; the arglist ofform-operator). However, if form-operator itself is
-  ;; a direct argument to one of its parents, we ignore it (unless
-  ;; form-operators form-operator is itself a direct argument,
-  ;; etc). This is so we can properly handle nested/destructuring
-  ;; argument lists such as those found in macros.
+  ;; From `arg-form', we wander up the tree looking at enclosing
+  ;; forms, until we find a a form with an operator, the
+  ;; form-operator, that has `arg-form' as a direct argument (this is
+  ;; checked by comparing argument indices for `arg-form', relative to
+  ;; form-operator, with the arglist ofform-operator). However, if
+  ;; form-operator itself is a direct argument to one of its parents,
+  ;; we ignore it (unless form-operators form-operator is itself a
+  ;; direct argument, etc). This is so we can properly handle
+  ;; nested/destructuring argument lists such as those found in
+  ;; macros.
   (labels ((recurse (candidate-form)
              (when (parent candidate-form)
                (if (and (direct-arg-p syntax (first-form (children candidate-form))
@@ -531,40 +532,48 @@ argument. Return NIL if none can be found."
                                             difference)
                                          (if rest-position 2 1))))))))
 
-(defgeneric possible-completions (syntax operator token operands indices)
+(defgeneric possible-completions (syntax operator string package operands indices)
   (:documentation "Get the applicable completions for completing
-  `token' (which should be a token-lexeme), which is part of a
-  form with the operator `operator' (which should be a valid
-  operator object), and which has the operands
-  `operands'. `Indices' should be the argument indices from the
-  operator to `token' (see
-  `find-argument-indices-for-operands').")
-  (:method :around (syntax operator token operands indices)
-           (declare (ignore syntax operator token operands indices))
-           (with-syntax-package (syntax (start-offset token))
-             (call-next-method)))
-  (:method (syntax operator token operands indices)
+`string' (which should a string of the, possibly partial, symbol
+name to be completed) in `package', which is part of a form with
+the operator `operator' (which should be a valid operator
+object), and which has the operands `operands'. `Indices' should
+be the argument indices from the operator to `token' (see
+`find-argument-indices-for-operands').")
+  (:method (syntax operator string package operands indices)
     (let ((completions (first (simple-completions (get-usable-image syntax)
-                                                  (token-string syntax (fully-unquoted-form token))
-                                                  (package-at-mark syntax (start-offset token))))))
+                                                  string package))))
+      ;; Welcome to the ugly mess! Part of the uglyness is that we
+      ;; depend on Swank do to our nonobvious completion (m-v-b ->
+      ;; multiple-value-bind).
       (or (when (valid-operator-p operator)
             (let* ((relevant-keywords
                     (relevant-keywords (arglist-for-form syntax operator operands) indices))
-                   (relevant-completions
-                    (remove-if-not #'(lambda (compl)
-                                       (member compl relevant-keywords
-                                               :test #'(lambda (a b)
-                                                         (string-equal a b
-                                                                       :start1 1))
-                                               :key #'(lambda (s)
-                                                        (symbol-name (fully-unlisted s)))))
-                                   (mapcar #'string-downcase completions))))
-              relevant-completions))
+                   (keyword-completions (mapcar #'(lambda (a)
+                                                    (string-downcase (format nil ":~A" a)))
+                                                relevant-keywords)))
+              (when relevant-keywords
+                ;; We need Swank to get the concrete list of
+                ;; possibilities, but after that, we need to filter
+                ;; out anything that is not a relevant keyword
+                ;; argument. ALSO, if `string' is blank, Swank will
+                ;; "helpfully" not put any keyword symbols in
+                ;; `completions', thus ruining this entire scheme. SO,
+                ;; we have to force Swank to give us a list of keyword
+                ;; symbols and use that instead of `completions'. Joy!
+                (intersection (mapcar #'string-downcase
+                                      (if (string= string "")
+                                          (first (simple-completions (get-usable-image syntax)
+                                                                     ":" package))
+                                          completions))
+                 keyword-completions
+                 :key #'string-downcase
+                 :test #'string=))))
           completions))))
 
-(defgeneric complete-argument-of-type (argument-type syntax token all-completions)
+(defgeneric complete-argument-of-type (argument-type syntax string all-completions)
   (:documentation "")
-  (:method (argument-type syntax token all-completions)
+  (:method (argument-type syntax string all-completions)
     all-completions))
 
 (defgeneric modify-argument-list (argument-type syntax arglist arguments arg-position)
@@ -612,11 +621,14 @@ argument. Return NIL if none can be found."
                  (remove-method #'modify-argument-list method)))))))
 
 (define-argument-type class-name ()
-  (:completion (syntax token all-completions)
-               (loop for completion in all-completions
-                  when (find-class (ignore-errors (read-from-string completion))
-                                   nil)
-                  collect completion))
+  (:completion (syntax string all-completions)
+               (let ((all-lower (every #'lower-case-p string)))
+                 (loop for completion in all-completions
+                    when (find-class (ignore-errors (read-from-string completion))
+                                     nil)
+                    collect (if all-lower
+                                (string-downcase completion)
+                                completion))))
   (:arglist-modification (syntax arglist arguments arg-position)
                          (if (and (> (length arguments) arg-position)
                                   (listp (elt arguments arg-position))
@@ -630,10 +642,11 @@ argument. Return NIL if none can be found."
                              arglist)))
 
 (define-argument-type package-designator ()
-  (:completion (syntax token all-completions)
+  (:completion (syntax string all-completions)
                (declare (ignore all-completions))
-               (let* ((string (token-string syntax token))
-                      (keyworded (char= (aref string 0) #\:)))
+               (let ((keyworded (and (plusp (length string))
+                                     (char= (aref string 0) #\:)))
+                     (all-upper (every #'upper-case-p string)))
                  (loop for package in (list-all-packages)
                     for package-name = (if keyworded
                                            (concatenate 'string ":" (package-name package))
@@ -642,7 +655,7 @@ argument. Return NIL if none can be found."
                                  :test #'char-equal
                                  :end2 (min (length string)
                                             (length package-name)))
-                    collect (if (every #'upper-case-p string)
+                    collect (if all-upper
                                 package-name
                                 (string-downcase package-name))))))
 
@@ -666,48 +679,53 @@ modification will be generated, respectively."
   ;; FIXME: This macro should also define indentation rules.
   (labels ((process-keyword-arg-descs (arguments)
              ;; We expect `arguments' to be a plist mapping keyword
-             ;; symbols to type/class designators/names. We use a
-             ;; `case' form to map from the keyword preceding the
-             ;; symbol to be completed, to the code that generates the
-             ;; possible completions.
+             ;; symbols to type/class designators/names.
              `((t
-                (let* ((keyword (token-to-object syntax (form-before syntax (1- (start-offset token)))))
+                (let* ((keyword-indices (loop
+                                           for (car . cdr) on indices
+                                           if (null cdr)
+                                           collect (1+ car)
+                                           else collect car))
+                       (keyword (apply #'list-aref operands keyword-indices))
                        (type (getf ',arguments keyword)))
                   (if (null type)
                       (call-next-method)
-                      (complete-argument-of-type type syntax token all-completions))))))
+                      (complete-argument-of-type type syntax string all-completions))))))
            (process-arg-descs (arguments index)
              (let ((argument (first arguments)))
-               (cond ((null arguments)
+               (cond ((null argument)
                       nil)
                      ((eq argument '&rest)
                       `(((>= (first indices) ,index)
-                         (complete-argument-of-type ',(second arguments) syntax token all-completions))))
+                         (complete-argument-of-type ',(second arguments) syntax string all-completions))))
                      ((eq argument '&key)
                       (process-keyword-arg-descs (rest arguments)))
                      ((listp argument)
-                      `(((= (first indices) ,index)
-                         ,(if (eq (first argument) 'quote)
-                              `(cond ((form-quoted-p token)
-                                      (complete-argument-of-type ',(second argument) syntax token all-completions))
-                                     (t (call-next-method)))
-                              `(cond ((not (null (rest indices)))
-                                      (pop indices)
-                                      (cond ,@(build-completions-cond-body argument)))
-                                     (t (call-next-method)))))))
+                      (cons `((= (first indices) ,index)
+                              ,(if (eq (first argument) 'quote)
+                                   `(cond ((eq (first (apply #'list-aref operands indices)) 'quote)
+                                           (complete-argument-of-type ',(second argument) syntax string all-completions))
+                                          (t (call-next-method)))
+                                   `(cond ((not (null (rest indices)))
+                                           (pop indices)
+                                           (cond ,@(build-completions-cond-body argument)))
+                                          (t (call-next-method)))))
+                            (process-arg-descs (rest arguments)
+                                               (1+ index))))
                      (t
                       (cons `((= (first indices) ,index)
-                              (complete-argument-of-type ',argument syntax token all-completions))
+                              (complete-argument-of-type ',argument syntax string all-completions))
                             (process-arg-descs (rest arguments)
                                                (1+ index)))))))
            (build-completions-cond-body (arguments)
              (append (process-arg-descs arguments 0)
                      '((t (call-next-method))))))
     `(progn
-       (defmethod possible-completions (syntax (operator (eql ',operator)) token operands indices)
+       (defmethod possible-completions (syntax (operator (eql ',operator)) string package operands indices)
          ,(if no-typed-completion
               '(call-next-method)
-              `(let ((all-completions (call-next-method)))
+              `(let* ((*package* package)
+                      (all-completions (call-next-method)))
                  (cond ,@(build-completions-cond-body arguments)))))
        ,(unless no-smart-arglist
                 `(defmethod arglist-for-form (syntax (operator (eql ',operator)) &optional arguments)
@@ -758,7 +776,8 @@ modification will be generated, respectively."
               ;; up any of this stuff.
               (,operator-sym (when ,form-sym (token-to-object ,syntax (form-operator ,syntax ,form-sym))))
               (,operands-sym (when ,form-sym (mapcar #'(lambda (operand)
-                                                         (token-to-object ,syntax operand))
+                                                         (when operand
+                                                          (token-to-object ,syntax operand)))
                                                      (form-operands ,syntax ,form-sym)))))
          (declare (ignorable ,form-sym ,operator-sym ,operands-sym))
          (multiple-value-bind (,preceding-operand-sym ,operand-indices-sym)
@@ -1361,65 +1380,77 @@ For example:
       (delete-window completions-pane)
       (setf completions-pane nil))))
 
-(defun find-completion-by-fn (fn symbol package)
-  (esa:display-message (format nil "~a completions" symbol))
-  (let* ((result (funcall fn symbol (package-name package)))
-         (set (first result))
-         (longest (second result)))
-    (values longest set)))
-
-(defun find-completion (syntax token)
-  (let* ((symbol-name (token-string syntax token))
-         (result (with-code-insight (start-offset token) syntax
+(defun find-completions (syntax mark-or-offset string)
+  "Find completions for the symbol denoted by the string `string'
+at `mark-or-offset'. Two values will be returned: the common
+leading string of the completions and a list of the possible
+completions as strings."
+  (let* ((result (with-code-insight mark-or-offset syntax
                      (:operator operator
                                 :operands operands
                                 :preceding-operand-indices indices)
-                   (let ((completions (possible-completions syntax operator token operands indices)))
+                   (let ((completions (possible-completions
+                                       syntax operator string
+                                       (package-at-mark syntax mark-or-offset)
+                                       operands indices)))
                      (list completions (longest-completion completions)))))
          (set (first result))
          (longest (second result)))
-    (esa:display-message (format nil "~a completions" symbol-name))
     (values longest set)))
 
-(defun find-fuzzy-completion (syntax token package)
-  (let ((symbol-name (token-string syntax token)))
-    (esa:display-message (format nil "~a completions" symbol-name))
-    (let* ((set (fuzzy-completions (get-usable-image syntax) symbol-name package 10))
-           (best (caar set)))
-      (values best set))))
+(defun find-fuzzy-completions (syntax mark-or-offset string)
+    "Find completions for the symbol denoted by the string
+`string' at `mark-or-offset'. Two values will be returned: the
+common leading string of the completions and a list of the
+possible completions as strings. This function uses fuzzy logic
+to find completions based on `string'."
+  (let* ((set (fuzzy-completions (get-usable-image syntax) string
+                                 (package-at-mark syntax mark-or-offset)
+                                 10))
+         (best (caar set)))
+    (values best set)))
 
-(defun complete-symbol-at-mark-with-fn (syntax mark &optional (fn #'find-completion))
+(defun complete-symbol-at-mark-with-fn (syntax mark &optional (fn #'find-completions))
   "Attempt to find and complete the symbol at `mark' using the
   function `fn' to get the list of completions. If the completion
   is ambiguous, a list of possible completions will be
   displayed. If no symbol can be found at `mark', return nil."
-  (let ((token (form-around syntax (offset mark))))
-    (when (and (not (null token))
-               (form-token-p token)
-               (not (= (start-offset token)
-                       (offset mark))))
-      (multiple-value-bind (longest completions)
-          (funcall fn syntax (fully-quoted-form token))
-        (if (> (length longest) 0)
-            (if (= (length completions) 1)
-                (replace-symbol-at-mark mark syntax longest)
-                (progn
-                  (esa:display-message (format nil "Longest is ~a|" longest))
-                  (let ((selection (menu-choose (mapcar
-                                                 ;; FIXME: this can
-                                                 ;; get ugly.
-                                                 #'(lambda (completion)
-                                                     (if (listp completion)
-                                                         (cons completion
-                                                               (first completion))
-                                                         completion))
-                                                 completions)
-                                                :label "Possible completions"
-                                                :scroll-bars :vertical)))
-                    (replace-symbol-at-mark mark syntax (or selection
-                                                            longest)))))
-            (esa:display-message "No completions found")))
-      t)))
+  (let* ((token (form-around syntax (offset mark)))
+         (useful-token (and (not (null token))
+                            (form-token-p token)
+                            (not (= (start-offset token)
+                                    (offset mark))))))
+    (multiple-value-bind (longest completions)
+        (funcall fn syntax
+                 (if useful-token
+                     (start-offset (fully-quoted-form token))
+                     (if (form-quoted-p token)
+                         (start-offset token)
+                         (offset mark)))
+                 (if useful-token
+                     (token-string syntax token)
+                     ""))
+      (if completions
+          (if (= (length completions) 1)
+              (replace-symbol-at-mark mark syntax longest)
+              (progn
+                (esa:display-message (format nil "Longest is ~a|" longest))
+                (let ((selection (menu-choose (mapcar
+                                               ;; FIXME: this can
+                                               ;; get ugly.
+                                               #'(lambda (completion)
+                                                   (if (listp completion)
+                                                       (cons completion
+                                                             (first completion))
+                                                       completion))
+                                               completions)
+                                              :label "Possible completions"
+                                              :scroll-bars :vertical)))
+                  (if useful-token
+                      (replace-symbol-at-mark mark syntax (or selection longest))
+                      (insert-sequence mark (or selection longest))))))
+          (esa:display-message "No completions found")))
+    t))
 
 (defun complete-symbol-at-mark (syntax mark)
   "Attempt to find and complete the symbol at `mark'. If the
@@ -1432,4 +1463,4 @@ For example:
   completion. If the completion is ambiguous, a list of possible
   completions will be displayed. If no symbol can be found at
   `mark', return nil."
-  (complete-symbol-at-mark-with-fn syntax mark #'find-fuzzy-completion))
+  (complete-symbol-at-mark-with-fn syntax mark #'find-fuzzy-completions))

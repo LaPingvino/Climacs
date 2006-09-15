@@ -981,7 +981,7 @@ along with any default values) that can be used in a
 ;;; parse trees
 (defclass token-form (form token-mixin) ())
 (defclass complete-token-form (token-form) ())
-(defclass incomplete-token-form (token-form) ())
+(defclass incomplete-token-form (token-form incomplete-form-mixin) ())
 
 (define-parser-state | m-e-start text* | (lexer-escaped-token-state parser-state) ())
 (define-parser-state | m-e-start text* m-e-end | (lexer-toplevel-state parser-state) ())
@@ -1002,6 +1002,8 @@ along with any default values) that can be used in a
 
 ;;; parse trees
 (defclass quote-form (form) ())
+(defclass complete-quote-form (quote-form) ())
+(defclass incomplete-quote-form (quote-form incomplete-form-mixin) ())
 
 (define-parser-state |' | (form-may-follow) ())
 (define-parser-state |' form | (lexer-toplevel-state parser-state) ())
@@ -1009,16 +1011,25 @@ along with any default values) that can be used in a
 (define-new-lisp-state (form-may-follow quote-lexeme) |' |)
 (define-new-lisp-state (|' | form) |' form |)
 (define-new-lisp-state (|' | comment) |' |)
-
+(define-new-lisp-state (|' | unmatched-right-parenthesis-lexeme) |( form* ) |)
 
 ;;; reduce according to the rule form -> ' form
 (define-lisp-action (|' form | t)
-  (reduce-until-type quote-form quote-lexeme))
+  (reduce-until-type complete-quote-form quote-lexeme))
+
+(define-lisp-action (|' | right-parenthesis-lexeme)
+  (reduce-until-type incomplete-quote-form quote-lexeme))
+(define-lisp-action (|' | unmatched-right-parenthesis-lexeme)
+  (reduce-until-type incomplete-quote-form quote-lexeme))
+(define-lisp-action (|' | (eql nil))
+  (reduce-until-type incomplete-quote-form quote-lexeme))
 
 ;;;;;;;;;;;;;;;; Backquote
 
 ;;; parse trees
 (defclass backquote-form (form) ())
+(defclass complete-backquote-form (backquote-form) ())
+(defclass incomplete-backquote-form (backquote-form incomplete-form-mixin) ())
 
 (define-parser-state |` | (form-may-follow) ())
 (define-parser-state |` form | (lexer-toplevel-state parser-state) ())
@@ -1026,10 +1037,18 @@ along with any default values) that can be used in a
 (define-new-lisp-state (form-may-follow backquote-lexeme) |` |)
 (define-new-lisp-state (|` | form) |` form |)
 (define-new-lisp-state (|` | comment) |` |)
+(define-new-lisp-state (|` | unmatched-right-parenthesis-lexeme) |( form* ) |)
 
 ;;; reduce according to the rule form -> ` form
 (define-lisp-action (|` form | t)
-  (reduce-until-type backquote-form backquote-lexeme))
+  (reduce-until-type complete-backquote-form backquote-lexeme))
+
+(define-lisp-action (|` | right-parenthesis-lexeme)
+  (reduce-until-type incomplete-backquote-form backquote-lexeme))
+(define-lisp-action (|` | unmatched-right-parenthesis-lexeme)
+  (reduce-until-type incomplete-backquote-form backquote-lexeme))
+(define-lisp-action (|` | (eql nil))
+  (reduce-until-type incomplete-backquote-form backquote-lexeme))
 
 ;;;;;;;;;;;;;;;; Comma
 
@@ -2412,7 +2431,7 @@ to if read. An attempt will be made to construct objects from
 incomplete tokens. This function may signal an error if
 `no-error' is nil and `token' cannot be converted to a Lisp
 object. Otherwise, nil will be returned.")
-  (:method :around (syntax token &rest args &key no-error package quote read)
+  (:method :around (syntax (token t) &rest args &key no-error package quote read)
            ;; Ensure that every symbol that is READ will be looked up
            ;; in the correct package. Also handle quoting.
            (flet ((act ()
@@ -2479,8 +2498,13 @@ object. Otherwise, nil will be returned.")
   (declare (ignore no-error))
   (read-from-string (token-string syntax token)))
 
-(defmethod token-to-object (syntax (token quote-form) &rest args)
+(defmethod token-to-object (syntax (token complete-quote-form) &rest args)
   (apply #'token-to-object syntax (second (children token)) :quote t args))
+
+(defmethod token-to-object (syntax (token incomplete-quote-form) &rest args)
+  (declare (ignore args))
+  ;; Utterly arbitrary, but reasonable in my opinion.
+  '(quote))
 
 ;; I'm not sure backquotes are handled correctly, but then again,
 ;; `token-to-object' is not meant to be a perfect Lisp reader, only a
