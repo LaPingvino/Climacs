@@ -1424,7 +1424,8 @@ to find completions based on `string'."
         (funcall fn syntax
                  (if useful-token
                      (start-offset (fully-quoted-form token))
-                     (if (form-quoted-p token)
+                     (if (and (form-quoted-p token)
+                              (form-incomplete-p token))
                          (start-offset token)
                          (offset mark)))
                  (if useful-token

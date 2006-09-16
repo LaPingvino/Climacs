@@ -1565,6 +1565,12 @@ stripping leading non-forms."
 (defmethod form-operator (syntax (form list-form))
   (first-form (rest (children form))))
 
+(defmethod form-operator (syntax (form complete-quote-form))
+  (first-form (rest (children (second (children form))))))
+
+(defmethod form-operator (syntax (form complete-backquote-form))
+  (first-form (rest (children (second (children form))))))
+
 (defgeneric form-operands (syntax form)
   (:documentation "Returns the operands of `form' as a list of
   tokens. Returns nil if none can be found.")
@@ -1697,6 +1703,12 @@ the form that `token' quotes, peeling away all quote forms."
 (define-form-predicate form-quoted-p (quote-form backquote-form))
 
 (define-form-predicate comment-p (comment))
+
+(defgeneric form-at-top-level-p (form)
+  (:documentation "Return NIL if `form' is not a top-level-form,
+  T otherwise.")
+  (:method ((form t))
+    (typep (parent form) 'form*)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -2013,7 +2025,8 @@ after `string'."
   (loop for (first . rest) on children
      if (formp first)
      do
-       (cond ((< (start-offset first) offset (end-offset first))
+       (cond ((and (< (start-offset first) offset)
+                   (<= offset (end-offset first)))
               (return (if (null (children first))
                           nil
                           (form-before-in-children (children first) offset))))
