@@ -2025,8 +2025,7 @@ after `string'."
   (loop for (first . rest) on children
      if (formp first)
      do
-       (cond ((and (< (start-offset first) offset)
-                   (<= offset (end-offset first)))
+       (cond ((< (start-offset first) offset (end-offset first))
               (return (if (null (children first))
                           nil
                           (form-before-in-children (children first) offset))))
@@ -2034,8 +2033,12 @@ after `string'."
                    (or (null (first-form rest))
                        (<= offset (start-offset (first-form rest)))))
               (return (let ((potential-form
-                             (when (form-list-p first)
-                               (form-before-in-children (children first) offset))))
+                             (cond ((form-list-p first)
+                                    (form-before-in-children (children first) offset))
+                                   ((and (form-quoted-p first)
+                                         (not (form-incomplete-p first))
+                                         (form-list-p (second (children first))))
+                                    (form-before-in-children (children (second (children first))) offset)))))
                         (if (not (null potential-form))
                             (if (<= (end-offset first)
                                     (end-offset potential-form))

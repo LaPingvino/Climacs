@@ -493,13 +493,14 @@ argument. Return NIL if none can be found."
   ;; nested/destructuring argument lists such as those found in
   ;; macros.
   (labels ((recurse (candidate-form)
-             (when (parent candidate-form)
-               (if (and (direct-arg-p syntax (first-form (children candidate-form))
-                                      arg-form)
-                        (not (find-applicable-form syntax (first-form (children candidate-form)))))
-                   candidate-form
+             (if (and (direct-arg-p syntax (first-form (children candidate-form))
+                                    arg-form)
+                      (not (find-applicable-form syntax (first-form (children candidate-form)))))
+                 candidate-form
+                 (unless (form-at-top-level-p candidate-form)
                    (recurse (parent candidate-form))))))
-    (recurse (parent arg-form))))
+    (unless (form-at-top-level-p arg-form)
+      (recurse (parent arg-form)))))
 
 (defun relevant-keywords (arglist arg-indices)
   "Return a list of the keyword arguments that it would make
@@ -770,7 +771,8 @@ modification will be generated, respectively."
                        ;; If nothing else can be found, and `arg-form'
                        ;; is the operator of its enclosing form, we use
                        ;; the enclosing form.
-                       (when (eq (first-form (children (parent immediate-form))) immediate-form)
+                       (when (and (not (form-at-top-level-p immediate-form))
+                                  (eq (first-form (children (parent immediate-form))) immediate-form))
                          (parent immediate-form))))))
               ;; If we cannot find a form, there's no point in looking
               ;; up any of this stuff.
