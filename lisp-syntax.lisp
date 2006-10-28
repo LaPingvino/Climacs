@@ -2571,6 +2571,9 @@ object. Otherwise, nil will be returned.")
     (when (not (eval-feature-conditional conditional syntax))
       (token-to-object syntax (third-noncomment (children token))))))
 
+(defmethod token-to-object (syntax (token uninterned-symbol-form) &key)
+  (read-from-string (token-string syntax token)))
+
 (defmethod token-to-object (syntax (token undefined-reader-macro-form) &key)
   ;; ???
   nil)
