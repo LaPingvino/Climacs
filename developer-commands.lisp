@@ -43,7 +43,7 @@
 (define-gesture-name :select-other #+mcclim :pointer-button-press #-mcclim :pointer-button (:left :meta) :unique nil)
 
 (define-presentation-translator lisp-string-to-string
-    (climacs-lisp-syntax::lisp-string string development-table
+    (drei-lisp-syntax::lisp-string string development-table
                   :gesture :select-other
                   :tester-definitive t
                   :menu nil

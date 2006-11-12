@@ -240,7 +240,7 @@
                  (pushnew (cons from to)
                           edges :test #'equal))))))
         (possibly-capturing-and-flipping-output-twice
-            pane (typep pane 'climacs-pane)
+            pane (typep pane 'drei-pane)
           (format-graph-from-roots
            roots
            (lambda (node stream)
@@ -437,7 +437,7 @@
 
 (defparameter *slidemacs-gui-ink* +black+)
 
-(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax slidemacs-gui-syntax) current-p)
+(defmethod redisplay-pane-with-syntax ((pane drei-pane) (syntax slidemacs-gui-syntax) current-p)
   (with-drawing-options (pane :ink *slidemacs-gui-ink*)
     (with-slots (top bot point) pane
       (with-slots (lexer) syntax
@@ -530,11 +530,11 @@
   (full-redisplay (climacs-gui::current-window)))
 
 (define-command (com-first-talking-point :name t :command-table slidemacs-table) ()
-  (climacs-commands::com-beginning-of-buffer)
+  (drei-commands::com-beginning-of-buffer)
   (com-next-talking-point))
 
 (define-command (com-last-talking-point :name t :command-table slidemacs-table) ()
-  (climacs-commands::com-end-of-buffer)
+  (drei-commands::com-end-of-buffer)
   (com-previous-talking-point))
 
 (define-command (com-flip-slidemacs-syntax :name t :command-table slidemacs-table) ()
@@ -572,7 +572,7 @@
 
 (define-command (com-postscript-print-presentation :name t :command-table slidemacs-table) ()
   (let ((pane (climacs-gui::current-window)))
-    (if (not (and (typep pane 'climacs-pane)
+    (if (not (and (typep pane 'drei-pane)
                   (typep (syntax (buffer pane)) 'slidemacs-gui-syntax)))
         (beep)
         (let ((file (accept 'pathname :prompt "Output to")))

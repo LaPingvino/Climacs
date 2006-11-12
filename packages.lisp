@@ -26,325 +26,22 @@
 
 (in-package :cl-user)
 
-(defpackage :climacs-utils
-  (:use :clim-lisp)
-  (:export #:with-gensyms
-           #:once-only
-           #:unlisted
-           #:fully-unlisted
-           #:listed
-           #:list-aref))
-
-(defpackage :climacs-buffer
-  (:use :clim-lisp :flexichain :binseq)
-  (:export #:buffer #:standard-buffer
-	   #:mark #:left-sticky-mark #:right-sticky-mark
-	   #:standard-left-sticky-mark #:standard-right-sticky-mark
-	   #:clone-mark
-	   #:no-such-offset #:offset-before-beginning #:offset-after-end
-	   #:invalid-motion #:motion-before-beginning #:motion-after-end
-	   #:size #:number-of-lines
-	   #:offset #:mark< #:mark<= #:mark= #:mark> #:mark>=
-           #:forward-object
-           #:backward-object
-           #:forward-line-start #:backward-line-start
-           #:forward-line-end #:backward-line-end
-	   #:beginning-of-buffer #:end-of-buffer
-	   #:beginning-of-buffer-p #:end-of-buffer-p
-	   #:beginning-of-line #:end-of-line
-	   #:beginning-of-line-p #:end-of-line-p
-	   #:buffer-line-number #:buffer-column-number
-	   #:line-number #:column-number
-	   #:insert-buffer-object #:insert-buffer-sequence
-           #:buffer-substring
-	   #:insert-object #:insert-sequence
-	   #:delete-buffer-range #:delete-range
-	   #:delete-region
-	   #:buffer-object #:buffer-sequence
-	   #:object-before #:object-after #:region-to-sequence
-	   #:low-mark #:high-mark #:modified-p #:clear-modify
-	   #:binseq-buffer #:obinseq-buffer #:binseq2-buffer
-	   #:persistent-left-sticky-mark #:persistent-right-sticky-mark
-	   #:persistent-left-sticky-line-mark #:persistent-right-sticky-line-mark
-	   #:p-line-mark-mixin #:buffer-line-offset
-	   #:delegating-buffer #:implementation)
-  (:documentation "An implementation of the Climacs buffer
-  protocol. This package is quite low-level, not syntax-aware,
-  not CLIM-aware and not user-oriented at all."))
-
-(defpackage :climacs-kill-ring
-  (:use :clim-lisp :flexichain)
-  (:export #:kill-ring
-           #:empty-kill-ring
-           #:kill-ring-length #:kill-ring-max-size
-	   #:append-next-p
-	   #:reset-yank-position #:rotate-yank-position #:kill-ring-yank
-	   #:kill-ring-standard-push #:kill-ring-concatenating-push
-	   #:kill-ring-reverse-concatenating-push
-           #:*kill-ring*)
-  (:documentation "An implementation of a kill ring."))
-
-(defpackage :climacs-base
-  (:use :clim-lisp :climacs-buffer :climacs-kill-ring :esa-buffer :climacs-utils)
-  (:export #:as-offsets
-           #:do-buffer-region
-           #:do-buffer-region-lines
-	   #:previous-line #:next-line
-           #:open-line
-           #:delete-line
-           #:empty-line-p
-           #:line-indentation
-           #:buffer-display-column
-	   #:number-of-lines-in-region
-	   #:constituentp
-           #:just-n-spaces
-           #:move-to-column
-           #:buffer-whitespacep
-           #:buffer-region-case
-	   #:name-mixin #:name
-	   #:buffer-looking-at #:looking-at
-	   #:buffer-search-forward #:buffer-search-backward
-	   #:buffer-re-search-forward #:buffer-re-search-backward
-	   #:search-forward #:search-backward
-	   #:re-search-forward #:re-search-backward
-           #:downcase-buffer-region #:downcase-region
-           #:upcase-buffer-region #:upcase-region
-           #:capitalize-buffer-region #:capitalize-region
-           #:tabify-region #:untabify-region)
-  (:documentation "Basic functionality built on top of the buffer
- protocol. Here is where we define slightly higher level
- functions, that can be directly implemented in terms of the
- buffer protocol, but that are not, strictly speaking, part of
- that protocol. The functions in this package are not
- syntax-aware, and are thus limited in what they can do. They
- percieve the buffer as little more than a sequence of
- characters."))
-
-(defpackage :climacs-abbrev
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base)
-  (:export #:abbrev-expander #:dictionary-abbrev-expander #:dictionary
-	   #:expand-abbrev #:abbrev-mixin #:possibly-expand-abbrev
-	   #:add-abbrev))
-
-(defpackage :climacs-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :flexichain :climacs-utils)
-  (:export #:syntax #:define-syntax #:*default-syntax*
-           #:eval-option
-           #:define-option-for-syntax
-           #:current-attributes-for-syntax
-           #:make-attribute-line
-	   #:syntax-from-name
-	   #:update-syntax #:update-syntax-for-display
-	   #:grammar #:grammar-rule #:add-rule
-	   #:parser #:initial-state
-	   #:advance-parse
-	   #:parse-tree #:start-offset #:end-offset
-	   #:lexer #:nb-lexemes #:lexeme #:insert-lexeme
-	   #:incremental-lexer #:next-lexeme
-	   #:delete-invalid-lexemes #:inter-lexeme-object-p
-	   #:skip-inter-lexeme-objects #:update-lex
-	   #:parse-stack-top #:target-parse-tree #:parse-state-empty-p
-	   #:parse-stack-next #:parse-stack-symbol
-	   #:parse-stack-parse-trees #:map-over-parse-trees
-	   #:no-such-operation #:no-expression
-	   #:name-for-info-pane
-           #:display-syntax-name
-           #:syntax-line-indentation
-	   #:forward-expression #:backward-expression
-	   #:eval-defun
-	   #:beginning-of-definition #:end-of-definition
-	   #:redisplay-pane-with-syntax
-	   #:backward-paragraph #:forward-paragraph
-	   #:backward-sentence #:forward-sentence
-	   #:forward-list #:backward-list
-	   #:down-list #:up-list
-	   #:backward-down-list #:backward-up-list
-	   #:syntax-line-comment-string
-	   #:line-comment-region #:comment-region
-	   #:line-uncomment-region #:uncomment-region
-           #:word-constituentp
-           #:whitespacep
-           #:page-delimiter
-           #:paragraph-delimiter)
-  (:documentation "The Climacs syntax protocol. Contains
-  functions that can be used to implement higher-level operations
-  on buffer contents."))
-
-(defpackage :undo
-  (:use :clim-lisp)
-  (:export #:no-more-undo
-	   #:undo-tree #:standard-undo-tree
-	   #:undo-record #:standard-undo-record
-	   #:add-undo #:flip-undo-record #:undo #:redo))
-
-(defpackage :climacs-pane
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base :climacs-abbrev
-	:climacs-syntax :flexichain :undo :esa-buffer :esa-io :climacs-utils)
-  (:export #:climacs-buffer #:needs-saving
-	   #:filepath #:file-saved-p #:file-write-time
-	   #:read-only-p #:buffer-read-only
-	   #:climacs-pane #:point #:mark
-           #:clear-cache
-	   #:redisplay-pane #:full-redisplay
-	   #:display-cursor
-	   #:display-region
-           #:offset-to-screen-position
-	   #:page-down #:page-up
-	   #:top #:bot
-           #:tab-space-count #:space-width #:tab-width
-           #:indent-tabs-mode
-           #:auto-fill-mode #:auto-fill-column
-           #:isearch-state #:search-string #:search-mark
-           #:search-forward-p #:search-success-p
-           #:isearch-mode #:isearch-states #:isearch-previous-string
-           #:query-replace-state #:string1 #:string2 #:buffers #:mark
-           #:query-replace-mode
-	   #:region-visible-p
-	   #:with-undo
-	   #:url
-	   #:climacs-textual-view #:+climacs-textual-view+))
-
-(defpackage :climacs-motion
-  (:use :clim-lisp :climacs-base :climacs-buffer :climacs-syntax)
-  (:export #:forward-to-word-boundary #:backward-to-word-boundary
-           #:define-motion-fns
-           #:beep-limit-action #:revert-limit-action #:error-limit-action
-           #:motion-limit-error
-           #:make-diligent-motor
-
-           ;; Lines
-           #:forward-one-line
-           #:backward-one-line
-           #:forward-line
-           #:backward-line
-
-           ;; Words
-           #:forward-one-word
-           #:backward-one-word
-           #:forward-word
-           #:backward-word
-
-           ;; Pages
-           #:forward-one-page
-           #:backward-one-page
-           #:forward-page
-           #:backward-page
-
-           ;; Expressions
-           #:forward-one-expression
-           #:backward-one-expression
-           #:forward-expression
-           #:backward-expression
-
-           ;; Definitions
-           #:forward-one-definition
-           #:backward-one-definition
-           #:forward-definition
-           #:backward-definition
-
-           ;; Up
-           #:forward-one-up
-           #:backward-one-up
-           #:forward-up
-           #:backward-up
-
-           ;; Down
-           #:forward-one-down
-           #:backward-one-down
-           #:forward-down
-           #:backward-down
-
-           ;; Paragraphs
-           #:forward-one-paragraph
-           #:backward-one-paragraph
-           #:forward-paragraph
-           #:backward-paragraph
-
-           ;; Sentences
-           #:forward-one-sentence
-           #:backward-one-sentence
-           #:forward-sentence
-           #:backward-sentence)
-  (:documentation "Functions and facilities for moving a mark
-  around by syntactical elements. The functions in this package
-  are syntax-aware, and their behavior is based on the semantics
-  defined by the syntax of the buffer, that the mark they are
-  manipulating belong to. These functions are also directly used
-  to implement the motion commands."))
-
-(defpackage :climacs-editing
-  (:use :clim-lisp :climacs-base :climacs-buffer
-        :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring)
-  (:export #:transpose-objects
-           
-           ;; Lines
-           #:forward-delete-line #:backward-delete-line
-           #:forward-kill-line #:backward-kill-line
-           #:transpose-lines
-           #:forward-delete-line-start #:backward-delete-line-start
-           #:forward-kill-line-start #:backward-kill-line-start
-           #:transpose-line-starts
-           
-           ;; Words
-           #:forward-delete-word #:backward-delete-word
-           #:forward-kill-word #:backward-kill-word
-           #:transpose-words
-
-           ;; Pages
-           #:forward-delete-page #:backward-delete-page
-           #:forward-kill-page #:backward-kill-page
-           #:transpose-page
-           
-           ;; Expressions
-           #:forward-delete-expression #:backward-delete-expression
-           #:forward-kill-expression #:backward-kill-expression
-           #:transpose-expressions
-
-           ;; Definitions
-           #:forward-delete-definition #:backward-delete-definition
-           #:forward-kill-definition #:backward-kill-definition
-           #:transpose-definitions
-
-           ;; Paragraphs
-           #:forward-delete-paragraph #:backward-delete-paragraph
-           #:forward-kill-paragraph #:backward-kill-paragraph
-           #:transpose-paragraphs
-
-           ;; Sentences
-           #:forward-delete-sentence #:backward-delete-sentence
-           #:forward-kill-sentence #:backward-kill-sentence
-           #:transpose-sentences)
-  (:documentation "Functions and facilities for changing the
-  buffer contents by syntactical elements. The functions in this package
-  are syntax-aware, and their behavior is based on the semantics
-  defined by the syntax of the buffer, that the mark they are
-  manipulating belong to. These functions are also directly used
-  to implement the editing commands."))
-
-(defpackage :climacs-fundamental-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane)
-  (:export #:fundamental-syntax))
-
 (defpackage :climacs-gui
-    (:use :clim-lisp :clim :climacs-buffer :climacs-base
-          :climacs-abbrev :climacs-syntax :climacs-motion
-          :climacs-kill-ring :climacs-pane :clim-extensions
-          :undo :esa :climacs-editing :climacs-motion :esa-buffer :esa-io)
+    (:use :clim-lisp :clim :drei-buffer :drei-base
+          :drei-abbrev :drei-syntax :drei-motion
+          :drei-kill-ring :drei :clim-extensions
+          :drei-undo :esa :drei-editing :drei-motion
+          :esa-buffer :esa-io :esa-utils)
     ;;(:import-from :lisp-string)
     (:export #:climacs                  ; Frame.
 
-             #:extended-pane
+             #:climacs-buffer #:external-format
+             #:climacs-pane
              #:climacs-info-pane
              #:typeout-pane
              #:kill-ring
            
              ;; GUI functions follow.
-             #:current-window
-             #:current-point
-             #:current-buffer
-             #:current-point
-             #:current-mark
              #:any-buffer
              #:point
              #:syntax
@@ -352,7 +49,6 @@
              #:buffers
              #:active-group
              #:groups
-             #:insert-character
              #:display-window
              #:split-window
              #:typeout-window
@@ -368,53 +64,26 @@
              #:*mini-bg-color*
              #:*mini-fg-color*
              #:*with-scrollbars*
+             #:*default-external-format*
 
              ;; The command tables
              #:global-climacs-table #:keyboard-macro-table #:climacs-help-table
-             #:base-table #:buffer-table #:case-table #:comment-table
-             #:deletion-table #:development-table #:editing-table
-             #:fill-table #:indent-table #:info-table #:marking-table
-             #:movement-table #:pane-table #:search-table #:self-insert-table
-             #:window-table
-
-             ;; Other stuff
-             #:dabbrev-expansion-mark
-             #:original-prefix
-             #:prefix-start-offset
-             #:overwrite-mode
-             #:goal-column
-             ))
+             #:base-table #:buffer-table #:case-table 
+              #:development-table
+              #:info-table #:pane-table
+             #:window-table))
 
 (defpackage :climacs-core
-  (:use :clim-lisp :climacs-base :climacs-buffer :climacs-fundamental-syntax
-        :climacs-syntax :climacs-motion :climacs-pane :climacs-kill-ring
-        :climacs-editing :climacs-gui :clim :climacs-abbrev :esa :esa-buffer :esa-io
-        :climacs-utils)
+  (:use :clim-lisp :drei-base :drei-buffer :drei-fundamental-syntax
+        :drei-syntax :drei-motion :drei :drei-kill-ring
+        :drei-editing :climacs-gui :clim :drei-abbrev :esa :esa-buffer :esa-io
+        :esa-utils :drei-core :flexi-streams)
   (:export #:display-string
            #:object-equal
            #:object=
            #:no-upper-p
            #:case-relevant-test
            
-           #:goto-position
-           #:goto-line
-
-           #:possibly-fill-line
-           #:insert-character
-           #:back-to-indentation
-           #:delete-horizontal-space
-           #:indent-current-line
-           #:insert-pair
-
-           #:downcase-word #:upcase-word #:capitalize-word
- 
-           #:indent-region
-           #:fill-line #:fill-region
-
-           #:indent-line #:delete-indentation
-
-           #:set-syntax
-
            #:switch-to-buffer
            #:make-new-buffer
            #:make-new-named-buffer
@@ -434,16 +103,6 @@
            #:input-from-stream
            #:save-buffer-to-stream
            #:make-buffer-from-stream
-
-           #:*killed-rectangle*
-           #:map-rectangle-lines
-           #:extract-and-delete-rectangle-line
-           #:insert-rectangle-at-mark
-           #:clear-rectangle-line
-           #:open-rectangle-line
-           #:replace-rectangle-line
-           #:insert-in-rectangle-line
-           #:delete-rectangle-line-whitespace
 
            #:group
            #:group-element
@@ -467,40 +126,31 @@
   application, but are not solely GUI-specific."))
 
 (defpackage :climacs-commands
-  (:use :clim-lisp :clim :climacs-base :climacs-buffer
-        :climacs-syntax :climacs-motion :climacs-editing
-        :climacs-gui :esa :climacs-kill-ring :climacs-pane
-        :climacs-abbrev :undo :climacs-core)
-  (:export #:define-motion-commands
-           #:define-deletion-commands
-           #:define-editing-commands)
+  (:use :clim-lisp :clim :drei-base :drei-buffer
+        :drei-syntax :drei-motion :drei-editing
+        :climacs-gui :esa :drei-kill-ring :drei
+        :drei-abbrev :drei-undo :climacs-core :drei-core)
   (:documentation "This package is meant to contain Climacs'
   command definitions, as well as some useful automatic
   command-defining facilities."))
 
 (defpackage :climacs-html-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-syntax :flexichain :climacs-pane :climacs-fundamental-syntax))
+  (:use :clim-lisp :clim :drei-buffer :drei-base
+	:drei-syntax :flexichain :drei :drei-fundamental-syntax))
 
 (defpackage :climacs-prolog-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base
-	:climacs-syntax :flexichain :climacs-pane :climacs-core :climacs-fundamental-syntax)
+  (:use :clim-lisp :clim :drei-buffer :drei-base
+	:drei-syntax :flexichain :drei :climacs-core :drei-fundamental-syntax
+        :drei)
   (:shadow #:atom #:close #:exp #:integer #:open #:variable))
 
 (defpackage :climacs-cl-syntax
-  (:use :clim-lisp :clim :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane :climacs-fundamental-syntax)
+  (:use :clim-lisp :clim :drei-buffer :drei-base 
+	:drei-syntax :flexichain :drei :drei-fundamental-syntax)
   (:export))
 
-(defpackage :climacs-lisp-syntax
-  (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
-	:climacs-syntax :climacs-fundamental-syntax :flexichain :climacs-pane :climacs-gui
-        :climacs-motion :climacs-editing :climacs-core :climacs-utils)
-  (:export #:lisp-string
-           #:edit-definition))
-
 (defpackage :climacs
-  (:use :clim-lisp :clim :clim-sys :clim-extensions :climacs-gui)
+  (:use :clim-lisp :clim :clim-sys :clim-extensions :climacs-gui :drei)
   (:export #:climacs
            #:climacs-rv
            #:edit-definition)

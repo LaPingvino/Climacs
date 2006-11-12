@@ -28,17 +28,52 @@
 
 (in-package :climacs-gui)
 
-(defclass extended-pane (climacs-pane esa-pane-mixin)
-  (;; for next-line and previous-line commands
-   (goal-column :initform nil :accessor goal-column)
-   ;; for dynamic abbrev expansion
-   (original-prefix :initform nil :accessor original-prefix)
-   (prefix-start-offset :initform nil :accessor prefix-start-offset)
-   (dabbrev-expansion-mark :initform nil :accessor dabbrev-expansion-mark)
-   (overwrite-mode :initform nil :accessor overwrite-mode)))
+(defvar *default-external-format* :utf-8
+  "The encoding to use by default when reading and saving
+files.")
+
+(defvar *with-scrollbars* t
+  "If T, classic look and feel. If NIL, stripped-down look (:")
+
+(defvar *show-info-pane-mark-position* nil
+  "If T, show the line number and column number in the info pane
+  of all panes. If NIL, don't. This is off by default, as finding
+  the line and column numbers is potentially expensive.")
+
+(defclass climacs-buffer (drei-buffer)
+  ((%external-format :initform *default-external-format*
+                     :accessor external-format
+                     :documentation "The external format that was
+used when reading the source destination of the buffer
+contents.")))
+
+(defclass climacs-pane (drei-pane esa-pane-mixin)
+  ()
+  (:default-initargs
+   :buffer (make-instance 'climacs-buffer)
+    :command-table 'global-climacs-table
+    :width 900 :height 400))
+
+;; Ensure that only one pane can be active.
+(defmethod (setf active) :after ((new-val (eql t)) (climacs-pane climacs-pane))
+  (mapcar #'(lambda (pane)
+              (unless (eq climacs-pane pane)
+                (setf (active pane) nil)))
+          (windows (pane-frame climacs-pane))))
+
+(defmethod command-table ((drei climacs-pane))
+  (command-table (pane-frame drei)))
 
 (defclass typeout-pane (application-pane esa-pane-mixin)
-  ())
+  ((%active :accessor active
+            :initform nil
+            :initarg :active)))
+
+(defmethod buffer ((pane typeout-pane)))
+
+(defmethod point ((pane typeout-pane)))
+
+(defmethod mark ((pane typeout-pane)))
 
 (defmethod full-redisplay ((pane typeout-pane)))
 
@@ -49,29 +84,35 @@
   (declare (ignore pane))
   nil)
 
-(defmethod buffer-pane-p ((pane extended-pane))
+(defmethod buffer-pane-p ((pane climacs-pane))
   t)
+
+(defmethod in-focus-p ((pane climacs-pane))
+  (eq pane (first (windows *application-frame*))))
+
+(defvar *info-bg-color* +gray85+)
+(defvar *info-fg-color* +black+)
+(defvar *mini-bg-color* +white+)
+(defvar *mini-fg-color* +black+)
 
 (defclass climacs-info-pane (info-pane)
   ()
   (:default-initargs
       :height 20 :max-height 20 :min-height 20
       :display-function 'display-info
-      :incremental-redisplay t))
+      :incremental-redisplay t
+      :background *info-bg-color*
+      :foreground *info-fg-color*
+      :width 900))
 
 (defclass climacs-minibuffer-pane (minibuffer-pane)
   ()
   (:default-initargs
-      :height 20 :max-height 20 :min-height 20
-      :default-view +climacs-textual-view+))
-
-(defparameter *with-scrollbars* t
-  "If T, classic look and feel. If NIL, stripped-down look (:")
-
-(defparameter *show-info-pane-mark-position* nil
-  "If T, show the line number and column number in the info pane
-  of all panes. If NIL, don't. This is off by default, as finding
-  the line and column numbers is potentially expensive.")
+   :height 20 :max-height 20 :min-height 20
+   :default-view +drei-textual-view+
+   :background *mini-bg-color*
+   :foreground *mini-fg-color*
+   :width 900))
 
 ;;; Basic command tables follow. The global command table,
 ;;; `global-climacs-table', inherits from these, so they should not
@@ -83,35 +124,13 @@
 
 ;;; Basic functionality
 (make-command-table 'base-table :errorp nil)
-;;; buffers
+;;; Buffers
 (make-command-table 'buffer-table :errorp nil)
-;;; case
-(make-command-table 'case-table :errorp nil)
-;;; comments
-(make-command-table 'comment-table :errorp nil)
-;;; deleting
-(make-command-table 'deletion-table :errorp nil)
-;;; commands used for climacs development
+;;; Commands used for climacs development
 (make-command-table 'development-table :errorp nil)
-;;; editing - making changes to a buffer
-(make-command-table 'editing-table :errorp nil)
-;;; filling
-(make-command-table 'fill-table :errorp nil)
-;;; indentation
-(make-command-table 'indent-table :errorp nil)
-;;; information about the buffer
-(make-command-table 'info-table :errorp nil)
-;;; marking things
-(make-command-table 'marking-table :errorp nil)
-;;; moving around
-(make-command-table 'movement-table :errorp nil)
-;;; panes
+;;; Panes
 (make-command-table 'pane-table :errorp nil)
-;;; searching
-(make-command-table 'search-table :errorp nil)
-;;; self-insertion
-(make-command-table 'self-insert-table :errorp nil)
-;;; windows
+;;; Windows
 (make-command-table 'window-table :errorp nil)
 
 ;;; customization of help.  FIXME: this might be better done by having
@@ -121,9 +140,9 @@
 (make-command-table 'climacs-help-table :inherit-from '(help-table)
                     :errorp nil)
 
-;; We have a special command table for typeout panes because we want
-;; to keep being able to do window, buffer, etc, management, but we do
-;; not want any actual editing commands.
+;;; We have a special command table for typeout panes because we want
+;;; to keep being able to do window, buffer, etc, management, but we do
+;;; not want any actual editing commands.
 (make-command-table 'typeout-pane-table
                     :errorp nil
                     :inherit-from '(global-esa-table
@@ -133,71 +152,52 @@
                                     development-table
                                     climacs-help-table))
 
-(defvar *bg-color* +white+)
-(defvar *fg-color* +black+)
-(defvar *info-bg-color* +gray85+)
-(defvar *info-fg-color* +black+)
-(defvar *mini-bg-color* +white+)
-(defvar *mini-fg-color* +black+)
+(defclass climacs-command-table (standard-command-table)
+  ())
 
-(define-application-frame climacs (standard-application-frame
-				   esa-frame-mixin)
-  ((buffers :initform '() :accessor buffers)
-   (groups :initform (make-hash-table :test #'equal) :accessor groups)
-   (active-group :initform nil :accessor active-group)
-   (kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring))
+(defmethod command-table-inherit-from ((table climacs-command-table))
+  (append (when *current-syntax* (list (command-table *current-syntax*)))
+          '(global-climacs-table)
+          (call-next-method)))
+
+(define-application-frame climacs (esa-frame-mixin
+				   standard-application-frame)
+  ((%buffers :initform '() :accessor buffers)
+   (%groups :initform (make-hash-table :test #'equal) :accessor groups)
+   (%active-group :initform nil :accessor active-group)
+   (%kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring)
+   (%command-table :initform (make-instance 'climacs-command-table
+                                            :name 'climacs-dispatching-table)
+                   :accessor find-applicable-command-table))
   (:command-table (global-climacs-table
-		   :inherit-from (global-esa-table
-                                  esa-io-table
-				  keyboard-macro-table
-				  climacs-help-table
-				  base-table
-				  buffer-table
-				  case-table
-				  comment-table
-				  deletion-table
-				  development-table
-				  editing-table
-				  fill-table
-				  indent-table
-				  info-table
-				  marking-table
-				  movement-table
-				  pane-table
-				  search-table
-				  self-insert-table
-				  window-table)))
+                   :inherit-from (esa-io-table
+                                  keyboard-macro-table
+                                  climacs-help-table
+                                  base-table
+                                  buffer-table
+                                  case-table
+                                  development-table
+                                  info-table
+                                  pane-table
+                                  window-table
+                                  editor-table
+                                  global-esa-table)))
   (:menu-bar nil)
   (:panes
    (climacs-window
-    (let* ((extended-pane 
-	    (make-pane 'extended-pane
-		       :width 900 :height 400
-		       :end-of-line-action :scroll
-		       :incremental-redisplay t
-		       :background *bg-color*
-		       :foreground *fg-color*
-		       :display-function 'display-window
-		       :command-table 'global-climacs-table))
-	   (info-pane
-	    (make-pane 'climacs-info-pane
-		       :master-pane extended-pane
-		       :background *info-bg-color*
-		       :foreground *info-fg-color*
-		       :width 900)))
-      (setf (windows *application-frame*) (list extended-pane)
-	    (buffers *application-frame*) (list (buffer extended-pane)))
-	  
+    (let* ((climacs-pane (make-pane 'climacs-pane
+                                    :active t))
+	   (info-pane (make-pane 'climacs-info-pane
+                                 :master-pane climacs-pane)))
+      (setf (windows *application-frame*) (list climacs-pane)
+	    (buffers *application-frame*) (list (buffer climacs-pane)))
       (vertically ()
 	(if *with-scrollbars*
 	    (scrolling ()
-	      extended-pane)
-	    extended-pane)
+	      climacs-pane)
+	    climacs-pane)
 	info-pane)))
-   (minibuffer (make-pane 'climacs-minibuffer-pane
-			  :background *mini-bg-color*
-			  :foreground *mini-fg-color*
-			  :width 900)))
+   (minibuffer (make-pane 'climacs-minibuffer-pane)))
   (:layouts
    (default
        (vertically (:scroll-bars nil)
@@ -207,23 +207,22 @@
                  (let ((*kill-ring* (kill-ring frame)))
                    (esa-top-level frame :prompt "M-x "))))))
 
+(define-esa-top-level ((frame climacs) command-parser
+                       command-unparser
+                       partial-command-parser
+                       prompt)
+    :bindings ((*current-point* (current-point))
+               (*current-mark* (current-mark))
+               (*previous-command* (previous-command *current-window*))
+               (*current-syntax* (and *current-buffer*
+                                      (syntax *current-buffer*)))))
+
 (defmethod frame-standard-input ((frame climacs))
   (get-frame-pane frame 'minibuffer))
 
-(defun current-window ()
-  (car (windows *application-frame*)))
-
-(defun current-point ()
-  "Return the current panes point."
-  (point (current-window)))
-
-(defun current-mark ()
-  "Return the current panes mark."
-  (mark (current-window)))
-
 (defmethod frame-current-buffer ((application-frame climacs))
   "Return the current buffer."
-  (buffer (car (windows application-frame))))
+  (buffer (frame-current-window application-frame)))
 
 (defun any-buffer ()
   "Return some buffer, any buffer, as long as it is a buffer!"
@@ -296,59 +295,24 @@
 		 "")
 	     pane))))
 
-(defun display-window (frame pane)
-  "The display function used by the climacs application frame."
-  (redisplay-pane pane (eq pane (car (windows frame)))))
-
-(defmethod handle-repaint :before ((pane extended-pane) region)
-  (declare (ignore region))
-  (redisplay-frame-pane *application-frame* pane))
+(defmethod execute-drei-command ((drei-instance climacs-pane) command)
+  (execute-frame-command (pane-frame drei-instance) command))
 
 (defmethod execute-frame-command :around ((frame climacs) command)
-  (let ((current-window (car (windows frame))))
-    (handler-case
-        (progn
-          (if (buffer-pane-p current-window)
-              (with-undo ((buffers frame))
-                (call-next-method))
-              (call-next-method))
-          (loop for buffer in (buffers frame)
-                do (when (modified-p buffer)
-                     (clear-modify buffer))))
-      (offset-before-beginning ()
-        (beep) (display-message "Beginning of buffer"))
-      (offset-after-end ()
-        (beep) (display-message "End of buffer"))
-      (motion-before-beginning ()
-        (beep) (display-message "Beginning of buffer"))
-      (motion-after-end ()
-        (beep) (display-message "End of buffer"))
-      (no-expression ()
-        (beep) (display-message "No expression around point"))
-      (no-such-operation ()
-        (beep) (display-message "Operation unavailable for syntax"))
-      (buffer-read-only ()
-        (beep) (display-message "Buffer is read only")))))
+  (handling-drei-conditions
+    (with-undo ((buffers frame))
+      (call-next-method))
+    (loop for buffer in (buffers frame)
+       do (when (modified-p buffer)
+            (clear-modify buffer)))))
 
 (defmethod execute-frame-command :after ((frame climacs) command)
   (when (eq frame *application-frame*)
     (loop for buffer in (buffers frame)
-          do (when (syntax buffer)
-               (update-syntax buffer (syntax buffer)))
-          do (when (modified-p buffer)
-               (setf (needs-saving buffer) t)))))
-
-(defmethod find-applicable-command-table ((frame climacs))
-  (cond ((typep (current-window) 'typeout-pane)
-         (find-command-table 'typeout-pane-table))
-        ((buffer-pane-p (current-window))
-         (or (let ((syntax (syntax (buffer (current-window)))))
-               ;; Why all this absurd checking? Smells fishy.
-               (and (slot-exists-p syntax 'command-table)
-                    (slot-boundp syntax 'command-table)
-                    (slot-value syntax 'command-table)
-                    (find-command-table (slot-value syntax 'command-table))))
-             (find-command-table 'global-climacs-table)))))
+       do (when (syntax buffer)
+            (update-syntax buffer (syntax buffer)))
+       do (when (modified-p buffer)
+            (setf (needs-saving buffer) t)))))
 
 (define-command (com-full-redisplay :name t :command-table base-table) ()
   "Redisplay the contents of the current window.
@@ -358,18 +322,6 @@ FIXME: does this really have that effect?"
 (set-key 'com-full-redisplay
 	 'base-table
 	 '((#\l :control)))
-
-(define-command com-self-insert ((count 'integer))
-  (loop repeat count do (insert-character *current-gesture*)))
-
-(loop for code from (char-code #\Space) to (char-code #\~)
-      do (set-key `(com-self-insert ,*numeric-argument-marker*)
-	     'self-insert-table
-	     (list (list (code-char code)))))
-
-(set-key `(com-self-insert ,*numeric-argument-marker*)
-	 'self-insert-table
-	 '((#\Newline)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -426,41 +378,30 @@ info pane as its second child.  The scroller pane contains a viewport
 which contains an extended pane.  Return the vbox and the extended pane
 as two values.
 If with-scrollbars nil, omit the scroller."
-  (let* ((extended-pane
-	  (make-pane 'extended-pane
-		     :width 900 :height 400
-		     :name 'window
-		     :end-of-line-action :scroll
-		     :incremental-redisplay t
-		     :background *bg-color*
-		     :foreground *fg-color*
-		     :display-function 'display-window
-		     :command-table 'global-climacs-table))
+  (let* ((climacs-pane
+	  (make-pane 'climacs-pane :name 'window))
 	 (vbox
 	  (vertically ()
 	    (if with-scrollbars
 		(scrolling ()
-		  extended-pane)
-		extended-pane)
+		  climacs-pane)
+		climacs-pane)
 	    (make-pane 'climacs-info-pane
-		       :background *info-bg-color*
-		       :foreground *info-fg-color*
-		       :master-pane extended-pane
-		       :width 900))))
-    (values vbox extended-pane)))
+                       :master-pane climacs-pane))))
+    (values vbox climacs-pane)))
 
 (defgeneric setup-split-pane (orig-pane new-pane)
   (:documentation "Perform split-setup operations `new-pane',
-  which is supposed to be a pane that has been freshly split from
-  `orig-pane'."))
+which is supposed to be a pane that has been freshly split from
+`orig-pane'."))
 
-(defmethod setup-split-pane ((orig-pane extended-pane) (new-pane extended-pane))
+(defmethod setup-split-pane ((orig-pane climacs-pane) (new-pane climacs-pane))
   (setf (offset (point (buffer orig-pane))) (offset (point orig-pane))
         (buffer new-pane) (buffer orig-pane)
         (auto-fill-mode new-pane) (auto-fill-mode orig-pane)
         (auto-fill-column new-pane) (auto-fill-column orig-pane)))
 
-(defmethod setup-split-pane ((orig-pane typeout-pane) (new-pane extended-pane))
+(defmethod setup-split-pane ((orig-pane typeout-pane) (new-pane climacs-pane))
   (setf (buffer new-pane) (any-buffer)))
 
 (defun split-window (&optional (vertically-p nil) (pane (current-window)))
@@ -471,6 +412,7 @@ If with-scrollbars nil, omit the scroller."
 	     (constellation-root (find-parent current-window)))
         (setup-split-pane current-window new-pane)
 	(push new-pane (windows *application-frame*))
+        (setf (active new-pane) t)
 	(setf *standard-output* new-pane)
 	(replace-constellation constellation-root vbox vertically-p)
 	(full-redisplay current-window)
@@ -479,7 +421,7 @@ If with-scrollbars nil, omit the scroller."
 
 (defun make-typeout-constellation (&optional label)
   (let* ((typeout-pane
-	  (make-pane 'typeout-pane :foreground *fg-color* :background *bg-color*
+	  (make-pane 'typeout-pane :foreground *foreground-color* :background *background-color*
                      :width 900 :height 400 :display-time nil :name label))
 	 (label
 	  (make-pane 'label-pane :label label))
@@ -537,12 +479,12 @@ be created."
             (append (list pane)
                     (remove pane (windows *application-frame*))))
       (setf (windows *application-frame*)
-            (append (cdr (windows *application-frame*))
-                    (list (car (windows *application-frame*))))))
-  (setf *standard-output* (car (windows *application-frame*))))
+            (append (rest (windows *application-frame*))
+                    (list (first (windows *application-frame*))))))
+  (setf (active (first (windows *application-frame*))) t)
+  (setf *standard-output* (first (windows *application-frame*))))
 
 ;;; For the ESA help functions.
 
 (defmethod help-stream ((frame climacs) title)
   (typeout-window (format nil "~10T~A" title)))
-

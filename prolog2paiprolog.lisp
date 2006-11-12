@@ -53,13 +53,13 @@
     buffer))
 
 (defun buffer->paiprolog (buffer) 
-  (let ((lexemes (climacs-syntax::lexemes (lexer (syntax buffer))))
+  (let ((lexemes (drei-syntax::lexemes (lexer (syntax buffer))))
         (expressions '()))
     (dotimes (i (flexichain:nb-elements lexemes) (nreverse expressions))
       (let ((lexeme (flexichain:element* lexemes i)))
         (when (typep lexeme 'end-lexeme)
           (with-hash-table-iterator 
-              (next-entry (climacs-syntax::parse-trees (slot-value lexeme 'state)))
+              (next-entry (drei-syntax::parse-trees (slot-value lexeme 'state)))
             (loop
              (multiple-value-bind (more from-state items) 
                  (next-entry)

@@ -697,20 +697,21 @@
 
 (defun handle-whitespace (pane buffer start end)
   (let ((space-width (space-width pane))
-	(tab-width (tab-width pane)))
-    (loop while (< start end)
-	  do (ecase (buffer-object buffer start)
-	       (#\Newline (terpri pane)
-			  (setf (aref *cursor-positions* (incf *current-line*))
-				(multiple-value-bind (x y) (stream-cursor-position pane)
-				  (declare (ignore x))
-				  y)))
-	       (#\Space (stream-increment-cursor-position
-			 pane space-width 0))
-	       (#\Tab (let ((x (stream-cursor-position pane)))
-			(stream-increment-cursor-position
-			 pane (- tab-width (mod x tab-width)) 0))))
-	     (incf start))))		    
+        (tab-width (tab-width pane)))
+    (with-sheet-medium (medium pane)
+      (with-accessors ((cursor-positions cursor-positions)) (syntax buffer)
+        (loop while (< start end)
+           do (case (buffer-object buffer start)
+                (#\Newline (record-line-vertical-offset pane (syntax buffer) (incf *current-line*))
+                           (terpri pane)
+                           (stream-increment-cursor-position
+                            pane (first (aref cursor-positions 0)) 0))
+                ((#\Page #\Return #\Space) (stream-increment-cursor-position
+                                            pane space-width 0))
+                (#\Tab (let ((x (stream-cursor-position pane)))
+                         (stream-increment-cursor-position
+                          pane (- tab-width (mod x tab-width)) 0))))
+           (incf start))))))		    
 
 (defmethod display-parse-tree :around ((entity html-parse-tree) syntax pane)
   (with-slots (top bot) pane
@@ -762,42 +763,42 @@
 	(display-parse-stack (parse-stack-symbol top) top syntax pane)
 	(display-parse-tree (target-parse-tree state) syntax pane))))
 
-(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax html-syntax) current-p)
+(defmethod display-drei-contents ((pane clim-stream-pane) (drei drei) (syntax html-syntax))
   (with-slots (top bot) pane
-     (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
-	   *current-line* 0
-	   (aref *cursor-positions* 0) (stream-cursor-position pane))
-     (with-slots (lexer) syntax
-	(let ((average-token-size (max (float (/ (size (buffer pane)) (nb-lexemes lexer)))
-				       1.0)))
-	  ;; find the last token before bot
-	  (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
-	    ;; go back to a token before bot
-	    (loop until (mark<= (end-offset (lexeme lexer (1- end-token-index))) bot)
-		  do (decf end-token-index))
-	    ;; go forward to the last token before bot
-	    (loop until (or (= end-token-index (nb-lexemes lexer))
-			    (mark> (start-offset (lexeme lexer end-token-index)) bot))
-		  do (incf end-token-index))
-	    (let ((start-token-index end-token-index))
-	      ;; go back to the first token after top, or until the previous token
-	      ;; contains a valid parser state
-	      (loop until (or (mark<= (end-offset (lexeme lexer (1- start-token-index))) top)
-			      (not (parse-state-empty-p 
-				    (slot-value (lexeme lexer (1- start-token-index)) 'state))))
-		    do (decf start-token-index))
-	      (let ((*white-space-start* (offset top)))
-		;; display the parse tree if any
-		(unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
-		  (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
-				       syntax
-				       pane))
-		;; display the lexemes
-		(with-drawing-options (pane :ink +red+)
-		  (loop while (< start-token-index end-token-index)
-			do (let ((token (lexeme lexer start-token-index)))
-			     (display-parse-tree token syntax pane))
-			   (incf start-token-index))))))))
-     (when (region-visible-p pane) (display-region pane syntax))
-     (display-cursor pane syntax current-p)))
-	    
+    (with-accessors ((cursor-positions cursor-positions)) syntax
+      (setf cursor-positions (make-array (1+ (number-of-lines-in-region top bot))
+                                         :initial-element nil)
+            *current-line* 0
+            (aref cursor-positions 0) (multiple-value-list
+                                       (stream-cursor-position pane))))
+    (setf *white-space-start* (offset top))
+    (with-slots (lexer) syntax
+      (let ((average-token-size (max (float (/ (size (buffer pane)) (nb-lexemes lexer)))
+                                     1.0)))
+        ;; find the last token before bot
+        (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
+          ;; go back to a token before bot
+          (loop until (mark<= (end-offset (lexeme lexer (1- end-token-index))) bot)
+             do (decf end-token-index))
+          ;; go forward to the last token before bot
+          (loop until (or (= end-token-index (nb-lexemes lexer))
+                          (mark> (start-offset (lexeme lexer end-token-index)) bot))
+             do (incf end-token-index))
+          (let ((start-token-index end-token-index))
+            ;; go back to the first token after top, or until the previous token
+            ;; contains a valid parser state
+            (loop until (or (mark<= (end-offset (lexeme lexer (1- start-token-index))) top)
+                            (not (parse-state-empty-p 
+                                  (slot-value (lexeme lexer (1- start-token-index)) 'state))))
+               do (decf start-token-index))
+            ;; display the parse tree if any
+            (unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
+              (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
+                                   syntax
+                                   pane))
+            ;; display the lexemes
+            (with-drawing-options (pane :ink +red+)
+              (loop while (< start-token-index end-token-index)
+                 do (let ((token (lexeme lexer start-token-index)))
+                      (display-parse-tree token syntax pane))
+                 (incf start-token-index)))))))))

@@ -99,10 +99,10 @@
 				     name))))))))
 
 (define-presentation-method present (object (type pathname)
-                                            stream (view climacs-textual-view) &key)
+                                            stream (view drei-textual-view) &key)
   (princ (namestring object) stream))
 
-(define-presentation-method accept ((type pathname) stream (view climacs-textual-view)
+(define-presentation-method accept ((type pathname) stream (view drei-textual-view)
                                     &key (default nil defaultp) (default-type type))
   (multiple-value-bind (pathname success string)
       (complete-input stream

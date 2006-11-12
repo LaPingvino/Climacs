@@ -52,7 +52,7 @@
 ;;;       Right stickies at non whitespace characters preceeded by space and punctuation.
 ;;;       
 
-(in-package :climacs-syntax) ;;; Put this in a separate package once it works
+(in-package :drei-syntax) ;;; Put this in a separate package once it works
 
 (defun index-of-mark-after-offset (flexichain offset)
   "Searches for the mark after `offset' in the marks stored in `flexichain'."
@@ -65,7 +65,7 @@
             (setf low-position (floor (+ low-position 1 high-position) 2)))
      finally (return low-position)))
 
-(define-syntax text-syntax (climacs-fundamental-syntax:fundamental-syntax)
+(define-syntax text-syntax (drei-fundamental-syntax:fundamental-syntax)
   ((paragraphs :initform (make-instance 'standard-flexichain))
    (sentence-beginnings :initform (make-instance 'standard-flexichain))
    (sentence-endings :initform (make-instance 'standard-flexichain)))
@@ -197,7 +197,7 @@
   (loop with indentation = 0
         with mark2 = (clone-mark mark)
         until (beginning-of-buffer-p mark2)
-        do (climacs-motion:backward-line mark2 syntax)
+        do (drei-motion:backward-line mark2 syntax)
            (setf indentation (line-indentation mark2 tab-width))
         while (empty-line-p mark2)
         finally (return indentation)))

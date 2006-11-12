@@ -77,18 +77,18 @@
 
 (defclass start-lexeme (prolog-lexeme) ())
 
-(defgeneric display-parse-tree (entity syntax pane))
+(defgeneric display-parse-tree (entity syntax stream drei))
 
 (defclass layout-text (prolog-nonterminal)
   ((comment :initarg :comment :accessor comment :initform nil)
    (cont :initarg :cont :accessor cont)))
 (defmethod display-parse-tree
-    ((entity layout-text) (syntax prolog-syntax) pane)
+    ((entity layout-text) (syntax prolog-syntax) (stream extended-output-stream) (drei drei))
   (when (cont entity)
-    (display-parse-tree (cont entity) syntax pane))
+    (display-parse-tree (cont entity) syntax stream drei))
   (when (comment entity)
-    (with-drawing-options (pane :ink (make-rgb-color 0.7 0.0 0.0))
-      (display-parse-tree (comment entity) syntax pane))))
+    (with-drawing-options (stream :ink (make-rgb-color 0.7 0.0 0.0))
+      (display-parse-tree (comment entity) syntax stream drei))))
 
 (defgeneric syntactic-lexeme (thing))
 (defmethod syntactic-lexeme ((lexeme prolog-lexeme))
@@ -103,12 +103,12 @@
                           ((layout-text :initarg :layout-text :accessor layout-text :initform nil)
                            (syntactic-lexeme :initarg :syntactic-lexeme :accessor syntactic-lexeme)))
                         (defmethod display-parse-tree
-                            ((entity ,name) (syntax prolog-syntax) pane)
+                            ((entity ,name) (syntax prolog-syntax) (stream extended-output-stream) (drei drei))
                           (when (layout-text entity)
                             (display-parse-tree
-                             (layout-text entity) syntax pane))
+                             (layout-text entity) syntax stream drei))
                           (display-parse-tree
-                           (syntactic-lexeme entity) syntax pane))
+                           (syntactic-lexeme entity) syntax stream drei))
                         (define-prolog-rule (,name -> (,(f name)))
                           (make-instance ',name :syntactic-lexeme ,(f name)))
                         (define-prolog-rule (,name -> (layout-text ,(f name)))
@@ -143,8 +143,9 @@
 ;;; expression here.
 (defclass open-ct (prolog-nonterminal)
   ((syntactic-lexeme :initarg :syntactic-lexeme :accessor syntactic-lexeme)))
-(defmethod display-parse-tree ((entity open-ct) (syntax prolog-syntax) pane)
-  (display-parse-tree (syntactic-lexeme entity) syntax pane))
+(defmethod display-parse-tree ((entity open-ct) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (syntactic-lexeme entity) syntax stream drei))
 (define-prolog-rule (open-ct -> (open-ct-lexeme))
   (make-instance 'open-ct :syntactic-lexeme open-ct-lexeme))
 
@@ -409,18 +410,21 @@
    (text-rest :initarg :text-rest :accessor text-rest)))
 
 (defmethod display-parse-tree
-    ((entity empty-prolog-text) (syntax prolog-syntax) pane)
-  (declare (ignore pane))
+    ((entity empty-prolog-text) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (declare (ignore stream drei))
   nil)
 (defmethod display-parse-tree
-    ((entity clause-prolog-text) (syntax prolog-syntax) pane)
-  (display-parse-tree (text-rest entity) syntax pane)
-  (display-parse-tree (clause entity) syntax pane))
+    ((entity clause-prolog-text) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (text-rest entity) syntax stream drei)
+  (display-parse-tree (clause entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity directive-prolog-text) (syntax prolog-syntax) pane)
-  (display-parse-tree (text-rest entity) syntax pane)
-  (with-text-face (pane :italic)
-    (display-parse-tree (directive entity) syntax pane)))
+    ((entity directive-prolog-text) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (text-rest entity) syntax stream drei)
+  (with-text-face (stream :italic)
+    (display-parse-tree (directive entity) syntax stream drei)))
 
 (defclass directive (prolog-nonterminal)
   ((directive-term :initarg :directive-term :accessor directive-term)
@@ -433,19 +437,23 @@
 (defclass clause-term (prolog-nonterminal)
   ((term :initarg :term :accessor term)))
 
-(defmethod display-parse-tree ((entity directive) (syntax prolog-syntax) pane)
-  (with-text-face (pane :italic)
-    (display-parse-tree (directive-term entity) syntax pane))
-  (display-parse-tree (end entity) syntax pane))
+(defmethod display-parse-tree ((entity directive) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (with-text-face (stream :italic)
+    (display-parse-tree (directive-term entity) syntax stream drei))
+  (display-parse-tree (end entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity directive-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (term entity) syntax pane))
-(defmethod display-parse-tree ((entity clause) (syntax prolog-syntax) pane)
-  (display-parse-tree (clause-term entity) syntax pane)
-  (display-parse-tree (end entity) syntax pane))
+    ((entity directive-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (term entity) syntax stream drei))
+(defmethod display-parse-tree ((entity clause) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (clause-term entity) syntax stream drei)
+  (display-parse-tree (end entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity clause-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (term entity) syntax pane))
+    ((entity clause-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (term entity) syntax stream drei))
 
 (defgeneric functor (term))
 (defgeneric arity (term))
@@ -514,57 +522,67 @@
   2)
 
 (defmethod display-parse-tree
-    ((entity constant-term) (syntax prolog-syntax) pane)
+    ((entity constant-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
   ;; FIXME: this is so not the right thing.
   (cond
     ((consp (value entity))
-     (display-parse-tree (first (value entity)) syntax pane)
-     (display-parse-tree (second (value entity)) syntax pane))
-    (t (display-parse-tree (value entity) syntax pane))))
+     (display-parse-tree (first (value entity)) syntax stream drei)
+     (display-parse-tree (second (value entity)) syntax stream drei))
+    (t (display-parse-tree (value entity) syntax stream drei))))
 (defmethod display-parse-tree 
-    ((entity variable-term) (syntax prolog-syntax) pane)
-  (with-drawing-options (pane :ink (make-rgb-color 0.7 0.7 0.0))
-    (display-parse-tree (name entity) syntax pane)))
+    ((entity variable-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (with-drawing-options (stream :ink (make-rgb-color 0.7 0.7 0.0))
+    (display-parse-tree (name entity) syntax stream drei)))
 (defmethod display-parse-tree 
-    ((entity functional-compound-term) (syntax prolog-syntax) pane)
-  (with-drawing-options (pane :ink (make-rgb-color 0.9 0 0.9))
-    (display-parse-tree (functor entity) syntax pane))
-  (display-parse-tree (open-ct entity) syntax pane)
-  (display-parse-tree (arg-list entity) syntax pane)
-  (display-parse-tree (close entity) syntax pane))
+    ((entity functional-compound-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (with-drawing-options (stream :ink (make-rgb-color 0.9 0 0.9))
+    (display-parse-tree (functor entity) syntax stream drei))
+  (display-parse-tree (open-ct entity) syntax stream drei)
+  (display-parse-tree (arg-list entity) syntax stream drei)
+  (display-parse-tree (close entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity bracketed-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (open entity) syntax pane)
-  (display-parse-tree (term entity) syntax pane)
-  (display-parse-tree (close entity) syntax pane))
+    ((entity bracketed-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (open entity) syntax stream drei)
+  (display-parse-tree (term entity) syntax stream drei)
+  (display-parse-tree (close entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity binary-operator-compound-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (left entity) syntax pane)
-  (display-parse-tree (operator entity) syntax pane)
-  (display-parse-tree (right entity) syntax pane))
+    ((entity binary-operator-compound-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (left entity) syntax stream drei)
+  (display-parse-tree (operator entity) syntax stream drei)
+  (display-parse-tree (right entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity prefix-operator-compound-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (operator entity) syntax pane)
-  (display-parse-tree (right entity) syntax pane))
+    ((entity prefix-operator-compound-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (operator entity) syntax stream drei)
+  (display-parse-tree (right entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity postfix-operator-compound-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (left entity) syntax pane)
-  (display-parse-tree (operator entity) syntax pane))
+    ((entity postfix-operator-compound-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (left entity) syntax stream drei)
+  (display-parse-tree (operator entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity list-compound-term) (syntax prolog-syntax) pane)
-  (with-drawing-options (pane :ink (make-rgb-color 0.0 0.0 0.8))
-    (display-parse-tree ([ entity) syntax pane)
-    (display-parse-tree (items entity) syntax pane)
-    (display-parse-tree (] entity) syntax pane)))
+    ((entity list-compound-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (with-drawing-options (stream :ink (make-rgb-color 0.0 0.0 0.8))
+    (display-parse-tree ([ entity) syntax stream drei)
+    (display-parse-tree (items entity) syntax stream drei)
+    (display-parse-tree (] entity) syntax stream drei)))
 (defmethod display-parse-tree
-    ((entity curly-compound-term) (syntax prolog-syntax) pane)
-  (display-parse-tree ({ entity) syntax pane)
-  (display-parse-tree (term entity) syntax pane)
-  (display-parse-tree (} entity) syntax pane))
+    ((entity curly-compound-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree ({ entity) syntax stream drei)
+  (display-parse-tree (term entity) syntax stream drei)
+  (display-parse-tree (} entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity char-code-list-compound-term) (syntax prolog-syntax) pane)
-  (with-drawing-options (pane :ink (make-rgb-color 0.0 0.6 0.0))
-    (display-parse-tree (ccl entity) syntax pane)))
+    ((entity char-code-list-compound-term) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (with-drawing-options (stream :ink (make-rgb-color 0.0 0.6 0.0))
+    (display-parse-tree (ccl entity) syntax stream drei)))
 
 (defclass atom (prolog-nonterminal)
   ((value :initarg :value :accessor value)))
@@ -591,15 +609,18 @@
 (defmethod canonical-name ((thing curly-brackets))
   ;; FIXME: see comment in CANONICAL-NAME (EMPTY-LIST)
   "{}")
-(defmethod display-parse-tree ((entity atom) (syntax prolog-syntax) pane)
-  (display-parse-tree (value entity) syntax pane))
-(defmethod display-parse-tree ((entity empty-list) (syntax prolog-syntax) pane)
-  (display-parse-tree ([ entity) syntax pane)
-  (display-parse-tree (] entity) syntax pane))
+(defmethod display-parse-tree ((entity atom) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (value entity) syntax stream drei))
+(defmethod display-parse-tree ((entity empty-list) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree ([ entity) syntax stream drei)
+  (display-parse-tree (] entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity curly-brackets) (syntax prolog-syntax) pane)
-  (display-parse-tree ({ entity) syntax pane)
-  (display-parse-tree (} entity) syntax pane))
+    ((entity curly-brackets) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree ({ entity) syntax stream drei)
+  (display-parse-tree (} entity) syntax stream drei))
 
 (defclass arg-list (prolog-nonterminal)
   ((exp :initarg :exp :accessor exp)))
@@ -617,13 +638,15 @@
       (exp a)
       (arg-list-nth (1- n) (arg-list a))))
 
-(defmethod display-parse-tree ((entity arg-list) (syntax prolog-syntax) pane)
-  (display-parse-tree (exp entity) syntax pane))
+(defmethod display-parse-tree ((entity arg-list) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (exp entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity arg-list-pair) (syntax prolog-syntax) pane)
-  (display-parse-tree (exp entity) syntax pane)
-  (display-parse-tree (comma entity) syntax pane)
-  (display-parse-tree (arg-list entity) syntax pane))
+    ((entity arg-list-pair) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (exp entity) syntax stream drei)
+  (display-parse-tree (comma entity) syntax stream drei)
+  (display-parse-tree (arg-list entity) syntax stream drei))
 
 (defclass exp (prolog-nonterminal) ())
 (defclass exp-atom (exp)
@@ -631,10 +654,12 @@
 (defclass exp-term (exp)
   ((term :initarg :term :accessor term)))
 
-(defmethod display-parse-tree ((entity exp-atom) (syntax prolog-syntax) pane)
-  (display-parse-tree (atom entity) syntax pane))
-(defmethod display-parse-tree ((entity exp-term) (syntax prolog-syntax) pane)
-  (display-parse-tree (term entity) syntax pane))
+(defmethod display-parse-tree ((entity exp-atom) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (atom entity) syntax stream drei))
+(defmethod display-parse-tree ((entity exp-term) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (term entity) syntax stream drei))
 
 (defclass lterm (term)
   ((term :initarg :term :accessor term)))
@@ -645,8 +670,9 @@
 (defmethod arity ((l lterm))
   (arity (term l)))
 
-(defmethod display-parse-tree ((entity lterm) (syntax prolog-syntax) pane)
-  (display-parse-tree (term entity) syntax pane))
+(defmethod display-parse-tree ((entity lterm) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (term entity) syntax stream drei))
 
 ;;; FIXME: the need for these is because it is a protocol violation to
 ;;; create nested nonterminals from one rule.
@@ -671,18 +697,21 @@
   1)
 
 (defmethod display-parse-tree
-    ((entity binary-operator-compound-lterm) (syntax prolog-syntax) pane)
-  (display-parse-tree (left entity) syntax pane)
-  (display-parse-tree (operator entity) syntax pane)
-  (display-parse-tree (right entity) syntax pane))
+    ((entity binary-operator-compound-lterm) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (left entity) syntax stream drei)
+  (display-parse-tree (operator entity) syntax stream drei)
+  (display-parse-tree (right entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity prefix-operator-compound-lterm) (syntax prolog-syntax) pane)
-  (display-parse-tree (operator entity) syntax pane)
-  (display-parse-tree (right entity) syntax pane))
+    ((entity prefix-operator-compound-lterm) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (operator entity) syntax stream drei)
+  (display-parse-tree (right entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity postfix-operator-compound-lterm) (syntax prolog-syntax) pane)
-  (display-parse-tree (left entity) syntax pane)
-  (display-parse-tree (operator entity) syntax pane))
+    ((entity postfix-operator-compound-lterm) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (left entity) syntax stream drei)
+  (display-parse-tree (operator entity) syntax stream drei))
 
 (defclass op (prolog-nonterminal)
   ((name :initarg :name :accessor name)
@@ -694,8 +723,9 @@
 (defclass binary-op (op) ())
 (defclass postfix-op (op) ())
 
-(defmethod display-parse-tree ((entity op) (syntax prolog-syntax) pane)
-  (display-parse-tree (name entity) syntax pane))
+(defmethod display-parse-tree ((entity op) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (name entity) syntax stream drei))
 
 (defclass items (prolog-nonterminal)
   ((exp :initarg :exp :accessor exp)))
@@ -706,18 +736,21 @@
   ((comma :initarg :comma :accessor comma)
    (tlist :initarg :tlist :accessor tlist)))
 
-(defmethod display-parse-tree ((entity items) (syntax prolog-syntax) pane)
-  (display-parse-tree (exp entity) syntax pane))
+(defmethod display-parse-tree ((entity items) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (display-parse-tree (exp entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity items-pair) (syntax prolog-syntax) pane)
-  (display-parse-tree (exp entity) syntax pane)
-  (display-parse-tree (htsep entity) syntax pane)
-  (display-parse-tree (texp entity) syntax pane))
+    ((entity items-pair) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (exp entity) syntax stream drei)
+  (display-parse-tree (htsep entity) syntax stream drei)
+  (display-parse-tree (texp entity) syntax stream drei))
 (defmethod display-parse-tree
-    ((entity items-list) (syntax prolog-syntax) pane)
-  (display-parse-tree (exp entity) syntax pane)
-  (display-parse-tree (comma entity) syntax pane)
-  (display-parse-tree (tlist entity) syntax pane))
+    ((entity items-list) (syntax prolog-syntax)
+     (stream extended-output-stream) (drei drei))
+  (display-parse-tree (exp entity) syntax stream drei)
+  (display-parse-tree (comma entity) syntax stream drei)
+  (display-parse-tree (tlist entity) syntax stream drei))
 
 ;;; FIXME FIXME FIXME!!!
 ;;;
@@ -1093,7 +1126,7 @@
 
 (defmethod update-syntax-for-display (buffer (syntax prolog-syntax) top bot)
   (with-slots (parser lexer valid-parse) syntax
-    (with-slots (climacs-syntax::lexemes valid-lex) lexer
+    (with-slots (drei-syntax::lexemes valid-lex) lexer
       (let ((scan (clone-mark (low-mark buffer) :left))
 	    (high-mark (high-mark buffer)))
         (setf (offset scan)
@@ -1115,12 +1148,12 @@
 			  (setf valid-lex (nb-lexemes lexer))
 			  (return-from relex))
 			 (t
-			  (delete* climacs-syntax::lexemes valid-lex))))))
+			  (delete* drei-syntax::lexemes valid-lex))))))
 	      do (let* ((start-mark (clone-mark scan))
 			(lexeme (next-lexeme lexer scan))
 			(size (- (offset scan) (offset start-mark))))
-		   (setf (slot-value lexeme 'climacs-syntax::start-mark) start-mark
-			 (slot-value lexeme 'climacs-syntax::size) size)
+		   (setf (slot-value lexeme 'drei-syntax::start-mark) start-mark
+			 (slot-value lexeme 'drei-syntax::size) size)
 		   (insert-lexeme lexer valid-lex lexeme)
 		   (incf valid-lex)))
 	;; remove lexemes which we know to be invalid.
@@ -1131,7 +1164,7 @@
 	;; for now, simply assume that the VALID-LEX from above is
 	;; definitive.
 	(loop until (= (nb-lexemes lexer) valid-lex)
-	      do (delete* climacs-syntax::lexemes valid-lex)))
+	      do (delete* drei-syntax::lexemes valid-lex)))
       ;; parse up to the limit of validity imposed by the lexer, or
       ;; the bottom of the visible area, whichever comes sooner
       ;;
@@ -1159,13 +1192,13 @@
       ;; this bit really belongs in a method on a superclass --
       ;; something like incremental-lexer.
       (when (mark<= low-mark high-mark)
-	(with-slots (climacs-syntax::lexemes valid-lex)
+	(with-slots (drei-syntax::lexemes valid-lex)
 	    lexer
 	  (let ((start 1)
-		(end (nb-elements climacs-syntax::lexemes)))
+		(end (nb-elements drei-syntax::lexemes)))
 	    (loop while (< start end)
 		  do (let ((middle (floor (+ start end) 2)))
-		       (if (mark< (end-offset (element* climacs-syntax::lexemes middle))
+		       (if (mark< (end-offset (element* drei-syntax::lexemes middle))
 				  low-mark)
 			   (setf start (1+ middle))
 			   (setf end middle))))
@@ -1192,26 +1225,28 @@
   (let ((space-width (space-width pane))
 	(tab-width (tab-width pane)))
     (loop while (< start end)
-	  do (ecase (buffer-object buffer start)
-	       (#\Newline (terpri pane)
-			  (setf (aref *cursor-positions* (incf *current-line*))
-				(multiple-value-bind (x y) (stream-cursor-position pane)
-				  (declare (ignore x))
-				  y)))
-	       (#\Space (stream-increment-cursor-position
-			 pane space-width 0))
-	       (#\Tab (let ((x (stream-cursor-position pane)))
-			(stream-increment-cursor-position
-			 pane (- tab-width (mod x tab-width)) 0))))
-	     (incf start))))		    
+       do (case (buffer-object buffer start)
+	    (#\Newline (terpri pane)
+                       (stream-increment-cursor-position
+                        pane (first (aref *cursor-positions* *current-line*)) 0)
+		       (setf (aref *cursor-positions* (incf *current-line*))
+			     (multiple-value-list (stream-cursor-position pane))))
+	    ((#\Page #\Return #\Space) (stream-increment-cursor-position
+                                        pane space-width 0))
+	    (#\Tab (let ((x (stream-cursor-position pane)))
+		     (stream-increment-cursor-position
+		      pane (- tab-width (mod x tab-width)) 0))))
+       (incf start))))		    
 
-(defmethod display-parse-tree :around ((entity prolog-parse-tree) syntax pane)
-  (with-slots (top bot) pane
+(defmethod display-parse-tree :around ((entity prolog-parse-tree) (syntax prolog-syntax)
+                                       (stream extended-output-stream) (drei drei))
+  (with-slots (top bot) drei
      (when (and (end-offset entity) (mark> (end-offset entity) top))
        (call-next-method))))
 
-(defmethod display-parse-tree ((entity prolog-token) (syntax prolog-syntax) pane)
-  (with-slots (top bot) pane
+(defmethod display-parse-tree ((entity prolog-token) (syntax prolog-syntax)
+                               (stream extended-output-stream) (drei drei))
+  (with-slots (top bot) drei
     (let ((string (coerce (buffer-sequence (buffer syntax)
 					   (start-offset entity)
 					   (end-offset entity))
@@ -1219,21 +1254,21 @@
       (flet ((cache-test (t1 t2)
 	       (and (eq t1 t2)
 		    (eq (slot-value t1 'ink)
-			(medium-ink (sheet-medium pane)))
+			(medium-ink (sheet-medium stream)))
 		    (eq (slot-value t1 'face)
-			(text-style-face (medium-text-style (sheet-medium pane))))
+			(text-style-face (medium-text-style (sheet-medium stream))))
 		    (eq (slot-value t1 'start)
 			(max 0 (- (offset top) (start-offset entity))))
 		    (eq (slot-value t1 'end)
 			(- (length string)
 			   (max 0 (- (end-offset entity) (offset bot))))))))
-	(updating-output (pane :unique-id entity
-			       :id-test #'eq
-			       :cache-value entity
-			       :cache-test #'cache-test)
+	(updating-output (stream :unique-id entity
+                                 :id-test #'eq
+                                 :cache-value entity
+                                 :cache-test #'cache-test)
           (with-slots (ink face start end) entity
-	    (setf ink (medium-ink (sheet-medium pane))
-		  face (text-style-face (medium-text-style (sheet-medium pane)))
+	    (setf ink (medium-ink (sheet-medium stream))
+		  face (text-style-face (medium-text-style (sheet-medium stream)))
 		  start (max 0 (- (offset top) (start-offset entity)))
 		  end (- (length string)
 			 (max 0 (- (end-offset entity) (offset bot)))))
@@ -1246,84 +1281,84 @@
 			  (lambda (x) (member x '(#\Tab #\Newline)))
 			  string :start start :end end)))
 		 (unless nl
-		   (present (subseq string start end) 'string :stream pane)
+		   (present (subseq string start end) 'string :stream stream)
 		   (return))
-		 (present (subseq string start nl) 'string :stream pane)
-		 (handle-whitespace pane (buffer pane)
+		 (present (subseq string start nl) 'string :stream stream)
+		 (handle-whitespace stream (buffer drei)
 				    (+ (start-offset entity) nl)
 				    (+ (start-offset entity) nl 1))
 		 (setf start (+ nl 1)))))))))))
 
-(defmethod display-parse-tree :before ((entity prolog-token) (syntax prolog-syntax) pane)
-  (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
+(defmethod display-parse-tree :before ((entity prolog-token) (syntax prolog-syntax)
+                                       (stream extended-output-stream) (drei drei))
+  (handle-whitespace stream (buffer drei) *white-space-start* (start-offset entity))
   (setf *white-space-start* (end-offset entity)))
 
-(defgeneric display-parse-stack (symbol stack syntax pane))
+(defgeneric display-parse-stack (symbol stack syntax stream drei))
 
-(defmethod display-parse-stack (symbol stack (syntax prolog-syntax) pane)
+(defmethod display-parse-stack (symbol stack (syntax prolog-syntax)
+                                (stream extended-output-stream) (drei drei))
   (let ((next (parse-stack-next stack)))
     (unless (null next)
-      (display-parse-stack (parse-stack-symbol next) next syntax pane))
+      (display-parse-stack (parse-stack-symbol next) next syntax stream drei))
     (loop for parse-tree in (reverse (parse-stack-parse-trees stack))
-	  do (display-parse-tree parse-tree syntax pane))))  
+	  do (display-parse-tree parse-tree syntax stream drei))))  
 
-(defun display-parse-state (state syntax pane)
+(defun display-parse-state (state syntax stream drei)
   (let ((top (parse-stack-top state)))
     (if (not (null top))
-	(display-parse-stack (parse-stack-symbol top) top syntax pane)
-	(display-parse-tree (target-parse-tree state) syntax pane))))
+	(display-parse-stack (parse-stack-symbol top) top syntax stream drei)
+	(display-parse-tree (target-parse-tree state) syntax stream drei))))
 
 (defun nb-valid-lexemes (lexer)
   (slot-value lexer 'valid-lex))
 
-(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax prolog-syntax) current-p)
-  (with-slots (top bot) pane
-     (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
-	   *current-line* 0
-	   (aref *cursor-positions* 0) (stream-cursor-position pane))
-     (with-slots (lexer) syntax
-	(let ((average-token-size (max (float (/ (size (buffer pane)) (nb-valid-lexemes lexer)))
-				       1.0)))
-	  ;; find the last token before bot
-	  (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
-	    ;; go back to a token before bot
-	    (loop until (mark<= (end-offset (lexeme lexer (1- end-token-index))) bot)
-		  do (decf end-token-index))
-	    ;; go forward to the last token before bot
-	    (loop until (or (= end-token-index (nb-valid-lexemes lexer))
-			    (mark> (start-offset (lexeme lexer end-token-index)) bot))
-		  do (incf end-token-index))
-	    (let ((start-token-index end-token-index))
-	      ;; go back to the first token after top, or until the previous token
-	      ;; contains a valid parser state
-	      (loop until (or (mark<= (end-offset (lexeme lexer (1- start-token-index))) top)
-			      (not (parse-state-empty-p 
-				    (slot-value (lexeme lexer (1- start-token-index)) 'state))))
-		    do (decf start-token-index))
-	      (let ((*white-space-start* (offset top)))
-		;; display the parse tree if any
-		(unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
-		  (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
-				       syntax
-				       pane))
-		;; display the lexemes
-		(with-drawing-options (pane :ink +red+)
-		  (loop while (< start-token-index end-token-index)
-			do (let ((token (lexeme lexer start-token-index)))
-			     (display-parse-tree token syntax pane))
-			   (incf start-token-index))))))))
-     (when (region-visible-p pane) (display-region pane syntax))
-     (display-cursor pane syntax current-p)))
+(defmethod display-drei-contents ((stream extended-output-stream) (drei drei) (syntax prolog-syntax))
+  (with-slots (top bot) drei
+    (with-accessors ((cursor-positions cursor-positions)) syntax
+      (setf cursor-positions (make-array (1+ (number-of-lines-in-region top bot)))
+            *current-line* 0
+            (aref cursor-positions 0) (multiple-value-list (stream-cursor-position stream))))
+    (with-slots (lexer) syntax
+      (let ((average-token-size (max (float (/ (size (buffer drei)) (nb-valid-lexemes lexer)))
+                                     1.0)))
+        ;; find the last token before bot
+        (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
+          ;; go back to a token before bot
+          (loop until (mark<= (end-offset (lexeme lexer (1- end-token-index))) bot)
+             do (decf end-token-index))
+          ;; go forward to the last token before bot
+          (loop until (or (= end-token-index (nb-valid-lexemes lexer))
+                          (mark> (start-offset (lexeme lexer end-token-index)) bot))
+             do (incf end-token-index))
+          (let ((start-token-index end-token-index))
+            ;; go back to the first token after top, or until the previous token
+            ;; contains a valid parser state
+            (loop until (or (mark<= (end-offset (lexeme lexer (1- start-token-index))) top)
+                            (not (parse-state-empty-p 
+                                  (slot-value (lexeme lexer (1- start-token-index)) 'state))))
+               do (decf start-token-index))
+            (let ((*white-space-start* (offset top)))
+              ;; display the parse tree if any
+              (unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
+                (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
+                                     syntax stream drei))
+              ;; display the lexemes
+              (with-drawing-options (stream :ink +red+)
+                (loop while (< start-token-index end-token-index)
+                   do (let ((token (lexeme lexer start-token-index)))
+                        (display-parse-tree token syntax stream drei))
+                   (incf start-token-index))))))))))
 
 #|
 (climacs-gui::define-named-command com-inspect-lex ()
-  (with-slots (lexer) (slot-value (buffer (climacs-gui::current-window)) 'climacs-syntax::syntax)
+  (with-slots (lexer) (slot-value (buffer (climacs-gui::current-window)) 'drei-syntax::syntax)
     (let ((*standard-input* *query-io*)
 	  (*standard-output* *query-io*))
       (inspect lexer))))
 
 (climacs-gui::define-named-command com-inspect-parse ()
-  (with-slots (parser) (slot-value (buffer (climacs-gui::current-window)) 'climacs-syntax::syntax)
+  (with-slots (parser) (slot-value (buffer (climacs-gui::current-window)) 'drei-syntax::syntax)
     (let ((*standard-input* *query-io*)
 	  (*standard-output* *query-io*))
       (inspect parser))))

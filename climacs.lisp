@@ -46,8 +46,8 @@
   ;; SBCL doesn't inherit dynamic bindings when starting new
   ;; processes, so start a new processes and THEN setup the colors.
   (flet ((run ()
-           (let ((*bg-color* +black+)
-                 (*fg-color* +gray+)
+           (let ((*background-color* +black+)
+                 (*foreground-color* +gray+)
                  (*info-bg-color* +darkslategray+)
                  (*info-fg-color* +gray+)
                  (*mini-bg-color* +black+)

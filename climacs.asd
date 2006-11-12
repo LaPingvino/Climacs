@@ -29,105 +29,31 @@
 
 (defparameter *climacs-directory* (directory-namestring *load-truename*))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun find-swank-package ()
-    (find-package :swank))
-  (defun find-swank-system ()
-    (handler-case (asdf:find-system :swank)
-      (asdf:missing-component ())))
-  (defun find-swank ()
-    (or (find-swank-package)
-        (find-swank-system))))
-
 (defsystem :climacs
-  :depends-on (:mcclim :flexichain :esa #.(if (find-swank-system) :swank (values)))
+  :depends-on (:mcclim :flexichain)
   :components
-  ((:module "cl-automaton"
-	    :components ((:file "automaton-package")
-			 (:file "eqv-hash" :depends-on ("automaton-package"))
-			 (:file "state-and-transition" :depends-on ("eqv-hash"))
-			 (:file "automaton" :depends-on ("state-and-transition" "eqv-hash"))
-			 (:file "regexp" :depends-on ("automaton"))))
-   (:module "Persistent"
-            :components ((:file "binseq-package")
-                         (:file "binseq" :depends-on ("binseq-package"))
-                         (:file "obinseq" :depends-on ("binseq-package" "binseq"))
-                         (:file "binseq2" :depends-on ("binseq-package" "obinseq" "binseq"))))
-
-   (:file "packages" :depends-on ("cl-automaton" "Persistent"))
-   (:file "utils" :depends-on ("packages"))
-   (:file "buffer" :depends-on ("packages"))
-   (:file "motion" :depends-on ("packages" "buffer" "syntax"))
-   (:file "editing" :depends-on ("packages" "buffer" "syntax" "motion" "kill-ring"))
-   (:file "persistent-buffer"
-          :pathname #p"Persistent/persistent-buffer.lisp"
-          :depends-on ("packages" "buffer" "Persistent"))
-
-   (:file "base" :depends-on ("packages" "utils" "buffer" "persistent-buffer" "kill-ring"))
-   (:file "abbrev" :depends-on ("packages" "buffer" "base"))
-   (:file "syntax" :depends-on ("packages" "utils" "buffer" "base"))
-   (:file "text-syntax" :depends-on ("packages" "base" "buffer" "syntax" "motion"))
-   (:file "delegating-buffer" :depends-on ("packages" "buffer"))
-   (:file "kill-ring" :depends-on ("packages"))
-   (:file "undo" :depends-on ("packages"))
-   (:file "persistent-undo"
-          :pathname #p"Persistent/persistent-undo.lisp"
-          :depends-on ("packages" "buffer" "persistent-buffer" "undo"))
-   (:file "pane" :depends-on ("packages" "utils" "syntax" "buffer" "base"
-                                         "persistent-undo" "persistent-buffer" "abbrev"
-                                         "delegating-buffer" "undo"))
-   (:file "fundamental-syntax" :depends-on ("packages" "syntax" "buffer" "pane"
-                                                       "base"))
-   (:file "cl-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
-   (:file "html-syntax" :depends-on ("packages" "buffer" "syntax" "base" "pane"))
-   (:file "prolog-syntax" :depends-on ("packages" "base" "syntax" "pane" "buffer"))
+  ((:file "packages")
+   (:file "text-syntax" :depends-on ("packages"))
+   (:file "cl-syntax" :depends-on ("packages"))
+   (:file "html-syntax" :depends-on ("packages"))
+   (:file "prolog-syntax" :depends-on ("packages"))
    (:file "prolog2paiprolog" :depends-on ("prolog-syntax"))
-   (:file "ttcn3-syntax" :depends-on ("packages" "buffer" "syntax" "base"
-						 "pane"))
-   (:file "lisp-syntax" :depends-on ("packages" "utils" "syntax" "buffer" "base" "pane"
-						"window-commands" "gui" "groups"))
-   (:file "lisp-syntax-swine" :depends-on ("lisp-syntax"))
-   (:file "lisp-syntax-commands" :depends-on ("lisp-syntax-swine" "motion-commands"
-                                                                  "editing-commands" "misc-commands"))
-   #.(if (find-swank)
-         '(:file "lisp-syntax-swank" :depends-on ("lisp-syntax"))
-         (values))
-   (:file "gui" :depends-on ("packages" "utils" "syntax" "base" "buffer" "undo" "pane"
-                                        "kill-ring" "text-syntax"
-					"abbrev" "editing" "motion"))
-   (:file "io" :depends-on ("packages" "gui"))
+   (:file "ttcn3-syntax" :depends-on ("packages"))
+   (:file "climacs-lisp-syntax" :depends-on ("core" #+nil groups))
+   (:file "climacs-lisp-syntax-commands" :depends-on ("climacs-lisp-syntax" "misc-commands"))
+   (:file "gui" :depends-on ("packages" "text-syntax"))
    (:file "core" :depends-on ("gui"))
-   (:file "rectangle" :depends-on ("core"))
-   (:file "groups" :depends-on ("core"))
+   (:file "io" :depends-on ("packages" "gui"))
+   #+nil (:file "groups" :depends-on ("core"))
    (:file "climacs" :depends-on ("gui" "core"))
-;;    (:file "buffer-commands" :depends-on ("gui"))
-   (:file "developer-commands" :depends-on ("gui" "lisp-syntax" "core"))
-   (:file "motion-commands" :depends-on ("gui" "core"))
-   (:file "editing-commands" :depends-on ("gui" "core"))
+   (:file "developer-commands" :depends-on ("core"))
+  
    (:file "file-commands" :depends-on ("gui" "core"))
-   (:file "misc-commands" :depends-on ("gui" "core" "rectangle" "groups"))
-   (:file "search-commands" :depends-on ("gui" "core"))
+   (:file "misc-commands" :depends-on ("gui" "core" #+nil "groups"))
+   (:file "search-commands" :depends-on ("gui" "core" #+nil "groups"))
    (:file "window-commands" :depends-on ("gui" "core"))
-   (:file "unicode-commands" :depends-on ("gui" "core"))
-   (:file "slidemacs" :depends-on ("packages" "buffer" "syntax" "base" "pane" ))
-   (:file "slidemacs-gui" :depends-on ("packages" "slidemacs" "pane" "buffer" "syntax" "gui"))))
-
-(defsystem :climacs.tests
-  :depends-on (:climacs)
-  :components
-  ((:file "rt" :pathname #p"testing/rt.lisp")
-   (:file "buffer-test" :depends-on ("rt"))
-   (:file "base-test" :depends-on ("rt" "buffer-test"))
-   (:file "kill-ring-test" :depends-on ("buffer-test"))
-   (:module
-    "cl-automaton"
-    :depends-on ("rt")
-    :components
-    ((:file "automaton-test-package")
-     (:file "eqv-hash-test" :depends-on ("automaton-test-package"))
-     (:file "state-and-transition-test" :depends-on ("automaton-test-package"))
-     (:file "automaton-test" :depends-on ("automaton-test-package"))
-     (:file "regexp-test" :depends-on ("automaton-test-package"))))))
+   (:file "slidemacs" :depends-on ("packages" ))
+   (:file "slidemacs-gui" :depends-on ("packages" "gui" "slidemacs"))))
 
 #+asdf
 (defmethod asdf:perform :around ((o asdf:compile-op)

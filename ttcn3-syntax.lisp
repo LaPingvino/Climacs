@@ -21,8 +21,8 @@
 ;;; Boston, MA  02111-1307  USA.
 
 (defpackage :climacs-ttcn3-syntax
-  (:use :clim-lisp :clim :clim-extensions :climacs-buffer :climacs-base 
-	:climacs-syntax :flexichain :climacs-pane :climacs-fundamental-syntax)
+  (:use :clim-lisp :clim :clim-extensions :drei-buffer :drei-base 
+	:drei-syntax :flexichain :drei :drei-fundamental-syntax)
   (:export))
 (in-package :climacs-ttcn3-syntax)
 
@@ -417,7 +417,7 @@
     (when (and (end-offset entity) (mark> (end-offset entity) top))
       (call-next-method))))
 
-(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax ttcn3-syntax) current-p)
+(defmethod redisplay-pane-with-syntax ((pane drei-pane) (syntax ttcn3-syntax) current-p)
   (with-slots (top bot) pane
     (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
 	  *current-line* 0

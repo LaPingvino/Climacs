@@ -96,8 +96,8 @@
 	     (eq window (current-window)))
     (setf (offset (mark window))
 	  (click-to-offset window x y))
-    (com-exchange-point-and-mark)
-    (com-copy-region)))
+    (drei-commands::com-exchange-point-and-mark)
+    (drei-commands::com-copy-region)))
 
 (define-presentation-to-command-translator blank-area-to-mouse-save
     (blank-area com-mouse-save window-table :echo nil :gesture :select-other)
@@ -112,7 +112,7 @@
     (other-window window)
     (setf (offset (point window))
 	  (click-to-offset window x y))
-    (com-yank)))
+    (drei-commands::com-yank)))
 
 (define-presentation-to-command-translator blank-area-to-yank-here
     (blank-area com-yank-here window-table :echo nil :gesture :middle-button)

@@ -1106,7 +1106,7 @@
 	(display-parse-tree (target-parse-tree state) syntax pane))))
 
 
-(defmethod redisplay-pane-with-syntax ((pane climacs-pane) (syntax cl-syntax) current-p)
+(defmethod redisplay-pane-with-syntax ((pane drei-pane) (syntax cl-syntax) current-p)
   (with-slots (top bot) pane
     (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
 	  *current-line* 0

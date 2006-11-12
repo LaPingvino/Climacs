@@ -113,7 +113,7 @@ have a corresponding buffer, open a buffer for that pathname."))
 NIL. If a pathname is returned, it is assumed to be safe to find
 the file with that name."
   (typecase element
-    (climacs-buffer
+    (drei-buffer
      (find element (buffers *application-frame*)))
     ((or pathname string)
      (or (find-buffer-with-pathname (pathname element))
@@ -125,7 +125,7 @@ the file with that name."
 (defun display-group-element (element stream)
   (let ((norm-element (normalise-group-element element)))
    (typecase norm-element
-     (climacs-buffer
+     (drei-buffer
       (present norm-element 'buffer stream))
      ((or pathname string)
       (present norm-element 'pathname stream)))))
@@ -133,7 +133,7 @@ the file with that name."
 ;; Singular group elements.
 (defmethod group-buffers ((group group-element))
   (let ((element (element group)))
-    (cond ((and (typep element 'climacs-buffer)
+    (cond ((and (typep element 'drei-buffer)
                 (find element (buffers *application-frame*)))
            (list element))
           ((or (pathnamep element)
@@ -144,7 +144,7 @@ the file with that name."
 
 (defmethod ensure-group-buffers ((group group-element))
   (typecase (element group)
-    (climacs-buffer
+    (drei-buffer
      (unless (find (element group) (buffers *application-frame*))
        (ensure-open-file (pathname (filepath (element group))))))
     (pathname

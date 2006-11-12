@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: CLIMACS-GUI -*-
+;;; -*- Mode: Lisp; Package: CLIMACS-COMMANDS -*-
 
 ;;;  (c) copyright 2004-2005 by
 ;;;           Robert Strandh (strandh@labri.fr)
@@ -24,483 +24,15 @@
 ;;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;;; Boston, MA  02111-1307  USA.
 
-;;; Search commands for the Climacs editor. 
+;;; Search commands for Climacs.
 
 (in-package :climacs-commands)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
-;;; String search
-
-(define-command (com-string-search :name t :command-table search-table)
-    ((string 'string :prompt "String Search"))
-  "Prompt for a string and search forward for it.
-If found, leaves point after string. If not, leaves point where it is."
-  (let* ((pane (current-window))
-	 (point (point pane)))
-    (search-forward point string :test (case-relevant-test string))))
-
-(define-command (com-reverse-string-search :name t :command-table search-table)
-    ((string 'string :prompt "Reverse String Search"))
-  "Prompt for a string and search backward for it.
-If found, leaves point before string. If not, leaves point where it is."
-  (let* ((pane (current-window))
-	 (point (point pane)))
-    (search-backward point string :test (case-relevant-test string))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Word search
-
-(define-command (com-word-search :name t :command-table search-table)
-    ((word 'string :prompt "Search word"))
-  "Prompt for a whitespace delimited word and search forward for it.
-If found, leaves point after the word. If not, leaves point where it is."
-  (let* ((pane (current-window))
-	 (point (point pane)))
-    (climacs-base::search-word-forward point word)))
-
-(define-command (com-reverse-word-search :name t :command-table search-table)
-    ((word 'string :prompt "Search word"))
-  "Prompt for a whitespace delimited word and search backward for it.
-If found, leaves point before the word. If not, leaves point where it is."
-  (let* ((pane (current-window))
-	 (point (point pane)))
-    (climacs-base::search-word-backward point word)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Incremental search
-
-(make-command-table 'isearch-climacs-table :errorp nil)
-
-(defun isearch-command-loop (pane forwardp)
-  (let ((point (point pane)))
-    (unless (endp (isearch-states pane))
-      (setf (isearch-previous-string pane)
-            (search-string (first (isearch-states pane)))))
-    (setf (isearch-mode pane) t)
-    (setf (isearch-states pane)
-          (list (make-instance 'isearch-state
-                               :search-string ""
-                               :search-mark (clone-mark point)
-                               :search-forward-p forwardp
-                               :search-success-p t)))
-    (simple-command-loop 'isearch-climacs-table
-                         (isearch-mode pane)
-                         ((setf (isearch-mode pane) nil)))))
-
-(defun isearch-from-mark (pane mark string forwardp)
-  (let* ((point (point pane))
-	 (mark2 (clone-mark mark))
-	 (success (funcall (if forwardp #'search-forward #'search-backward)
-			   mark2
-			   string
-			   :test (case-relevant-test string))))
-    (when success
-      (setf (offset point) (offset mark2)
-	    (offset mark) (if forwardp
-			      (- (offset mark2) (length string))
-			      (+ (offset mark2) (length string)))))
-    (display-message "~:[Failing ~;~]Isearch~:[ backward~;~]: ~A"
-		     success forwardp (display-string string))
-    (push (make-instance 'isearch-state
-	     :search-string string
-	     :search-mark mark
-	     :search-forward-p forwardp
-	     :search-success-p success)
-	  (isearch-states pane))
-    (unless success
-      (beep))))
-
-(define-command (com-isearch-forward :name t :command-table search-table) ()
-  (display-message "Isearch: ")
-  (isearch-command-loop (current-window) t))
-
-(set-key 'com-isearch-forward
-	 'search-table
-	 '((#\s :control)))
-
-(define-command (com-isearch-backward :name t :command-table search-table) ()
-  (display-message "Isearch backward: ")
-  (isearch-command-loop (current-window) nil))
-
-(set-key 'com-isearch-backward
-	 'search-table
-	 '((#\r :control)))
-
-(defun isearch-append-char (char)
-  (let* ((pane (current-window))
-         (states (isearch-states pane))
-         (string (concatenate 'string
-                              (search-string (first states))
-                              (string char)))
-         (mark (clone-mark (search-mark (first states))))
-         (forwardp (search-forward-p (first states))))
-    (unless (or forwardp (end-of-buffer-p mark))
-      (incf (offset mark)))
-    (isearch-from-mark pane mark string forwardp)))
-
-(define-command (com-isearch-append-char :name t :command-table isearch-climacs-table) ()
-  (isearch-append-char *current-gesture*))
-
-(define-command (com-isearch-append-newline :name t :command-table isearch-climacs-table) ()
-  (isearch-append-char #\Newline))
-
-(defun isearch-append-text (movement-function)
-  (let* ((pane (current-window))
-	 (states (isearch-states pane))
-	 (buffer (buffer pane))
-	 (point (point pane))
-	 (start (clone-mark point))
-	 (mark (clone-mark (search-mark (first states))))
-	 (forwardp (search-forward-p (first states))))
-    (funcall movement-function point)
-    (let* ((start-offset (offset start))
-	   (point-offset (offset point))
-	   (string (concatenate 'string
-				(search-string (first states))
-				(buffer-substring buffer
-						  start-offset
-						  point-offset))))
-      (unless (or forwardp (end-of-buffer-p mark))
-	(incf (offset mark) (- point-offset start-offset)))
-      (isearch-from-mark pane mark string forwardp))))
-
-(define-command (com-isearch-append-word :name t :command-table isearch-climacs-table) ()
-  (let ((syntax (syntax (current-buffer *application-frame*))))
-   (isearch-append-text #'(lambda (mark)
-                            (forward-word mark syntax)))))
-
-(define-command (com-isearch-append-line :name t :command-table isearch-climacs-table) ()
-  (isearch-append-text #'end-of-line))
-
-(define-command (com-isearch-append-kill :name t :command-table isearch-climacs-table) ()
-  (let* ((pane (current-window))
-	 (states (isearch-states pane))
-	 (yank (handler-case (kill-ring-yank *kill-ring*)
-                 (empty-kill-ring ()
-                   "")))
-	 (string (concatenate 'string
-			      (search-string (first states))
-			      yank))
-	 (mark (clone-mark (search-mark (first states))))
-	 (forwardp (search-forward-p (first states))))
-    (unless (or forwardp (end-of-buffer-p mark))
-      (incf (offset mark) (length yank)))
-    (isearch-from-mark pane mark string forwardp)))
-
-(define-command (com-isearch-delete-char :name t :command-table isearch-climacs-table) ()
-  (let* ((pane (current-window)))
-    (cond ((null (second (isearch-states pane)))
-	   (display-message "Isearch: ")
-           (beep))
-          (t
-           (pop (isearch-states pane))
-           (loop until (endp (rest (isearch-states pane)))
-                 until (search-success-p (first (isearch-states pane)))
-                 do (pop (isearch-states pane)))
-           (let ((state (first (isearch-states pane))))
-             (setf (offset (point pane))
-                   (if (search-forward-p state)
-                       (+ (offset (search-mark state))
-                          (length (search-string state)))
-                       (- (offset (search-mark state))
-                          (length (search-string state)))))
-	     (display-message "Isearch~:[ backward~;~]: ~A"
-			      (search-forward-p state)
-			      (display-string (search-string state))))))))
-
-(define-command (com-isearch-search-forward :name t :command-table isearch-climacs-table) ()
-  (let* ((pane (current-window))
-         (point (point pane))
-         (states (isearch-states pane))
-         (string (if (null (second states))
-                     (isearch-previous-string pane)
-                     (search-string (first states))))
-         (mark (clone-mark point)))
-    (isearch-from-mark pane mark string t)))
-
-(define-command (com-isearch-search-backward :name t :command-table isearch-climacs-table) ()
-  (let* ((pane (current-window))
-         (point (point pane))
-         (states (isearch-states pane))
-         (string (if (null (second states))
-                     (isearch-previous-string pane)
-                     (search-string (first states))))
-         (mark (clone-mark point)))
-    (isearch-from-mark pane mark string nil)))
-
-(define-command (com-isearch-exit :name t :command-table isearch-climacs-table) ()
-  (let* ((pane (current-window))
-	 (states (isearch-states pane))
-	 (string (search-string (first states)))
-	 (search-forward-p (search-forward-p (first states))))
-    (setf (isearch-mode pane) nil)
-    (when (string= string "")
-      (execute-frame-command *application-frame*
-			     (funcall
-			      *partial-command-parser*
-			      (frame-command-table *application-frame*)
-			      (frame-standard-input *application-frame*)
-			      (if search-forward-p
-				  `(com-string-search ,*unsupplied-argument-marker*)
-				  `(com-reverse-string-search ,*unsupplied-argument-marker*))
-			      0)))))
-
-(defun isearch-set-key (gesture command)
-  (add-command-to-command-table command 'isearch-climacs-table
-                                :keystroke gesture :errorp nil))
-
-(loop for code from (char-code #\Space) to (char-code #\~)
-      do (isearch-set-key (code-char code) 'com-isearch-append-char))
-
-(isearch-set-key '(#\Newline) 'com-isearch-exit)
-(isearch-set-key '(#\Backspace) 'com-isearch-delete-char)
-(isearch-set-key '(#\s :control) 'com-isearch-search-forward)
-(isearch-set-key '(#\r :control) 'com-isearch-search-backward)
-(isearch-set-key '(#\j :control) 'com-isearch-append-newline)
-(isearch-set-key '(#\w :control) 'com-isearch-append-word)
-(isearch-set-key '(#\y :control) 'com-isearch-append-line)
-(isearch-set-key '(#\y :meta) 'com-isearch-append-kill)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Unconditional replace
-
-(defun replace-one-string (mark length newstring &optional (use-region-case t))
-  "Replace LENGTH objects at MARK with NEWSTRING,
-using the case of those objects if USE-REGION-CASE is true."
-  (let* ((start (offset mark))
-	 (end (+ start length))
-	 (region-case (and use-region-case
-			   (buffer-region-case (buffer mark)
-					       start
-					       end)))) 
-    (delete-range mark length)
-    (insert-sequence mark newstring)
-    (when (and use-region-case region-case)
-      (let ((buffer (buffer mark))
-	    (end2 (+ start (length newstring))))
-	(funcall (case region-case
-		   (:upper-case #'upcase-buffer-region)
-		   (:lower-case #'downcase-buffer-region)
-		   (:capitalized #'capitalize-buffer-region))
-		 buffer
-		 start
-		 end2)))))
-
-(define-command (com-replace-string :name t :command-table search-table)
-    ()
-  "Replace all occurrences of `string' with `newstring'."
-  ;; We have to do it this way if we want to refer to STRING in NEWSTRING
-  (let* ((string (accept 'string :prompt "Replace String"))
-	 (newstring (accept'string :prompt (format nil "Replace ~A with" string))))
-    (loop with point = (point (current-window))
-	  with length = (length string)
-	  with use-region-case = (no-upper-p string)
-	  for occurrences from 0
-	  while (let ((offset-before (offset point)))
-                  (search-forward point string :test (case-relevant-test string))
-                  (/= (offset point) offset-before))
-	  do (backward-object point length)
-	     (replace-one-string point length newstring use-region-case)
-	  finally (display-message "Replaced ~A occurrence~:P" occurrences))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Query replace
-
-(make-command-table 'query-replace-climacs-table :errorp nil)
-
-(defun query-replace-find-next-match (state)
-  (with-accessors ((string string1)
-                   (buffers buffers)
-                   (mark mark)) state
-    (flet ((head-to-buffer (buffer)
-             (switch-to-buffer (current-window) buffer)
-             (setf mark (point (current-window)))
-             (beginning-of-buffer mark)))
-      (unless (eq (current-buffer) (first buffers))
-        (when t buffers
-          (head-to-buffer (first buffers))))
-      (let ((offset-before (offset mark)))
-        (search-forward mark string :test (case-relevant-test string))
-        (or (/= (offset mark) offset-before)
-            (unless (null (rest buffers))
-              (pop buffers)
-              (query-replace-find-next-match state)))))))
-
-(define-command (com-query-replace :name t :command-table search-table) ()
-  (let* ((pane (current-window))
-	 (old-state (query-replace-state pane))
-	 (old-string1 (when old-state (string1 old-state)))
-	 (old-string2 (when old-state (string2 old-state)))
-	 (string1 (handler-case 
-		      (if old-string1
-			  (accept 'string 
-				  :prompt "Query Replace"
-				  :default old-string1
-				  :default-type 'string)
-			  (accept 'string :prompt "Query Replace"))
-		    (error () (progn (beep)
-				     (display-message "Empty string")
-				     (return-from com-query-replace nil)))))
-         (string2 (handler-case 
-		      (if old-string2
-			  (accept 'string
-				  :prompt (format nil "Replace ~A with"
-						  string1)
-				  :default old-string2
-				  :default-type 'string)
-			  (accept 'string
-				  :prompt (format nil "Replace ~A with" string1)))
-		    (error () (progn (beep)
-				     (display-message "Empty string")
-				     (return-from com-query-replace nil)))))
-         (point (point pane))
-	 (occurrences 0))
-    (declare (special string1 string2 occurrences))
-    (with-group-buffers (buffers (get-active-group))
-      (setf (query-replace-state pane) (make-instance 'query-replace-state
-                                                      :string1 string1
-                                                      :string2 string2
-                                                      :mark point
-                                                      :buffers buffers))
-      (when (query-replace-find-next-match (query-replace-state pane))
-        (setf (query-replace-mode pane) t)
-        (display-message "Replace ~A with ~A:"
-                         string1 string2)
-        (simple-command-loop 'query-replace-climacs-table
-                             (query-replace-mode pane)
-                             ((setf (query-replace-mode pane) nil))))
-      (display-message "Replaced ~A occurrence~:P" occurrences))))
-
-(set-key 'com-query-replace
-	 'search-table
-	 '((#\% :shift :meta)))
-
-(define-command (com-query-replace-replace :name t :command-table query-replace-climacs-table) ()
-  (declare (special string1 string2 occurrences))
-  (let* ((pane (current-window))
-         (string1-length (length string1))
-         (state (query-replace-state pane)))
-    (backward-object (mark state) string1-length)
-    (replace-one-string (mark state)
-                        string1-length
-                        string2
-                        (no-upper-p string1))
-    (incf occurrences)
-    (if (query-replace-find-next-match (query-replace-state pane))
-	(display-message "Replace ~A with ~A:"
-		       string1 string2)
-	(setf (query-replace-mode pane) nil))))
-
-(define-command (com-query-replace-replace-and-quit
-		 :name t
-		 :command-table query-replace-climacs-table)
-    ()
-  (declare (special string1 string2 occurrences))
-  (let* ((pane (current-window))
-	 (string1-length (length string1))
-         (state (query-replace-state pane)))
-    (backward-object (mark state) string1-length)
-    (replace-one-string (mark state)
-                        string1-length
-                        string2
-                        (no-upper-p string1))
-    (incf occurrences)
-    (setf (query-replace-mode pane) nil)))
-
-(define-command (com-query-replace-replace-all
-		 :name t
-		 :command-table query-replace-climacs-table)
-    ()
-  (declare (special string1 string2 occurrences))
-  (let* ((pane (current-window))
-	 (string1-length (length string1))
-         (state (query-replace-state pane)))
-    (loop do (backward-object (mark state) string1-length)
-         (replace-one-string (mark state)
-                             string1-length
-                             string2
-                             (no-upper-p string1))
-         (incf occurrences)
-         while (query-replace-find-next-match (query-replace-state pane))
-         finally (setf (query-replace-mode pane) nil))))
-
-(define-command (com-query-replace-skip :name t :command-table query-replace-climacs-table) ()
-  (declare (special string1 string2))
-  (let ((pane (current-window)))
-    (if (query-replace-find-next-match (query-replace-state pane))
-	(display-message "Replace ~A with ~A:"
-			 string1 string2)
-	(setf (query-replace-mode pane) nil))))
-
-(define-command (com-query-replace-exit :name t :command-table query-replace-climacs-table) ()
-  (setf (query-replace-mode (current-window)) nil))
-
-(defun query-replace-set-key (gesture command)
-  (add-command-to-command-table command 'query-replace-climacs-table
-                                :keystroke gesture :errorp nil))
-
-(query-replace-set-key '(#\Newline) 'com-query-replace-exit)
-(query-replace-set-key '(#\Space) 'com-query-replace-replace)
-(query-replace-set-key '(#\Backspace) 'com-query-replace-skip)
-(query-replace-set-key '(#\Rubout) 'com-query-replace-skip)
-(query-replace-set-key '(#\q) 'com-query-replace-exit)
-(query-replace-set-key '(#\y) 'com-query-replace-replace)
-(query-replace-set-key '(#\n) 'com-query-replace-skip)
-(query-replace-set-key '(#\.) 'com-query-replace-replace-and-quit)
-(query-replace-set-key '(#\!) 'com-query-replace-replace-all)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
-;;; Regex search
-
-(defparameter *whitespace-regex* (format nil "[~@{~A~}]+" #\Space #\Tab))
-
-(defun normalise-minibuffer-regex (string)
-  "Massages the regex STRING given to the minibuffer."
-  (with-output-to-string (result)
-    (loop for char across string
-	  if (char= char #\Space)
-	    do (princ *whitespace-regex* result)
-	  else
-	    do (princ char result))))
-
-(define-command (com-regex-search-forward :name t :command-table search-table) ()
-  (let ((string (accept 'string :prompt "RE search"
-			:delimiter-gestures nil
-			:activation-gestures
-			'(:newline :return))))
-    (re-search-forward
-     (point (current-window))
-     (normalise-minibuffer-regex string))))
-
-(define-command (com-regex-search-backward :name t :command-table search-table) ()
-  (let ((string (accept 'string :prompt "RE search backward"
-			:delimiter-gestures nil
-			:activation-gestures
-			'(:newline :return))))
-    (re-search-backward
-     (point (current-window))
-     (normalise-minibuffer-regex string))))
-
-(define-command (com-how-many :name t :command-table search-table)
-    ((regex 'string :prompt "How many matches for"))
-  (let* ((re (normalise-minibuffer-regex regex))
-	 (mark (clone-mark (point (current-window))))
-	 (occurrences (loop for count from 0
-			    while (re-search-forward mark re)
-			    finally (return count))))
-    (display-message "~A occurrence~:P" occurrences)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; 
 ;;; Multiple query replace
 
-(make-command-table 'multiple-query-replace-climacs-table :errorp nil)
+(make-command-table 'multiple-query-replace-drei-table :errorp nil)
 
 (defun multiple-query-replace-find-next-match (mark re list)
   (multiple-value-bind (foundp start)
@@ -583,14 +115,14 @@ Entering an empty search string stops the prompting."
 	  (display-message "Replace ~A with ~A: "
 			   (string1 (query-replace-state pane))
 			   (string2 (query-replace-state pane)))
-	  (simple-command-loop 'multiple-query-replace-climacs-table
+	  (simple-command-loop 'multiple-query-replace-drei-table
 			       (query-replace-mode pane)
 			       ((setf (query-replace-mode pane) nil))))))
     (display-message "Replaced ~D occurrence~:P" occurrences)))
 
 (define-command (com-multiple-query-replace-replace
 		 :name t
-		 :command-table multiple-query-replace-climacs-table)
+		 :command-table multiple-query-replace-drei-table)
     ()
   (declare (special strings occurrences re))
   (let* ((pane (current-window))
@@ -617,7 +149,7 @@ Entering an empty search string stops the prompting."
 
 (define-command (com-multiple-query-replace-replace-and-quit
 		 :name t
-		 :command-table multiple-query-replace-climacs-table)
+		 :command-table multiple-query-replace-drei-table)
     ()
   (declare (special strings occurrences))
   (let* ((pane (current-window))
@@ -632,7 +164,7 @@ Entering an empty search string stops the prompting."
 
 (define-command (com-multiple-query-replace-replace-all
 		 :name t
-		 :command-table multiple-query-replace-climacs-table)
+		 :command-table multiple-query-replace-drei-table)
     ()
   (declare (special strings occurrences re))
   (let* ((pane (current-window))
@@ -660,7 +192,7 @@ Entering an empty search string stops the prompting."
 
 (define-command (com-multiple-query-replace-skip
 		 :name t
-		 :command-table multiple-query-replace-climacs-table)
+		 :command-table multiple-query-replace-drei-table)
     ()
   (declare (special strings re))
   (let* ((pane (current-window))
@@ -679,7 +211,7 @@ Entering an empty search string stops the prompting."
 				(string2 (query-replace-state pane)))))))
 
 (defun multiple-query-replace-set-key (gesture command)
-  (add-command-to-command-table command 'multiple-query-replace-climacs-table
+  (add-command-to-command-table command 'multiple-query-replace-drei-table
 				:keystroke gesture
 				:errorp nil))
 
