@@ -77,7 +77,7 @@
   (:use :clim-lisp :drei-base :drei-buffer :drei-fundamental-syntax
         :drei-syntax :drei-motion :drei :drei-kill-ring
         :drei-editing :climacs-gui :clim :drei-abbrev :esa :esa-buffer :esa-io
-        :esa-utils :drei-core :flexi-streams)
+        :esa-utils :drei-core)
   (:export #:display-string
            #:object-equal
            #:object=
