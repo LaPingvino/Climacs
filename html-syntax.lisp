@@ -53,24 +53,28 @@
    (attributes :initform nil :initarg :attributes)
    (end :initarg :end)))
 
-(defmethod display-parse-tree ((entity html-start-tag) (syntax html-syntax) pane)
+(defgeneric display-parse-tree (parse-symbol pane drei syntax))
+
+(defmethod display-parse-tree ((entity html-start-tag) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (start name attributes end) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree name syntax pane)
+    (display-parse-tree start pane drei syntax)
+    (display-parse-tree name pane drei syntax)
     (unless (null attributes)
-      (display-parse-tree attributes syntax pane))
-    (display-parse-tree end syntax pane)))
+      (display-parse-tree attributes pane drei syntax))
+    (display-parse-tree end pane drei syntax)))
 
 (defclass html-end-tag (html-tag)
   ((start :initarg :start)
    (name :initarg :name)
    (end :initarg :end)))
 
-(defmethod display-parse-tree ((entity html-end-tag) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity html-end-tag) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (start name attributes end) entity
-    (display-parse-tree start syntax pane)
-    (display-parse-tree name syntax pane)
-    (display-parse-tree end syntax pane)))
+    (display-parse-tree start pane drei syntax)
+    (display-parse-tree name pane drei syntax)
+    (display-parse-tree end pane drei syntax)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -170,14 +174,16 @@
 			     (make-instance ',nonempty-name
 				:items ,name :item ,item-name)))
        
-       (defmethod display-parse-tree ((entity ,empty-name) (syntax html-syntax) pane)
+       (defmethod display-parse-tree ((entity ,empty-name) (pane clim-stream-pane)
+                                      (drei drei) (syntax html-syntax))
 	 (declare (ignore pane))
 	 nil)
        
-       (defmethod display-parse-tree ((entity ,nonempty-name) (syntax html-syntax) pane)
+       (defmethod display-parse-tree ((entity ,nonempty-name) (pane clim-stream-pane)
+                                      (drei drei) (syntax html-syntax))
 	 (with-slots (items item) entity
-	   (display-parse-tree items syntax pane)
-	   (display-parse-tree item syntax pane))))))
+	   (display-parse-tree items pane drei syntax)
+	   (display-parse-tree item pane drei syntax))))))
 
 (defmacro define-nonempty-list (name item-name)
   (let ((empty-name (gensym))
@@ -199,14 +205,16 @@
 			     (make-instance ',nonempty-name
 				:items ,name :item ,item-name)))
        
-       (defmethod display-parse-tree ((entity ,empty-name) (syntax html-syntax) pane)
+       (defmethod display-parse-tree ((entity ,empty-name) (pane clim-stream-pane)
+                                      (drei drei) (syntax html-syntax))
 	 (declare (ignore pane))
 	 nil)
        
-       (defmethod display-parse-tree ((entity ,nonempty-name) (syntax html-syntax) pane)
+       (defmethod display-parse-tree ((entity ,nonempty-name) (pane clim-stream-pane)
+                                      (drei drei) (syntax html-syntax))
 	 (with-slots (items item) entity
-	   (display-parse-tree items syntax pane)
-	   (display-parse-tree item syntax pane))))))
+	   (display-parse-tree items pane drei syntax)
+	   (display-parse-tree item pane drei syntax))))))
 
 ;;;;;;;;;;;;;;; string
 
@@ -226,12 +234,13 @@
 				(end delimiter (word-is end "\"")))
 			    :start start :lexemes string-lexemes :end end))
 
-(defmethod display-parse-tree ((entity html-string) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity html-string) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (start lexemes end) entity
-     (display-parse-tree start syntax pane)
+     (display-parse-tree start pane drei syntax)
      (with-text-face (pane :italic)
-       (display-parse-tree lexemes syntax pane))
-     (display-parse-tree end syntax pane)))
+       (display-parse-tree lexemes pane drei syntax))
+     (display-parse-tree end pane drei syntax)))
 
 ;;;;;;;;;;;;;;; attributes
 
@@ -239,10 +248,11 @@
   ((name :initarg :name)
    (equals :initarg :equals)))
 
-(defmethod display-parse-tree :before ((entity html-attribute) (syntax html-syntax) pane)
+(defmethod display-parse-tree :before ((entity html-attribute) (pane clim-stream-pane)
+                                       (drei drei) (syntax html-syntax))
   (with-slots (name equals) entity
-     (display-parse-tree name syntax pane)
-     (display-parse-tree equals syntax pane)))
+     (display-parse-tree name pane drei syntax)
+     (display-parse-tree equals pane drei syntax)))
 
 (defclass common-attribute (html-attribute) ())
 
@@ -265,9 +275,10 @@
 						 2))))
 			  :name name :equals equals :lang lang))
 
-(defmethod display-parse-tree ((entity lang-attr) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity lang-attr) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (lang) entity
-     (display-parse-tree lang syntax pane)))
+     (display-parse-tree lang pane drei syntax)))
 
 ;;;;;;;;;;;;;;; dir attribute
 
@@ -282,9 +293,10 @@
 						(word-is dir "ltr")))))
 			 :name name :equals equals :dir dir))
 
-(defmethod display-parse-tree ((entity dir-attr) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity dir-attr) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (dir) entity
-     (display-parse-tree dir syntax pane)))
+     (display-parse-tree dir pane drei syntax)))
 
 
 ;;;;;;;;;;;;;;; href attribute
@@ -298,9 +310,10 @@
 			      (href html-string))
 			  :name name :equals equals :href href))
 
-(defmethod display-parse-tree ((entity href-attr) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity href-attr) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (href) entity
-     (display-parse-tree href syntax pane)))
+     (display-parse-tree href pane drei syntax)))
 
 
 ;;;;;;;;;;;;;;; title
@@ -311,9 +324,10 @@
 (add-html-rule (title-item -> (word) :item word))
 (add-html-rule (title-item -> (delimiter) :item delimiter))
 
-(defmethod display-parse-tree ((entity title-item) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity title-item) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (item) entity
-     (display-parse-tree item syntax pane)))
+     (display-parse-tree item pane drei syntax)))
 
 (define-list title-items title-item)
 
@@ -325,12 +339,13 @@
 (add-html-rule (title -> (<title> title-items </title>)
 		      :<title> <title> :items title-items :</title> </title>))
 
-(defmethod display-parse-tree ((entity title) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity title) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<title> items </title>) entity
-     (display-parse-tree <title> syntax pane)
+     (display-parse-tree <title> pane drei syntax)
      (with-text-face (pane :bold)
-       (display-parse-tree items syntax pane))
-     (display-parse-tree </title> syntax pane)))
+       (display-parse-tree items pane drei syntax))
+     (display-parse-tree </title> pane drei syntax)))
 
 ;;;;;;;;;;;;;;; inline-element, block-level-element
 
@@ -348,9 +363,10 @@
 (add-html-rule ($inline -> (word) :contents word))
 (add-html-rule ($inline -> (delimiter) :contents delimiter))
 
-(defmethod display-parse-tree ((entity $inline) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity $inline) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (contents) entity
-     (display-parse-tree contents syntax pane)))
+     (display-parse-tree contents pane drei syntax)))
 
 (define-list $inlines $inline)
 
@@ -364,9 +380,10 @@
 	       :predict-test (lambda (token)
 			       (typep token 'start-tag-start)))
 
-(defmethod display-parse-tree ((entity $flow) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity $flow) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (contents) entity
-     (display-parse-tree contents syntax pane)))
+     (display-parse-tree contents pane drei syntax)))
 
 (define-list $flows $flow)
 
@@ -377,12 +394,13 @@
    (contents :initarg :contents)
    (end :initarg :end)))
 
-(defmethod display-parse-tree ((entity heading) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity heading) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (start contents end) entity
-     (display-parse-tree start syntax pane)
+     (display-parse-tree start pane drei syntax)
      (with-text-face (pane :bold)
-       (display-parse-tree contents syntax pane))
-     (display-parse-tree end syntax pane)))
+       (display-parse-tree contents pane drei syntax))
+     (display-parse-tree end pane drei syntax)))
 	      
 (defmacro define-heading (class-name tag-string start-tag-name end-tag-name)
   `(progn
@@ -409,9 +427,10 @@
 
 (add-html-rule (<a>-attribute -> (href-attr) :attribute href-attr))
 
-(defmethod display-parse-tree ((entity <a>-attribute) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity <a>-attribute) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (attribute) entity
-     (display-parse-tree attribute syntax pane)))
+     (display-parse-tree attribute pane drei syntax)))
 
 (define-list <a>-attributes <a>-attribute)
 
@@ -434,12 +453,13 @@
 (add-html-rule (a-element -> (<a> $inlines </a>)
 			  :<a> <a> :items $inlines :</a> </a>))
 
-(defmethod display-parse-tree ((entity a-element) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity a-element) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<a> items </a>) entity
-     (display-parse-tree <a> syntax pane)
+     (display-parse-tree <a> pane drei syntax)
      (with-text-face (pane :bold)
-       (display-parse-tree items syntax pane))
-     (display-parse-tree </a> syntax pane)))
+       (display-parse-tree items pane drei syntax))
+     (display-parse-tree </a> pane drei syntax)))
 
 ;;;;;;;;;;;;;;; br element
 
@@ -450,9 +470,10 @@
 
 (add-html-rule (br-element -> (<br>) :<br> <br>))
 
-(defmethod display-parse-tree ((entity br-element) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity br-element) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<br>) entity
-     (display-parse-tree <br> syntax pane)))
+     (display-parse-tree <br> pane drei syntax)))
 
 ;;;;;;;;;;;;;;; p element
 
@@ -475,11 +496,12 @@
 (add-html-rule (p-element -> (<p> $inlines </p>)
 			  :<p> <p> :contents $inlines :</p> </p>))
 
-(defmethod display-parse-tree ((entity p-element) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity p-element) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<p> contents </p>) entity
-    (display-parse-tree <p> syntax pane)
-    (display-parse-tree contents syntax pane)
-    (display-parse-tree </p> syntax pane)))
+    (display-parse-tree <p> pane drei syntax)
+    (display-parse-tree contents pane drei syntax)
+    (display-parse-tree </p> pane drei syntax)))
 
 ;;;;;;;;;;;;;;; li element
 
@@ -507,12 +529,13 @@
 (add-html-rule (li-element -> (<li> $flows)
 			   :<li> <li> :items $flows :</li> nil))
 
-(defmethod display-parse-tree ((entity li-element) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity li-element) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<li> items </li>) entity
-     (display-parse-tree <li> syntax pane)
-     (display-parse-tree items syntax pane)     
+     (display-parse-tree <li> pane drei syntax)
+     (display-parse-tree items pane drei syntax)     
      (when </li>
-       (display-parse-tree </li> syntax pane))))
+       (display-parse-tree </li> pane drei syntax))))
 
 ;;;;;;;;;;;;;;; ul element
 
@@ -540,11 +563,12 @@
 (add-html-rule (ul-element -> (<ul> li-elements </ul>)
 			   :<ul> <ul> :items li-elements :</ul> </ul>))
 
-(defmethod display-parse-tree ((entity ul-element) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity ul-element) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<ul> items </ul>) entity
-     (display-parse-tree <ul> syntax pane)
-     (display-parse-tree items syntax pane)     
-     (display-parse-tree </ul> syntax pane)))
+     (display-parse-tree <ul> pane drei syntax)
+     (display-parse-tree items pane drei syntax)     
+     (display-parse-tree </ul> pane drei syntax)))
 
 ;;;;;;;;;;;;;;; hr element
 
@@ -555,9 +579,10 @@
 
 (add-html-rule (hr-element -> (<hr>) :<hr> <hr>))
 
-(defmethod display-parse-tree ((entity hr-element) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity hr-element) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<hr>) entity
-     (display-parse-tree <hr> syntax pane)))
+     (display-parse-tree <hr> pane drei syntax)))
 
 ;;;;;;;;;;;;;;; body element
 
@@ -566,9 +591,10 @@
 
 (add-html-rule (body-item -> ((element block-level-element)) :item element))
 
-(defmethod display-parse-tree ((entity body-item) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity body-item) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (item) entity
-     (display-parse-tree item syntax pane)))
+     (display-parse-tree item pane drei syntax)))
 
 (define-list body-items body-item)
 
@@ -580,11 +606,12 @@
 (add-html-rule (body -> (<body> body-items </body>)
 		     :<body> <body> :items body-items :</body> </body>))
 
-(defmethod display-parse-tree ((entity body) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity body) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<body> items </body>) entity
-     (display-parse-tree <body> syntax pane)
-     (display-parse-tree items syntax pane)     
-     (display-parse-tree </body> syntax pane)))
+     (display-parse-tree <body> pane drei syntax)
+     (display-parse-tree items pane drei syntax)     
+     (display-parse-tree </body> pane drei syntax)))
 
 ;;;;;;;;;;;;;;; head
 
@@ -596,20 +623,22 @@
 (add-html-rule (head -> (<head> title </head>)
 		     :<head> <head> :title title :</head> </head>))
 
-(defmethod display-parse-tree ((entity head) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity head) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<head> title </head>) entity
-     (display-parse-tree <head> syntax pane)
-     (display-parse-tree title syntax pane)     
-     (display-parse-tree </head> syntax pane)))
+     (display-parse-tree <head> pane drei syntax)
+     (display-parse-tree title pane drei syntax)     
+     (display-parse-tree </head> pane drei syntax)))
 
 ;;;;;;;;;;;;;;; html
 
 (defclass <html>-attribute (html-nonterminal)
   ((attribute :initarg :attribute)))
 
-(defmethod display-parse-tree ((entity <html>-attribute) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity <html>-attribute) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (attribute) entity
-     (display-parse-tree attribute syntax pane)))
+     (display-parse-tree attribute pane drei syntax)))
 
 (add-html-rule (<html>-attribute -> (lang-attr) :attribute lang-attr))
 (add-html-rule (<html>-attribute -> (dir-attr) :attribute dir-attr))
@@ -636,12 +665,13 @@
 (add-html-rule (html -> (<html> head body </html>)
 		     :<html> <html> :head head :body body :</html> </html>))
 
-(defmethod display-parse-tree ((entity html) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity html) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (with-slots (<html> head body </html>) entity
-     (display-parse-tree <html> syntax pane)
-     (display-parse-tree head syntax pane)     
-     (display-parse-tree body syntax pane)     
-     (display-parse-tree </html> syntax pane)))
+     (display-parse-tree <html> pane drei syntax)
+     (display-parse-tree head pane drei syntax)
+     (display-parse-tree body pane drei syntax)
+     (display-parse-tree </html> pane drei syntax)))
 
 ;;;;;;;;;;;;;;;
 
@@ -713,12 +743,14 @@
                           pane (- tab-width (mod x tab-width)) 0))))
            (incf start))))))		    
 
-(defmethod display-parse-tree :around ((entity html-parse-tree) syntax pane)
-  (with-slots (top bot) pane
+(defmethod display-parse-tree :around ((entity html-parse-tree) (pane clim-stream-pane)
+                                       (drei drei) (syntax html-syntax))
+  (with-slots (top bot) drei
      (when (and (end-offset entity) (mark> (end-offset entity) top))
        (call-next-method))))
 
-(defmethod display-parse-tree ((entity html-lexeme) (syntax html-syntax) pane)
+(defmethod display-parse-tree ((entity html-lexeme) (pane clim-stream-pane)
+                               (drei drei) (syntax html-syntax))
   (flet ((cache-test (t1 t2)
 	   (let ((result (and (eq t1 t2)
 			      (eq (slot-value t1 'ink)
@@ -740,31 +772,34 @@
 		  'string
 		  :stream pane)))))
 
-(defmethod display-parse-tree :around ((entity html-tag) (syntax html-syntax) pane)
+(defmethod display-parse-tree :around ((entity html-tag) (pane clim-stream-pane)
+                                       (drei drei) (syntax html-syntax))
   (with-drawing-options (pane :ink +green4+)
     (call-next-method)))
 
-(defmethod display-parse-tree :before ((entity html-lexeme) (syntax html-syntax) pane)
-  (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
+(defmethod display-parse-tree :before ((entity html-lexeme) (pane clim-stream-pane)
+                                       (drei drei) (syntax html-syntax))
+  (handle-whitespace pane (buffer drei) *white-space-start* (start-offset entity))
   (setf *white-space-start* (end-offset entity)))
 
-(defgeneric display-parse-stack (symbol stack syntax pane))
+(defgeneric display-parse-stack (symbol stack pane drei syntax))
 
-(defmethod display-parse-stack (symbol stack (syntax html-syntax) pane)
+(defmethod display-parse-stack (symbol stack (pane clim-stream-pane)
+                                (drei drei) (syntax html-syntax))
   (let ((next (parse-stack-next stack)))
     (unless (null next)
-      (display-parse-stack (parse-stack-symbol next) next syntax pane))
+      (display-parse-stack (parse-stack-symbol next) next pane drei syntax))
     (loop for parse-tree in (reverse (parse-stack-parse-trees stack))
-	  do (display-parse-tree parse-tree syntax pane))))  
+	  do (display-parse-tree parse-tree pane drei syntax))))  
 
-(defun display-parse-state (state syntax pane)
+(defun display-parse-state (state pane drei syntax)
   (let ((top (parse-stack-top state)))
     (if (not (null top))
-	(display-parse-stack (parse-stack-symbol top) top syntax pane)
-	(display-parse-tree (target-parse-tree state) syntax pane))))
+	(display-parse-stack (parse-stack-symbol top) top pane drei syntax)
+	(display-parse-tree (target-parse-tree state) pane drei syntax))))
 
 (defmethod display-drei-contents ((pane clim-stream-pane) (drei drei) (syntax html-syntax))
-  (with-slots (top bot) pane
+  (with-slots (top bot) drei
     (with-accessors ((cursor-positions cursor-positions)) syntax
       (setf cursor-positions (make-array (1+ (number-of-lines-in-region top bot))
                                          :initial-element nil)
@@ -773,7 +808,7 @@
                                        (stream-cursor-position pane))))
     (setf *white-space-start* (offset top))
     (with-slots (lexer) syntax
-      (let ((average-token-size (max (float (/ (size (buffer pane)) (nb-lexemes lexer)))
+      (let ((average-token-size (max (float (/ (size (buffer drei)) (nb-lexemes lexer)))
                                      1.0)))
         ;; find the last token before bot
         (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
@@ -794,11 +829,10 @@
             ;; display the parse tree if any
             (unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
               (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
-                                   syntax
-                                   pane))
+                                   pane drei syntax))
             ;; display the lexemes
             (with-drawing-options (pane :ink +red+)
               (loop while (< start-token-index end-token-index)
                  do (let ((token (lexeme lexer start-token-index)))
-                      (display-parse-tree token syntax pane))
+                      (display-parse-tree token pane drei syntax))
                  (incf start-token-index)))))))))

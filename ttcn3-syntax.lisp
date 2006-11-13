@@ -26,7 +26,7 @@
   (:export))
 (in-package :climacs-ttcn3-syntax)
 
-(defgeneric display-parse-tree (entity syntax pane))
+(defgeneric display-parse-tree (parse-symbol pane drei syntax))
 
 (defclass ttcn3-parse-tree (parse-tree) ())
 
@@ -158,14 +158,16 @@
 		       (make-instance ',nonempty-name
 				      :items ,name :item ,item-name))) *ttcn3-grammar*)
 
-     (defmethod display-parse-tree ((entity ,empty-name) (syntax ttcn3-syntax) pane)
+     (defmethod display-parse-tree ((entity ,empty-name) (pane clim-stream-pane)
+                                    (drei drei) (syntax ttcn3-syntax))
        (declare (ignore pane))
        nil)
      
-     (defmethod display-parse-tree ((entity ,nonempty-name) (syntax ttcn3-syntax) pane)
+     (defmethod display-parse-tree ((entity ,nonempty-name) (pane clim-stream-pane)
+                                    (drei drei) (syntax ttcn3-syntax))
        (with-slots (items item) entity
-	  (display-parse-tree items syntax pane)
-	  (display-parse-tree item syntax pane)))))
+	  (display-parse-tree items drei pane syntax)
+	  (display-parse-tree item drei pane syntax)))))
 
 (defmacro define-simple-list (name item-name)
   (let ((empty-name (gensym))
@@ -213,7 +215,8 @@
 		(add-rule (grammar-rule (,name -> ((word identifier (word-is word ,(first rule-body)))) :word word))
 			  ,grammar)
 		,@(if start-p `((add-rule (grammar-rule (,terminal -> (,name) :item ,name)) ,grammar)))
-		(defmethod display-parse-tree :around ((entity ,name) (syntax ,syntax) pane)
+		(defmethod display-parse-tree :around ((entity ,name) (pane clim-stream-pane)
+                                                       (drei drei) (syntax ,syntax))
 		  (with-drawing-options (pane :ink +blue-violet+)
 		    (call-next-method)))))
 	     ((and (eql (length rule-body) 1)
@@ -223,8 +226,9 @@
 		,@(loop for alt in (cdr (first rule-body))
 		     collect `(add-rule (grammar-rule (,name -> ((item ,alt)) :item item)) ,grammar))
 		,@(if start-p `((add-rule (grammar-rule (,terminal -> (,name) :item ,name)) ,grammar)))
-		(defmethod display-parse-tree ((entity ,name) (syntax ,syntax) pane)
-		  (display-parse-tree (slot-value entity 'item) syntax pane))))
+		(defmethod display-parse-tree ((entity ,name) (pane clim-stream-pane)
+                                               (drei drei) (syntax ,syntax))
+		  (display-parse-tree (slot-value entity 'item) pane drei syntax))))
 	     ((and (eql (length rule-body) 1)
 		   (typep (first rule-body) 'cons)
 		   (eq (first (first rule-body)) 'nonempty-list-of))
@@ -247,11 +251,12 @@
 					   appending `(,(intern (symbol-name component) :keyword)
 							,component)))) ,grammar)
 		,@(if start-p `((add-rule (grammar-rule (,terminal -> (,name) :item ,name)) ,grammar)))
-		(defmethod display-parse-tree ((entity ,name) (syntax ,syntax) pane)
+		(defmethod display-parse-tree ((entity ,name) (pane clim-stream-pane)
+                                               (drei drei) (syntax ,syntax))
 		  (with-slots ,rule-body
 		      entity
 		    ,@(loop for component in rule-body collect
-			   `(display-parse-tree ,component syntax pane))))))
+			   `(display-parse-tree ,component pane drei syntax))))))
 	     (t (error "Unrecognized rule body ~S for rule ~S~%" rule-body
 		       name)))))
       `(progn
@@ -321,11 +326,13 @@
       (or identifier number-form)))
       
 
-(defmethod display-parse-tree ((entity ttcn3-terminal) (syntax ttcn3-syntax) pane)
+(defmethod display-parse-tree ((entity ttcn3-terminal) (pane clim-stream-pane)
+                               (drei drei) (syntax ttcn3-syntax))
   (with-slots (item) entity
-      (display-parse-tree item syntax pane)))
+      (display-parse-tree item pane drei syntax)))
 
-(defmethod display-parse-tree ((entity ttcn3-entry) (syntax ttcn3-syntax) pane)
+(defmethod display-parse-tree ((entity ttcn3-entry) (pane clim-stream-pane)
+                               (drei drei) (syntax ttcn3-syntax))
   (flet ((cache-test (t1 t2)
 	   (and (eq t1 t2)
 		(eq (slot-value t1 'ink)
@@ -346,20 +353,21 @@
 				'string
 				:stream pane)))))
 
-(defgeneric display-parse-stack (symbol stack syntax pane))
+(defgeneric display-parse-stack (symbol stack pane drei syntax))
 
-(defmethod display-parse-stack (symbol stack (syntax ttcn3-syntax) pane)
+(defmethod display-parse-stack (symbol stack (pane clim-stream-pane)
+                               (drei drei) (syntax ttcn3-syntax))
   (let ((next (parse-stack-next stack)))
     (unless (null next)
-      (display-parse-stack (parse-stack-symbol next) next syntax pane))
+      (display-parse-stack (parse-stack-symbol next) next pane drei syntax))
     (loop for parse-tree in (reverse (parse-stack-parse-trees stack))
-       do (display-parse-tree parse-tree syntax pane)))) 
+       do (display-parse-tree parse-tree pane drei syntax))))
 
-(defun display-parse-state (state syntax pane)
+(defun display-parse-state (state pane drei syntax)
   (let ((top (parse-stack-top state)))
     (if (not (null top))
-	(display-parse-stack (parse-stack-symbol top) top syntax pane)
-	(display-parse-tree (target-parse-tree state) syntax pane))))
+	(display-parse-stack (parse-stack-symbol top) top pane drei syntax)
+	(display-parse-tree (target-parse-tree state) pane drei syntax))))
 
 (defmethod update-syntax-for-display (buffer (syntax ttcn3-syntax) top bot)
   (with-slots (parser lexer valid-parse) syntax
@@ -390,38 +398,40 @@
 
 (defun handle-whitespace (pane buffer start end)
   (let ((space-width (space-width pane))
-	(tab-width (tab-width pane)))
-    (loop while (and (< start end)
-                     (whitespacep (syntax buffer)
-                                  (buffer-object buffer start)))
-          do (ecase (buffer-object buffer start)
-               (#\Newline (terpri pane)
-                          (setf (aref *cursor-positions* (incf *current-line*))
-                                (multiple-value-bind (x y) (stream-cursor-position pane)
-                                  (declare (ignore x))
-                                  y)))
-               (#\Space (stream-increment-cursor-position
-                         pane space-width 0))
-               (#\Tab (let ((x (stream-cursor-position pane)))
-                        (stream-increment-cursor-position
-                         pane (- tab-width (mod x tab-width)) 0)))
-               (#\Page nil))
-	 (incf start))))
+        (tab-width (tab-width pane)))
+    (with-sheet-medium (medium pane)
+      (with-accessors ((cursor-positions cursor-positions)) (syntax buffer)
+        (loop while (< start end)
+           do (case (buffer-object buffer start)
+                (#\Newline (record-line-vertical-offset pane (syntax buffer) (incf *current-line*))
+                           (terpri pane)
+                           (stream-increment-cursor-position
+                            pane (first (aref cursor-positions 0)) 0))
+                ((#\Page #\Return #\Space) (stream-increment-cursor-position
+                                            pane space-width 0))
+                (#\Tab (let ((x (stream-cursor-position pane)))
+                         (stream-increment-cursor-position
+                          pane (- tab-width (mod x tab-width)) 0))))
+           (incf start))))))
 
-(defmethod display-parse-tree :before ((entity ttcn3-entry) (syntax ttcn3-syntax) pane)
+(defmethod display-parse-tree :before ((entity ttcn3-entry) (pane clim-stream-pane)
+                               (drei drei) (syntax ttcn3-syntax))
   (handle-whitespace pane (buffer pane) *white-space-start* (start-offset entity))
   (setf *white-space-start* (end-offset entity)))
 
-(defmethod display-parse-tree :around ((entity ttcn3-parse-tree) syntax pane)
+(defmethod display-parse-tree :around ((entity ttcn3-parse-tree) pane drei syntax)
   (with-slots (top bot) pane
     (when (and (end-offset entity) (mark> (end-offset entity) top))
       (call-next-method))))
 
-(defmethod redisplay-pane-with-syntax ((pane drei-pane) (syntax ttcn3-syntax) current-p)
+(defmethod display-drei-contents ((pane clim-stream-pane) (drei drei) (syntax ttcn3-syntax))
   (with-slots (top bot) pane
-    (setf *cursor-positions* (make-array (1+ (number-of-lines-in-region top bot)))
-	  *current-line* 0
-	  (aref *cursor-positions* 0) (stream-cursor-position pane))
+    (with-accessors ((cursor-positions cursor-positions)) syntax
+      (setf cursor-positions (make-array (1+ (number-of-lines-in-region top bot))
+                                         :initial-element nil)
+            *current-line* 0
+            (aref cursor-positions 0) (multiple-value-list
+                                       (stream-cursor-position pane))))
     (with-slots (lexer) syntax
       (let ((average-token-size (max (float (/ (size (buffer pane)) (nb-lexemes lexer)))
 				     1.0)))
@@ -440,19 +450,15 @@
 	    (loop until (or (mark<= (end-offset (lexeme lexer (1- start-token-index))) top)
 			    (not (parse-state-empty-p 
 				  (slot-value (lexeme lexer (1- start-token-index)) 'state))))
-		 do (decf start-token-index))
+               do (decf start-token-index))
 	    (let ((*white-space-start* (offset top)))
 	      ;; display the parse tree if any
 	      (unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
 		(display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
-				     syntax
-				     pane))
+                                     pane drei syntax))
 	      ;; display the lexemes
 	      (with-drawing-options (pane :ink (make-rgb-color 0.7 0.7 0.7))
 		(loop while (< start-token-index end-token-index)
 		   do (let ((token (lexeme lexer start-token-index)))
-			(display-parse-tree token syntax pane))
-		     (incf start-token-index))))))))
-    (when (region-visible-p pane) (display-region pane syntax))
-    (display-cursor pane syntax current-p)))
-
+			(display-parse-tree token pane drei syntax))
+                   (incf start-token-index))))))))))
