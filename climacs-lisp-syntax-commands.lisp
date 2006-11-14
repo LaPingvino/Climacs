@@ -127,6 +127,12 @@ If there is no symbol at point, this is a no-op."
 Definition command was issued."
   (pop-find-definition-stack))
 
+(define-command (com-compile-definition :name t :command-table pane-lisp-table)
+    ()
+  "Compile and load definition at point."
+  (evaluating-interactively
+    (compile-definition-interactively *current-point* *current-syntax*)))
+
 (esa:set-key 'com-eval-defun
              'climacs-lisp-table
              '((#\x :control :meta)))
@@ -154,3 +160,7 @@ Definition command was issued."
 (esa:set-key  'com-return-from-definition
 	      'climacs-lisp-table
 	      '((#\, :meta)))
+
+(set-key 'com-compile-definition
+         'pane-lisp-table
+         '((#\c :control) (#\c :control)))
