@@ -1218,31 +1218,32 @@
 
 (defvar *white-space-start* nil)
 
-(defvar *cursor-positions* nil)
 (defvar *current-line* 0)
 
 (defun handle-whitespace (pane buffer start end)
   (let ((space-width (space-width pane))
-	(tab-width (tab-width pane)))
-    (loop while (< start end)
-       do (case (buffer-object buffer start)
-	    (#\Newline (terpri pane)
-                       (stream-increment-cursor-position
-                        pane (first (aref *cursor-positions* *current-line*)) 0)
-		       (setf (aref *cursor-positions* (incf *current-line*))
-			     (multiple-value-list (stream-cursor-position pane))))
-	    ((#\Page #\Return #\Space) (stream-increment-cursor-position
-                                        pane space-width 0))
-	    (#\Tab (let ((x (stream-cursor-position pane)))
-		     (stream-increment-cursor-position
-		      pane (- tab-width (mod x tab-width)) 0))))
-       (incf start))))		    
+        (tab-width (tab-width pane)))
+    (with-sheet-medium (medium pane)
+      (with-accessors ((cursor-positions cursor-positions)) (syntax buffer)
+        (loop while (< start end)
+           do (case (buffer-object buffer start)
+                (#\Newline (record-line-vertical-offset pane (syntax buffer) (incf *current-line*))
+                           (terpri pane)
+                           (stream-increment-cursor-position
+                            pane (first (aref cursor-positions 0)) 0))
+                ((#\Page #\Return #\Space) (stream-increment-cursor-position
+                                            pane space-width 0))
+                (#\Tab (let ((x (stream-cursor-position pane)))
+                         (stream-increment-cursor-position
+                          pane (- tab-width (mod x tab-width)) 0))))
+           (incf start))))))		    
 
 (defmethod display-parse-tree :around ((entity prolog-parse-tree) (syntax prolog-syntax)
                                        (stream extended-output-stream) (drei drei))
   (with-slots (top bot) drei
-     (when (and (end-offset entity) (mark> (end-offset entity) top))
-       (call-next-method))))
+    (when (and (end-offset entity)
+               (mark> (end-offset entity) top))
+      (call-next-method))))
 
 (defmethod display-parse-tree ((entity prolog-token) (syntax prolog-syntax)
                                (stream extended-output-stream) (drei drei))
@@ -1313,12 +1314,15 @@
 (defun nb-valid-lexemes (lexer)
   (slot-value lexer 'valid-lex))
 
-(defmethod display-drei-contents ((stream extended-output-stream) (drei drei) (syntax prolog-syntax))
+(defmethod display-drei-contents ((stream clim-stream-pane) (drei drei) (syntax prolog-syntax))
   (with-slots (top bot) drei
     (with-accessors ((cursor-positions cursor-positions)) syntax
-      (setf cursor-positions (make-array (1+ (number-of-lines-in-region top bot)))
+      (setf cursor-positions (make-array (1+ (number-of-lines-in-region top bot))
+                                         :initial-element nil)
             *current-line* 0
-            (aref cursor-positions 0) (multiple-value-list (stream-cursor-position stream))))
+            (aref cursor-positions 0) (multiple-value-list
+                                       (stream-cursor-position stream))))
+    (setf *white-space-start* (offset top))
     (with-slots (lexer) syntax
       (let ((average-token-size (max (float (/ (size (buffer drei)) (nb-valid-lexemes lexer)))
                                      1.0)))
@@ -1338,17 +1342,16 @@
                             (not (parse-state-empty-p 
                                   (slot-value (lexeme lexer (1- start-token-index)) 'state))))
                do (decf start-token-index))
-            (let ((*white-space-start* (offset top)))
-              ;; display the parse tree if any
-              (unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
-                (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
-                                     syntax stream drei))
-              ;; display the lexemes
-              (with-drawing-options (stream :ink +red+)
-                (loop while (< start-token-index end-token-index)
-                   do (let ((token (lexeme lexer start-token-index)))
-                        (display-parse-tree token syntax stream drei))
-                   (incf start-token-index))))))))))
+            ;; display the parse tree if any
+            (unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
+              (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
+                                   syntax stream drei))
+            ;; display the lexemes
+            (with-drawing-options (stream :ink +red+)
+              (loop while (< start-token-index end-token-index)
+                 do (let ((token (lexeme lexer start-token-index)))
+                      (display-parse-tree token syntax stream drei))
+                 (incf start-token-index)))))))))
 
 #|
 (climacs-gui::define-named-command com-inspect-lex ()
