@@ -295,9 +295,6 @@ contents.")))
 		 "")
 	     pane))))
 
-(defmethod execute-drei-command ((drei-instance climacs-pane) command)
-  (execute-frame-command (pane-frame drei-instance) command))
-
 (defmethod execute-frame-command :around ((frame climacs) command)
   (handling-drei-conditions
     (with-undo ((buffers frame))
