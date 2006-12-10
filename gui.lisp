@@ -295,13 +295,17 @@ contents.")))
 		 "")
 	     pane))))
 
+(defmethod handle-drei-condition ((drei climacs-pane) condition)
+  (call-next-method)
+  (display-drei drei))
+
 (defmethod execute-frame-command :around ((frame climacs) command)
   (handling-drei-conditions
     (with-undo ((buffers frame))
-      (call-next-method))
-    (loop for buffer in (buffers frame)
-       do (when (modified-p buffer)
-            (clear-modify buffer)))))
+      (call-next-method)))
+  (loop for buffer in (buffers frame)
+     do (when (modified-p buffer)
+          (clear-modify buffer))))
 
 (defmethod execute-frame-command :after ((frame climacs) command)
   (when (eq frame *application-frame*)

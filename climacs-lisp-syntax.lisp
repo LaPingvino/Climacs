@@ -252,7 +252,7 @@ Each newline and following whitespace is replaced by a single space."
 
 (defun macroexpand-token (syntax token &optional (all nil))
   (with-syntax-package (syntax (start-offset token))
-    (let* ((string (token-string syntax token))
+    (let* ((string (form-string syntax token))
            (expression (read-from-string string))
            (expansion (macroexpand-for-drei (get-usable-image syntax)
                                                expression
@@ -275,7 +275,7 @@ Each newline and following whitespace is replaced by a single space."
 
 (defun compile-definition-interactively (mark syntax)
   (let* ((token (definition-at-mark mark syntax))
-         (string (token-string syntax token))
+         (string (form-string syntax token))
          (m (clone-mark mark))
          (buffer-name (name (buffer syntax)))
          (*read-base* (base syntax)))
@@ -284,7 +284,7 @@ Each newline and following whitespace is replaced by a single space."
       (backward-definition m syntax)
       (multiple-value-bind (result notes)
           (compile-form-for-drei (get-usable-image syntax)
-                                 (token-to-object syntax token
+                                 (form-to-object syntax token
                                                   :read t
                                                   :package (package-at-mark syntax mark))
                                  (buffer syntax)
