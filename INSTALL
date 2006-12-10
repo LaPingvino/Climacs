@@ -13,7 +13,6 @@ everything in it, or checked out the files from some CVS repository.
    how you do it:
 
     cvs -z3 -d :pserver:anonymous:anonymous@common-lisp.net:/project/flexichain/cvsroot co flexichain
-    cvs -z3 -d :pserver:anonymous:anonymous@common-lisp.net:/project/climacs/cvsroot co esa
 
    Ensure that asdf can find the .asd files for these projects. Recent
    versions of McCLIM depend on Flexichain, and thus, you might
