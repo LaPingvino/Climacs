@@ -51,7 +51,7 @@ contents.")))
   ()
   (:default-initargs
    :buffer (make-instance 'climacs-buffer)
-    :command-table 'global-climacs-table
+    :command-table (find-command-table 'global-climacs-table)
     :width 900 :height 400))
 
 ;; Ensure that only one pane can be active.
