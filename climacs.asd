@@ -48,7 +48,7 @@
    (:file "climacs" :depends-on ("gui" "core"))
    (:file "developer-commands" :depends-on ("core"))
   
-   (:file "file-commands" :depends-on ("gui" "core"))
+   (:file "file-commands" :depends-on ("gui" "core" "io"))
    (:file "misc-commands" :depends-on ("gui" "core" #+nil "groups"))
    (:file "search-commands" :depends-on ("gui" "core" #+nil "groups"))
    (:file "window-commands" :depends-on ("gui" "core"))
