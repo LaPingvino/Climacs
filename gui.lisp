@@ -300,12 +300,15 @@ contents.")))
   (display-drei drei))
 
 (defmethod execute-frame-command :around ((frame climacs) command)
-  (handling-drei-conditions
-    (with-undo ((buffers frame))
+  (if (eq frame *application-frame*)
+      (progn
+        (handling-drei-conditions
+          (with-undo ((buffers frame))
+            (call-next-method)))
+        (loop for buffer in (buffers frame)
+           do (when (modified-p buffer)
+                (clear-modify buffer))))
       (call-next-method)))
-  (loop for buffer in (buffers frame)
-     do (when (modified-p buffer)
-          (clear-modify buffer))))
 
 (defmethod execute-frame-command :after ((frame climacs) command)
   (when (eq frame *application-frame*)
