@@ -116,7 +116,7 @@ that file."
     ()
   "Edit definition of the symbol at point.
 If there is no symbol at point, this is a no-op."
-  (let* ((token (this-form *current-point* *current-syntax*))
+  (let* ((token (this-form *current-syntax* *current-point*))
          (this-symbol (form-to-object *current-syntax* token)))
     (when (and this-symbol (symbolp this-symbol))
       (edit-definition this-symbol))))
