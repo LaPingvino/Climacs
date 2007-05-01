@@ -43,6 +43,8 @@
    (:file "climacs-lisp-syntax-commands" :depends-on ("climacs-lisp-syntax" "misc-commands"))
    (:file "c-syntax" :depends-on ("core"))
    (:file "c-syntax-commands" :depends-on ("c-syntax" "misc-commands"))
+   (:file "java-syntax" :depends-on ("core"))
+   (:file "java-syntax-commands" :depends-on ("java-syntax" "misc-commands"))
    (:file "gui" :depends-on ("packages" "text-syntax"))
    (:file "core" :depends-on ("gui"))
    (:file "io" :depends-on ("packages" "gui"))
