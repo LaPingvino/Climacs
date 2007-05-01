@@ -1045,46 +1045,65 @@
 (defun form-string-p (form)
   (typep form 'string-form))
 
+(defun commentp (form)
+  (typep form 'comment))
+
 (defun top-level-vector (syntax)
   (coerce (children (slot-value syntax 'stack-top)) 'simple-vector))
 
-(defun top-level-form-before-in-vector (tlv offset)
+(defun top-level-form-before-in-vector (tlv 
+					offset 
+					&optional ignore-comments-p)
   "Return top-level form in top-level-vector `tlv' around or before `offset'
-together with index of form in `tlv', or nil."
+together with index of form in `tlv', or nil. If `ignore-comments-p', don't 
+treat comments as forms."
   (loop for count from (1- (length tlv)) downto 0
 	for tlf = (aref tlv count)
-	when (< (start-offset tlf) offset (end-offset tlf))
+	when (and (or (not ignore-comments-p) (not (commentp tlf)))
+		  (< (start-offset tlf) offset (end-offset tlf)))
 	  return (values tlf count)
-	when (<= (end-offset tlf) offset)
+	when (and (or (not ignore-comments-p) (not (commentp tlf)))
+		  (<= (end-offset tlf) offset))
 	  return (values tlf count)
 	finally (return nil)))
 
-(defun top-level-form-after-in-vector (tlv offset)
+(defun top-level-form-after-in-vector (tlv 
+				       offset
+				       &optional ignore-comments-p)
   "Return top-level form in top-level-vector `tlv' around or after `offset'
-together with index of form in `tlv', or nil."
+together with index of form in `tlv', or nil. If `ignore-comments-p', don't
+treat comments as forms."
   (loop for tlf across tlv
 	for count from 0
-	when (< (start-offset tlf) offset (end-offset tlf))
+	when (and (or (not ignore-comments-p) (not (commentp tlf)))
+		  (< (start-offset tlf) offset (end-offset tlf)))
 	  return (values tlf count)
-	when (>= (start-offset tlf) offset)
+	when (and (or (not ignore-comments-p) (not (commentp tlf)))
+		  (>= (start-offset tlf) offset))
 	  return (values tlf count)
 	finally (return nil)))
 
-(defun top-level-form-around-in-vector (tlv offset)
+(defun top-level-form-around-in-vector (tlv 
+					offset
+					&optional ignore-comments-p)
   "Return top-level form in top-level-vector `tlv' around `offset'
-together with index of form in `tlv', or nil."
+together with index of form in `tlv', or nil. If `ignore-comments-p', don't
+treat comments as forms."
   (loop for tlf across tlv
 	for count from 0
-	when (< (start-offset tlf) offset (end-offset tlf))
+	when (and (or (not ignore-comments-p) (not (commentp tlf)))
+		  (< (start-offset tlf) offset (end-offset tlf)))
 	  return (values tlf count)
-	when (>= (start-offset tlf) offset)
+	when (and (or (not ignore-comments-p) (not (commentp tlf)))
+		  (>= (start-offset tlf) offset))
 	  return nil
 	finally (return nil)))
 
-(defun form-around (syntax offset)
+(defun form-around (syntax offset &optional ignore-comments-p)
   (top-level-form-around-in-vector
    (top-level-vector syntax)
-   offset))
+   offset
+   ignore-comments-p))
 
 (defgeneric opening-delimiter-p (token)
   (:documentation "Is `token' an opening delimiter."))
@@ -1129,7 +1148,7 @@ together with index of form in `tlv', or nil."
 (defmethod backward-one-expression (mark (syntax c-syntax))
   (let ((tlv (top-level-vector syntax)))
     (multiple-value-bind (form count)
-	(top-level-form-before-in-vector tlv (offset mark))
+	(top-level-form-before-in-vector tlv (offset mark) t)
       (when form
 	(if (closing-delimiter-p form)
 	    (loop for index from count downto 0
@@ -1150,7 +1169,7 @@ together with index of form in `tlv', or nil."
 (defmethod forward-one-expression (mark (syntax c-syntax))
   (let ((tlv (top-level-vector syntax)))
     (multiple-value-bind (form count)
-	(top-level-form-after-in-vector tlv (offset mark))
+	(top-level-form-after-in-vector tlv (offset mark) t)
       (when form
 	(if (opening-delimiter-p form)
 	    (loop for index from count below (length tlv)
@@ -1184,13 +1203,13 @@ Return T if successful, or NIL if the buffer limit was reached."))
 		do (push match delims)
 	      when (closing-delimiter-p match)
 		do (cond ((null delims)
-			  (setf (offset mark) (end-offset match))
-			  (return t))
-			 (t (cond ((and (matching-delimiter-p match 
-							      (pop delims))
-					(null delims))
-				   (setf (offset mark) (end-offset match))
-				   (return t))
+			  (return nil))
+			 (t (cond ((matching-delimiter-p match 
+							 (car delims))
+				   (pop delims)
+				   (when (null delims)
+				     (setf (offset mark) (end-offset match))
+				     (return t)))
 				  (t (return nil)))))
 	      finally (return nil))))))
 
@@ -1205,9 +1224,20 @@ successful, or NIL if the buffer limit was reached."))
       (when form
 	(loop for index from count downto 0
 	      for match = (aref tlv index)
+	      with delims = ()
 	      when (closing-delimiter-p match)
-		do (setf (offset mark) (end-offset match))
-		   (return t)
+		do (push match delims)
+	      when (opening-delimiter-p match)
+		do (cond 
+		     ((null delims)
+		      (return nil))
+		     (t (cond ((matching-delimiter-p match 
+						     (car delims))
+			       (pop delims)
+			       (when (null delims)
+				 (setf (offset mark) (start-offset match))
+				 (return t)))
+			      (t (return nil))))) 
 	      finally (return nil))))))
 
 (drei-motion:define-motion-fns list)
@@ -1238,12 +1268,10 @@ successful, or NIL if the buffer limit was reached."))
 		do (cond ((null delims)
 			  (setf (offset mark) (start-offset match))
 			  (return t))
-			 (t (cond ((and (matching-delimiter-p match 
-							      (pop delims))
-					(null delims))
-				   (setf (offset mark) (start-offset match))
-				   (return t))
-				  (t (return nil)))))
+			 ((matching-delimiter-p match 
+						(car delims))
+			  (pop delims))
+			 (t (return nil)))
 	      finally (return nil))))))
 
 (defmethod forward-one-down ((mark mark) (syntax c-syntax))
@@ -1272,12 +1300,10 @@ successful, or NIL if the buffer limit was reached."))
 		do (cond ((null delims)
 			  (setf (offset mark) (end-offset match))
 			  (return t))
-			 (t (cond ((and (matching-delimiter-p match 
-							      (pop delims))
-					(null delims))
-				   (setf (offset mark) (end-offset match))
-				   (return t))
-				  (t (return nil)))))
+			 ((matching-delimiter-p match 
+						(car delims))
+			  (pop delims))
+			 (t (return nil)))
 	      finally (return nil))))))
 
 ;; (defmethod backward-one-definition ((mark mark) (syntax c-syntax))
@@ -1303,20 +1329,29 @@ successful, or NIL if the buffer limit was reached."))
 	  do (incf (offset mark2))
           finally (return column))))
 
-(defmethod syntax-line-indentation (mark tab-width (syntax c-syntax))
-  (if (typep (form-around syntax (offset mark)) 'long-comment-form)
-      0 tab-width))
+(defun line-indentation (mark tab-width syntax)
+  "Return the column of the first non-whitespace object, or nil."
+  (setf mark (clone-mark mark))
+  (beginning-of-line mark)
+  (loop until (end-of-line-p mark)
+	while (whitespacep syntax (object-after mark))
+	with column = 0
+	if (eql (object-after mark) #\Tab)
+	  do (incf column (- tab-width (mod column tab-width)))
+	else
+	  do (incf column)
+	do (forward-object mark)
+	finally (return (if (end-of-line-p mark) nil column))))
 
-;; (defmethod syntax-line-indentation (mark tab-width (syntax lisp-syntax))
-;;   (setf mark (clone-mark mark))
-;;   (beginning-of-line mark)
-;;   (with-slots (stack-top) syntax
-;;     (let ((path (compute-path syntax (offset mark))))
-;;       (multiple-value-bind (tree offset)
-;; 	  (indent-form syntax stack-top path)
-;; 	(setf (offset mark) (start-offset tree))
-;; 	(+ (real-column-number mark tab-width)
-;; 	   offset)))))
+(defmethod syntax-line-indentation (mark tab-width (syntax c-syntax))
+  (setf mark (clone-mark mark))
+  (let ((this-indentation (line-indentation mark tab-width syntax)))
+    (beginning-of-line mark)
+    (loop until (beginning-of-buffer-p mark)
+	  do (previous-line mark 0)
+	  when (line-indentation mark tab-width syntax)
+	    return it
+	  finally (return this-indentation))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

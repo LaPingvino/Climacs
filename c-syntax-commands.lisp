@@ -41,13 +41,13 @@
 
 ;; Movement commands.
 (drei-commands:define-motion-commands expression c-table)
-(drei-commands:define-motion-commands definition c-table)
-;; (drei-commands:define-motion-commands up c-table
-;;   :noun "nesting level up"
-;;   :plural "levels")
-;; (drei-commands:define-motion-commands down c-table
-;;   :noun "nesting level down"
-;;   :plural "levels")
+;; (drei-commands:define-motion-commands definition c-table)
+(drei-commands:define-motion-commands up c-table
+  :noun "nesting level up"
+  :plural "levels")
+(drei-commands:define-motion-commands down c-table
+  :noun "nesting level down"
+  :plural "levels")
 (drei-commands:define-motion-commands list c-table)
 
 (drei-commands:define-editing-commands expression c-table)
@@ -103,13 +103,13 @@ string at point."
          'c-table
          '((#\q :meta :control)))
 
-;; (set-key `(com-backward-up ,*numeric-argument-marker*)
-;;          'c-table
-;;          '((#\u :control :meta)))
+(set-key `(com-backward-up ,*numeric-argument-marker*)
+         'c-table
+         '((#\u :control :meta)))
 
-;; (set-key `(com-forward-down ,*numeric-argument-marker*)
-;;          'c-table
-;;          '((#\d :control :meta)))
+(set-key `(com-forward-down ,*numeric-argument-marker*)
+         'c-table
+         '((#\d :control :meta)))
 
 (set-key `(com-backward-expression ,*numeric-argument-marker*)
          'c-table
