@@ -1329,27 +1329,13 @@ successful, or NIL if the buffer limit was reached."))
 	  do (incf (offset mark2))
           finally (return column))))
 
-(defun line-indentation (mark tab-width syntax)
-  "Return the column of the first non-whitespace object, or nil."
-  (setf mark (clone-mark mark))
-  (beginning-of-line mark)
-  (loop until (end-of-line-p mark)
-	while (whitespacep syntax (object-after mark))
-	with column = 0
-	if (eql (object-after mark) #\Tab)
-	  do (incf column (- tab-width (mod column tab-width)))
-	else
-	  do (incf column)
-	do (forward-object mark)
-	finally (return (if (end-of-line-p mark) nil column))))
-
 (defmethod syntax-line-indentation (mark tab-width (syntax c-syntax))
   (setf mark (clone-mark mark))
-  (let ((this-indentation (line-indentation mark tab-width syntax)))
+  (let ((this-indentation (line-indentation mark tab-width)))
     (beginning-of-line mark)
     (loop until (beginning-of-buffer-p mark)
 	  do (previous-line mark 0)
-	  when (line-indentation mark tab-width syntax)
+	  when (line-indentation mark tab-width)
 	    return it
 	  finally (return this-indentation))))
 
