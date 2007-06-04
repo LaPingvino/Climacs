@@ -1120,7 +1120,7 @@ treat comments as forms."
 				 (match right-brace-lexeme))
   t)
 
-(defmethod backward-one-expression (mark (syntax java-syntax))
+(defmethod backward-one-expression ((mark mark) (syntax java-syntax))
   (let ((tlv (top-level-vector syntax)))
     (multiple-value-bind (form count)
 	(top-level-form-before-in-vector tlv (offset mark) t)
@@ -1141,7 +1141,7 @@ treat comments as forms."
 				(t (return nil))))
 	    (setf (offset mark) (start-offset form)))))))
 
-(defmethod forward-one-expression (mark (syntax java-syntax))
+(defmethod forward-one-expression ((mark mark) (syntax java-syntax))
   (let ((tlv (top-level-vector syntax)))
     (multiple-value-bind (form count)
 	(top-level-form-after-in-vector tlv (offset mark) t)
@@ -1161,10 +1161,6 @@ treat comments as forms."
 				 (return t))
 				(t (return nil))))
 	    (setf (offset mark) (end-offset form)))))))
-
-(defgeneric forward-one-list (mark syntax)
-  (:documentation "Move `mark' forward by one list.
-Return T if successful, or NIL if the buffer limit was reached."))
 
 (defmethod forward-one-list (mark (syntax java-syntax))
   (let ((tlv (top-level-vector syntax)))
@@ -1187,10 +1183,6 @@ Return T if successful, or NIL if the buffer limit was reached."))
 				     (return t)))
 				  (t (return nil)))))
 	      finally (return nil))))))
-
-(defgeneric backward-one-list (mark syntax)
-  (:documentation "Move `mark' backward by one list.  Return T if
-successful, or NIL if the buffer limit was reached."))
 
 (defmethod backward-one-list (mark (syntax java-syntax))
   (let ((tlv (top-level-vector syntax)))

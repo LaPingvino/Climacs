@@ -1187,11 +1187,7 @@ treat comments as forms."
 				(t (return nil))))
 	    (setf (offset mark) (end-offset form)))))))
 
-(defgeneric forward-one-list (mark syntax)
-  (:documentation "Move `mark' forward by one list.
-Return T if successful, or NIL if the buffer limit was reached."))
-
-(defmethod forward-one-list (mark (syntax c-syntax))
+(defmethod forward-one-list ((mark mark) (syntax c-syntax))
   (let ((tlv (top-level-vector syntax)))
     (multiple-value-bind (form count)
 	(top-level-form-after-in-vector tlv (offset mark))
@@ -1213,11 +1209,7 @@ Return T if successful, or NIL if the buffer limit was reached."))
 				  (t (return nil)))))
 	      finally (return nil))))))
 
-(defgeneric backward-one-list (mark syntax)
-  (:documentation "Move `mark' backward by one list.  Return T if
-successful, or NIL if the buffer limit was reached."))
-
-(defmethod backward-one-list (mark (syntax c-syntax))
+(defmethod backward-one-list ((mark mark) (syntax c-syntax))
   (let ((tlv (top-level-vector syntax)))
     (multiple-value-bind (form count)
 	(top-level-form-before-in-vector tlv (offset mark))
