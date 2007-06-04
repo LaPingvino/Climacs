@@ -52,7 +52,7 @@
 ;;;       Right stickies at non whitespace characters preceeded by space and punctuation.
 ;;;       
 
-(in-package :drei-syntax) ;;; Put this in a separate package once it works
+(in-package :climacs-text-syntax) ;;; Put this in a separate package once it works
 
 (defun index-of-mark-after-offset (flexichain offset)
   "Searches for the mark after `offset' in the marks stored in `flexichain'."
@@ -159,7 +159,7 @@
 		   (offset (element* paragraphs (1- pos1)))))
          t))))
 
-(defmethod forward-one-paragraph (mark (syntax text-syntax))
+(defmethod forward-one-paragraph ((mark mark) (syntax text-syntax))
   (with-slots (paragraphs) syntax
     (let ((pos1 (index-of-mark-after-offset
                  paragraphs
@@ -173,7 +173,7 @@
 		   (offset (element* paragraphs pos1))))
          t))))
 
- (defmethod backward-one-sentence (mark (syntax text-syntax))
+ (defmethod backward-one-sentence ((mark mark) (syntax text-syntax))
    (with-slots (sentence-beginnings) syntax
       (let ((pos1 (index-of-mark-after-offset sentence-beginnings (offset mark))))
         (when (> pos1 0)
@@ -181,7 +181,7 @@
                 (offset (element* sentence-beginnings (1- pos1))))
           t))))
 
- (defmethod forward-one-sentence (mark (syntax text-syntax))
+ (defmethod forward-one-sentence ((mark mark) (syntax text-syntax))
    (with-slots (sentence-endings) syntax
      (let ((pos1 (index-of-mark-after-offset
                   sentence-endings
@@ -193,7 +193,7 @@
                (offset (element* sentence-endings pos1)))
          t))))
 
-(defmethod syntax-line-indentation (mark tab-width (syntax text-syntax))
+(defmethod syntax-line-indentation ((mark mark) tab-width (syntax text-syntax))
   (loop with indentation = 0
         with mark2 = (clone-mark mark)
         until (beginning-of-buffer-p mark2)
