@@ -274,25 +274,26 @@ Each newline and following whitespace is replaced by a single space."
         (insert-object point #\Newline)))))
 
 (defun compile-definition-interactively (mark syntax)
-  (let* ((token (definition-at-mark mark syntax))
+  (let* ((token (definition-at-mark syntax mark))
          (string (form-string syntax token))
          (m (clone-mark mark))
          (buffer-name (name (buffer syntax)))
          (*read-base* (base syntax)))
     (with-syntax-package (syntax mark)
-      (forward-definition m syntax)
-      (backward-definition m syntax)
-      (multiple-value-bind (result notes)
-          (compile-form-for-drei (get-usable-image syntax)
-                                 (form-to-object syntax token
-                                                  :read t
-                                                  :package (package-at-mark syntax mark))
-                                 (buffer syntax)
-                                 m)
-        (show-note-counts notes (second result))
-        (when (not (null notes))
-          (show-notes notes buffer-name
-                      (one-line-ify (subseq string 0 (min (length string) 20)))))))))
+      (forward-definition m syntax 1 nil)
+      (if (backward-definition m syntax 1 nil)
+          (multiple-value-bind (result notes)
+              (compile-form-for-drei (get-usable-image syntax)
+                                     (form-to-object syntax token
+                                      :read t
+                                      :package (package-at-mark syntax mark))
+                                     (buffer syntax)
+                                     m)
+            (show-note-counts notes (second result))
+            (when (not (null notes))
+              (show-notes notes buffer-name
+                          (one-line-ify (subseq string 0 (min (length string) 20))))))
+          (display-message "No definition at point")))))
 
 (defun compile-file-interactively (buffer &optional load-p)
   (cond ((null (filepath buffer))
