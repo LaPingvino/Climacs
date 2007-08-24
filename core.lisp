@@ -136,14 +136,17 @@
 		   "." (pathname-type pathname))))
 
 (defun syntax-class-name-for-filepath (filepath)
-  (or (drei-syntax::syntax-description-class-name
-       (find (or (pathname-type filepath)
-		 (pathname-name filepath))
-	     drei-syntax::*syntaxes*
-	     :test (lambda (x y)
-		     (member x y :test #'string-equal))
-	     :key #'drei-syntax::syntax-description-pathname-types))
-      *default-syntax*))
+  (let ((syntax-description
+         (find (or (pathname-type filepath)
+                   (pathname-name filepath))
+               drei-syntax::*syntaxes*
+               :test (lambda (x y)
+                       (member x y :test #'string-equal))
+               :key #'drei-syntax::syntax-description-pathname-types)))
+    (if syntax-description
+        (drei-syntax::syntax-description-class-name
+         syntax-description)
+        *default-syntax*)))
 
 (defun evaluate-attributes (buffer options)
   "Evaluate the attributes `options' and modify `buffer' as
