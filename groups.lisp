@@ -1,6 +1,6 @@
 ;;; -*- Mode: Lisp; Package: CLIMACS-CORE -*-
 
-;;;  (c) copyright 2006 by
+;;;  (c) copyright 2006-2007 by
 ;;;           Troels Henriksen (athas@sigkill.dk)
 
 ;;; This library is free software; you can redistribute it and/or
@@ -24,9 +24,9 @@
 
 (defvar *persistent-groups* (make-hash-table :test #'equal)
   "A hash table of groups that are persistent across invocations
-  of the Climacs editor. Typically, these do not designate
-  concrete pathnames, but contain more abstract designations such
-  as \"all files in the current directory\".")
+of the Climacs editor. Typically, these do not designate concrete
+pathnames, but contain more abstract designations such as \"all
+files in the current directory\".")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -46,7 +46,7 @@
 (defclass current-buffer-group (group)
   ()
   (:documentation "Group class denoting the currently active
-  buffer."))
+buffer."))
 
 (defclass synonym-group (group)
   ((%other-name :initarg :other-name
@@ -69,7 +69,7 @@
     :initform nil
     :accessor value-plist))
   (:documentation "A group that will call a provided function
-  when it is selected or asked for pathnames."))
+when it is selected or asked for pathnames."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -77,8 +77,8 @@
 
 (defgeneric group-buffers (group)
   (:documentation "Get a list of buffers in `group'. Only already
-  existing buffers will be returned, use `ensure-group-buffers'
-  if you want all buffers defined by the group."))
+existing buffers will be returned, use `ensure-group-buffers' if
+you want all buffers defined by the group."))
 
 (defgeneric ensure-group-buffers (group)
   (:documentation "For each pathname in `group' that does not
@@ -86,10 +86,10 @@ have a corresponding buffer, open a buffer for that pathname."))
 
 (defgeneric select-group (group)
   (:documentation "Tell the group object `group' that the user
-  has selected it. This method is responsible for setting the
-  active group. If `group' needs additional information, it
-  should query the user when this method is invoked. The standard
-  method should be sufficient for most group classes.")
+has selected it. This method is responsible for setting the
+active group. If `group' needs additional information, it should
+query the user when this method is invoked. The standard method
+should be sufficient for most group classes.")
   (:method ((group group))
     ;; Use a synonym group so that changes to the group of this name
     ;; will be reflected in the active group.
@@ -98,10 +98,10 @@ have a corresponding buffer, open a buffer for that pathname."))
 
 (defgeneric display-group-contents (group stream)
   (:documentation "Display the contents of `group' to
-  `stream'. Basically, this should describe which buffers or
-  files would be affected by group-aware commands if `group' was
-  the active group. There is no standard format for the output,
-  but it is intended for displaying to the user."))
+`stream'. Basically, this should describe which buffers or files
+would be affected by group-aware commands if `group' was the
+active group. There is no standard format for the output, but it
+is intended for displaying to the user."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -375,3 +375,14 @@ selected to be the active group by the user."
   (if (get-group (other-name object))
       (present (get-group (other-name object)) type :stream stream :view view)
       (error 'group-not-found :group-name (other-name object))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; 
+;;; Now hook it all up.
+
+(setf *climacs-target-creator*
+      #'(lambda (drei)
+          (ensure-group-buffers (get-active-group))
+          (make-instance 'buffer-list-target-specification
+                         :buffers (group-buffers (get-active-group))
+                         :drei-instance drei)))

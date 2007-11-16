@@ -82,7 +82,7 @@ FIXME: gives no information at end of buffer."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Groups
-#|| ;; FIXME: Commented about because of lack of support in DREI.
+
 (define-command (com-define-group :name t :command-table global-climacs-table)
     ((name 'string :prompt "Name")
      (buffers '(sequence drei-buffer) :prompt "Buffers"))
@@ -143,4 +143,3 @@ FIXME: gives no information at end of buffer."
 (set-key 'com-list-group-contents
          'global-climacs-table
          '((#\x :control) (#\g) (#\l)))
-||#

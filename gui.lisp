@@ -40,6 +40,10 @@ files.")
   of all panes. If NIL, don't. This is off by default, as finding
   the line and column numbers is potentially expensive.")
 
+(defvar *climacs-target-creator* nil
+  "A function for creating targets for commands potentially
+acting over multiple buffers.")
+
 (defclass climacs-buffer (drei-buffer)
   ((%external-format :initform *default-external-format*
                      :accessor external-format
@@ -223,7 +227,8 @@ contents.")))
                (*current-mark* (current-mark))
                (*previous-command* (previous-command *current-window*))
                (*current-syntax* (and *current-buffer*
-                                      (syntax *current-buffer*)))))
+                                      (syntax *current-buffer*)))
+               (*default-target-creator* *climacs-target-creator*)))
 
 (defmethod frame-standard-input ((frame climacs))
   (get-frame-pane frame 'minibuffer))

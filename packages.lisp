@@ -29,7 +29,7 @@
 (defpackage :climacs-gui
     (:use :clim-lisp :clim :drei-buffer :drei-base
           :drei-abbrev :drei-syntax :drei-motion
-          :drei-kill-ring :drei :clim-extensions
+          :drei-kill-ring :drei-core :drei :clim-extensions
           :drei-undo :esa :drei-editing :drei-motion
           :esa-buffer :esa-io :esa-utils)
     ;;(:import-from :lisp-string)
@@ -65,12 +65,13 @@
              #:*mini-fg-color*
              #:*with-scrollbars*
              #:*default-external-format*
+             #:*climacs-target-creator*
 
              ;; The command tables
              #:global-climacs-table #:keyboard-macro-table #:climacs-help-table
              #:base-table #:buffer-table #:case-table 
-              #:development-table
-              #:info-table #:pane-table
+             #:development-table
+             #:info-table #:pane-table
              #:window-table))
 
 (defpackage :climacs-core
