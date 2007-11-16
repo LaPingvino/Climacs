@@ -61,6 +61,14 @@ contents.")))
                 (setf (active pane) nil)))
           (windows (pane-frame climacs-pane))))
 
+(defmethod (setf buffer) :before ((buffer climacs-buffer) (pane climacs-pane))
+  (with-accessors ((buffers buffers)) *application-frame*
+    (unless (member buffer buffers)
+      (error "Attempting to switch to a buffer not known to Climacs"))
+    (setf buffers (delete buffer buffers))
+    (push buffer buffers)
+    (full-redisplay pane)))
+
 (defmethod command-table ((drei climacs-pane))
   (command-table (pane-frame drei)))
 

@@ -68,16 +68,7 @@
 (defgeneric switch-to-buffer (pane buffer))
 
 (defmethod switch-to-buffer ((pane drei) (buffer drei-buffer))
-  (with-accessors ((buffers buffers)) *application-frame*
-   (let* ((position (position buffer buffers))
-          (pane (current-window)))
-     (when position
-       (setf buffers (delete buffer buffers)))
-     (push buffer buffers)
-     (setf (offset (point (buffer pane))) (offset (point pane)))
-     (setf (buffer pane) buffer)
-     (full-redisplay pane)
-     buffer)))
+  (setf (buffer pane) buffer))
 
 (defmethod switch-to-buffer ((pane typeout-pane) (buffer drei-buffer))
   (let ((usable-pane (or (find-if #'(lambda (pane)
