@@ -43,7 +43,7 @@ on the first or second non-blank line of the file.
 An example attribute-list is:
 
 ;; -*- Syntax: Lisp; Base: 10 -*- "
-  (evaluate-attribute-line (buffer (current-window))))
+  (evaluate-attribute-line (current-buffer)))
 
 (define-command (com-update-attribute-list :name t :command-table buffer-table)
     ()
@@ -65,26 +65,25 @@ An example attribute-list is:
 
 This command automatically comments the attribute line as
 appropriate for the syntax of the buffer."
-  (update-attribute-line (buffer (current-window)))
-  (evaluate-attribute-line (buffer (current-window))))
+  (update-attribute-line (current-buffer))
+  (evaluate-attribute-line (current-buffer)))
 
 (define-command (com-insert-file :name t :command-table buffer-table)
     ((filename 'pathname :prompt "Insert File"
-	       :default (directory-of-buffer (buffer (current-window)))
-	       :default-type 'pathname
-	       :insert-default t))
+                         :default (directory-of-buffer (current-buffer))
+                         :default-type 'pathname
+                         :insert-default t))
   "Prompt for a filename and insert its contents at point.
 Leaves mark after the inserted contents."
-  (let ((pane (current-window)))
-    (when (probe-file filename)
-      (setf (mark pane) (clone-mark (point pane) :left))
-      (with-open-file (stream filename :direction :input)
-	(input-from-stream stream
-			   (buffer pane)
-			   (offset (point pane))))
-      (psetf (offset (mark pane)) (offset (point pane))
-	     (offset (point pane)) (offset (mark pane))))
-    (redisplay-frame-panes *application-frame*)))
+  (when (probe-file filename)
+    (setf (mark) (clone-mark (point) :left))
+    (with-open-file (stream filename :direction :input)
+      (input-from-stream stream
+                         (current-buffer)
+                         (offset (point))))
+    (psetf (offset (mark)) (offset (point))
+           (offset (point)) (offset (mark))))
+  (redisplay-frame-panes *application-frame*))
 
 (set-key `(com-insert-file ,*unsupplied-argument-marker*)
 	 'buffer-table
@@ -93,23 +92,21 @@ Leaves mark after the inserted contents."
 (define-command (com-revert-buffer :name t :command-table buffer-table) ()
   "Replace the contents of the current buffer with the visited file.
 Signals an error if the file does not exist."
-  (let* ((pane (current-window))
-	 (buffer (buffer pane))
-	 (filepath (filepath buffer))
-	 (save (offset (point pane))))
+  (let* ((save (offset (point)))
+         (filepath (filepath (current-buffer))))
     (when (accept 'boolean :prompt (format nil "Revert buffer from file ~A?"
-					   (filepath buffer)))
+					   filepath))
       (cond ((directory-pathname-p filepath)
 	   (display-message "~A is a directory name." filepath)
 	   (beep))
 	  ((probe-file filepath)
-	   (unless (check-file-times buffer filepath "Revert" "reverted")
+	   (unless (check-file-times (current-buffer) filepath "Revert" "reverted")
 	     (return-from com-revert-buffer))
-	   (erase-buffer buffer)
+	   (erase-buffer (current-buffer))
 	   (with-open-file (stream filepath :direction :input)
-	     (input-from-stream stream buffer 0))
-	   (setf (offset (point pane)) (min (size buffer) save)
-		 (file-saved-p buffer) nil))
+	     (input-from-stream stream (current-buffer) 0))
+	   (setf (offset (point)) (min (size (current-buffer)) save)
+		 (file-saved-p (current-buffer)) nil))
 	  (t
 	   (display-message "No file ~A" filepath)
 	   (beep))))))
@@ -154,7 +151,7 @@ the name of the next buffer (if any) as a default."
 (define-command (com-kill-buffer :name t :command-table pane-table)
     ((buffer 'buffer
              :prompt "Kill buffer"
-             :default (buffer (current-window))))
+             :default (current-buffer)))
   "Prompt for a buffer name and kill that buffer.
 If the buffer needs saving, will prompt you to do so before killing it. Uses the current buffer as a default."
   (kill-buffer buffer))

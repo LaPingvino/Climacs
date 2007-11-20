@@ -57,7 +57,7 @@
     ()
   "Fill paragraph at point. Will have no effect unless there is a
 string at point."
-  (let* ((pane *current-window*)
+  (let* ((pane (current-window))
          (buffer (buffer pane))
          (implementation (implementation buffer))
          (syntax (syntax buffer))
@@ -82,7 +82,7 @@ string at point."
 
 (define-command (com-indent-expression :name t :command-table c-table)
     ((count 'integer :prompt "Number of expressions"))
-  (let* ((pane *current-window*)
+  (let* ((pane (current-window))
          (point (point pane))
          (mark (clone-mark point))
          (syntax (syntax (buffer pane))))

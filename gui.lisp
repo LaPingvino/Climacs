@@ -83,9 +83,9 @@ contents.")))
 
 (defmethod buffer ((pane typeout-pane)))
 
-(defmethod point ((pane typeout-pane)))
+(defmethod point-of ((pane typeout-pane)))
 
-(defmethod mark ((pane typeout-pane)))
+(defmethod mark-of ((pane typeout-pane)))
 
 (defmethod full-redisplay ((pane typeout-pane)))
 
@@ -168,7 +168,7 @@ contents.")))
   ())
 
 (defmethod command-table-inherit-from ((table climacs-command-table))
-  (append (when *current-syntax* (list (command-table *current-syntax*)))
+  (append (when (current-syntax) (list (command-table (current-syntax))))
           '(global-climacs-table)
           (call-next-method)))
 
@@ -223,19 +223,15 @@ contents.")))
                        command-unparser
                        partial-command-parser
                        prompt)
-    :bindings ((*current-point* (current-point))
-               (*current-mark* (current-mark))
-               (*previous-command* (previous-command *current-window*))
-               (*current-syntax* (and *current-buffer*
-                                      (syntax *current-buffer*)))
-               (*default-target-creator* *climacs-target-creator*)))
+ :bindings ((*previous-command* (previous-command (current-window)))
+            (*default-target-creator* *climacs-target-creator*)))
 
 (defmethod frame-standard-input ((frame climacs))
   (get-frame-pane frame 'minibuffer))
 
-(defmethod frame-current-buffer ((application-frame climacs))
+(defmethod esa-current-buffer ((application-frame climacs))
   "Return the current buffer."
-  (buffer (frame-current-window application-frame)))
+  (buffer (esa-current-window application-frame)))
 
 (defun any-buffer ()
   "Return some buffer, any buffer, as long as it is a buffer!"
@@ -313,15 +309,16 @@ contents.")))
   (display-drei drei))
 
 (defmethod execute-frame-command :around ((frame climacs) command)
-  (if (eq frame *application-frame*)
-      (progn
-        (handling-drei-conditions
-          (with-undo ((buffers frame))
-            (call-next-method)))
-        (loop for buffer in (buffers frame)
-           do (when (modified-p buffer)
-                (clear-modify buffer))))
-      (call-next-method)))
+  (let ((*drei-instance* (esa-current-window frame)))
+    (if (eq frame *application-frame*)
+        (progn
+          (handling-drei-conditions
+            (with-undo ((buffers frame))
+              (call-next-method)))
+          (loop for buffer in (buffers frame)
+             do (when (modified-p buffer)
+                  (clear-modify buffer))))
+        (call-next-method))))
 
 (defmethod execute-frame-command :after ((frame climacs) command)
   (when (eq frame *application-frame*)

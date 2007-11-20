@@ -104,9 +104,9 @@
      ;; Always need one buffer.
      (when (null buffers)
        (make-new-buffer :name "*scratch*"))
-     (setf (buffer (current-window)) (car buffers))
+     (setf (current-buffer) (car buffers))
      (full-redisplay (current-window))
-     (buffer (current-window))))
+     (current-buffer)))
 
 (defmethod kill-buffer ((name string))
   (let ((buffer (find name (buffers *application-frame*)
@@ -114,7 +114,7 @@
     (when buffer (kill-buffer buffer))))
 
 (defmethod kill-buffer ((symbol (eql 'nil)))
-  (kill-buffer (buffer (current-window))))
+  (kill-buffer (current-buffer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -311,7 +311,7 @@ file if necessary."
         (t
          (let ((existing-buffer (find-buffer-with-pathname filepath)))
            (if (and existing-buffer (if readonlyp (read-only-p existing-buffer) t))
-               (switch-to-buffer *current-window* existing-buffer)
+               (switch-to-buffer (current-window) existing-buffer)
                (progn
                  (when readonlyp
                    (unless (probe-file filepath)
@@ -324,7 +324,7 @@ file if necessary."
                                    (make-new-buffer)))
                        (pane (current-window)))
                    (setf (offset (point (buffer pane))) (offset (point pane))
-                         (buffer (current-window)) buffer
+                         (current-buffer) buffer
                          (syntax buffer) (make-instance (syntax-class-name-for-filepath filepath)
                                                         :buffer buffer)
                          (file-write-time buffer) (file-write-date filepath))

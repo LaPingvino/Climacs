@@ -58,7 +58,7 @@
     ()
   "Fill paragraph at point. Will have no effect unless there is a
 string at point."
-  (let* ((pane *current-window*)
+  (let* ((pane (current-window))
          (buffer (buffer pane))
          (implementation (implementation buffer))
          (syntax (syntax buffer))
@@ -83,14 +83,11 @@ string at point."
 
 (define-command (com-indent-expression :name t :command-table java-table)
     ((count 'integer :prompt "Number of expressions"))
-  (let* ((pane *current-window*)
-         (point (point pane))
-         (mark (clone-mark point))
-         (syntax (syntax (buffer pane))))
+  (let* ((mark (clone-mark (point))))
     (if (plusp count)
-        (loop repeat count do (forward-expression mark syntax))
-        (loop repeat (- count) do (backward-expression mark syntax)))
-    (indent-region pane (clone-mark point) mark)))
+        (loop repeat count do (forward-expression mark (current-syntax)))
+        (loop repeat (- count) do (backward-expression mark (current-syntax))))
+    (indent-region *drei-instance* (point) mark)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

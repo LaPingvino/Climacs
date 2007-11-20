@@ -46,18 +46,16 @@ the offset of point, the total objects in the buffer,
 and the percentage of the buffers objects before point.
 
 FIXME: gives no information at end of buffer."
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (buffer (buffer pane))
-	 (offset (offset point))
-	 (size (size buffer))
-	 (char (or (end-of-buffer-p point) (object-after point)))
-	 (column (column-number point)))
+  (let* ((char (or (end-of-buffer-p (point)) (object-after (point))))
+	 (column (column-number (point))))
     (display-message "Char: ~:[none~*~;~:*~:C (#o~O ~:*~D ~:*#x~X)~] point=~D of ~D (~D%) column ~D"
 		     (and (characterp char) char)
 		     (and (characterp char) (char-code char))
-		     offset size
-		     (if size (round (* 100 (/ offset size))) 100)
+		     (offset (point)) (size (current-buffer))
+		     (if (size (current-buffer))
+                         (round (* 100 (/ (offset (point))
+                                          (size (current-buffer)))))
+                         100)
 		     column)))
 
 (set-key 'com-what-cursor-position
@@ -77,7 +75,7 @@ FIXME: gives no information at end of buffer."
       :prompt "Name of syntax"))
   "Prompts for a syntax to set for the current buffer.
    Setting a syntax will cause the buffer to be reparsed using the new syntax."
-  (set-syntax *current-buffer* syntax))
+  (set-syntax (current-buffer) syntax))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 

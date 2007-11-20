@@ -37,7 +37,7 @@
   '(climacs-lisp-table))
 
 (define-command (com-package :name t :command-table climacs-lisp-table) ()
-  (let ((package (package-at-mark *current-syntax* *current-point*)))
+  (let ((package (package-at-mark (current-syntax) (point))))
     (esa:display-message (format nil "~A" (if (packagep package)
                                               (package-name package)
                                               package)))))
@@ -45,12 +45,12 @@
 (define-command (com-set-base :name t :command-table climacs-lisp-table)
     ((base '(integer 2 36)))
   "Set the base for the current buffer."
-  (setf (base *current-syntax*) base))
+  (setf (base (current-syntax)) base))
 
 (define-command (com-set-package :name t :command-table climacs-lisp-table)
     ((package 'package))
   "Set the package for the current buffer."
-  (setf (option-specified-package *current-syntax*) package))
+  (setf (option-specified-package (current-syntax)) package))
 
 (define-command (com-macroexpand-1 :name t :command-table climacs-lisp-table)
     ()
@@ -58,9 +58,9 @@
 
 The expanded expression will be displayed in a
 \"*Macroexpansion*\"-buffer."
-  (let*((token (expression-at-mark *current-point* *current-syntax*)))
+  (let*((token (expression-at-mark (point) (current-syntax))))
     (if token
-        (macroexpand-token *current-syntax* token)
+        (macroexpand-token (current-syntax) token)
         (esa:display-message "Nothing to expand at point."))))
 
 (define-command (com-macroexpand-all :name t :command-table climacs-lisp-table)
@@ -69,9 +69,9 @@ The expanded expression will be displayed in a
 
 The expanded expression will be displayed in a
 \"*Macroexpansion*\"-buffer."
-  (let ((token (expression-at-mark *current-point* *current-syntax*)))
+  (let ((token (expression-at-mark (point) (current-syntax))))
     (if token
-        (macroexpand-token *current-syntax* token t)
+        (macroexpand-token (current-syntax) token t)
         (esa:display-message "Nothing to expand at point."))))
 
 (define-command (com-compile-and-load-file :name t :command-table climacs-lisp-table)
@@ -79,14 +79,14 @@ The expanded expression will be displayed in a
   "Compile and load the current file.
 
 Compiler notes will be displayed in a seperate buffer."
-  (compile-file-interactively *current-buffer* t))
+  (compile-file-interactively (current-buffer) t))
 
 (define-command (com-compile-file :name t :command-table climacs-lisp-table)
     ()
   "Compile the file open in the current buffer.
 
 This command does not load the file after it has been compiled."
-  (compile-file-interactively *current-buffer* nil))
+  (compile-file-interactively (current-buffer) nil))
 
 (define-command (com-goto-location :name t :command-table climacs-lisp-table)
     ((note 'compiler-note))
@@ -116,8 +116,8 @@ that file."
     ()
   "Edit definition of the symbol at point.
 If there is no symbol at point, this is a no-op."
-  (let* ((token (this-form *current-syntax* *current-point*))
-         (this-symbol (form-to-object *current-syntax* token)))
+  (let* ((token (this-form (current-syntax) (point)))
+         (this-symbol (form-to-object (current-syntax) token)))
     (when (and this-symbol (symbolp this-symbol))
       (edit-definition this-symbol))))
 
@@ -131,7 +131,7 @@ Definition command was issued."
     ()
   "Compile and load definition at point."
   (evaluating-interactively
-    (compile-definition-interactively *current-point* *current-syntax*)))
+    (compile-definition-interactively (point) (current-syntax))))
 
 (esa:set-key 'com-eval-defun
              'climacs-lisp-table

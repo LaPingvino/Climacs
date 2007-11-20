@@ -170,7 +170,7 @@ Each newline and following whitespace is replaced by a single space."
                                    :fill-pointer 0)
      when (char= (char string count) #\Newline)
      do (loop while (and (< count (length string))
-                         (whitespacep *current-syntax* (char string count)))
+                         (whitespacep (current-syntax) (char string count)))
            do (incf count)
            ;; Just ignore whitespace if it is last in the
            ;; string.
@@ -241,7 +241,7 @@ Each newline and following whitespace is replaced by a single space."
                                                  (when path
                                                    (namestring path)))))))
     (if buffer
-        (climacs-core:switch-to-buffer *current-window* buffer)
+        (climacs-core:switch-to-buffer (current-window) buffer)
         (find-file (file-name location)))
     (goto-position (point (current-window))
                    (char-position (source-position location)))))
@@ -259,7 +259,7 @@ Each newline and following whitespace is replaced by a single space."
                                                all))
            (expansion-string (with-output-to-string (s)
                                (pprint expansion s))))
-      (let ((buffer (climacs-core:switch-to-buffer *current-window* "*Macroexpansion*")))
+      (let ((buffer (climacs-core:switch-to-buffer (current-window) "*Macroexpansion*")))
         (set-syntax buffer "Lisp"))
       (let ((point (point (current-window)))
             (header-string (one-line-ify (subseq string 0
@@ -322,7 +322,7 @@ Each newline and following whitespace is replaced by a single space."
            (offset (first offset+buffer))
            (buffer (second offset+buffer)))
       (if (find buffer (buffers *application-frame*))
-          (progn (climacs-core:switch-to-buffer *current-window* buffer)
+          (progn (climacs-core:switch-to-buffer (current-window) buffer)
                  (goto-position (point (current-window)) offset))
           (pop-find-definition-stack)))))
 
