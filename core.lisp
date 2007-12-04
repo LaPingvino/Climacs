@@ -324,7 +324,7 @@ file if necessary."
                                    (make-new-buffer)))
                        (pane (current-window)))
                    (setf (offset (point (buffer pane))) (offset (point pane))
-                         (current-buffer) buffer
+                         (buffer pane) buffer
                          (syntax buffer) (make-instance (syntax-class-name-for-filepath filepath)
                                                         :buffer buffer)
                          (file-write-time buffer) (file-write-date filepath))
