@@ -762,9 +762,10 @@ the `package' definition, if any."))
 			collect (form-string syntax component) into components
 		      finally (setf (package-of syntax) components)))))
 
-;;; TODO: conditionalise this
-(defmethod update-syntax :after (buffer (syntax java-syntax))
-  (update-package-name buffer syntax))
+(defmethod update-syntax :after ((syntax java-syntax) prefix-size suffix-size
+                                 &optional begin end)
+  (declare (ignore begin end))
+  (update-package-name (buffer syntax) syntax))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -775,130 +776,72 @@ the `package' definition, if any."))
 `syntax'."
   (buffer-substring (buffer syntax) (start-offset form) (end-offset form)))
 
-(defvar *white-space-start* nil)
+(define-standard-faces java-syntax
+  (make-face :error +red+)
+  (make-face :string +rosy-brown+ (make-text-style nil :italic nil))
+  (make-face :operator +orchid+)
+  (make-face :basic-type +dark-blue+)
+  (make-face :modifier +dark-green+)
+  (make-face :comment +maroon+)
+  (make-face :number +gray50+))
 
-(defvar *current-line* 0)
-
-(defparameter *current-faces*
-  `((:error ,+red+ nil)
-    (:string ,+rosy-brown+ ,(make-text-style nil :italic nil))
-    (:operator ,+orchid+ nil)
-    (:basic-type ,+dark-blue+ nil)
-    (:modifier ,+dark-green+ nil)
-    (:comment ,+maroon+ nil)
-    (:number ,+gray50+ nil)))
-
-(defun face-colour (type)
-  (first (cdr (assoc type *current-faces*))))
-
-(defun face-style (type)
-  (second (cdr (assoc type *current-faces*))))
-
-(defmacro with-face ((face &optional (stream-symbol 'stream)) &body body)
-  `(with-drawing-options (,stream-symbol :ink (face-colour ,face)
-                                         :text-style (face-style ,face))
-     ,@body))
-
-(defun handle-whitespace (pane buffer start end)
-  (let ((space-width (space-width pane))
-        (tab-width (tab-width pane)))
-    (with-sheet-medium (medium pane)
-      (with-accessors ((cursor-positions cursor-positions)) (syntax buffer)
-        (loop while (< start end)
-           do (case (buffer-object buffer start)
-                (#\Newline (record-line-vertical-offset pane (syntax buffer) (incf *current-line*))
-                           (terpri pane)
-                           (stream-increment-cursor-position
-                            pane (first (aref cursor-positions 0)) 0))
-                ((#\Page #\Return #\Space) (stream-increment-cursor-position
-                                            pane space-width 0))
-                (#\Tab (when (plusp tab-width)
-                         (let ((x (stream-cursor-position pane)))
-                           (stream-increment-cursor-position
-                            pane (- tab-width (mod x tab-width)) 0)))))
-           (incf start))))))
-
-(defgeneric display-parse-tree (parse-symbol stream drei syntax)
-  (:documentation "Display the given parse-symbol on the supplied
-  stream, assuming `drei' to be the relevant Drei instance and
-  `syntax' being the syntax object responsible for the parse
-  symbol."))
-
-(defmethod display-parse-tree ((parse-symbol (eql nil)) stream (drei drei)
+(defmethod display-parse-tree ((parse-symbol (eql nil)) stream (view textual-drei-syntax-view)
                                (syntax java-syntax))
   nil)
 
-(defmethod display-parse-tree :around (parse-symbol stream (drei drei)
-                                                    (syntax java-syntax))
-  (with-slots (top bot) drei
-     (when (and (start-offset parse-symbol)
-                (mark< (start-offset parse-symbol) bot)
-                (mark> (end-offset parse-symbol) top))
-       (call-next-method))))
-
-(defmethod display-parse-tree (parse-symbol stream (drei drei)
-                               (syntax java-syntax))
-  (with-slots (top bot) drei
-    (loop for child in (children parse-symbol)
-       when (and (start-offset child)
-                 (mark> (end-offset child) top))
-         do (if (mark< (start-offset child) bot)
-                (display-parse-tree child stream drei syntax)
-                (return)))))
-
-(defmethod display-parse-tree ((parse-symbol error-symbol) stream (drei drei)
+(defmethod display-parse-tree ((parse-symbol error-symbol) stream (view textual-drei-syntax-view)
                                (syntax java-syntax))
   (let ((children (children parse-symbol)))
     (loop until (or (null (cdr children))
 		    (typep (parser-state (cadr children)) 'error-state))
-	  do (display-parse-tree (pop children) stream drei syntax))
+	  do (display-parse-tree (pop children) stream view syntax))
     (if (and (null (cdr children))
 	     (not (typep (parser-state parse-symbol) 'error-state)))
-	(display-parse-tree (car children) stream drei syntax)
+	(display-parse-tree (car children) stream view syntax)
 	(with-face (:error)
 	  (loop for child in children
-		do (display-parse-tree child stream drei syntax))))))
+		do (display-parse-tree child stream view syntax))))))
 
-(defmethod display-parse-tree ((parse-symbol error-lexeme) stream (drei drei) (syntax java-syntax))
+(defmethod display-parse-tree ((parse-symbol error-lexeme) stream (view textual-drei-syntax-view) (syntax java-syntax))
   (with-face (:error)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol integer-literal-lexeme)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:number)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol floating-point-literal-lexeme)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:number)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol basic-type)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:basic-type)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol modifier)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:modifier)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol operator)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:operator)
     (call-next-method)))
 
-(defmethod display-parse-tree ((parser-symbol java-lexeme) stream (drei drei)
+(defmethod display-parse-tree ((parser-symbol java-lexeme) stream (view textual-drei-syntax-view)
                                (syntax java-syntax))
   (flet ((cache-test (t1 t2)
            (and (eq t1 t2)
@@ -908,7 +851,7 @@ the `package' definition, if any."))
                     (text-style-face 
 		     (medium-text-style (sheet-medium stream)))))))
     (updating-output
-        (stream :unique-id (list drei parser-symbol)
+        (stream :unique-id (list view parser-symbol)
                 :id-test #'equal
                 :cache-value parser-symbol
                 :cache-test #'cache-test)
@@ -917,17 +860,9 @@ the `package' definition, if any."))
               face (text-style-face (medium-text-style (sheet-medium stream))))
         (write-string (form-string syntax parser-symbol) stream)))))
 
-(defmethod display-parse-tree :before ((parse-symbol java-lexeme) 
-				       stream 
-				       (drei drei)
-                                       (syntax java-syntax))
-  (handle-whitespace stream (buffer drei) 
-		     *white-space-start* (start-offset parse-symbol))
-  (setf *white-space-start* (end-offset parse-symbol)))
-
 (defmethod display-parse-tree ((parse-symbol character-literal-lexeme)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:string)
     (call-next-method)))
@@ -935,83 +870,66 @@ the `package' definition, if any."))
 (defmethod display-parse-tree ((parse-symbol 
 				incomplete-character-literal-lexeme)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:string)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol boolean-literal-lexeme)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:operator)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol null-literal-lexeme)
 			       stream
-			       (drei drei)
+			       (view textual-drei-syntax-view)
 			       (syntax java-syntax))
   (with-face (:operator)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol complete-string-form) 
 			       stream 
-			       (drei drei) 
+			       (view textual-drei-syntax-view) 
 			       (syntax java-syntax))
   (let ((children (children parse-symbol)))
     (if (third children)
         (with-face (:string)
-	  (display-parse-tree (pop children) stream drei syntax)
+	  (display-parse-tree (pop children) stream view syntax)
 	  (loop until (null (cdr children))
-		do (display-parse-tree (pop children) stream drei syntax))
-	  (display-parse-tree (pop children) stream drei syntax))
+		do (display-parse-tree (pop children) stream view syntax))
+	  (display-parse-tree (pop children) stream view syntax))
         (with-face (:string)
-	  (display-parse-tree (pop children) stream drei syntax)
-	  (display-parse-tree (pop children) stream drei syntax)))))
+	  (display-parse-tree (pop children) stream view syntax)
+	  (display-parse-tree (pop children) stream view syntax)))))
 
 (defmethod display-parse-tree ((parse-symbol incomplete-string-form) 
 			       stream 
-			       (drei drei) 
+			       (view textual-drei-syntax-view) 
 			       (syntax java-syntax))
   (let ((children (children parse-symbol)))
     (if (second children)
         (with-face (:string)
-	  (display-parse-tree (pop children) stream drei syntax)
+	  (display-parse-tree (pop children) stream view syntax)
 	  (loop until (null children)
-		do (display-parse-tree (pop children) stream drei syntax)))
+		do (display-parse-tree (pop children) stream view syntax)))
         (with-face (:string)
-	  (display-parse-tree (pop children) stream drei syntax)))))
+	  (display-parse-tree (pop children) stream view syntax)))))
 
 (defmethod display-parse-tree ((parse-symbol line-comment-form) 
 			       stream 
-			       (drei drei) 
+			       (view textual-drei-syntax-view) 
 			       (syntax java-syntax))
   (with-face (:comment)
     (call-next-method)))
 
 (defmethod display-parse-tree ((parse-symbol long-comment-form) 
 			       stream 
-			       (drei drei) 
+			       (view textual-drei-syntax-view) 
 			       (syntax java-syntax))
   (with-face (:comment)
     (call-next-method)))
-
-(defmethod display-drei-contents ((stream clim-stream-pane) 
-				  (drei drei) 
-				  (syntax java-syntax))
-  (with-slots (top bot) drei
-     (with-accessors ((cursor-positions cursor-positions)) syntax
-       ;; There must always be room for at least one element of line
-       ;; information.
-       (setf cursor-positions (make-array (1+ 
-					   (number-of-lines-in-region top bot))
-					  :initial-element nil)
-	     *current-line* 0
-	     (aref cursor-positions 0) (multiple-value-list
-					(stream-cursor-position stream))))
-     (setf *white-space-start* (offset top)))
-  (with-slots (stack-top) syntax
-     (display-parse-tree stack-top stream drei syntax)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

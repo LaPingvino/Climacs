@@ -30,7 +30,7 @@ files in the current directory\".")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
-;;; File/Buffer group classes.
+;;; File/View group classes.
 
 (defclass group (name-mixin)
   ())
@@ -43,17 +43,17 @@ files in the current directory\".")
   ((%elements :initarg :elements :initform nil :reader elements))
   (:documentation "Group class denoting a sequence of elements."))
 
-(defclass current-buffer-group (group)
+(defclass current-view-group (group)
   ()
   (:documentation "Group class denoting the currently active
-buffer."))
+view."))
 
 (defclass synonym-group (group)
   ((%other-name :initarg :other-name
-                :initform (error "The name of another buffer must be provided")
-                :reader other-name))
+                         :initform (error "The name of another group must be provided")
+                         :reader other-name))
   (:documentation "Group class that forwards all methods to a
-  group with a specific name."))
+group with a specific name."))
 
 (defclass custom-group (group)
   ((%list-pathnames-lambda
@@ -75,14 +75,14 @@ when it is selected or asked for pathnames."))
 ;;; 
 ;;; The group protocol.
 
-(defgeneric group-buffers (group)
-  (:documentation "Get a list of buffers in `group'. Only already
-existing buffers will be returned, use `ensure-group-buffers' if
-you want all buffers defined by the group."))
+(defgeneric group-views (group)
+  (:documentation "Get a list of views in `group'. Only already
+existing views will be returned, use `ensure-group-views' if
+you want all views defined by the group."))
 
-(defgeneric ensure-group-buffers (group)
+(defgeneric ensure-group-views (group)
   (:documentation "For each pathname in `group' that does not
-have a corresponding buffer, open a buffer for that pathname."))
+have a corresponding view, open a view for that pathname."))
 
 (defgeneric select-group (group)
   (:documentation "Tell the group object `group' that the user
@@ -98,7 +98,7 @@ should be sufficient for most group classes.")
 
 (defgeneric display-group-contents (group stream)
   (:documentation "Display the contents of `group' to
-`stream'. Basically, this should describe which buffers or files
+`stream'. Basically, this should describe which views or files
 would be affected by group-aware commands if `group' was the
 active group. There is no standard format for the output, but it
 is intended for displaying to the user."))
@@ -109,14 +109,14 @@ is intended for displaying to the user."))
 
 ;; Display helper functions.
 (defun normalise-group-element (element)
-  "Turn `element' into either a pathname, an existing buffer or
+  "Turn `element' into either a pathname, an existing view or
 NIL. If a pathname is returned, it is assumed to be safe to find
 the file with that name."
   (typecase element
-    (drei-buffer
-     (find element (buffers *application-frame*)))
+    (drei-view
+     (find element (views *application-frame*)))
     ((or pathname string)
-     (or (find-buffer-with-pathname (pathname element))
+     (or (find-view-with-pathname (pathname element))
          (when (findablep element)
            element)))
     (group-element
@@ -125,27 +125,27 @@ the file with that name."
 (defun display-group-element (element stream)
   (let ((norm-element (normalise-group-element element)))
    (typecase norm-element
-     (drei-buffer
-      (present norm-element 'buffer stream))
+     (drei-view
+      (present norm-element 'view stream))
      ((or pathname string)
       (present norm-element 'pathname stream)))))
 
 ;; Singular group elements.
-(defmethod group-buffers ((group group-element))
+(defmethod group-views ((group group-element))
   (let ((element (element group)))
-    (cond ((and (typep element 'drei-buffer)
-                (find element (buffers *application-frame*)))
+    (cond ((and (typep element 'drei-view)
+                (find element (views *application-frame*)))
            (list element))
           ((or (pathnamep element)
                (stringp element))
-           (let ((buffer (find-buffer-with-pathname (pathname element))))
-             (when buffer (list buffer))))
+           (let ((view (find-view-with-pathname (pathname element))))
+             (when view (list view))))
           (t '()))))
 
-(defmethod ensure-group-buffers ((group group-element))
+(defmethod ensure-group-views ((group group-element))
   (typecase (element group)
-    (drei-buffer
-     (unless (find (element group) (buffers *application-frame*))
+    (drei-view
+     (unless (find (element group) (views *application-frame*))
        (ensure-open-file (pathname (filepath (element group))))))
     (pathname
      (ensure-open-file (element group)))
@@ -156,31 +156,31 @@ the file with that name."
   (display-group-element (element group) stream))
 
 ;; Standard sequence groups.
-(defmethod group-buffers ((group standard-group))
-  (apply #'append (mapcar #'group-buffers (elements group))))
+(defmethod group-views ((group standard-group))
+  (apply #'append (mapcar #'group-views (elements group))))
 
-(defmethod ensure-group-buffers ((group standard-group))
-  (mapcar #'ensure-group-buffers (elements group)))
+(defmethod ensure-group-views ((group standard-group))
+  (mapcar #'ensure-group-views (elements group)))
 
 (defmethod display-group-contents ((group standard-group) (stream extended-output-stream))
   (present (remove-if #'null (mapcar #'normalise-group-element (elements group)))
-           '(sequence (or pathname buffer)) :stream stream))
+           '(sequence (or pathname view)) :stream stream))
 
-;; The current buffer group (default).
-(defmethod group-buffers ((group current-buffer-group))
-  (list (current-buffer)))
+;; The current view group (default).
+(defmethod group-views ((group current-view-group))
+  (list (current-view)))
 
-(defmethod ensure-group-buffers ((group current-buffer-group))
+(defmethod ensure-group-views ((group current-view-group))
   nil)
 
-(defmethod display-group-contents ((group current-buffer-group) (stream extended-output-stream))
-  (display-group-element (current-buffer) stream))
+(defmethod display-group-contents ((group current-view-group) (stream extended-output-stream))
+  (display-group-element (current-view) stream))
 
 ;; Custom groups.
-(defmethod group-buffers ((group custom-group))
-  (remove-if #'null (mapcar #'find-buffer-with-pathname (funcall (pathname-lister group) group))))
+(defmethod group-views ((group custom-group))
+  (remove-if #'null (mapcar #'find-view-with-pathname (funcall (pathname-lister group) group))))
 
-(defmethod ensure-group-buffers ((group custom-group))
+(defmethod ensure-group-views ((group custom-group))
   (mapcar #'ensure-open-file (funcall (pathname-lister group) group)))
 
 (defmethod select-group ((group custom-group))
@@ -189,7 +189,7 @@ the file with that name."
 
 (defmethod display-group-contents ((group custom-group) (stream extended-output-stream))
   (present (remove-if #'null (mapcar #'normalise-group-element (funcall (pathname-lister group) group)))
-           '(sequence (or pathname buffer)) :stream stream))
+           '(sequence (or pathname view)) :stream stream))
 
 ;; Synonym groups.
 
@@ -203,14 +203,14 @@ the file with that name."
   group is unable to find the group that it is supposed to
   forward method invocations to."))
 
-(defmethod group-buffers ((group synonym-group))
+(defmethod group-views ((group synonym-group))
   (if (get-group (other-name group))
-      (group-buffers (get-group (other-name group)))
+      (group-views (get-group (other-name group)))
       (error 'group-not-found :group-name (other-name group))))
 
-(defmethod ensure-group-buffers ((group synonym-group))
+(defmethod ensure-group-views ((group synonym-group))
   (if (get-group (other-name group))
-      (ensure-group-buffers (get-group (other-name group)))
+      (ensure-group-views (get-group (other-name group)))
       (error 'group-not-found :group-name (other-name group))))
 
 (defmethod select-group ((group synonym-group))
@@ -242,7 +242,7 @@ be forwarded to a group with the same name as `group'."
 
 (defun add-group (name elements)
   "Define a group called `name' (a string) containing the elements `elements',
-which must be a list of pathnames and/or buffers, and add it to
+which must be a list of pathnames and/or views, and add it to
 the list of defined groups."
   (setf (gethash name (groups *application-frame*))
         (make-instance
@@ -263,30 +263,30 @@ the list of defined groups."
 (defun deselect-group ()
   "Deselect the currently active group."
   (setf (active-group *application-frame*)
-        (make-instance 'current-buffer-group
+        (make-instance 'current-view-group
                        :name "none")))
 
-(defmacro with-group-buffers ((buffers group &key keep) &body body)
+(defmacro with-group-views ((views group &key keep) &body body)
   "Make sure that all files designated by `group' are open in
-buffers during the evaluation of `body'. If `keep' is NIL, all
-buffers created by this macro will be saved and killed after
-`body' has run. Also, `buffers' will be bound to a list of the
-buffers containing the files designated by `group' while `body'
+views during the evaluation of `body'. If `keep' is NIL, all
+views created by this macro will be saved and killed after
+`body' has run. Also, `views' will be bound to a list of the
+views containing the files designated by `group' while `body'
 is run."
-  (with-gensyms (buffers-before buffers-after buffer-diff)
+  (with-gensyms (views-before views-after view-diff)
     (once-only (group keep)
-      `(let ((,buffers-before (buffers *application-frame*))
+      `(let ((,views-before (views *application-frame*))
              (,group ,group))
-         (ensure-group-buffers ,group)
-         (let* ((,buffers-after (buffers *application-frame*))
-                (,buffer-diff (set-difference ,buffers-after
-                                                  ,buffers-before))
-                (,buffers (group-buffers ,group)))
+         (ensure-group-views ,group)
+         (let* ((,views-after (views *application-frame*))
+                (,view-diff (set-difference ,views-after
+                                                  ,views-before))
+                (,views (group-views ,group)))
            (unwind-protect (progn ,@body)
              (unless ,keep
-               (loop for buffer in ,buffer-diff
-                  do (save-buffer buffer)
-                  do (kill-buffer buffer)))))))))
+               (loop for view in ,view-diff
+                  do (save-view view)
+                  do (kill-view view)))))))))
 
 (defmacro define-group (name (group-arg &rest args) &body body)
   "Define a persistent group named `name'. `Body' should return a
@@ -317,13 +317,13 @@ selected to be the active group by the user."
 
 (define-group "Current Directory Files" (group)
   (declare (ignore group))
-  (directory (make-pathname :directory (pathname-directory (filepath (current-buffer)))
+  (directory (make-pathname :directory (pathname-directory (filepath (current-view)))
                             :name :wild
                             :type :wild)))
 
 (define-group "Directory Files" (group (directory (accept 'pathname
                                                           :prompt "Directory"
-                                                          :default (directory-of-buffer (current-buffer))
+                                                          :default (directory-of-buffer (buffer (current-view)))
                                                           :insert-default t)))
   (declare (ignore group))
   (directory (make-pathname :directory (pathname-directory directory)
@@ -332,7 +332,7 @@ selected to be the active group by the user."
 
 (define-group "Directory Lisp Files" (group (directory (accept 'pathname
                                                                :prompt "Directory"
-                                                               :default (directory-of-buffer (current-buffer))
+                                                               :default (directory-of-buffer (buffer (current-view)))
                                                                :insert-default t)))
   (declare (ignore group))
   (directory (make-pathname :directory (pathname-directory directory)
@@ -380,9 +380,34 @@ selected to be the active group by the user."
 ;;; 
 ;;; Now hook it all up.
 
+(defclass group-target-specification (view-list-target-specification)
+  ((%group :initarg :group
+           :reader group
+           :initform (error "A group must be provided for a group target specification")))
+  (:documentation "The target-specification class used for groups
+in Climacs."))
+
+(defmethod activate-target-specification ((spec group-target-specification))
+  (ensure-group-views (group spec))
+  (setf (views spec) (group-views (group spec)))
+  (call-next-method))
+
+(defmethod next-target :around ((spec group-target-specification))
+  (handler-bind ((view-already-displayed
+                  #'(lambda (c)
+                      (declare (ignore c))
+                      (invoke-restart 'remove-other-use))))
+    (call-next-method)))
+
+(defmethod previous-target :around ((spec group-target-specification))
+  (handler-bind ((view-already-displayed
+                  #'(lambda (c)
+                      (declare (ignore c))
+                      (invoke-restart 'remove-other-use))))
+    (call-next-method)))
+
 (setf *climacs-target-creator*
       #'(lambda (drei)
-          (ensure-group-buffers (get-active-group))
-          (make-instance 'buffer-list-target-specification
-                         :buffers (group-buffers (get-active-group))
-                         :drei-instance drei)))
+          (make-instance 'group-target-specification
+           :group (get-active-group)
+           :drei-instance drei)))

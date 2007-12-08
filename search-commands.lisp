@@ -58,12 +58,13 @@ Entering an empty search string stops the prompting."
     (multiple-query-replace strings)))
 
 (define-command (com-multiple-query-replace-from-buffer :name t :command-table search-table)
-    ((buffer 'buffer :prompt "Buffer with Query Repace strings"))
-  (unless (member buffer (buffers *application-frame*))
+    ((view 'view :prompt "View with Query Repace strings"))
+  (unless (member view (views *esa-instance*))
     (beep)
-    (display-message "~A not an existing buffer" (name buffer))
+    (display-message "~A not an existing buffer" (name view))
     (return-from com-multiple-query-replace-from-buffer nil))
-  (let* ((contents (buffer-substring buffer 0 (1- (size buffer))))
+  (let* ((buffer (buffer view))
+         (contents (buffer-substring buffer 0 (1- (size buffer))))
 	 (strings (loop with length = (length contents)
 			with index = 0
 			with start = 0
@@ -102,22 +103,21 @@ Entering an empty search string stops the prompting."
 	 (re (format nil "~{~A~^|~}" search-strings)))
     (declare (special occurrences re))
     (when strings
-      (let* ((pane (current-window))
-	     (point (point pane)) 
+      (let* ((point (point)) 
 	     (found (multiple-query-replace-find-next-match point re search-strings)))
 	(when found
-	  (setf (query-replace-state pane)
+	  (setf (query-replace-state (current-window))
 		(make-instance 'query-replace-state
-		   :string1 found
-		   :string2 (cdr (assoc found strings :test #'string=)))
-		(query-replace-mode pane)
+                 :string1 found
+                 :string2 (cdr (assoc found strings :test #'string=)))
+		(query-replace-mode (current-window))
 		t)
 	  (display-message "Replace ~A with ~A: "
-			   (string1 (query-replace-state pane))
-			   (string2 (query-replace-state pane)))
+			   (string1 (query-replace-state (current-window)))
+			   (string2 (query-replace-state (current-window))))
 	  (simple-command-loop 'multiple-query-replace-drei-table
-			       (query-replace-mode pane)
-			       ((setf (query-replace-mode pane) nil))))))
+			       (query-replace-mode (current-window))
+			       ((setf (query-replace-mode (current-window)) nil))))))
     (display-message "Replaced ~D occurrence~:P" occurrences)))
 
 (define-command (com-multiple-query-replace-replace
@@ -125,9 +125,8 @@ Entering an empty search string stops the prompting."
 		 :command-table multiple-query-replace-drei-table)
     ()
   (declare (special strings occurrences re))
-  (let* ((pane (current-window))
-	 (point (point pane)) 
-	 (state (query-replace-state pane))
+  (let* ((point (point (current-view))) 
+	 (state (query-replace-state (current-window)))
 	 (string1 (string1 state))
 	 (string1-length (length string1)))
     (backward-object point string1-length)
@@ -137,14 +136,14 @@ Entering an empty search string stops the prompting."
 		  point
 		  re
 		  (mapcar #'car strings))))
-      (cond ((null found) (setf (query-replace-mode pane) nil))
-	    (t (setf (query-replace-state pane)
+      (cond ((null found) (setf (query-replace-mode (current-window)) nil))
+	    (t (setf (query-replace-state (current-window))
 		     (make-instance 'query-replace-state
 			:string1 found
 			:string2 (cdr (assoc found strings :test #'string=))))
 	       (display-message "Replace ~A with ~A: "
-				(string1 (query-replace-state pane))
-				(string2 (query-replace-state pane))))))))
+				(string1 (query-replace-state (current-window)))
+				(string2 (query-replace-state (current-window)))))))))
 
 
 (define-command (com-multiple-query-replace-replace-and-quit
@@ -152,25 +151,23 @@ Entering an empty search string stops the prompting."
 		 :command-table multiple-query-replace-drei-table)
     ()
   (declare (special strings occurrences))
-  (let* ((pane (current-window))
-	 (point (point pane))
-	 (state (query-replace-state pane))
+  (let* ((point (point))
+	 (state (query-replace-state (current-window)))
 	 (string1 (string1 state))
 	 (string1-length (length string1)))
     (backward-object point string1-length)
     (replace-one-string point string1-length (string2 state) (no-upper-p string1))
     (incf occurrences)
-    (setf (query-replace-mode pane) nil)))
+    (setf (query-replace-mode (current-window)) nil)))
 
 (define-command (com-multiple-query-replace-replace-all
 		 :name t
 		 :command-table multiple-query-replace-drei-table)
     ()
   (declare (special strings occurrences re))
-  (let* ((pane (current-window))
-	 (point (point pane)) 
+  (let* ((point (point)) 
 	 (found nil))
-    (loop for state = (query-replace-state pane)
+    (loop for state = (query-replace-state (current-window))
 	  for string1 = (string1 state)
 	  for string1-length = (length string1)
 	  do (backward-object point string1-length)
@@ -184,31 +181,30 @@ Entering an empty search string stops the prompting."
 				  re
 				  (mapcar #'car strings)))
 	  while found
-	  do (setf (query-replace-state pane)
+	  do (setf (query-replace-state (current-window))
 		   (make-instance 'query-replace-state
 		      :string1 found
 		      :string2 (cdr (assoc found strings :test #'string=))))
-	  finally (setf (query-replace-state pane) nil))))
+	  finally (setf (query-replace-state (current-window)) nil))))
 
 (define-command (com-multiple-query-replace-skip
 		 :name t
 		 :command-table multiple-query-replace-drei-table)
     ()
   (declare (special strings re))
-  (let* ((pane (current-window))
-	 (point (point pane))
+  (let* ((point (point))
 	 (found (multiple-query-replace-find-next-match
 		 point
 		 re
 		 (mapcar #'car strings))))
-    (cond ((null found) (setf (query-replace-mode pane) nil))
-	    (t (setf (query-replace-state pane)
+    (cond ((null found) (setf (query-replace-mode (current-window)) nil))
+	    (t (setf (query-replace-state (current-window))
 		     (make-instance 'query-replace-state
 			:string1 found
 			:string2 (cdr (assoc found strings :test #'string=))))
 	       (display-message "Replace ~A with ~A: "
-				(string1 (query-replace-state pane))
-				(string2 (query-replace-state pane)))))))
+				(string1 (query-replace-state (current-window)))
+				(string2 (query-replace-state (current-window))))))))
 
 (defun multiple-query-replace-set-key (gesture command)
   (add-command-to-command-table command 'multiple-query-replace-drei-table

@@ -42,7 +42,7 @@ files.")
 
 (defvar *climacs-target-creator* nil
   "A function for creating targets for commands potentially
-acting over multiple buffers.")
+acting over multiple views.")
 
 (defclass climacs-buffer (drei-buffer)
   ((%external-format :initform *default-external-format*
@@ -54,23 +54,75 @@ contents.")))
 (defclass climacs-pane (drei-pane esa-pane-mixin)
   ()
   (:default-initargs
-   :buffer (make-instance 'climacs-buffer)
-    :command-table (find-command-table 'global-climacs-table)
-    :width 900 :height 400))
+   :view (make-instance 'textual-drei-syntax-view
+          :buffer (make-instance 'climacs-buffer))
+   :command-table (find-command-table 'global-climacs-table)
+   :width 900 :height 400))
 
-;; Ensure that only one pane can be active.
-(defmethod (setf active) :after ((new-val (eql t)) (climacs-pane climacs-pane))
-  (mapcar #'(lambda (pane)
-              (unless (eq climacs-pane pane)
-                (setf (active pane) nil)))
-          (windows (pane-frame climacs-pane))))
+(define-condition view-setting-error (error)
+  ((%view :accessor view
+          :initarg :view
+          :initform (error "The view used in the error-causing operation must be supplied")
+          :documentation "The view that is attempted set"))
+  (:documentation "This error is signalled when something goes
+wrong while setting the view of a Climacs pane."))
 
-(defmethod (setf buffer) :before ((buffer climacs-buffer) (pane climacs-pane))
-  (with-accessors ((buffers buffers)) *application-frame*
-    (unless (member buffer buffers)
-      (error "Attempting to switch to a buffer not known to Climacs"))
-    (setf buffers (delete buffer buffers))
-    (push buffer buffers)
+(define-condition unknown-view (view-setting-error)
+  ()
+  (:report (lambda (condition stream)
+             (format
+              stream "Attempting to set view of a window to view object ~A, which is not known to Climacs"
+              (view condition))))
+  (:documentation "This error is signalled whenever a window is
+attempted to be set to a view that is not recognized by the
+Climacs instance the window belongs to."))
+
+(define-condition view-already-displayed (view-setting-error)
+  ((%window :accessor window
+            :initarg :window
+            :initform (error "The window already displaying the view must be provided")
+            :documentation "The window that already displays the view"))
+  (:report (lambda (condition stream)
+             (format
+              stream "Attempting to set view of a window to view object ~A, which is already on display in another window"
+              (view condition))))
+  (:documentation "This error is signalled whenever a window is
+attempted to be set to a view already on display in some other
+window"))
+
+(defmethod (setf view) :around ((view drei-view) (pane climacs-pane))
+  (let ((window-displaying-view
+         (find-if #'(lambda (other-pane)
+                      (and (not (eq other-pane pane))
+                           (eq (view other-pane) view)))
+                  (windows (pane-frame pane)))))
+    (cond ((not (member view (views (pane-frame pane))))
+           (restart-case (error 'unknown-view :view view)
+             (add-to-view-list ()
+              :report "Add the view object to Climacs"
+              (push view (views (pane-frame pane)))
+              (setf (view pane) view))))
+          (window-displaying-view
+           (restart-case
+               (error 'view-already-displayed :view view :window window-displaying-view)
+             (remove-other-use ()
+              :report "Make the other window try to display some other view"
+              (setf (view window-displaying-view) (any-preferably-undisplayed-view))
+              (setf (view pane) view))
+             (remove-other-pane ()
+              :report "Remove the other window displaying the view"
+              (delete-window window-displaying-view)
+              (setf (view pane) view))
+             (clone-view ()
+              :report "Make a clone of the view and use that instead"
+              (setf (view pane) (clone-view-for-climacs
+                                 (pane-frame window-displaying-view) view)))
+             (cancel ()
+              :report "Cancel the setting of the windows view and just return")))
+          (t (call-next-method)))))
+
+(defmethod (setf view) :before ((view drei-view) (pane climacs-pane))
+  (with-accessors ((views views)) (pane-frame pane)
     (full-redisplay pane)))
 
 (defmethod command-table ((drei climacs-pane))
@@ -121,7 +173,7 @@ contents.")))
   ()
   (:default-initargs
    :height 20 :max-height 20 :min-height 20
-   :default-view +drei-textual-view+
+   :default-view +textual-view+
    :background *mini-bg-color*
    :foreground *mini-fg-color*
    :width 900))
@@ -174,7 +226,7 @@ contents.")))
 
 (define-application-frame climacs (esa-frame-mixin
 				   standard-application-frame)
-  ((%buffers :initform '() :accessor buffers)
+  ((%views :initform '() :accessor views)
    (%groups :initform (make-hash-table :test #'equal) :accessor groups)
    (%active-group :initform nil :accessor active-group)
    (%kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring)
@@ -197,12 +249,12 @@ contents.")))
   (:menu-bar nil)
   (:panes
    (climacs-window
-    (let* ((climacs-pane (make-pane 'climacs-pane
-                                    :active t))
+    (let* ((*esa-instance* *application-frame*)
+           (climacs-pane (make-pane 'climacs-pane :active t))
 	   (info-pane (make-pane 'climacs-info-pane
                                  :master-pane climacs-pane)))
       (setf (windows *application-frame*) (list climacs-pane)
-	    (buffers *application-frame*) (list (buffer climacs-pane)))
+	    (views *application-frame*) (list (view climacs-pane)))
       (vertically ()
 	(if *with-scrollbars*
 	    (scrolling ()
@@ -223,19 +275,112 @@ contents.")))
                        command-unparser
                        partial-command-parser
                        prompt)
- :bindings ((*previous-command* (previous-command (current-window)))
-            (*default-target-creator* *climacs-target-creator*)))
+ :bindings ((*default-target-creator* *climacs-target-creator*)
+            (*drei-instance* (esa-current-window frame))
+            (*previous-command* (previous-command *drei-instance*))))
 
 (defmethod frame-standard-input ((frame climacs))
   (get-frame-pane frame 'minibuffer))
 
-(defmethod esa-current-buffer ((application-frame climacs))
-  "Return the current buffer."
-  (buffer (esa-current-window application-frame)))
+(defmethod buffers ((climacs climacs))
+  (remove-duplicates
+   (mapcar #'buffer (remove-if-not
+                     #'(lambda (view)
+                         (typep view 'drei-buffer-view))
+                     (views climacs)))))
 
-(defun any-buffer ()
-  "Return some buffer, any buffer, as long as it is a buffer!"
-  (first (buffers *application-frame*)))
+(defmethod esa-current-buffer ((application-frame climacs))
+  (buffer (current-view (esa-current-window application-frame))))
+
+(defmethod (setf esa-current-buffer) ((new-buffer climacs-buffer)
+                                      (application-frame climacs))
+  (setf (buffer (current-view (esa-current-window application-frame)))
+        new-buffer))
+
+(defmethod (setf views) :around (new-value (frame climacs))
+  ;; If any windows show a view that no longer exists in the
+  ;; view-list, make them show something else. The view-list might be
+  ;; destructively updated, so copy it for safekeeping.
+  (with-accessors ((views views)) frame
+    (let* ((old-views (copy-list views))
+           (removed-views (set-difference
+                           old-views (call-next-method) :test #'eq)))
+    
+      (dolist (window (windows frame))
+        (when (member (view window) removed-views :test #'eq)
+          (handler-case (setf (view window)
+                              (any-preferably-undisplayed-view))
+            (view-already-displayed ()
+              (delete-window window)))))
+      ;; If the active view was removed, we have to designate a new
+      ;; active view.
+      (if (find-if #'active removed-views)
+          (activate-view frame (any-displayed-view))
+          ;; Else, we just have to make sure that the active view is
+          ;; still number one in the list.
+          (let ((active-view (find-if #'active views)))
+            (unless (eq active-view (first views))
+              (setf views (cons active-view (delete active-view views)))))))))
+
+(defmethod (setf views) :after ((new-value null) (frame climacs))
+  ;; You think you can remove all views? I laught at your silly
+  ;; attempt!
+  (setf (views frame) (list (make-new-view-for-climacs
+                             frame 'textual-drei-syntax-view))))
+
+(defmethod (setf windows) :after (new-value (frame climacs))
+  ;; It may be that the window holding the active view has been
+  ;; removed, if so, we must activate another view.
+  (activate-view frame (any-displayed-view)))
+
+(defun make-view-subscript-generator (climacs)
+  #'(lambda (name)
+      (1+ (reduce #'max (remove name (views climacs)
+                         :test-not #'string= :key #'name)
+           :initial-value 0
+           :key #'subscript))))
+
+(defun clone-view-for-climacs (climacs view &rest initargs)
+  "Clone `view' and add it to `climacs's list of views."
+  (let ((new-view (apply #'clone-view view
+                   :subscript-generator (make-view-subscript-generator climacs)
+                   :active nil :syntax (make-syntax-for-view view (class-of (syntax view)))
+                   initargs)))
+    (push new-view (views climacs))
+    new-view))
+
+(defun make-new-view-for-climacs (climacs view-class &rest initargs)
+  "Instiantiate an object of type `view-class' and add it to
+`climacs's list of views."
+  (let ((new-view (apply #'make-instance view-class
+                   :subscript-generator (make-view-subscript-generator climacs)
+                   initargs)))
+    (push new-view (views climacs))
+    new-view))
+
+(defun any-view ()
+  "Return some view, any view."
+  (first (views *esa-instance*)))
+
+(defun any-displayed-view ()
+  "Return some view on display."
+  (view (first (windows *application-frame*))))
+
+(defun any-preferably-undisplayed-view ()
+  "Return some view, any view, preferable one that is not
+currently displayed in any window."
+  (or (find-if #'(lambda (view)
+                   (not (member view (windows *esa-instance*) :key #'view)))
+               (views *esa-instance*))
+      (any-view)))
+
+(defun any-undisplayed-view ()
+  "Return some view, any view, as long as it is not currently
+displayed in any window. If necessary, clone a view on display."
+  (or (find-if #'(lambda (view)
+                   (not (member view (windows *esa-instance*) :key #'view)))
+               (views *esa-instance*))
+      (clone-view-for-climacs *esa-instance* (any-view))))
 
 (define-presentation-type read-only ())
 (define-presentation-method highlight-presentation 
@@ -248,30 +393,30 @@ contents.")))
 
 (defun display-info (frame pane)
   (let* ((master-pane (master-pane pane))
-	 (buffer (buffer master-pane))
-	 (size (size buffer))
-	 (top (top master-pane))
-	 (bot (bot master-pane))
-         (point (point master-pane)))
+	 (view (view master-pane))
+	 (size (size (buffer view)))
+	 (top (top view))
+	 (bot (bot view))
+         (point (point view)))
     (princ "   " pane)
-    (with-output-as-presentation (pane buffer 'read-only)
+    (with-output-as-presentation (pane view 'read-only)
       (princ (cond
-               ((read-only-p buffer) "%")
-               ((needs-saving buffer) "*")
+               ((read-only-p (buffer view)) "%")
+               ((needs-saving (buffer view)) "*")
                (t "-"))
              pane))
-    (with-output-as-presentation (pane buffer 'modified)
+    (with-output-as-presentation (pane view 'modified)
       (princ (cond
-               ((needs-saving buffer) "*")
-               ((read-only-p buffer) "%")
+               ((needs-saving (buffer view)) "*")
+               ((read-only-p (buffer view)) "%")
                (t "-"))
              pane))
     (princ "  " pane)
     (with-text-face (pane :bold)
-      (with-output-as-presentation (pane buffer 'buffer)
-        (format pane "~A" (name buffer)))
+      (with-output-as-presentation (pane view 'view)
+        (format pane "~A" (subscripted-name view)))
       ;; FIXME: bare 25.
-      (format pane "~V@T" (max (- 25 (length (name buffer))) 1)))
+      (format pane "~V@T" (max (- 25 (length (subscripted-name view))) 1)))
     (format pane "  ~A  "
 	    (cond ((and (mark= size bot)
 			(mark= 0 top))
@@ -284,16 +429,16 @@ contents.")))
 			     (round (* 100 (/ (offset top)
 					      size)))))))
     (when *show-info-pane-mark-position*
-     (format pane "(~A,~A)     "
-             (1+ (line-number point))
-             (column-number point)))
+      (format pane "(~A,~A)     "
+              (1+ (line-number point))
+              (column-number point)))
     (with-text-family (pane :sans-serif)
       (princ #\( pane)
-      (display-syntax-name (syntax buffer) pane :pane (master-pane pane))
+      (display-syntax-name (syntax view) pane :view view)
       (format pane "~{~:[~*~; ~A~]~}" (list
-				       (slot-value master-pane 'overwrite-mode)
+				       (overwrite-mode view)
 				       "Ovwrt"
-				       (auto-fill-mode master-pane)
+				       (auto-fill-mode view)
 				       "Fill"
 				       (isearch-mode master-pane)
 				       "Isearch"))
@@ -309,24 +454,11 @@ contents.")))
   (display-drei drei))
 
 (defmethod execute-frame-command :around ((frame climacs) command)
-  (let ((*drei-instance* (esa-current-window frame)))
-    (if (eq frame *application-frame*)
-        (progn
-          (handling-drei-conditions
-            (with-undo ((buffers frame))
-              (call-next-method)))
-          (loop for buffer in (buffers frame)
-             do (when (modified-p buffer)
-                  (clear-modify buffer))))
-        (call-next-method))))
-
-(defmethod execute-frame-command :after ((frame climacs) command)
-  (when (eq frame *application-frame*)
-    (loop for buffer in (buffers frame)
-       do (when (syntax buffer)
-            (update-syntax buffer (syntax buffer)))
-       do (when (modified-p buffer)
-            (setf (needs-saving buffer) t)))))
+  (if (eq frame *esa-instance*)
+      (handling-drei-conditions
+        (with-undo ((buffers frame))
+          (call-next-method)))
+      (call-next-method)))
 
 (define-command (com-full-redisplay :name t :command-table base-table) ()
   "Redisplay the contents of the current window.
@@ -336,6 +468,14 @@ FIXME: does this really have that effect?"
 (set-key 'com-full-redisplay
 	 'base-table
 	 '((#\l :control)))
+
+(defun activate-view (climacs active-view)
+  "Set `view' to be the active view for `climacs'."
+  ;; Ensure that only one pane can be active.
+  (dolist (view (views climacs))
+    (unless (eq active-view view)
+      (setf (active view) nil)))
+  (setf (active active-view) t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -404,33 +544,36 @@ If with-scrollbars nil, omit the scroller."
                        :master-pane climacs-pane))))
     (values vbox climacs-pane)))
 
-(defgeneric setup-split-pane (orig-pane new-pane)
+(defgeneric setup-split-pane (orig-pane new-pane clone-view)
   (:documentation "Perform split-setup operations `new-pane',
 which is supposed to be a pane that has been freshly split from
-`orig-pane'."))
+`orig-pane'. If `clone-view' is true, set the view of the new
+pane to a clone of the view in `orig-pane', provided that
+`orig-pane' has a view."))
 
-(defmethod setup-split-pane ((orig-pane climacs-pane) (new-pane climacs-pane))
-  (setf (offset (point (buffer orig-pane))) (offset (point orig-pane))
-        (buffer new-pane) (buffer orig-pane)
-        (auto-fill-mode new-pane) (auto-fill-mode orig-pane)
-        (auto-fill-column new-pane) (auto-fill-column orig-pane)))
+(defmethod setup-split-pane ((orig-pane climacs-pane) (new-pane climacs-pane) clone-view)
+  (setf (offset (point (buffer (view orig-pane)))) (offset (point (view orig-pane)))
+        (view new-pane) (if clone-view
+                            (clone-view-for-climacs (pane-frame orig-pane) (view orig-pane))
+                            (any-preferably-undisplayed-view))))
 
-(defmethod setup-split-pane ((orig-pane typeout-pane) (new-pane climacs-pane))
-  (setf (buffer new-pane) (any-buffer)))
+(defmethod setup-split-pane ((orig-pane typeout-pane) (new-pane climacs-pane) clone-view)
+  (setf (view new-pane) (if clone-view
+                            (any-undisplayed-view)
+                            (any-preferably-undisplayed-view))))
 
-(defun split-window (&optional (vertically-p nil) (pane (current-window)))
+(defun split-window (&optional (vertically-p nil) (clone-view nil) (pane (current-window)))
   (with-look-and-feel-realization
-      ((frame-manager *application-frame*) *application-frame*)
+      ((frame-manager *esa-instance*) *esa-instance*)
     (multiple-value-bind (vbox new-pane) (make-pane-constellation)
       (let* ((current-window pane)
 	     (constellation-root (find-parent current-window)))
-        (setup-split-pane current-window new-pane)
-	(push new-pane (windows *application-frame*))
-        (setf (active new-pane) t)
-	(setf *standard-output* new-pane)
+        (setup-split-pane current-window new-pane clone-view)
+	(push new-pane (rest (windows *esa-instance*)))
 	(replace-constellation constellation-root vbox vertically-p)
 	(full-redisplay current-window)
 	(full-redisplay new-pane)
+        (activate-view (pane-frame pane) pane)
 	new-pane))))
 
 (defun make-typeout-constellation (&optional label)
@@ -449,19 +592,19 @@ which is supposed to be a pane that has been freshly split from
 already exists, it will be returned. Otherwise, a new pane will
 be created."
   (with-look-and-feel-realization
-      ((frame-manager *application-frame*) *application-frame*)
-    (or (find label (windows *application-frame*) :key #'pane-name)
+      ((frame-manager *esa-instance*) *esa-instance*)
+    (or (find label (windows *esa-instance*) :key #'pane-name)
         (multiple-value-bind (vbox new-pane) (make-typeout-constellation label)
           (let* ((current-window pane)
                  (constellation-root (find-parent current-window)))
-            (push new-pane (windows *application-frame*))
+            (push new-pane (windows *esa-instance*))
             (other-window)
             (replace-constellation constellation-root vbox t)
             (full-redisplay current-window)
             new-pane)))))
 
 (defun delete-window (&optional (window (current-window)))
-  (unless (null (cdr (windows *application-frame*)))
+  (unless (null (cdr (windows *esa-instance*)))
     (let* ((constellation (find-parent window))
 	   (box (sheet-parent constellation))
 	   (box-children (sheet-children box))
@@ -473,9 +616,9 @@ be created."
 	   (first (first children))
 	   (second (second children))
 	   (third (third children)))
-      (setf (windows *application-frame*)
-	    (remove window (windows *application-frame*)))
-      (setf *standard-output* (car (windows *application-frame*)))
+      (setf (windows *esa-instance*)
+	    (delete window (windows *esa-instance*)))
+      (setf *standard-output* (car (windows *esa-instance*)))
       (sheet-disown-child box other)
       (sheet-adopt-child parent other)
       (sheet-disown-child parent box)
@@ -488,15 +631,15 @@ be created."
 				     (list first other)))))))
 
 (defun other-window (&optional pane)
-  (if (and pane (find pane (windows *application-frame*)))
-      (setf (windows *application-frame*)
+  (if (and pane (find pane (windows *esa-instance*)))
+      (setf (windows *esa-instance*)
             (append (list pane)
-                    (remove pane (windows *application-frame*))))
-      (setf (windows *application-frame*)
-            (append (rest (windows *application-frame*))
-                    (list (first (windows *application-frame*))))))
-  (setf (active (first (windows *application-frame*))) t)
-  (setf *standard-output* (first (windows *application-frame*))))
+                    (remove pane (windows *esa-instance*))))
+      (setf (windows *esa-instance*)
+            (append (rest (windows *esa-instance*))
+                    (list (first (windows *esa-instance*))))))
+  (activate-view *esa-instance* (view (first (windows *esa-instance*))))
+  (setf *standard-output* (first (windows *esa-instance*))))
 
 ;;; For the ESA help functions.
 

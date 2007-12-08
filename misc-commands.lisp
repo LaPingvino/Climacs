@@ -33,7 +33,7 @@
 The modified flag is automatically set when the contents 
 of the buffer are changed. This flag is consulted, for instance, 
 when deciding whether to prompt you to save the buffer before killing it."
-  (setf (needs-saving (buffer (current-window))) nil))
+  (setf (needs-saving (current-buffer)) nil))
 
 (set-key 'com-not-modified
 	 'buffer-table
@@ -75,7 +75,7 @@ FIXME: gives no information at end of buffer."
       :prompt "Name of syntax"))
   "Prompts for a syntax to set for the current buffer.
    Setting a syntax will cause the buffer to be reparsed using the new syntax."
-  (set-syntax (current-buffer) syntax))
+  (set-syntax (current-view) syntax))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
@@ -83,10 +83,10 @@ FIXME: gives no information at end of buffer."
 
 (define-command (com-define-group :name t :command-table global-climacs-table)
     ((name 'string :prompt "Name")
-     (buffers '(sequence drei-buffer) :prompt "Buffers"))
+     (views '(sequence view) :prompt "Views"))
   (when (or (not (get-group name))
             (accept 'boolean :prompt "Group already exists. Overwrite existing group?"))
-    (add-group name buffers))
+    (add-group name views))
   (select-group (get-group name)))
 
 (set-key `(com-define-group ,*unsupplied-argument-marker* ,*unsupplied-argument-marker*)

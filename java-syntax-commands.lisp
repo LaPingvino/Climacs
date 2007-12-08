@@ -58,26 +58,18 @@
     ()
   "Fill paragraph at point. Will have no effect unless there is a
 string at point."
-  (let* ((pane (current-window))
-         (buffer (buffer pane))
-         (implementation (implementation buffer))
-         (syntax (syntax buffer))
-         (token (form-around syntax (offset (point pane))))
-         (fill-column (auto-fill-column pane))
-         (tab-width (tab-space-count (stream-default-view pane))))
+  (let* ((token (form-around (current-syntax) (offset (point))))
+         (fill-column (auto-fill-column (current-view))))
     (when (typep token 'string-form)
-      (with-accessors ((offset1 start-offset) 
+      (with-accessors ((offset1 start-offset)
                        (offset2 end-offset)) token
-        (fill-region (make-instance 'standard-right-sticky-mark
-                                    :buffer implementation
-                                    :offset offset1)
-                     (make-instance 'standard-right-sticky-mark
-                                    :buffer implementation
-                                    :offset offset2)
+        (fill-region (make-buffer-mark (current-buffer) offset1 :right)
+                     (make-buffer-mark (current-buffer) offset2 :right)
                      #'(lambda (mark)
-                         (syntax-line-indentation mark tab-width syntax))
+                         (syntax-line-indentation
+                          mark (tab-space-count (current-view)) syntax))
                      fill-column
-                     tab-width
+                     (tab-space-count (current-view))
                      syntax
                      t)))))
 

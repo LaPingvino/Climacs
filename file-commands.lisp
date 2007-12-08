@@ -136,27 +136,30 @@ Signals and error if the file does not exist."
 ;;; 
 ;;; Buffer commands
 
-(define-command (com-switch-to-buffer :name t :command-table pane-table)
-    ((buffer 'buffer :default (or (second (buffers *application-frame*))
-                                  (any-buffer))))
+(define-command (com-switch-to-view :name t :command-table pane-table)
+    ((view 'view :default (or (second (views *application-frame*))
+                              (any-view))))
   "Prompt for a buffer name and switch to that buffer.
 If the a buffer with that name does not exist, create it. Uses
 the name of the next buffer (if any) as a default."
-  (switch-to-buffer (current-window) buffer))
+  (handler-case (switch-to-view (current-window) view)
+    (view-already-displayed (condition)
+      (other-window (window condition)))))
 
-(set-key `(com-switch-to-buffer ,*unsupplied-argument-marker*)
+(set-key `(com-switch-to-view ,*unsupplied-argument-marker*)
 	 'pane-table
 	 '((#\x :control) (#\b)))
 
-(define-command (com-kill-buffer :name t :command-table pane-table)
-    ((buffer 'buffer
-             :prompt "Kill buffer"
-             :default (current-buffer)))
-  "Prompt for a buffer name and kill that buffer.
-If the buffer needs saving, will prompt you to do so before killing it. Uses the current buffer as a default."
-  (kill-buffer buffer))
+(define-command (com-kill-view :name t :command-table pane-table)
+    ((view 'view :prompt "Kill view"
+                 :default (current-view)))
+  "Prompt for a view name and kill that view.
+If the view is of a buffer and the buffer needs saving, you will
+be prompted to do so before killing it. Uses the current view
+as a default."
+  (kill-view view))
 
-(set-key `(com-kill-buffer ,*unsupplied-argument-marker*)
+(set-key `(com-kill-view ,*unsupplied-argument-marker*)
 	 'pane-table
 	 '((#\x :control) (#\k)))
 

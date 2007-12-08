@@ -49,8 +49,8 @@
    (snippet :initarg :snippet :accessor snippet :initform nil))
   (:documentation "The base for all non-error locations."))
 
-(defclass buffer-location (actual-location)
-  ((buffer-name :initarg :buffer :accessor buffer-name)))
+(defclass view-location (actual-location)
+  ((view-name :initarg :view :accessor view-name)))
 
 (defclass file-location (actual-location)
   ((file-name :initarg :file :accessor file-name)))
@@ -121,7 +121,7 @@
               (apply #'make-instance
                      (ecase (first buf)
                        (:file 'file-location)
-                       (:buffer 'buffer-location)
+                       (:buffer 'view-location)
                        (:source-form 'source-location))
                      buf))
              (position
@@ -204,9 +204,9 @@ Each newline and following whitespace is replaced by a single space."
 (def-print-for-menu style-warning-compiler-note "Style Warning" +brown+)
 (def-print-for-menu note-compiler-note "Note" +brown+)
 
-(defun show-notes (notes buffer-name definition)
+(defun show-notes (notes view-name definition)
   (let ((stream (climacs-gui:typeout-window
-                 (format nil "~10TCompiler Notes: ~A  ~A" buffer-name definition))))
+                 (format nil "~10TCompiler Notes: ~A  ~A" view-name definition))))
     (loop for note in notes
        do (with-output-as-presentation (stream note 'compiler-note)
             (print-for-menu note stream))
@@ -221,27 +221,27 @@ Each newline and following whitespace is replaced by a single space."
 (defmethod goto-location ((location error-location))
   (esa:display-message (error-message location)))
 
-(defmethod goto-location ((location buffer-location))
-  (let ((buffer (find (buffer-name location)
-                      (buffers *application-frame*)
-                      :test #'string= :key #'name)))
-    (unless buffer
-      (esa:display-message "No buffer ~A" (buffer-name location))
+(defmethod goto-location ((location view-location))
+  (let ((view (find (view-name location)
+                    (climacs-gui:views *esa-instance*)
+                    :test #'string= :key #'name)))
+    (unless view
+      (esa:display-message "No view ~A" (view-name location))
       (beep)
       (return-from goto-location))
-    (climacs-core:switch-to-buffer (current-window) buffer)
-    (goto-position (point (current-window))
+    (climacs-core:switch-to-view (current-window) view)
+    (goto-position (point)
                    (char-position (source-position location)))))
 
 (defmethod goto-location ((location file-location))
-  (let ((buffer (find (file-name location)
-                      (buffers *application-frame*)
-                      :test #'string= :key #'(lambda (buffer)
-                                               (let ((path (filepath buffer)))
+  (let ((view (find (file-name location)
+                      (views *application-frame*)
+                      :test #'string= :key #'(lambda (view)
+                                               (let ((path (filepath view)))
                                                  (when path
                                                    (namestring path)))))))
-    (if buffer
-        (climacs-core:switch-to-buffer (current-window) buffer)
+    (if view
+        (climacs-core:switch-to-view (current-window) view)
         (find-file (file-name location)))
     (goto-position (point (current-window))
                    (char-position (source-position location)))))
@@ -259,25 +259,24 @@ Each newline and following whitespace is replaced by a single space."
                                                all))
            (expansion-string (with-output-to-string (s)
                                (pprint expansion s))))
-      (let ((buffer (climacs-core:switch-to-buffer (current-window) "*Macroexpansion*")))
-        (set-syntax buffer "Lisp"))
-      (let ((point (point (current-window)))
-            (header-string (one-line-ify (subseq string 0
+      (let ((view (climacs-core:switch-to-view (current-window) "*Macroexpansion*")))
+        (set-syntax view "Lisp"))
+      (let ((header-string (one-line-ify (subseq string 0
                                                  (min 40 (length string))))))
-        (end-of-buffer point)
-        (unless (beginning-of-buffer-p point)
-          (insert-object point #\Newline))
-        (insert-sequence point
+        (end-of-buffer (point))
+        (unless (beginning-of-buffer-p (point))
+          (insert-object (point) #\Newline))
+        (insert-sequence (point)
                          (format nil ";;; Macroexpand-~:[1~;all~] ~A...~%"
                                  all header-string))
-        (insert-sequence point expansion-string)
-        (insert-object point #\Newline)))))
+        (insert-sequence (point) expansion-string)
+        (insert-object (point) #\Newline)))))
 
-(defun compile-definition-interactively (mark syntax)
-  (let* ((token (definition-at-mark syntax mark))
+(defun compile-definition-interactively (view mark)
+  (let* ((syntax (syntax view))
+         (token (definition-at-mark syntax mark))
          (string (form-string syntax token))
          (m (clone-mark mark))
-         (buffer-name (name (buffer syntax)))
          (*read-base* (base syntax)))
     (with-syntax-package (syntax mark)
       (forward-definition m syntax 1 nil)
@@ -287,28 +286,28 @@ Each newline and following whitespace is replaced by a single space."
                                      (form-to-object syntax token
                                       :read t
                                       :package (package-at-mark syntax mark))
-                                     (buffer syntax)
-                                     m)
+                                     syntax m)
             (show-note-counts notes (second result))
             (when (not (null notes))
-              (show-notes notes buffer-name
+              (show-notes notes (name view)
                           (one-line-ify (subseq string 0 (min (length string) 20))))))
           (display-message "No definition at point")))))
 
-(defun compile-file-interactively (buffer &optional load-p)
-  (cond ((null (filepath buffer))
-         (esa:display-message "Buffer ~A is not associated with a file" (name buffer)))
-        (t
-         (when (and (needs-saving buffer)
-                    (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name buffer))))
-           (climacs-core:save-buffer buffer))
-         (let ((*read-base* (base (syntax buffer))))
-           (multiple-value-bind (result notes)
-               (compile-file-for-drei (get-usable-image (syntax buffer))
-                                         (filepath buffer)
-                                         (package-at-mark (syntax buffer) 0) load-p)
-             (show-note-counts notes (second result))
-             (when notes (show-notes notes (name buffer) "")))))))
+(defun compile-file-interactively (view &optional load-p)
+  (let ((buffer (buffer view)))
+    (cond ((null (filepath buffer))
+           (esa:display-message "View ~A is not associated with a file" (name view)))
+          (t
+           (when (and (needs-saving buffer)
+                      (accept 'boolean :prompt (format nil "Save buffer ~A ?" (name view))))
+             (climacs-core:save-buffer buffer))
+           (let ((*read-base* (base (syntax view))))
+             (multiple-value-bind (result notes)
+                 (compile-file-for-drei (get-usable-image (syntax view))
+                                        (filepath buffer)
+                                        (package-at-mark (syntax view) 0) load-p)
+               (show-note-counts notes (second result))
+               (when notes (show-notes notes (name view) ""))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -318,12 +317,12 @@ Each newline and following whitespace is replaced by a single space."
 
 (defun pop-find-definition-stack ()
   (unless (null *find-definition-stack*)
-    (let* ((offset+buffer (pop *find-definition-stack*))
-           (offset (first offset+buffer))
-           (buffer (second offset+buffer)))
-      (if (find buffer (buffers *application-frame*))
-          (progn (climacs-core:switch-to-buffer (current-window) buffer)
-                 (goto-position (point (current-window)) offset))
+    (let* ((offset+view (pop *find-definition-stack*))
+           (offset (first offset+view))
+           (view (second offset+view)))
+      (if (find view (views *esa-instance*))
+          (progn (climacs-core:switch-to-view (current-window) view)
+                 (goto-position (point) offset))
           (pop-find-definition-stack)))))
 
 ;; KLUDGE: We need to put more info in the definition objects to begin
@@ -331,18 +330,18 @@ Each newline and following whitespace is replaced by a single space."
 (defun definition-type (definition)
   (let ((data (read-from-string (first definition))))
     (case (first data)
-      ((or cl:defclass)
+      ((cl:defclass)
        'cl:class)
-      ((or cl:defgeneric
+      ((cl:defgeneric
            cl:defmethod
            cl:defun
-           cl:defmacro)
+         cl:defmacro)
        'cl:function)
       (t t))))
 
 (defun edit-definition (symbol &optional type)
   (let ((all-definitions (find-definitions-for-drei
-                          (get-usable-image (syntax (current-buffer)))
+                          (get-usable-image (current-syntax))
                           symbol)))
     (let ((definitions (if (not type)
                            all-definitions
@@ -356,11 +355,7 @@ Each newline and following whitespace is replaced by a single space."
              (goto-definition symbol definitions))))))
 
 (defun goto-definition (name definitions)
-  (let* ((pane (current-window))
-         (buffer (buffer pane))
-         (point (point pane))
-         (offset (offset point)))
-    (push (list offset buffer) *find-definition-stack*))
+  (push (list (offset (point)) (current-view)) *find-definition-stack*)
   (cond ((null (cdr definitions))
          (let* ((def (car definitions))
                 (xref (make-xref def)))
@@ -413,12 +408,11 @@ Each newline and following whitespace is replaced by a single space."
 
 ;; WARNING, using this group can be dangerous, as Climacs is not
 ;; really suited to opening up a large amount of buffers that each
-;; require a full syntax reparse.  FIXME: Groups are currently
-;; disabled.
-#+nil (climacs-core:define-group "ASDF System Files" (group (system (asdf:find-system (accept 'symbol :prompt "System"))))
-        (declare (ignore group))
-        (when system
-          (mapcar #'asdf:component-pathname
-                  (remove-if-not (lambda (c)
-                                   (typep c 'asdf:cl-source-file))
-                                 (asdf:module-components system)))))
+;; require a full syntax reparse.
+(climacs-core:define-group "ASDF System Files" (group (system (asdf:find-system (accept 'symbol :prompt "System"))))
+  (declare (ignore group))
+  (when system
+    (mapcar #'asdf:component-pathname
+            (remove-if-not (lambda (c)
+                             (typep c 'asdf:cl-source-file))
+                           (asdf:module-components system)))))

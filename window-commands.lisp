@@ -32,17 +32,33 @@
 ;;; 
 ;;; Commands for splitting windows
 
-(define-command (com-split-window-vertically :name t :command-table window-table) ()
-  (split-window t))
+(defun split-window-maybe-cloning (vertically-p clone-current-view-p)
+  "Split `(current-window)', vertically if `vertically-p' is true,
+horizontally otherwise. If `clone-current-view-p' is true, use a
+clone of `(current-view)' for the new window."
+  (handler-bind ((view-already-displayed
+                  #'(lambda (condition)
+                      (declare (ignore condition))
+                      ;; If this happens, `clone-current-view-p' is false.
+                      (display-message "Can't split: no view available for new window")
+                      (return-from split-window-maybe-cloning nil))))
+    (split-window vertically-p clone-current-view-p)))
 
-(set-key 'com-split-window-vertically
+(define-command (com-split-window-vertically :name t
+                                             :command-table window-table)
+    ((clone-current-view 'boolean :default nil))
+  (split-window-maybe-cloning t clone-current-view))
+
+(set-key `(com-split-window-vertically ,*numeric-argument-p*)
 	 'window-table
 	 '((#\x :control) (#\2)))
 
-(define-command (com-split-window-horizontally :name t :command-table window-table) ()
-  (split-window))
+(define-command (com-split-window-horizontally :name t
+                                               :command-table window-table)
+    ((clone-current-view 'boolean :default nil))
+  (split-window-maybe-cloning nil clone-current-view))
 
-(set-key 'com-split-window-horizontally
+(set-key `(com-split-window-horizontally ,*numeric-argument-p*)
 	 'window-table
 	 '((#\x :control) (#\3)))
 
@@ -54,28 +70,28 @@
 	 '((#\x :control) (#\o)))
 
 (defun click-to-offset (window x y)
-  (with-slots (top bot) window
-       (let ((new-x (floor x (stream-character-width window #\m)))
-	     (new-y (floor y (stream-line-height window)))
-	     (buffer (buffer window)))
-	 (loop for scan from (offset top)
-	       with lines = 0
-	       until (= scan (offset bot))
-	       until (= lines new-y)
-	       when (eql (buffer-object buffer scan) #\Newline)
-		 do (incf lines)
-	       finally (loop for columns from 0
-			     until (= scan (offset bot))
-			     until (eql (buffer-object buffer scan) #\Newline)
-			     until (= columns new-x)
-			     do (incf scan))
-		       (return scan)))))
+  (with-accessors ((top top) (bot bot)) (view window)
+    (let ((new-x (floor x (stream-character-width window #\m)))
+          (new-y (floor y (stream-line-height window)))
+          (buffer (buffer (view window))))
+      (loop for scan from (offset top)
+         with lines = 0
+         until (= scan (offset bot))
+         until (= lines new-y)
+         when (eql (buffer-object buffer scan) #\Newline)
+         do (incf lines)
+         finally (loop for columns from 0
+                    until (= scan (offset bot))
+                    until (eql (buffer-object buffer scan) #\Newline)
+                    until (= columns new-x)
+                    do (incf scan))
+         (return scan)))))
 
 (define-command (com-switch-to-this-window :name nil :command-table window-table)
     ((window 'pane) (x 'integer) (y 'integer))
   (other-window window)
   (when (buffer-pane-p window)
-    (setf (offset (point window))
+    (setf (offset (point (view window)))
 	  (click-to-offset window x y))))
 
 (define-presentation-to-command-translator blank-area-to-switch-to-this-window
@@ -136,7 +152,7 @@
 (define-command (com-scroll-other-window :name t :command-table window-table) ()
   (let ((other-window (second (windows *application-frame*))))
     (when other-window
-      (page-down other-window))))
+      (page-down (view other-window)))))
 
 (set-key 'com-scroll-other-window
 	 'window-table
@@ -145,7 +161,7 @@
 (define-command (com-scroll-other-window-up :name t :command-table window-table) ()
   (let ((other-window (second (windows *application-frame*))))
     (when other-window
-      (page-up other-window))))
+      (page-up (view other-window)))))
 
 (set-key 'com-scroll-other-window-up
 	 'window-table

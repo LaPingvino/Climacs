@@ -40,13 +40,24 @@
              #:climacs-info-pane
              #:typeout-pane
              #:kill-ring
-           
+
+             ;; View-stuff
+             #:views
+             #:view-setting-error #:view
+             #:unknown-view
+             #:view-already-displayed #:window
+             #:remove-other-use #:remove-other-pane #:clone-view #:cancel
+             #:any-view #:any-undisplayed-view
+             #:clone-view-for-climacs
+             #:make-new-view-for-climacs
+
              ;; GUI functions follow.
-             #:any-buffer
+
              #:point
              #:syntax
              #:mark
              #:buffers
+             
              #:active-group
              #:groups
              #:display-window
@@ -55,6 +66,7 @@
              #:delete-window
              #:other-window
              #:buffer-pane-p
+             
            
              ;; Some configuration variables
              #:*bg-color*
@@ -85,11 +97,11 @@
            #:no-upper-p
            #:case-relevant-test
            
-           #:switch-to-buffer
+           #:switch-to-view
            #:make-new-buffer
            #:make-new-named-buffer
            #:erase-buffer
-           #:kill-buffer
+           #:kill-view
 
            #:filepath-filename
            #:update-attribute-line
@@ -113,11 +125,11 @@
            #:get-group
            #:get-active-group
            #:deselect-group
-           #:with-group-buffers
+           #:with-group-views
            #:define-group
            #:group-not-found
-           #:group-buffers
-           #:ensure-group-buffers
+           #:group-views
+           #:ensure-group-views
            #:select-group
            #:display-group-contents)
   (:documentation "Package for editor functionality that is
@@ -127,7 +139,7 @@
   application, but are not solely GUI-specific."))
 
 (defpackage :climacs-commands
-  (:use :clim-lisp :clim :drei-base :drei-buffer
+  (:use :clim-lisp :clim :esa-utils :drei-base :drei-buffer
         :drei-syntax :drei-motion :drei-editing
         :climacs-gui :esa :drei-kill-ring :drei
         :drei-abbrev :drei-undo :climacs-core :drei-core)

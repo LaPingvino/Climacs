@@ -52,7 +52,7 @@
 ;;;       Right stickies at non whitespace characters preceeded by space and punctuation.
 ;;;       
 
-(in-package :climacs-text-syntax) ;;; Put this in a separate package once it works
+(in-package :climacs-text-syntax)
 
 (defun index-of-mark-after-offset (flexichain offset)
   "Searches for the mark after `offset' in the marks stored in `flexichain'."
@@ -72,9 +72,14 @@
   (:name "Text")
   (:pathname-types "text" "txt" "README"))
 
-(defmethod update-syntax (buffer (syntax text-syntax))
-  (let* ((high-offset (min (+ (offset (high-mark buffer)) 3) (size buffer)))
-	 (low-offset (max (- (offset (low-mark buffer)) 3) 0)))
+(defmethod update-syntax ((syntax text-syntax) prefix-size suffix-size
+                          &optional begin end)
+  (declare (ignore begin end))
+  (let* ((buffer (buffer syntax))
+         (high-mark-offset (- (size buffer) suffix-size))
+         (low-mark-offset prefix-size)
+         (high-offset (min (+ high-mark-offset 3) (size buffer)))
+	 (low-offset (max (- low-mark-offset 3) 0)))
     (with-slots (paragraphs sentence-beginnings sentence-endings) syntax
       (let ((pos1 (index-of-mark-after-offset paragraphs low-offset))
 	    (pos-sentence-beginnings (index-of-mark-after-offset sentence-beginnings low-offset))
@@ -106,7 +111,7 @@
                                 (and (member current-object '(#\Newline #\Space #\Tab))
                                      (or (= offset 1)
                                          (not (member before-prev-object '(#\Newline #\Space #\Tab)))))))
-                       (let ((m (clone-mark (low-mark buffer) :left)))
+                       (let ((m (make-buffer-mark buffer low-mark-offset :left)))
                          (setf (offset m) offset)
                          (insert* sentence-endings pos-sentence-endings m))
                        (incf pos-sentence-endings))
@@ -117,7 +122,7 @@
                                 (member prev-object '(#\Newline #\Space #\Tab)))
                             (or (<= offset 1)
                                 (member before-prev-object '(#\. #\? #\! #\Newline #\Space #\Tab))))
-                       (let ((m (clone-mark (low-mark buffer) :right)))
+                       (let ((m (make-buffer-mark buffer low-mark-offset :right)))
                          (setf (offset m) offset)
                          (insert* sentence-beginnings pos-sentence-beginnings m))
                        (incf pos-sentence-beginnings))
@@ -131,7 +136,7 @@
                                 (and (eql prev-object #\Newline)
                                      (or (= offset 1)
                                          (eql before-prev-object #\Newline)))))
-                       (let ((m (clone-mark (low-mark buffer) :left)))
+                       (let ((m (make-buffer-mark buffer low-mark-offset :left)))
                          (setf (offset m) offset)
                          (insert* paragraphs pos1 m))
                        (incf pos1))
@@ -142,7 +147,7 @@
                                 (and (eql current-object #\Newline)
                                      (or (= offset (1- buffer-size))
                                          (eql next-object #\Newline)))))
-                       (let ((m (clone-mark (low-mark buffer) :right)))
+                       (let ((m (make-buffer-mark buffer low-mark-offset :right)))
                          (setf (offset m) offset)
                          (insert* paragraphs pos1 m))
                        (incf pos1))

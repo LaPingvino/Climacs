@@ -58,7 +58,7 @@
 
 The expanded expression will be displayed in a
 \"*Macroexpansion*\"-buffer."
-  (let*((token (expression-at-mark (point) (current-syntax))))
+  (let* ((token (expression-at-mark (current-syntax) (point))))
     (if token
         (macroexpand-token (current-syntax) token)
         (esa:display-message "Nothing to expand at point."))))
@@ -69,7 +69,7 @@ The expanded expression will be displayed in a
 
 The expanded expression will be displayed in a
 \"*Macroexpansion*\"-buffer."
-  (let ((token (expression-at-mark (point) (current-syntax))))
+  (let ((token (expression-at-mark (current-syntax) (point))))
     (if token
         (macroexpand-token (current-syntax) token t)
         (esa:display-message "Nothing to expand at point."))))
@@ -86,7 +86,7 @@ Compiler notes will be displayed in a seperate buffer."
   "Compile the file open in the current buffer.
 
 This command does not load the file after it has been compiled."
-  (compile-file-interactively (current-buffer) nil))
+  (compile-file-interactively (current-view) nil))
 
 (define-command (com-goto-location :name t :command-table climacs-lisp-table)
     ((note 'compiler-note))
@@ -131,7 +131,7 @@ Definition command was issued."
     ()
   "Compile and load definition at point."
   (evaluating-interactively
-    (compile-definition-interactively (point) (current-syntax))))
+    (compile-definition-interactively (current-view) (point))))
 
 (esa:set-key 'com-eval-defun
              'climacs-lisp-table
