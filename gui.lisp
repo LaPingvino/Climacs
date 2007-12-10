@@ -56,8 +56,10 @@ contents.")))
   (:default-initargs
    :view (make-instance 'textual-drei-syntax-view
           :buffer (make-instance 'climacs-buffer))
-   :command-table (find-command-table 'global-climacs-table)
    :width 900 :height 400))
+
+(defmethod command-table ((pane climacs-pane))
+  (command-table (pane-frame pane)))
 
 (define-condition view-setting-error (error)
   ((%view :accessor view
@@ -125,9 +127,6 @@ window"))
   (with-accessors ((views views)) (pane-frame pane)
     (full-redisplay pane)))
 
-(defmethod command-table ((drei climacs-pane))
-  (command-table (pane-frame drei)))
-
 (defclass typeout-pane (application-pane esa-pane-mixin)
   ((%active :accessor active
             :initform nil
@@ -181,10 +180,13 @@ window"))
 ;;; Basic command tables follow. The global command table,
 ;;; `global-climacs-table', inherits from these, so they should not
 ;;; contain any overly syntax-specific commands. The idea is that it
-;;; should be safe for any syntax to inherit its command-table from
-;;; `global-climacs-table' (so the usual movement, search and
-;;; navigation-commands are available), without risking adding alien
-;;; commands that require the buffer to be in a specific syntax.
+;;; should always be safe to invoke commands from these tables,
+;;; without risking adding alien commands that require the current
+;;; window to contain a specific type of view or syntax. In general,
+;;; the Climacs frame has a special command table of type
+;;; `climacs-command-table' (that's not its name) that selectively
+;;; inherits from view-specific tables and the `global-climacs-table'
+;;; based on the current window and view.
 
 ;;; Basic functionality
 (make-command-table 'base-table :errorp nil)
@@ -216,12 +218,24 @@ window"))
                                     development-table
                                     climacs-help-table))
 
+(make-command-table 'global-climacs-table
+                    :errorp nil
+                    :inherit-from '(base-table
+                                    pane-table
+                                    window-table
+                                    development-table
+                                    climacs-help-table
+                                    global-esa-table
+                                    esa-io-table))
+
 (defclass climacs-command-table (standard-command-table)
   ())
 
 (defmethod command-table-inherit-from ((table climacs-command-table))
-  (append (when (current-syntax) (list (command-table (current-syntax))))
+  (append (view-command-tables (current-view))
           '(global-climacs-table)
+          (when (use-editor-commands-p (current-view))
+            '(editor-table))
           (call-next-method)))
 
 (define-application-frame climacs (esa-frame-mixin
@@ -232,20 +246,8 @@ window"))
    (%kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring)
    (%command-table :initform (make-instance 'climacs-command-table
                                             :name 'climacs-dispatching-table)
-                   :accessor find-applicable-command-table))
-  (:command-table (global-climacs-table
-                   :inherit-from (esa-io-table
-                                  keyboard-macro-table
-                                  climacs-help-table
-                                  base-table
-                                  buffer-table
-                                  case-table
-                                  development-table
-                                  info-table
-                                  pane-table
-                                  window-table
-                                  editor-table
-                                  global-esa-table)))
+                   :accessor find-applicable-command-table
+                   :accessor frame-command-table))
   (:menu-bar nil)
   (:panes
    (climacs-window
@@ -391,13 +393,52 @@ displayed in any window. If necessary, clone a view on display."
     ((type modified) record stream state)
   nil)
 
+(defgeneric display-view-info-to-info-pane (info-pane master-pane view)
+  (:documentation "Display interesting information about
+`view' (which is in `master-pane') to `info-pane'."))
+
+(defmethod display-view-info-to-info-pane ((info-pane climacs-info-pane)
+                                           (master-pane climacs-pane)
+                                           (view drei-syntax-view))
+  (with-text-family (info-pane :sans-serif)
+    (display-syntax-name (syntax view) info-pane :view view)))
+
+(defmethod display-view-info-to-info-pane ((info-pane climacs-info-pane)
+                                           (master-pane climacs-pane)
+                                           (view textual-drei-syntax-view))
+  (let ((point (point view))
+        (bot (bot view))
+        (top (top view))
+        (size (size (buffer view))))
+    (format info-pane "  ~A  "
+	    (cond ((and (mark= size bot)
+			(mark= 0 top))
+		   "")
+		  ((mark= size bot)
+		   "Bot")
+		  ((mark= 0 top)
+		   "Top")
+		  (t (format nil "~a%"
+			     (round (* 100 (/ (offset top)
+					      size)))))))
+    (when *show-info-pane-mark-position*
+      (format info-pane "(~A,~A)     "
+              (1+ (line-number point))
+              (column-number point)))
+    (princ #\( info-pane)
+    (call-next-method)
+    (format info-pane "~{~:[~*~; ~A~]~}" (list
+                                          (overwrite-mode view)
+                                          "Ovwrt"
+                                          (auto-fill-mode view)
+                                          "Fill"
+                                          (isearch-mode master-pane)
+                                          "Isearch"))
+    (princ #\) info-pane)))
+
 (defun display-info (frame pane)
   (let* ((master-pane (master-pane pane))
-	 (view (view master-pane))
-	 (size (size (buffer view)))
-	 (top (top view))
-	 (bot (bot view))
-         (point (point view)))
+	 (view (view master-pane)))
     (princ "   " pane)
     (with-output-as-presentation (pane view 'read-only)
       (princ (cond
@@ -417,32 +458,7 @@ displayed in any window. If necessary, clone a view on display."
         (format pane "~A" (subscripted-name view)))
       ;; FIXME: bare 25.
       (format pane "~V@T" (max (- 25 (length (subscripted-name view))) 1)))
-    (format pane "  ~A  "
-	    (cond ((and (mark= size bot)
-			(mark= 0 top))
-		   "")
-		  ((mark= size bot)
-		   "Bot")
-		  ((mark= 0 top)
-		   "Top")
-		  (t (format nil "~a%"
-			     (round (* 100 (/ (offset top)
-					      size)))))))
-    (when *show-info-pane-mark-position*
-      (format pane "(~A,~A)     "
-              (1+ (line-number point))
-              (column-number point)))
-    (with-text-family (pane :sans-serif)
-      (princ #\( pane)
-      (display-syntax-name (syntax view) pane :view view)
-      (format pane "~{~:[~*~; ~A~]~}" (list
-				       (overwrite-mode view)
-				       "Ovwrt"
-				       (auto-fill-mode view)
-				       "Fill"
-				       (isearch-mode master-pane)
-				       "Isearch"))
-      (princ #\) pane))
+    (display-view-info-to-info-pane pane master-pane view)
     (with-text-family (pane :sans-serif)
       (princ (if (recordingp frame)
 		 "Def"

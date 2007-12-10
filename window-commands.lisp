@@ -90,7 +90,8 @@ clone of `(current-view)' for the new window."
 (define-command (com-switch-to-this-window :name nil :command-table window-table)
     ((window 'pane) (x 'integer) (y 'integer))
   (other-window window)
-  (when (buffer-pane-p window)
+  (when (and (buffer-pane-p window)
+             (typep (view window) 'point-mark-view))
     (setf (offset (point (view window)))
 	  (click-to-offset window x y))))
 
