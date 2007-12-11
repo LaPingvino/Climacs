@@ -78,12 +78,12 @@ The expanded expression will be displayed in a
     ()
   "Compile and load the current file.
 
-Compiler notes will be displayed in a seperate buffer."
-  (compile-file-interactively (current-buffer) t))
+Compiler notes will be displayed in a seperate view."
+  (compile-file-interactively (current-view) t))
 
 (define-command (com-compile-file :name t :command-table climacs-lisp-table)
     ()
-  "Compile the file open in the current buffer.
+  "Compile the file open in the current view.
 
 This command does not load the file after it has been compiled."
   (compile-file-interactively (current-view) nil))

@@ -286,7 +286,7 @@ Each newline and following whitespace is replaced by a single space."
                                      (form-to-object syntax token
                                       :read t
                                       :package (package-at-mark syntax mark))
-                                     syntax m)
+                                     view m)
             (show-note-counts notes (second result))
             (when (not (null notes))
               (show-notes notes (name view)
