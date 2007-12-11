@@ -97,7 +97,8 @@ window"))
          (find-if #'(lambda (other-pane)
                       (and (not (eq other-pane pane))
                            (eq (view other-pane) view)))
-                  (windows (pane-frame pane)))))
+                  (windows (pane-frame pane))))
+        (old-view-active (active (view pane))))
     (cond ((not (member view (views (pane-frame pane))))
            (restart-case (error 'unknown-view :view view)
              (add-to-view-list ()
@@ -121,7 +122,9 @@ window"))
                                  (pane-frame window-displaying-view) view)))
              (cancel ()
               :report "Cancel the setting of the windows view and just return")))
-          (t (call-next-method)))))
+          (t (call-next-method)))
+    (when old-view-active
+      (ensure-only-view-active (pane-frame pane) view))))
 
 (defmethod (setf view) :before ((view drei-view) (pane climacs-pane))
   (with-accessors ((views views)) (pane-frame pane)
@@ -299,41 +302,49 @@ window"))
   (setf (buffer (current-view (esa-current-window application-frame)))
         new-buffer))
 
+(defmethod (setf windows) :after (new-val (climacs climacs))
+  ;; Ensures that we don't end up with two views that both believe
+  ;; they are active.
+  (activate-window (esa-current-window climacs)))
+
+(defun current-window-p (window)
+  "Return true if `window' is the current window of its Climacs
+instance."
+  (eq window (esa-current-window (pane-frame window))))
+
+(defun ensure-only-view-active (climacs view)
+  "Ensure that `view' is the only view of `climacs' that is
+active."
+  (dolist (other-view (views climacs))
+    (unless (eq other-view view)
+      (setf (active other-view) nil)))
+  (setf (active view) t))
+
 (defmethod (setf views) :around (new-value (frame climacs))
   ;; If any windows show a view that no longer exists in the
   ;; view-list, make them show something else. The view-list might be
-  ;; destructively updated, so copy it for safekeeping.
+  ;; destructively updated, so copy it for safekeeping. Also make sure
+  ;; only one view thinks that it's active.
   (with-accessors ((views views)) frame
     (let* ((old-views (copy-list views))
            (removed-views (set-difference
                            old-views (call-next-method) :test #'eq)))
-    
       (dolist (window (windows frame))
-        (when (member (view window) removed-views :test #'eq)
+        (when (and (typep window 'climacs-pane)
+                   (member (view window) removed-views :test #'eq))
           (handler-case (setf (view window)
                               (any-preferably-undisplayed-view))
             (view-already-displayed ()
-              (delete-window window)))))
-      ;; If the active view was removed, we have to designate a new
-      ;; active view.
-      (if (find-if #'active removed-views)
-          (activate-view frame (any-displayed-view))
-          ;; Else, we just have to make sure that the active view is
-          ;; still number one in the list.
-          (let ((active-view (find-if #'active views)))
-            (unless (eq active-view (first views))
-              (setf views (cons active-view (delete active-view views)))))))))
+              (delete-window window)))))))
+  (ensure-only-view-active
+   frame (when (typep (esa-current-window frame) 'climacs-pane)
+           (view (esa-current-window frame)))))
 
 (defmethod (setf views) :after ((new-value null) (frame climacs))
   ;; You think you can remove all views? I laught at your silly
   ;; attempt!
   (setf (views frame) (list (make-new-view-for-climacs
                              frame 'textual-drei-syntax-view))))
-
-(defmethod (setf windows) :after (new-value (frame climacs))
-  ;; It may be that the window holding the active view has been
-  ;; removed, if so, we must activate another view.
-  (activate-view frame (any-displayed-view)))
 
 (defun make-view-subscript-generator (climacs)
   #'(lambda (name)
@@ -346,8 +357,8 @@ window"))
   "Clone `view' and add it to `climacs's list of views."
   (let ((new-view (apply #'clone-view view
                    :subscript-generator (make-view-subscript-generator climacs)
-                   :active nil :syntax (make-syntax-for-view view (class-of (syntax view)))
-                   initargs)))
+                   :active nil initargs)))
+    (setf (syntax new-view) (make-syntax-for-view new-view (class-of (syntax view))))
     (push new-view (views climacs))
     new-view))
 
@@ -366,7 +377,7 @@ window"))
 
 (defun any-displayed-view ()
   "Return some view on display."
-  (view (first (windows *application-frame*))))
+  (view (esa-current-window *application-frame*)))
 
 (defun any-preferably-undisplayed-view ()
   "Return some view, any view, preferable one that is not
@@ -485,13 +496,21 @@ FIXME: does this really have that effect?"
 	 'base-table
 	 '((#\l :control)))
 
-(defun activate-view (climacs active-view)
-  "Set `view' to be the active view for `climacs'."
+(defun activate-window (window)
+  "Set `window' to be the active window for its Climacs
+instance. `Window' must already be recognized by the Climacs
+instance."
   ;; Ensure that only one pane can be active.
-  (dolist (view (views climacs))
-    (unless (eq active-view view)
-      (setf (active view) nil)))
-  (setf (active active-view) t))
+  (let ((climacs (pane-frame window)))
+    (unless (current-window-p window)
+      (when (typep (esa-current-window climacs) 'climacs-pane)
+        (setf (active (esa-current-window climacs)) nil))
+      (unless (member window (windows climacs))
+        (error "Cannot set unknown window to be active window"))
+      (setf (windows climacs)
+            (cons window (remove window (windows climacs)))))
+    (when (typep window 'climacs-pane)
+      (ensure-only-view-active climacs (view window)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -589,7 +608,7 @@ pane to a clone of the view in `orig-pane', provided that
 	(replace-constellation constellation-root vbox vertically-p)
 	(full-redisplay current-window)
 	(full-redisplay new-pane)
-        (activate-view (pane-frame pane) pane)
+        (activate-window pane)
 	new-pane))))
 
 (defun make-typeout-constellation (&optional label)
@@ -653,9 +672,9 @@ be created."
                     (remove pane (windows *esa-instance*))))
       (setf (windows *esa-instance*)
             (append (rest (windows *esa-instance*))
-                    (list (first (windows *esa-instance*))))))
-  (activate-view *esa-instance* (view (first (windows *esa-instance*))))
-  (setf *standard-output* (first (windows *esa-instance*))))
+                    (list (esa-current-window *esa-instance*)))))
+  (activate-window (esa-current-window *esa-instance*))
+  (setf *standard-output* (esa-current-window *esa-instance*)))
 
 ;;; For the ESA help functions.
 
