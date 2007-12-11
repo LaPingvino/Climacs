@@ -96,6 +96,7 @@ window"))
   (let ((window-displaying-view
          (find-if #'(lambda (other-pane)
                       (and (not (eq other-pane pane))
+                           (typep other-pane 'climacs-pane)
                            (eq (view other-pane) view)))
                   (windows (pane-frame pane))))
         (old-view-active (active (view pane))))
@@ -235,9 +236,11 @@ window"))
   ())
 
 (defmethod command-table-inherit-from ((table climacs-command-table))
-  (append (view-command-tables (current-view))
+  (append (when (typep (current-window) 'climacs-pane)
+            (view-command-tables (current-view)))
           '(global-climacs-table)
-          (when (use-editor-commands-p (current-view))
+          (when (and (typep (current-window) 'climacs-pane)
+                     (use-editor-commands-p (current-view)))
             '(editor-table))
           (call-next-method)))
 
@@ -312,13 +315,15 @@ window"))
 instance."
   (eq window (esa-current-window (pane-frame window))))
 
-(defun ensure-only-view-active (climacs view)
+(defun ensure-only-view-active (climacs &optional view)
   "Ensure that `view' is the only view of `climacs' that is
+active. `View' may be NIL, in which case no view is set as
 active."
   (dolist (other-view (views climacs))
     (unless (eq other-view view)
       (setf (active other-view) nil)))
-  (setf (active view) t))
+  (unless (null view)
+    (setf (active view) t)))
 
 (defmethod (setf views) :around (new-value (frame climacs))
   ;; If any windows show a view that no longer exists in the
@@ -379,20 +384,28 @@ active."
   "Return some view on display."
   (view (esa-current-window *application-frame*)))
 
+(defun view-on-display (climacs view)
+  "Return true if `view' is on display in a window of `climacs',
+false otherwise."
+  (member view (remove-if-not #'(lambda (window)
+                                  (typep window 'climacs-pane))
+                              (windows climacs))
+   :key #'view))
+
 (defun any-preferably-undisplayed-view ()
   "Return some view, any view, preferable one that is not
 currently displayed in any window."
-  (or (find-if #'(lambda (view)
-                   (not (member view (windows *esa-instance*) :key #'view)))
-               (views *esa-instance*))
+  (or (find-if-not #'(lambda (view)
+                       (not (view-on-display *esa-instance* view)))
+                   (views *esa-instance*))
       (any-view)))
 
 (defun any-undisplayed-view ()
   "Return some view, any view, as long as it is not currently
 displayed in any window. If necessary, clone a view on display."
-  (or (find-if #'(lambda (view)
-                   (not (member view (windows *esa-instance*) :key #'view)))
-               (views *esa-instance*))
+  (or (find-if-not #'(lambda (view)
+                       (view-on-display *esa-instance* view))
+                   (views *esa-instance*))
       (clone-view-for-climacs *esa-instance* (any-view))))
 
 (define-presentation-type read-only ())
@@ -509,8 +522,9 @@ instance."
         (error "Cannot set unknown window to be active window"))
       (setf (windows climacs)
             (cons window (remove window (windows climacs)))))
-    (when (typep window 'climacs-pane)
-      (ensure-only-view-active climacs (view window)))))
+    (ensure-only-view-active
+     climacs (when (typep window 'climacs-pane)
+               (view window)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
