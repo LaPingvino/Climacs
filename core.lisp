@@ -330,7 +330,8 @@ file if necessary."
                  (setf (offset (point buffer)) (offset (point view))
                        (current-view) view
                        (syntax view) (make-syntax-for-view view (syntax-class-name-for-filepath filepath))
-                       (file-write-time buffer) (file-write-date filepath))
+                       (file-write-time buffer) (file-write-date filepath)
+                       (needs-saving buffer) nil)
                  (evaluate-attribute-line view)
                  (setf (filepath buffer) filepath
                        (read-only-p buffer) readonlyp)
