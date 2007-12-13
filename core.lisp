@@ -87,6 +87,11 @@ since it was last saved)."
        (filepath (buffer view))
        (needs-saving (buffer view))))
 
+(defun dummy-buffer ()
+  "Create a dummy buffer object for use when killing views, to
+prevent increasing memory usage."
+  (make-instance 'drei-buffer))
+
 (defgeneric kill-view (view)
   (:documentation "Remove `view' from the Climacs specified in
 `*esa-instance*'. If `view' is currently displayed in a window,
@@ -106,6 +111,11 @@ it will be replaced by some other view."))
                                   (return-from kill-view nil)))))
       (save-buffer (buffer view)))
     (setf views (remove view views))
+    ;; If we don't change the buffer of the view, a reference to the
+    ;; view will be kept in the buffer, and the view will thus not be
+    ;; garbage-collected. So create a circular reference structure
+    ;; that can be garbage-collected instead.
+    (setf (buffer view) (dummy-buffer))
     (full-redisplay (current-window))
     (current-view)))
 
