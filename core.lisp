@@ -341,7 +341,8 @@ file if necessary."
                        (current-view) view
                        (syntax view) (make-syntax-for-view view (syntax-class-name-for-filepath filepath))
                        (file-write-time buffer) (file-write-date filepath)
-                       (needs-saving buffer) nil)
+                       (needs-saving buffer) nil
+                       (name buffer) (filepath-filename filepath))
                  (evaluate-attribute-line view)
                  (setf (filepath buffer) filepath
                        (read-only-p buffer) readonlyp)
