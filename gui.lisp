@@ -225,6 +225,7 @@ window"))
 (make-command-table 'global-climacs-table
                     :errorp nil
                     :inherit-from '(base-table
+                                    buffer-table
                                     pane-table
                                     window-table
                                     development-table
@@ -253,14 +254,20 @@ window"))
    (%command-table :initform (make-instance 'climacs-command-table
                                             :name 'climacs-dispatching-table)
                    :accessor find-applicable-command-table
-                   :accessor frame-command-table))
+                   :accessor frame-command-table)
+   (%output-stream :accessor output-stream
+                   :initform nil
+                   :initarg :output-stream))
   (:menu-bar nil)
   (:panes
    (climacs-window
     (let* ((*esa-instance* *application-frame*)
            (climacs-pane (make-pane 'climacs-pane :active t))
 	   (info-pane (make-pane 'climacs-info-pane
-                                 :master-pane climacs-pane)))
+                       :master-pane climacs-pane)))
+      (unless (output-stream *esa-instance*)
+        (setf (output-stream *esa-instance*)
+              (make-typeout-stream *application-frame* "*standard-output*")))
       (setf (windows *application-frame*) (list climacs-pane)
 	    (views *application-frame*) (list (view climacs-pane)))
       (vertically ()
@@ -285,7 +292,9 @@ window"))
                        prompt)
  :bindings ((*default-target-creator* *climacs-target-creator*)
             (*drei-instance* (esa-current-window frame))
-            (*previous-command* (previous-command *drei-instance*))))
+            (*previous-command* (previous-command *drei-instance*))
+            (*standard-output* (or (output-stream frame)
+                                   *terminal-io*))))
 
 (defmethod frame-standard-input ((frame climacs))
   (get-frame-pane frame 'minibuffer))
@@ -625,10 +634,12 @@ pane to a clone of the view in `orig-pane', provided that
         (activate-window pane)
 	new-pane))))
 
-(defun make-typeout-constellation (&optional label)
+(defun make-typeout-constellation (&key label pane)
   (let* ((typeout-pane
-	  (make-pane 'typeout-pane :foreground *foreground-color* :background *background-color*
-                     :width 900 :height 400 :display-time nil :name label))
+          (or pane
+              (make-pane 'typeout-pane :foreground *foreground-color*
+                                       :background *background-color*
+                                       :width 900 :height 400 :display-time nil :name label)))
 	 (label
 	  (make-pane 'label-pane :label label))
 	 (vbox
@@ -643,7 +654,7 @@ be created."
   (with-look-and-feel-realization
       ((frame-manager *esa-instance*) *esa-instance*)
     (or (find label (windows *esa-instance*) :key #'pane-name)
-        (multiple-value-bind (vbox new-pane) (make-typeout-constellation label)
+        (multiple-value-bind (vbox new-pane) (make-typeout-constellation :label label)
           (let* ((current-window pane)
                  (constellation-root (find-parent current-window)))
             (push new-pane (windows *esa-instance*))
@@ -667,7 +678,6 @@ be created."
 	   (third (third children)))
       (setf (windows *esa-instance*)
 	    (delete window (windows *esa-instance*)))
-      (setf *standard-output* (car (windows *esa-instance*)))
       (sheet-disown-child box other)
       (sheet-adopt-child parent other)
       (sheet-disown-child parent box)
@@ -687,10 +697,103 @@ be created."
       (setf (windows *esa-instance*)
             (append (rest (windows *esa-instance*))
                     (list (esa-current-window *esa-instance*)))))
-  (activate-window (esa-current-window *esa-instance*))
-  (setf *standard-output* (esa-current-window *esa-instance*)))
+  (activate-window (esa-current-window *esa-instance*)))
 
 ;;; For the ESA help functions.
 
 (defmethod help-stream ((frame climacs) title)
   (typeout-window (format nil "~10T~A" title)))
+
+;;; An implementation of the Gray streams protocol that uses a Climacs
+;;; typeout pane to draw the output.
+
+(defclass typeout-stream (fundamental-character-output-stream)
+  ((%typeout-pane :accessor typeout-pane
+                  :initform nil
+                  :initarg :typeout-pane
+                  :documentation "The typeout pane that output
+will be performed on.")
+   (%climacs :reader climacs-instance
+             :initform (error "Must provide a Climacs instance for typeout streams")
+             :initarg :climacs)
+   (%label :reader label
+           :initform (error "A typeout stream must have a label")
+           :initarg :label))
+  (:documentation "An output stream that performs output on
+a (single) Climacs typeout pane. If the typeout pane is deleted
+manually by the user, the stream will recreate it the next time
+output is performed."))
+
+(defmethod initialize-instance :after ((stream typeout-stream) &rest args)
+  (declare (ignore args))
+  (setf (typeout-pane stream)
+        (with-look-and-feel-realization ((frame-manager (climacs-instance stream))
+                                         (climacs-instance stream))
+          (make-pane 'typeout-pane :foreground *foreground-color*
+                                   :background *background-color*
+                                   :width 900 :height 400 :display-time nil :name (label stream)))))
+
+(defgeneric ensure-typeout-pane-for-stream (stream)
+  (:documentation "Ensure that `stream' has a typeout pane that
+it can display output to, and that this pane is on display."))
+
+(defmethod ensure-typeout-pane-for-stream ((stream typeout-stream))
+  (with-look-and-feel-realization ((frame-manager (climacs-instance stream))
+                                   (climacs-instance stream))
+    (unless (member (typeout-pane stream) (windows (climacs-instance stream)))
+      (setf (sheet-parent (typeout-pane stream)) nil)
+      (multiple-value-bind (vbox new-pane) (make-typeout-constellation :pane (typeout-pane stream)
+                                                                       :label (label stream))
+        (let* ((current-window (current-window))
+               (constellation-root (find-parent current-window)))
+          (push new-pane (windows *esa-instance*))
+          (other-window)
+          (replace-constellation constellation-root vbox t)
+          (full-redisplay current-window))))))
+
+(defmethod stream-write-char ((stream typeout-stream) char)
+  (ensure-typeout-pane-for-stream stream)
+  (stream-write-char (typeout-pane stream) char))
+
+(defmethod stream-line-column ((stream typeout-stream))
+  (ensure-typeout-pane-for-stream stream)
+  (stream-line-column (typeout-pane stream)))
+
+(defmethod stream-start-line-p ((stream typeout-stream))
+  (ensure-typeout-pane-for-stream stream)
+  (stream-start-line-p (typeout-pane stream)))
+
+(defmethod stream-write-string ((stream typeout-stream) string &optional (start 0) end)
+  (ensure-typeout-pane-for-stream stream)
+  (stream-write-string (typeout-pane stream) string start end))
+
+(defmethod stream-terpri ((stream typeout-stream))
+  (ensure-typeout-pane-for-stream stream)
+  (stream-terpri (typeout-pane stream)))
+
+(defmethod stream-fresh-line ((stream typeout-stream))
+  (ensure-typeout-pane-for-stream stream)
+  (stream-fresh-line (typeout-pane stream)))
+
+(defmethod stream-finish-output ((stream typeout-stream))
+  (ensure-typeout-pane-for-stream stream)
+  (stream-finish-output (typeout-pane stream)))
+
+(defmethod stream-force-output ((stream typeout-stream))
+  (ensure-typeout-pane-for-stream stream)
+  (stream-force-output (typeout-pane stream)))
+
+(defmethod stream-clear-output ((stream typeout-stream))
+  (ensure-typeout-pane-for-stream stream)
+  (stream-clear-output (typeout-pane stream)))
+
+(defmethod stream-advance-to-column ((stream typeout-stream) (column integer))
+  (ensure-typeout-pane-for-stream stream)
+  (stream-advance-to-column (typeout-pane stream) column))
+
+(defmethod interactive-stream-p ((stream typeout-stream))
+  (ensure-typeout-pane-for-stream stream)
+  (interactive-stream-p (typeout-pane stream)))
+
+(defun make-typeout-stream (climacs label)
+  (make-instance 'typeout-stream :climacs climacs :label label))
