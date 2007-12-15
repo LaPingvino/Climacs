@@ -8,6 +8,8 @@
 ;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
 ;;;  (c) copyright 2005 by
 ;;;           Aleksandar Bakic (a_bakic@yahoo.com)
+;;;  (c) copyright 2007 by
+;;;           Troels Henriksen (athas@sigkill.dk)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
