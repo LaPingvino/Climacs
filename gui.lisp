@@ -405,7 +405,7 @@ false otherwise."
   "Return some view, any view, preferable one that is not
 currently displayed in any window."
   (or (find-if-not #'(lambda (view)
-                       (not (view-on-display *esa-instance* view)))
+                       (view-on-display *esa-instance* view))
                    (views *esa-instance*))
       (any-view)))
 
