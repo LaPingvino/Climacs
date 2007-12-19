@@ -51,7 +51,7 @@ clone of `(current-view)' for the new window."
     ((clone-current-view 'boolean :default nil))
   (split-window-maybe-cloning t clone-current-view))
 
-(set-key `(com-split-window-vertically ,*numeric-argument-p*)
+(set-key `(com-split-window-vertically ,*numeric-argument-marker*)
 	 'window-table
 	 '((#\x :control) (#\2)))
 
@@ -60,7 +60,7 @@ clone of `(current-view)' for the new window."
     ((clone-current-view 'boolean :default nil))
   (split-window-maybe-cloning nil clone-current-view))
 
-(set-key `(com-split-window-horizontally ,*numeric-argument-p*)
+(set-key `(com-split-window-horizontally ,*numeric-argument-marker*)
 	 'window-table
 	 '((#\x :control) (#\3)))
 
