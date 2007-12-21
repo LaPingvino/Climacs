@@ -67,10 +67,10 @@ string at point."
                      (make-buffer-mark (current-buffer) offset2 :right)
                      #'(lambda (mark)
                          (syntax-line-indentation
-                          mark (tab-space-count (current-view)) syntax))
+                          mark (tab-space-count (current-view)) (current-syntax)))
                      fill-column
                      (tab-space-count (current-view))
-                     syntax
+                     (current-syntax)
                      t)))))
 
 (define-command (com-indent-expression :name t :command-table java-table)
