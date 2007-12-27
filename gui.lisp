@@ -307,7 +307,8 @@ window"))
                      (views climacs)))))
 
 (defmethod esa-current-buffer ((application-frame climacs))
-  (buffer (current-view (esa-current-window application-frame))))
+  (when (buffer-pane-p (esa-current-window application-frame))
+    (buffer (current-view (esa-current-window application-frame)))))
 
 (defmethod (setf esa-current-buffer) ((new-buffer climacs-buffer)
                                       (application-frame climacs))
