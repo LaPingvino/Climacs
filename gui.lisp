@@ -152,7 +152,7 @@ window"))
   nil)
 
 (defmethod buffer-pane-p ((pane climacs-pane))
-  t)
+  (typep (view pane) 'drei-buffer-view))
 
 (defmethod in-focus-p ((pane climacs-pane))
   (eq pane (first (windows *application-frame*))))
