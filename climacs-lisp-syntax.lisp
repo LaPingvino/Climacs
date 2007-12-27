@@ -237,13 +237,14 @@ Each newline and following whitespace is replaced by a single space."
   (let ((view (find (file-name location)
                       (views *application-frame*)
                       :test #'string= :key #'(lambda (view)
-                                               (let ((path (filepath view)))
-                                                 (when path
-                                                   (namestring path)))))))
+                                               (when (typep view 'drei-buffer-view)
+                                                 (let ((path (filepath (buffer view))))
+                                                   (when path
+                                                     (namestring path))))))))
     (if view
         (climacs-core:switch-to-view (current-window) view)
         (find-file (file-name location)))
-    (goto-position (point (current-window))
+    (goto-position (point (current-view))
                    (char-position (source-position location)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
