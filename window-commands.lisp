@@ -113,7 +113,7 @@ clone of `(current-view)' for the new window."
     ((window 'pane) (x 'integer) (y 'integer))
   (when (and (buffer-pane-p window)
 	     (eq window (current-window)))
-    (setf (offset (mark window))
+    (setf (offset (mark (view window)))
 	  (click-to-offset window x y))
     (drei-commands::com-exchange-point-and-mark)
     (drei-commands::com-copy-region)))
@@ -129,7 +129,7 @@ clone of `(current-view)' for the new window."
     ((window 'pane) (x 'integer) (y 'integer))
   (when (buffer-pane-p window)
     (other-window window)
-    (setf (offset (point window))
+    (setf (offset (point (view window)))
 	  (click-to-offset window x y))
     (drei-commands::com-yank)))
 
