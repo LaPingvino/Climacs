@@ -331,22 +331,27 @@ file if necessary."
                    (return-from find-file-impl nil)))
                (let* ((buffer (if (probe-file filepath)
                                   (with-open-file (stream filepath :direction :input)
-                                                  (make-buffer-from-stream stream))
-                                (make-new-buffer)))
+                                    (make-buffer-from-stream stream))
+                                  (make-new-buffer)))
                       (view (make-new-view-for-climacs
                              *esa-instance* 'textual-drei-syntax-view
                              :name (filepath-filename filepath)
                              :buffer buffer)))
+                 (unless (buffer-pane-p (current-window))
+                   (other-window (or (find-if #'(lambda (window)
+                                                  (typep window 'climacs-pane))
+                                              (windows *esa-instance*))
+                                     (split-window t))))
                  (setf (offset (point buffer)) (offset (point view))
-                       (current-view) view
                        (syntax view) (make-syntax-for-view view (syntax-class-name-for-filepath filepath))
                        (file-write-time buffer) (file-write-date filepath)
                        (needs-saving buffer) nil
                        (name buffer) (filepath-filename filepath))
+                 (setf (current-view (current-window)) view)
                  (evaluate-attribute-line view)
                  (setf (filepath buffer) filepath
                        (read-only-p buffer) readonlyp)
-                 (beginning-of-buffer (point))
+                 (beginning-of-buffer (point view))
                  buffer)))))))
 
 (defmethod frame-find-file ((application-frame climacs) filepath)
