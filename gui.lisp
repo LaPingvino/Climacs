@@ -56,6 +56,7 @@ contents.")))
   (:default-initargs
    :view (make-instance 'textual-drei-syntax-view
           :buffer (make-instance 'climacs-buffer))
+   :display-time :command-loop
    :width 900 :height 400))
 
 (defmethod command-table ((pane climacs-pane))
