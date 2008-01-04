@@ -329,10 +329,11 @@ file if necessary."
                    (beep)
                    (display-message "No such file: ~A" filepath)
                    (return-from find-file-impl nil)))
-               (let* ((buffer (if (probe-file filepath)
+               (let* ((newp (not (probe-file filepath)))
+                      (buffer (if newp
+                                  (make-new-buffer)
                                   (with-open-file (stream filepath :direction :input)
-                                    (make-buffer-from-stream stream))
-                                  (make-new-buffer)))
+                                    (make-buffer-from-stream stream))))
                       (view (make-new-view-for-climacs
                              *esa-instance* 'textual-drei-syntax-view
                              :name (filepath-filename filepath)
@@ -344,7 +345,7 @@ file if necessary."
                                      (split-window t))))
                  (setf (offset (point buffer)) (offset (point view))
                        (syntax view) (make-syntax-for-view view (syntax-class-name-for-filepath filepath))
-                       (file-write-time buffer) (file-write-date filepath)
+                       (file-write-time buffer) (if newp (get-universal-time) (file-write-date filepath))
                        (needs-saving buffer) nil
                        (name buffer) (filepath-filename filepath))
                  (setf (current-view (current-window)) view)
