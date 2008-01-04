@@ -47,17 +47,18 @@
 
 (defmethod initialize-instance :after ((syntax prolog-syntax) &rest args)
   (declare (ignore args))
-  (with-slots (parser lexer buffer) syntax
-     (setf parser (make-instance 'parser
-		     :grammar *prolog-grammar*
-		     :target 'prolog-text))
-     (setf lexer (make-instance 'prolog-lexer :buffer (buffer syntax)))
-     (let ((m (clone-mark (low-mark buffer) :left))
-	   (lexeme (make-instance 'start-lexeme :state (initial-state parser))))
-       (setf (offset m) 0)
-       (setf (start-offset lexeme) m
-	     (end-offset lexeme) 0)
-       (insert-lexeme lexer 0 lexeme))))
+  (let ((buffer (buffer syntax)))
+    (with-slots (parser lexer) syntax
+      (setf parser (make-instance 'parser
+                                  :grammar *prolog-grammar*
+                                  :target 'prolog-text))
+      (setf lexer (make-instance 'prolog-lexer :buffer buffer :syntax syntax))
+      (let ((m (make-buffer-mark buffer 0 :left))
+            (lexeme (make-instance 'start-lexeme :state (initial-state parser))))
+        (setf (offset m) 0)
+        (setf (start-offset lexeme) m
+              (end-offset lexeme) 0)
+        (insert-lexeme lexer 0 lexeme)))))
 
 ;;; grammar
 
@@ -156,7 +157,8 @@
   (make-instance 'layout-text :cont nil))
 
 (defclass prolog-lexer (incremental-lexer)
-  ((valid-lex :initarg :valid-lex :initform 1)))
+  ((valid-lex :initarg :valid-lex :initform 1)
+   (syntax :initarg :syntax :reader syntax)))
 
 (defmethod next-lexeme ((lexer prolog-lexer) scan)
   (let ((string (make-array 0 :element-type 'character
@@ -303,7 +305,7 @@
 	       (t
 		(cond
 		  ((and (string= string ".") 
-                        (or (whitespacep (syntax (buffer lexer))
+                        (or (whitespacep (syntax lexer)
                                          (object-after scan))
                             (eql (object-after scan) #\%)))
 		   (return (make-instance 'end-lexeme)))
@@ -374,7 +376,7 @@
              (when (or (end-of-buffer-p scan)
                        (let ((object (object-after scan)))
                          (or (eql object #\%)
-                             (whitespacep (syntax (buffer lexer))
+                             (whitespacep (syntax lexer)
                                           object))))
                (bo)
                (return (make-instance 'integer-lexeme)))
@@ -1124,11 +1126,44 @@
 
 ;;; update syntax
 
-(defmethod update-syntax-for-display (buffer (syntax prolog-syntax) top bot)
+(defmethod inter-lexeme-object-p ((lexer prolog-lexer) object)
+  (member object '(#\Space #\Newline #\Tab)))
+
+(defmethod update-syntax ((syntax prolog-syntax) prefix-size suffix-size &optional begin end)
+  (call-next-method)
+  (with-slots (lexer valid-parse) syntax
+    (let* ((low-mark (make-buffer-mark (buffer syntax) prefix-size :left))
+           (high-mark (make-buffer-mark
+                       (buffer syntax) (- (size (buffer syntax)) suffix-size) :left)))
+      ;; this bit really belongs in a method on a superclass --
+      ;; something like incremental-lexer.
+      (when (mark<= low-mark high-mark)
+	(with-slots (drei-syntax::lexemes valid-lex)
+	    lexer
+	  (let ((start 1)
+		(end (nb-elements drei-syntax::lexemes)))
+	    (loop while (< start end)
+		  do (let ((middle (floor (+ start end) 2)))
+		       (if (mark< (end-offset (element* drei-syntax::lexemes middle))
+				  low-mark)
+			   (setf start (1+ middle))
+			   (setf end middle))))
+	    (setf valid-lex start)
+	    (setf valid-parse start))))
+      ;; this bit is truly prolog-syntax specific.
+      (when (mark<= low-mark high-mark)
+	(with-slots (operator-directives) syntax
+	  (do ((directives operator-directives (cdr directives)))
+	      ((null directives) (setf operator-directives nil))
+	    (when (< (end-offset (car directives))
+		     (offset low-mark))
+	      (setf operator-directives directives)
+	      (return nil)))))))
+  ;; old update-syntax-for-display
   (with-slots (parser lexer valid-parse) syntax
     (with-slots (drei-syntax::lexemes valid-lex) lexer
-      (let ((scan (clone-mark (low-mark buffer) :left))
-	    (high-mark (high-mark buffer)))
+      (let ((scan (make-buffer-mark (buffer syntax) prefix-size :left))
+	    (high-mark (make-buffer-mark (buffer syntax) (- (size (buffer syntax)) suffix-size) :left)))
         (setf (offset scan)
               (end-offset (lexeme lexer (1- valid-lex))))
 	;; this magic belongs in a superclass' method.  (It's not the
@@ -1136,7 +1171,8 @@
         (loop named relex
 	      do (skip-inter-lexeme-objects lexer scan)
               until (end-of-buffer-p scan)
-	      until (mark<= bot (start-offset (lexeme lexer (1- valid-lex))))
+              #+nil #+nil ; FIXME: incremental
+	      until (<= end (start-offset (lexeme lexer (1- valid-lex))))
 	      do (when (mark> scan high-mark)
 		   (do ()
 		       ((= (nb-lexemes lexer) valid-lex))
@@ -1174,48 +1210,18 @@
       ;; thing) can return a delegating buffer.
       (let ((*this-syntax* syntax))
 	(loop until (= valid-parse valid-lex)
-	      until (mark<= bot (start-offset (lexeme lexer (1- valid-parse))))
+              #+nil #+nil ; FIXME: incremental
+	      until (<= end (start-offset (lexeme lexer (1- valid-parse))))
 	      do (let ((current-token (lexeme lexer (1- valid-parse)))
 		       (next-lexeme (lexeme lexer valid-parse)))
 		   (setf (slot-value next-lexeme 'state)
 			 (advance-parse parser (list next-lexeme) 
 					(slot-value current-token 'state)))
 		   (incf valid-parse)))))))
-  
-(defmethod inter-lexeme-object-p ((lexer prolog-lexer) object)
-  (member object '(#\Space #\Newline #\Tab)))
-
-(defmethod update-syntax (buffer (syntax prolog-syntax))
-  (with-slots (lexer valid-parse) syntax
-    (let* ((low-mark (low-mark buffer))
-	   (high-mark (high-mark buffer)))
-      ;; this bit really belongs in a method on a superclass --
-      ;; something like incremental-lexer.
-      (when (mark<= low-mark high-mark)
-	(with-slots (drei-syntax::lexemes valid-lex)
-	    lexer
-	  (let ((start 1)
-		(end (nb-elements drei-syntax::lexemes)))
-	    (loop while (< start end)
-		  do (let ((middle (floor (+ start end) 2)))
-		       (if (mark< (end-offset (element* drei-syntax::lexemes middle))
-				  low-mark)
-			   (setf start (1+ middle))
-			   (setf end middle))))
-	    (setf valid-lex start)
-	    (setf valid-parse start))))
-      ;; this bit is truly prolog-syntax specific.
-      (when (mark<= low-mark high-mark)
-	(with-slots (operator-directives) syntax
-	  (do ((directives operator-directives (cdr directives)))
-	      ((null directives) (setf operator-directives nil))
-	    (when (< (end-offset (car directives))
-		     (offset low-mark))
-	      (setf operator-directives directives)
-	      (return nil))))))))
 
 ;;; display
-
+#+nil ; old, not based on stroking pumps.
+(progn
 (defvar *white-space-start* nil)
 
 (defvar *current-line* 0)
@@ -1352,7 +1358,7 @@
                  do (let ((token (lexeme lexer start-token-index)))
                       (display-parse-tree token syntax stream drei))
                  (incf start-token-index)))))))))
-
+) ; PROGN
 #|
 (climacs-gui::define-named-command com-inspect-lex ()
   (with-slots (lexer) (slot-value (buffer (climacs-gui::current-window)) 'drei-syntax::syntax)
