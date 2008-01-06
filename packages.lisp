@@ -38,7 +38,7 @@
              #:climacs-buffer #:external-format
              #:climacs-pane
              #:climacs-info-pane
-             #:typeout-pane
+             #:typeout-pane #:typeout-pane-p
              #:kill-ring
 
              ;; View-stuff

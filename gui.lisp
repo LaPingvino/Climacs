@@ -137,6 +137,10 @@ window"))
             :initform nil
             :initarg :active)))
 
+(defun typeout-pane-p (pane)
+  "Return true if `pane' is a typeout pane."
+  (typep pane 'typeout-pane))
+
 (defmethod buffer ((pane typeout-pane)))
 
 (defmethod point-of ((pane typeout-pane)))
