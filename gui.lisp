@@ -101,32 +101,33 @@ window"))
                            (eq (view other-pane) view)))
                   (windows (pane-frame pane))))
         (old-view-active (active (view pane))))
-    (cond ((not (member view (views (pane-frame pane))))
-           (restart-case (error 'unknown-view :view view)
-             (add-to-view-list ()
-              :report "Add the view object to Climacs"
-              (push view (views (pane-frame pane)))
-              (setf (view pane) view))))
-          (window-displaying-view
-           (restart-case
-               (error 'view-already-displayed :view view :window window-displaying-view)
-             (remove-other-use ()
-              :report "Make the other window try to display some other view"
-              (setf (view window-displaying-view) (any-preferably-undisplayed-view))
-              (setf (view pane) view))
-             (remove-other-pane ()
-              :report "Remove the other window displaying the view"
-              (delete-window window-displaying-view)
-              (setf (view pane) view))
-             (clone-view ()
-              :report "Make a clone of the view and use that instead"
-              (setf (view pane) (clone-view-for-climacs
-                                 (pane-frame window-displaying-view) view)))
-             (cancel ()
-              :report "Cancel the setting of the windows view and just return")))
-          (t (call-next-method)))
-    (when old-view-active
-      (ensure-only-view-active (pane-frame pane) view))))
+    (prog1
+        (cond ((not (member view (views (pane-frame pane))))
+               (restart-case (error 'unknown-view :view view)
+                 (add-to-view-list ()
+                  :report "Add the view object to Climacs"
+                  (push view (views (pane-frame pane)))
+                  (setf (view pane) view))))
+              (window-displaying-view
+               (restart-case
+                   (error 'view-already-displayed :view view :window window-displaying-view)
+                 (remove-other-use ()
+                  :report "Make the other window try to display some other view"
+                  (setf (view window-displaying-view) (any-preferably-undisplayed-view))
+                  (setf (view pane) view))
+                 (remove-other-pane ()
+                  :report "Remove the other window displaying the view"
+                  (delete-window window-displaying-view)
+                  (setf (view pane) view))
+                 (clone-view ()
+                  :report "Make a clone of the view and use that instead"
+                  (setf (view pane) (clone-view-for-climacs
+                                     (pane-frame window-displaying-view) view)))
+                 (cancel ()
+                  :report "Cancel the setting of the windows view and just return")))
+              (t (call-next-method)))
+      (when old-view-active
+        (ensure-only-view-active (pane-frame pane) view)))))
 
 (defmethod (setf view) :before ((view drei-view) (pane climacs-pane))
   (with-accessors ((views views)) (pane-frame pane)
