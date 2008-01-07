@@ -782,6 +782,26 @@
 `syntax'."
   (buffer-substring (buffer syntax) (start-offset form) (end-offset form)))
 
+(define-syntax-highlighting-rules default-c-highlighting
+  (error-symbol (*error-drawing-options*))
+  (string-form (*string-drawing-options*))
+  (operator (*special-operator-drawing-options*))
+  (type-specifier (*keyword-drawing-options*))
+  (type-qualifier (*keyword-drawing-options*))
+  (storage-class-specifier (:face :ink +dark-green+))
+  (function-specifier (:face :ink +dark-green+))
+  (comment (*comment-drawing-options*))
+  (integer-constant-lexeme (:face :ink +gray50+))
+  (floating-constant-lexeme (:face :ink +gray50+)))
+
+(defparameter *syntax-highlighting-rules* 'default-c-highlighting
+  "The syntax highlighting rules used for highlighting C
+syntax.")
+
+(defmethod syntax-highlighting-rules ((syntax c-syntax))
+  *syntax-highlighting-rules*)
+
+#|
 (define-standard-faces c-syntax
   (make-face :error +red+)
   (make-face :string +rosy-brown+ (make-text-style nil :italic nil))
@@ -956,6 +976,8 @@
 			       (syntax c-syntax))
   (with-face (:comment)
     (call-next-method)))
+
+|#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
