@@ -123,7 +123,9 @@
                        (:file 'file-location)
                        (:buffer 'view-location)
                        (:source-form 'source-location))
-                     buf))
+                     (case (first buf)
+                       (:buffer (cons :view (rest buf)))
+                       (t buf))))
              (position
               (funcall
                (ecase (first pos)
