@@ -41,6 +41,7 @@
 ;;    (:file "ttcn3-syntax" :depends-on ("packages"))
    (:file "climacs-lisp-syntax" :depends-on ("core" "groups"))
    (:file "climacs-lisp-syntax-commands" :depends-on ("climacs-lisp-syntax" "misc-commands"))
+   (:file "structured-editing" :depends-on ("climacs-lisp-syntax-commands"))
    (:file "c-syntax" :depends-on ("core"))
    (:file "c-syntax-commands" :depends-on ("c-syntax" "misc-commands"))
    #+nil(:file "java-syntax" :depends-on ("core"))
