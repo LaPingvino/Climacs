@@ -788,7 +788,7 @@ the `package' definition, if any."))
   (floating-point-literal-lexeme (:face :ink +gray50+)))
 
 (defparameter *syntax-highlighting-rules* 'default-java-highlighting
-  "The syntax highlighting rules used for highlighting C
+  "The syntax highlighting rules used for highlighting Java
 syntax.")
 
 (defmethod syntax-highlighting-rules ((syntax java-syntax))
