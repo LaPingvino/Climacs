@@ -1129,8 +1129,8 @@
 (defmethod inter-lexeme-object-p ((lexer prolog-lexer) object)
   (member object '(#\Space #\Newline #\Tab)))
 
-(defmethod update-syntax ((syntax prolog-syntax) prefix-size suffix-size &optional begin end)
-  (call-next-method)
+(defmethod update-syntax esa-utils:values-max-min ((syntax prolog-syntax) prefix-size suffix-size &optional begin end)
+  (declare (ignore begin))
   (with-slots (lexer valid-parse) syntax
     (let* ((low-mark (make-buffer-mark (buffer syntax) prefix-size :left))
            (high-mark (make-buffer-mark
@@ -1171,8 +1171,8 @@
         (loop named relex
 	      do (skip-inter-lexeme-objects lexer scan)
               until (end-of-buffer-p scan)
-              #+nil #+nil ; FIXME: incremental
-	      until (<= end (start-offset (lexeme lexer (1- valid-lex))))
+	      until (and (<= end (start-offset (lexeme lexer (1- valid-lex))))
+			 (typep (lexeme lexer (1- valid-lex)) 'end-lexeme))
 	      do (when (mark> scan high-mark)
 		   (do ()
 		       ((= (nb-lexemes lexer) valid-lex))
@@ -1210,14 +1210,17 @@
       ;; thing) can return a delegating buffer.
       (let ((*this-syntax* syntax))
 	(loop until (= valid-parse valid-lex)
-              #+nil #+nil ; FIXME: incremental
-	      until (<= end (start-offset (lexeme lexer (1- valid-parse))))
+	      until (and (<= end (start-offset (lexeme lexer (1- valid-parse))))
+			 (typep (lexeme lexer (1- valid-parse)) 'end-lexeme))
 	      do (let ((current-token (lexeme lexer (1- valid-parse)))
 		       (next-lexeme (lexeme lexer valid-parse)))
 		   (setf (slot-value next-lexeme 'state)
 			 (advance-parse parser (list next-lexeme) 
 					(slot-value current-token 'state)))
-		   (incf valid-parse)))))))
+		   (incf valid-parse))))
+      (values 0 (if (= valid-parse (nb-lexemes lexer))
+		    (size (buffer syntax))
+		    (start-offset (lexeme lexer valid-parse)))))))
 
 ;;; display
 #+nil ; old, not based on stroking pumps.
