@@ -49,6 +49,7 @@ the `package' definition, if any."))
 
 (defmethod name-for-info-pane ((syntax java-syntax) &key pane)
   (declare (ignore pane))
+  (update-parse syntax)
   (format nil "Java~@[:~{~A~^.~}~]"
 	  (package-of syntax)))
 
@@ -776,160 +777,22 @@ the `package' definition, if any."))
 `syntax'."
   (buffer-substring (buffer syntax) (start-offset form) (end-offset form)))
 
-(define-standard-faces java-syntax
-  (make-face :error +red+)
-  (make-face :string +rosy-brown+ (make-text-style nil :italic nil))
-  (make-face :operator +orchid+)
-  (make-face :basic-type +dark-blue+)
-  (make-face :modifier +dark-green+)
-  (make-face :comment +maroon+)
-  (make-face :number +gray50+))
+(define-syntax-highlighting-rules default-java-highlighting
+  (error-symbol (*error-drawing-options*))
+  (string-form (*string-drawing-options*))
+  (operator (*special-operator-drawing-options*))
+  (basic-type (:face :ink +dark-blue+))
+  (modifier (:face :ink +dark-green+))
+  (comment (*comment-drawing-options*))
+  (integer-literal-lexeme (:face :ink +gray50+))
+  (floating-point-literal-lexeme (:face :ink +gray50+)))
 
-(defmethod display-parse-tree ((parse-symbol (eql nil)) stream (view textual-drei-syntax-view)
-                               (syntax java-syntax))
-  nil)
+(defparameter *syntax-highlighting-rules* 'default-java-highlighting
+  "The syntax highlighting rules used for highlighting C
+syntax.")
 
-(defmethod display-parse-tree ((parse-symbol error-symbol) stream (view textual-drei-syntax-view)
-                               (syntax java-syntax))
-  (let ((children (children parse-symbol)))
-    (loop until (or (null (cdr children))
-		    (typep (parser-state (cadr children)) 'error-state))
-	  do (display-parse-tree (pop children) stream view syntax))
-    (if (and (null (cdr children))
-	     (not (typep (parser-state parse-symbol) 'error-state)))
-	(display-parse-tree (car children) stream view syntax)
-	(with-face (:error)
-	  (loop for child in children
-		do (display-parse-tree child stream view syntax))))))
-
-(defmethod display-parse-tree ((parse-symbol error-lexeme) stream (view textual-drei-syntax-view) (syntax java-syntax))
-  (with-face (:error)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol integer-literal-lexeme)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:number)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol floating-point-literal-lexeme)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:number)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol basic-type)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:basic-type)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol modifier)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:modifier)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol operator)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:operator)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parser-symbol java-lexeme) stream (view textual-drei-syntax-view)
-                               (syntax java-syntax))
-  (flet ((cache-test (t1 t2)
-           (and (eq t1 t2)
-                (eq (slot-value t1 'ink)
-                    (medium-ink (sheet-medium stream)))
-                (eq (slot-value t1 'face)
-                    (text-style-face 
-		     (medium-text-style (sheet-medium stream)))))))
-    (updating-output
-        (stream :unique-id (list view parser-symbol)
-                :id-test #'equal
-                :cache-value parser-symbol
-                :cache-test #'cache-test)
-      (with-slots (ink face) parser-symbol
-        (setf ink (medium-ink (sheet-medium stream))
-              face (text-style-face (medium-text-style (sheet-medium stream))))
-        (write-string (form-string syntax parser-symbol) stream)))))
-
-(defmethod display-parse-tree ((parse-symbol character-literal-lexeme)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:string)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol 
-				incomplete-character-literal-lexeme)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:string)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol boolean-literal-lexeme)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:operator)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol null-literal-lexeme)
-			       stream
-			       (view textual-drei-syntax-view)
-			       (syntax java-syntax))
-  (with-face (:operator)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol complete-string-form) 
-			       stream 
-			       (view textual-drei-syntax-view) 
-			       (syntax java-syntax))
-  (let ((children (children parse-symbol)))
-    (if (third children)
-        (with-face (:string)
-	  (display-parse-tree (pop children) stream view syntax)
-	  (loop until (null (cdr children))
-		do (display-parse-tree (pop children) stream view syntax))
-	  (display-parse-tree (pop children) stream view syntax))
-        (with-face (:string)
-	  (display-parse-tree (pop children) stream view syntax)
-	  (display-parse-tree (pop children) stream view syntax)))))
-
-(defmethod display-parse-tree ((parse-symbol incomplete-string-form) 
-			       stream 
-			       (view textual-drei-syntax-view) 
-			       (syntax java-syntax))
-  (let ((children (children parse-symbol)))
-    (if (second children)
-        (with-face (:string)
-	  (display-parse-tree (pop children) stream view syntax)
-	  (loop until (null children)
-		do (display-parse-tree (pop children) stream view syntax)))
-        (with-face (:string)
-	  (display-parse-tree (pop children) stream view syntax)))))
-
-(defmethod display-parse-tree ((parse-symbol line-comment-form) 
-			       stream 
-			       (view textual-drei-syntax-view) 
-			       (syntax java-syntax))
-  (with-face (:comment)
-    (call-next-method)))
-
-(defmethod display-parse-tree ((parse-symbol long-comment-form) 
-			       stream 
-			       (view textual-drei-syntax-view) 
-			       (syntax java-syntax))
-  (with-face (:comment)
-    (call-next-method)))
+(defmethod syntax-highlighting-rules ((syntax java-syntax))
+  *syntax-highlighting-rules*)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
