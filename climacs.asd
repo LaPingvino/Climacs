@@ -27,8 +27,6 @@
 
 (in-package :climacs.system)
 
-(defparameter *climacs-directory* (directory-namestring *load-truename*))
-
 (defsystem :climacs
   :depends-on (:mcclim :flexichain)
   :components
@@ -60,15 +58,3 @@
    ;; (:file "slidemacs" :depends-on ("packages" ))
 ;;    (:file "slidemacs-gui" :depends-on ("packages" "gui" "slidemacs"))
    ))
-
-#+asdf
-(defmethod asdf:perform :around ((o asdf:compile-op)
-                                 (c (eql (asdf:find-component (asdf:find-system :climacs) "skiplist-package"))))
-  (cond
-    ((null (probe-file (first (asdf::input-files o c))))
-     (cerror "Retry loading climacs."
-             "~@<You need to download & install Flexichain ~
-               separately! See the file INSTALL in the Climacs distribution ~
-               for instructions.~@:>" nil)
-     (asdf:perform o c))
-    (t (call-next-method o c))))
