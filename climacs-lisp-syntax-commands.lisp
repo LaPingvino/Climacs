@@ -119,7 +119,10 @@ If there is no symbol at point, this is a no-op."
   (let* ((token (this-form (current-syntax) (point)))
          (this-symbol (form-to-object (current-syntax) token)))
     (when (and this-symbol (symbolp this-symbol))
-      (edit-definition this-symbol))))
+      (let ((local-definition (find-local-definition (current-syntax) token)))
+        (if local-definition
+            (setf (offset (point)) (start-offset local-definition))
+            (edit-definition this-symbol))))))
 
 (define-command (com-return-from-definition :name t :command-table climacs-lisp-table)
     ()

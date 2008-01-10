@@ -342,6 +342,26 @@ Each newline and following whitespace is replaced by a single space."
        'cl:function)
       (t t))))
 
+(defun find-local-definition (syntax symbol-form)
+  "Return a form locally defining `symbol-form' as a
+function (explicitly via `flet' or `labels', does not expand
+macros or similar). If no such form can be found, return NIL."
+  (labels ((locally-binding-p (form)
+             (or (form-equal syntax (form-operator form) "FLET")
+                 (form-equal syntax (form-operator form) "LABELS")))
+           (match (form-operator)
+             (when form-operator
+               (form-equal syntax form-operator symbol-form)))
+           (find-local-binding (form)
+             (or (when (locally-binding-p form)
+                   (loop for binding in (form-children (first (form-operands form)))
+                      when (and (form-list-p binding)
+                                (match (form-operator binding)))
+                      return binding))
+                 (unless (form-at-top-level-p form)
+                   (find-local-binding (parent form))))))
+    (find-local-binding (list-at-mark syntax (start-offset symbol-form)))))
+
 (defun edit-definition (symbol &optional type)
   (let ((all-definitions (find-definitions-for-drei
                           (get-usable-image (current-syntax))
