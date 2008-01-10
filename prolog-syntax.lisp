@@ -26,13 +26,16 @@
 (defclass prolog-parse-tree (parse-tree)
   ())
 
+(define-syntax-command-table prolog-table :errorp nil)
+
 (define-syntax prolog-syntax (fundamental-syntax)
   ((lexer :reader lexer)
    (valid-parse :initform 1)
    (parser)
    (operator-directives :initform nil :accessor operator-directives))
   (:name "Prolog")
-  (:pathname-types "pl"))
+  (:pathname-types "pl")
+  (:command-table prolog-table))
 
 (defparameter *prolog-grammar* (grammar))
 

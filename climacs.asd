@@ -35,7 +35,7 @@
 ;;    (:file "cl-syntax" :depends-on ("packages"))
 ;;    (:file "html-syntax" :depends-on ("packages"))
    (:file "prolog-syntax" :depends-on ("packages"))
-;;    (:file "prolog2paiprolog" :depends-on ("prolog-syntax"))
+   (:file "prolog2paiprolog" :depends-on ("prolog-syntax"))
 ;;    (:file "ttcn3-syntax" :depends-on ("packages"))
    (:file "climacs-lisp-syntax" :depends-on ("core" "groups"))
    (:file "climacs-lisp-syntax-commands" :depends-on ("climacs-lisp-syntax" "misc-commands"))

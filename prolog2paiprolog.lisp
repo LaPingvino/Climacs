@@ -20,6 +20,8 @@
 
 (in-package #:climacs-prolog-syntax)
 
+#+nil
+(progn
 (defclass prolog-buffer (standard-buffer) 
   ((filepath :initform nil :accessor filepath)
    (syntax :accessor syntax)))
@@ -28,9 +30,12 @@
   (declare (ignore args))
   (with-slots (syntax) buffer
     (setf syntax (make-instance 'prolog-syntax :buffer buffer))))
+)
 
 (defvar *loaded-files* nil "List of files loaded by ensure_loaded directive.")
 
+#+nil
+(progn
 (defun eval-prolog-file (filepath) 
   (setf *loaded-files* nil)
   (let ((*package* 
@@ -51,10 +56,12 @@
     (update-syntax-for-display buffer (syntax buffer) (low-mark buffer) 
                                (high-mark buffer))
     buffer))
+)
 
-(defun buffer->paiprolog (buffer) 
-  (let ((lexemes (drei-syntax::lexemes (lexer (syntax buffer))))
+(defun view->paiprolog (view)
+  (let ((lexemes (drei-syntax::lexemes (lexer (syntax view))))
         (expressions '()))
+    (update-parse (syntax view))
     (dotimes (i (flexichain:nb-elements lexemes) (nreverse expressions))
       (let ((lexeme (flexichain:element* lexemes i)))
         (when (typep lexeme 'end-lexeme)
@@ -76,12 +83,12 @@
                           (ensure-loaded 
                            (unless (member (cadr dexpr) *loaded-files* 
                                            :test #'string=)
-                             (dolist (e (buffer->paiprolog 
+                             (dolist (e (view->paiprolog 
                                          (find-prolog-file (cadr dexpr))))
                                (push e expressions))
                              (push (cadr dexpr) *loaded-files*)))
                           (include 
-                           (dolist (e (buffer->paiprolog 
+                           (dolist (e (view->paiprolog 
                                        (find-prolog-file (cadr dexpr))))
                              (push e expressions)))))
                       (return))
@@ -403,3 +410,10 @@ returns a symbol designating a paiprolog functor."
 
 (defun intern-paiprolog (name)
   (intern (string-upcase name) :paiprolog))
+
+(define-command (com-export-paiprolog :name t :command-table prolog-table) 
+    ((pathname 'pathname))
+  (let ((expressions (view->paiprolog (current-view))))
+    (with-open-file (s pathname :direction :output :if-exists :supersede)
+      (dolist (e expressions)
+	(prin1 e s)))))
