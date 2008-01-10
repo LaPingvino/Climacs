@@ -153,7 +153,8 @@
 
 (defpackage :climacs-text-syntax
   (:use :clim-lisp :clim :drei-buffer :drei-base
-	:drei-syntax :flexichain :drei :drei-fundamental-syntax))
+	:drei-syntax :flexichain :drei :drei-fundamental-syntax
+        :esa-utils))
 
 (defpackage :climacs-prolog-syntax
   (:use :clim-lisp :clim :drei-buffer :drei-base

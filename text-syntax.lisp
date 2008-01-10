@@ -74,8 +74,8 @@
   (:name "Text")
   (:pathname-types "text" "txt" "README"))
 
-(defmethod update-syntax ((syntax text-syntax) prefix-size suffix-size
-                          &optional begin end)
+(defmethod update-syntax values-max-min ((syntax text-syntax) prefix-size suffix-size
+                                         &optional begin end)
   (declare (ignore begin end))
   (let* ((buffer (buffer syntax))
          (high-mark-offset (- (size buffer) suffix-size))
@@ -154,7 +154,7 @@
                          (insert* paragraphs pos1 m))
                        (incf pos1))
                       (t nil)))))))
-  (call-next-method))
+  (values 0 (size (buffer syntax))))
 
 (defmethod backward-one-paragraph (mark (syntax text-syntax))
   (with-slots (paragraphs) syntax
