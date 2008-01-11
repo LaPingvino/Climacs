@@ -167,6 +167,13 @@
 	:drei-syntax :flexichain :drei :drei-fundamental-syntax)
   (:export))
 
+(defpackage :climacs-structedit
+  (:use :clim-lisp :clim :esa :esa-utils :drei :drei-buffer :drei-base :drei-core
+        :drei-motion :drei-editing :drei-syntax :drei-lr-syntax :drei-lisp-syntax)
+  (:shadow clim:form)
+  (:export #:structedit-mode
+           #:structedit-table))
+
 (defpackage :climacs-c-syntax
   (:use :clim-lisp :clim :clim-extensions :drei-buffer :drei-base
 	:drei-syntax :drei-fundamental-syntax :flexichain :drei

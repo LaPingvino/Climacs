@@ -30,11 +30,6 @@
 
 ;;; You must do M-x Structedit Mode to enable these commands.
 
-(defpackage :climacs-structedit
-  (:use :clim-lisp :clim :esa :esa-utils :drei :drei-buffer :drei-base :drei-core
-        :drei-motion :drei-editing :drei-syntax :drei-lr-syntax :drei-lisp-syntax)
-  (:shadow clim:form))
-
 (in-package :climacs-structedit)
 
 (define-syntax-mode structedit-mode ()
