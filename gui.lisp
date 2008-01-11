@@ -53,6 +53,7 @@ contents.")))
 
 (defclass climacs-pane (drei-pane esa-pane-mixin)
   ()
+  (:metaclass modual-class)
   (:default-initargs
    :view (make-instance 'textual-drei-syntax-view
           :buffer (make-instance 'climacs-buffer))
