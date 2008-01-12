@@ -34,6 +34,7 @@
           :esa-buffer :esa-io :esa-utils)
     ;;(:import-from :lisp-string)
     (:export #:climacs                  ; Frame.
+             #:*climacs-text-style*
 
              #:climacs-buffer #:external-format
              #:climacs-pane
