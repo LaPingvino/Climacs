@@ -1221,9 +1221,10 @@
 			 (advance-parse parser (list next-lexeme) 
 					(slot-value current-token 'state)))
 		   (incf valid-parse))))
-      (values 0 (if (= valid-parse (nb-lexemes lexer))
-		    (size (buffer syntax))
-		    (start-offset (lexeme lexer valid-parse)))))))
+      (let ((scan (make-buffer-mark (buffer syntax) 0 :left)))
+	(setf (offset scan) (end-offset (lexeme lexer (1- valid-parse))))
+	(skip-inter-lexeme-objects lexer scan)
+	(values 0 (offset scan))))))
 
 ;;; display
 #+nil ; old, not based on stroking pumps.
