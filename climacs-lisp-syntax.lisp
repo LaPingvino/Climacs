@@ -342,13 +342,18 @@ Each newline and following whitespace is replaced by a single space."
        'cl:function)
       (t t))))
 
+(defvar *local-function-definers* '(flet labels macrolet)
+  "A list of macros that define local functions, as per
+`find-local-definition.")
+
 (defun find-local-definition (syntax symbol-form)
   "Return a form locally defining `symbol-form' as a
 function (explicitly via `flet' or `labels', does not expand
 macros or similar). If no such form can be found, return NIL."
   (labels ((locally-binding-p (form)
-             (or (form-equal syntax (form-operator form) "FLET")
-                 (form-equal syntax (form-operator form) "LABELS")))
+             (find-if #'(lambda (symbol)
+                          (form-equal syntax (form-operator form) (string symbol)))
+                      *local-function-definers*))
            (match (form-operator)
              (when form-operator
                (form-equal syntax form-operator symbol-form)))
