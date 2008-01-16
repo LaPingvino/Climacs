@@ -1134,6 +1134,13 @@
 
 (defmethod update-syntax esa-utils:values-max-min ((syntax prolog-syntax) prefix-size suffix-size &optional begin end)
   (declare (ignore begin))
+  ;; FIXME: this isn't quite right; it's possible that an edit has
+  ;; occurred out of view, destroying our parse-up-to-end-lexeme
+  ;; invariant.  Actually it also seems to be wrong, maybe because
+  ;; there's something weird in views.lisp?  Dunno.
+  #+nil
+  (when (< end prefix-size)
+    (return-from update-syntax (values 0 prefix-size)))
   (with-slots (lexer valid-parse) syntax
     (let* ((low-mark (make-buffer-mark (buffer syntax) prefix-size :left))
            (high-mark (make-buffer-mark
@@ -1227,145 +1234,100 @@
 	(values 0 (offset scan))))))
 
 ;;; display
-#+nil ; old, not based on stroking pumps.
-(progn
-(defvar *white-space-start* nil)
+(defclass pump-state ()
+  ((drawing-options :initarg :drawing-options :accessor drawing-options)
+   (lexeme-index :initarg :lexeme-index :accessor lexeme-index)
+   (offset :initarg :offset :accessor pump-state-offset)))
 
-(defvar *current-line* 0)
+(defun make-pump-state (drawing-options lexeme-index offset)
+  (make-instance 'pump-state :drawing-options drawing-options 
+		 :lexeme-index lexeme-index :offset offset))
 
-(defun handle-whitespace (pane buffer start end)
-  (let ((space-width (space-width pane))
-        (tab-width (tab-width pane)))
-    (with-sheet-medium (medium pane)
-      (with-accessors ((cursor-positions cursor-positions)) (syntax buffer)
-        (loop while (< start end)
-           do (case (buffer-object buffer start)
-                (#\Newline (record-line-vertical-offset pane (syntax buffer) (incf *current-line*))
-                           (terpri pane)
-                           (stream-increment-cursor-position
-                            pane (first (aref cursor-positions 0)) 0))
-                ((#\Page #\Return #\Space) (stream-increment-cursor-position
-                                            pane space-width 0))
-                (#\Tab (let ((x (stream-cursor-position pane)))
-                         (stream-increment-cursor-position
-                          pane (- tab-width (mod x tab-width)) 0))))
-           (incf start))))))		    
+(defun %lexeme-index-before-offset (syntax offset)
+  (update-parse syntax 0 offset)
+  (with-slots (drei-syntax::lexemes valid-lex)
+      (lexer syntax)
+    ;; FIXME: speed this up.
+    (do* ((i (1- valid-lex) (1- i))
+	  (lexeme #1=(element* drei-syntax::lexemes i) #1#)
+	  (start #2=(start-offset lexeme) #2#))
+	 ((<= start offset) i))))
 
-(defmethod display-parse-tree :around ((entity prolog-parse-tree) (syntax prolog-syntax)
-                                       (stream extended-output-stream) (drei drei))
-  (with-slots (top bot) drei
-    (when (and (end-offset entity)
-               (mark> (end-offset entity) top))
-      (call-next-method))))
+(defun %drawing-options-for-lexeme-index (syntax index)
+  (with-slots (drei-syntax::lexemes)
+      (lexer syntax)
+    (typecase (element* drei-syntax::lexemes index)
+      (comment-lexeme *comment-drawing-options*)
+      (char-code-list-lexeme *string-drawing-options*)
+      (variable-lexeme *special-variable-drawing-options*)
+      (t +default-drawing-options+))))
 
-(defmethod display-parse-tree ((entity prolog-token) (syntax prolog-syntax)
-                               (stream extended-output-stream) (drei drei))
-  (with-slots (top bot) drei
-    (let ((string (coerce (buffer-sequence (buffer syntax)
-					   (start-offset entity)
-					   (end-offset entity))
-			  'string)))
-      (flet ((cache-test (t1 t2)
-	       (and (eq t1 t2)
-		    (eq (slot-value t1 'ink)
-			(medium-ink (sheet-medium stream)))
-		    (eq (slot-value t1 'face)
-			(text-style-face (medium-text-style (sheet-medium stream))))
-		    (eq (slot-value t1 'start)
-			(max 0 (- (offset top) (start-offset entity))))
-		    (eq (slot-value t1 'end)
-			(- (length string)
-			   (max 0 (- (end-offset entity) (offset bot))))))))
-	(updating-output (stream :unique-id entity
-                                 :id-test #'eq
-                                 :cache-value entity
-                                 :cache-test #'cache-test)
-          (with-slots (ink face start end) entity
-	    (setf ink (medium-ink (sheet-medium stream))
-		  face (text-style-face (medium-text-style (sheet-medium stream)))
-		  start (max 0 (- (offset top) (start-offset entity)))
-		  end (- (length string)
-			 (max 0 (- (end-offset entity) (offset bot)))))
-	    (let ((start start)
-		  (end end))
-	      (loop
-	       (when (>= start end)
-		 (return))
-	       (let ((nl (position-if
-			  (lambda (x) (member x '(#\Tab #\Newline)))
-			  string :start start :end end)))
-		 (unless nl
-		   (present (subseq string start end) 'string :stream stream)
-		   (return))
-		 (present (subseq string start nl) 'string :stream stream)
-		 (handle-whitespace stream (buffer drei)
-				    (+ (start-offset entity) nl)
-				    (+ (start-offset entity) nl 1))
-		 (setf start (+ nl 1)))))))))))
+(defmethod pump-state-for-offset-with-syntax 
+    ((view textual-drei-syntax-view) (syntax prolog-syntax) (offset cl:integer))
+  (let ((index (%lexeme-index-before-offset syntax offset)))
+    (make-pump-state (%drawing-options-for-lexeme-index syntax index) index offset)))
 
-(defmethod display-parse-tree :before ((entity prolog-token) (syntax prolog-syntax)
-                                       (stream extended-output-stream) (drei drei))
-  (handle-whitespace stream (buffer drei) *white-space-start* (start-offset entity))
-  (setf *white-space-start* (end-offset entity)))
+(defmethod stroke-pump-with-syntax 
+    ((view textual-drei-syntax-view) (syntax prolog-syntax)
+     stroke (pump-state pump-state))
+  (with-slots (drei-syntax::lexemes) (lexer syntax)
+    (let* ((index (lexeme-index pump-state))
+	   (offset (pump-state-offset pump-state))
+	   (line (line-containing-offset syntax offset))
+	   (lexeme (and index (element* drei-syntax::lexemes index))))
+      (cond
+	((or 
+	  ;; in theory, if INDEX is null everything should be blank lines
+	  (null index)
+	  ;; if we're not in a lexeme, by definition we
+	  ;; have blank space
+	  (< (line-end-offset line) (start-offset lexeme)))
+	 (setf (stroke-start-offset stroke) offset
+	       (stroke-end-offset stroke) (line-end-offset line)
+	       (stroke-drawing-options stroke) +default-drawing-options+)
+	 (setf (pump-state-offset pump-state) (1+ (line-end-offset line)))
+	 pump-state)
+	((< (line-end-offset line) (end-offset lexeme))
+	 (setf (stroke-start-offset stroke) offset
+	       (stroke-end-offset stroke) (line-end-offset line)
+	       (stroke-drawing-options stroke) (drawing-options pump-state))
+	 (setf (pump-state-offset pump-state) (1+ (line-end-offset line)))
+	 pump-state)
+	(t
+	 ;; before deciding what happens next, we need to ensure that
+	 ;; we have given the parser a chance to lex and parse beyond
+	 ;; the last lexeme.
+	 (when (= (1+ index) (slot-value (lexer syntax) 'valid-lex))
+	   (let ((next (min (size (buffer syntax))
+			    (1+ (drei::prefix-size view)))))
+	     (update-parse syntax 0 next)))
+	 (cond
+	   ((< (1+ index) (nb-lexemes (lexer syntax)))
+	    (let* ((new-index (1+ index))
+		   (new-lexeme (lexeme (lexer syntax) new-index))
+		   (end-offset (min (start-offset new-lexeme) 
+				    (line-end-offset line))))
+	      (setf (stroke-start-offset stroke) offset
+		    (stroke-end-offset stroke) end-offset
+		    (stroke-drawing-options stroke) (drawing-options pump-state))
+	      (setf (pump-state-offset pump-state) (if (= end-offset (line-end-offset line))
+						       (1+ end-offset)
+						       end-offset)
+		    (drawing-options pump-state) (%drawing-options-for-lexeme-index syntax new-index)
+		    (lexeme-index pump-state) new-index))
+	    pump-state)
+	   (t 
+	    (let ((end-offset (end-offset lexeme)))
+	      (setf (stroke-start-offset stroke) offset
+		    (stroke-end-offset stroke) end-offset
+		    (stroke-drawing-options stroke) (drawing-options pump-state))
+	      (setf (pump-state-offset pump-state) (if (= end-offset (line-end-offset line))
+						       (1+ end-offset)
+						       end-offset)
+		    (drawing-options pump-state) +default-drawing-options+
+		    (lexeme-index pump-state) nil)
+	      pump-state))))))))
 
-(defgeneric display-parse-stack (symbol stack syntax stream drei))
-
-(defmethod display-parse-stack (symbol stack (syntax prolog-syntax)
-                                (stream extended-output-stream) (drei drei))
-  (let ((next (parse-stack-next stack)))
-    (unless (null next)
-      (display-parse-stack (parse-stack-symbol next) next syntax stream drei))
-    (loop for parse-tree in (reverse (parse-stack-parse-trees stack))
-	  do (display-parse-tree parse-tree syntax stream drei))))  
-
-(defun display-parse-state (state syntax stream drei)
-  (let ((top (parse-stack-top state)))
-    (if (not (null top))
-	(display-parse-stack (parse-stack-symbol top) top syntax stream drei)
-	(display-parse-tree (target-parse-tree state) syntax stream drei))))
-
-(defun nb-valid-lexemes (lexer)
-  (slot-value lexer 'valid-lex))
-
-(defmethod display-drei-contents ((stream clim-stream-pane) (drei drei) (syntax prolog-syntax))
-  (with-slots (top bot) drei
-    (with-accessors ((cursor-positions cursor-positions)) syntax
-      (setf cursor-positions (make-array (1+ (number-of-lines-in-region top bot))
-                                         :initial-element nil)
-            *current-line* 0
-            (aref cursor-positions 0) (multiple-value-list
-                                       (stream-cursor-position stream))))
-    (setf *white-space-start* (offset top))
-    (with-slots (lexer) syntax
-      (let ((average-token-size (max (float (/ (size (buffer drei)) (nb-valid-lexemes lexer)))
-                                     1.0)))
-        ;; find the last token before bot
-        (let ((end-token-index (max (floor (/ (offset bot) average-token-size)) 1)))
-          ;; go back to a token before bot
-          (loop until (mark<= (end-offset (lexeme lexer (1- end-token-index))) bot)
-             do (decf end-token-index))
-          ;; go forward to the last token before bot
-          (loop until (or (= end-token-index (nb-valid-lexemes lexer))
-                          (mark> (start-offset (lexeme lexer end-token-index)) bot))
-             do (incf end-token-index))
-          (let ((start-token-index end-token-index))
-            ;; go back to the first token after top, or until the previous token
-            ;; contains a valid parser state
-            (loop until (or (mark<= (end-offset (lexeme lexer (1- start-token-index))) top)
-                            (not (parse-state-empty-p 
-                                  (slot-value (lexeme lexer (1- start-token-index)) 'state))))
-               do (decf start-token-index))
-            ;; display the parse tree if any
-            (unless (parse-state-empty-p (slot-value (lexeme lexer (1- start-token-index)) 'state))
-              (display-parse-state (slot-value (lexeme lexer (1- start-token-index)) 'state)
-                                   syntax stream drei))
-            ;; display the lexemes
-            (with-drawing-options (stream :ink +red+)
-              (loop while (< start-token-index end-token-index)
-                 do (let ((token (lexeme lexer start-token-index)))
-                      (display-parse-tree token syntax stream drei))
-                 (incf start-token-index)))))))))
-) ; PROGN
 #|
 (climacs-gui::define-named-command com-inspect-lex ()
   (with-slots (lexer) (slot-value (buffer (climacs-gui::current-window)) 'drei-syntax::syntax)
