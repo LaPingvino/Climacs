@@ -79,7 +79,7 @@ string at point."
     (if (plusp count)
         (loop repeat count do (forward-expression mark (current-syntax)))
         (loop repeat (- count) do (backward-expression mark (current-syntax))))
-    (indent-region *drei-instance* (point) mark)))
+    (indent-region (current-view) (point) mark)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

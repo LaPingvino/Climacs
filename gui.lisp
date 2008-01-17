@@ -302,8 +302,7 @@ window"))
                        partial-command-parser
                        prompt)
  :bindings ((*default-target-creator* *climacs-target-creator*)
-            (*drei-instance* (esa-current-window frame))
-            (*previous-command* (previous-command *drei-instance*))
+            (*previous-command* (previous-command (drei-instance)))
             (*standard-output* (or (output-stream frame)
                                    *terminal-io*))))
 
@@ -325,6 +324,9 @@ window"))
                                       (application-frame climacs))
   (setf (buffer (current-view (esa-current-window application-frame)))
         new-buffer))
+
+(defmethod drei-instance-of ((frame climacs))
+  (esa-current-window frame))
 
 (defmethod (setf windows) :after (new-val (climacs climacs))
   ;; Ensures that we don't end up with two views that both believe
