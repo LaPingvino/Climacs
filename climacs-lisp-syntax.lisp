@@ -262,7 +262,7 @@ Each newline and following whitespace is replaced by a single space."
                                                all))
            (expansion-string (with-output-to-string (s)
                                (pprint expansion s))))
-      (let ((view (climacs-core:switch-to-view (current-window) "*Macroexpansion*")))
+      (let ((view (climacs-core:switch-or-move-to-view (current-window) "*Macroexpansion*")))
         (set-syntax view "Lisp"))
       (let ((header-string (one-line-ify (subseq string 0
                                                  (min 40 (length string))))))

@@ -71,6 +71,15 @@ displayed by a Drei instance."))
                     (pane-frame pane) 'textual-drei-syntax-view
                     :name name)))))
 
+(defun switch-or-move-to-view (pane view)
+  "Switch `pane' to show `view'. If `view' is already on display
+in some other pane, switch that pane to be the active one."
+  (handler-bind ((view-already-displayed
+                  #'(lambda (c)
+                      (declare (ignore c))
+                      (invoke-restart 'switch-to-pane))))
+    (switch-to-view pane view)))
+
 (defun views-having-buffer (climacs buffer)
   "Return a list of the buffer-views of `climacs' showing
 `buffer'."

@@ -98,7 +98,7 @@
            #:no-upper-p
            #:case-relevant-test
            
-           #:switch-to-view
+           #:switch-to-view #:switch-or-move-to-view
            #:make-new-buffer
            #:make-new-named-buffer
            #:erase-buffer
