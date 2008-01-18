@@ -116,6 +116,10 @@ window"))
               (window-displaying-view
                (restart-case
                    (error 'view-already-displayed :view view :window window-displaying-view)
+                 (switch-to-pane ()
+                  :report "Switch the active window to the one containing the view"
+                  (other-window window-displaying-view)
+                  view)
                  (remove-other-use ()
                   :report "Make the other window try to display some other view"
                   (setf (view window-displaying-view) (any-preferably-undisplayed-view))
@@ -129,7 +133,7 @@ window"))
                   (setf (view pane) (clone-view-for-climacs
                                      (pane-frame window-displaying-view) view)))
                  (cancel ()
-                  :report "Cancel the setting of the windows view and just return")))
+                  :report "Cancel the setting of the windows view and just return nil")))
               (t (call-next-method)))
       (when old-view-active
         (ensure-only-view-active (pane-frame pane) view)))))
