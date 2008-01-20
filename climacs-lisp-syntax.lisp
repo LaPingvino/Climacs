@@ -207,15 +207,14 @@ Each newline and following whitespace is replaced by a single space."
 (def-print-for-menu note-compiler-note "Note" +brown+)
 
 (defun show-notes (notes view-name definition)
-  (let ((stream (climacs-gui:typeout-window
-                 (format nil "~10TCompiler Notes: ~A  ~A" view-name definition))))
+  (climacs-gui:with-typeout (stream (format nil "Compiler Notes: ~A ~A" view-name definition))
     (loop for note in notes
        do (with-output-as-presentation (stream note 'compiler-note)
             (print-for-menu note stream))
        (terpri stream)
        count note into length
        finally (change-space-requirements stream
-                                          :height (* length (stream-line-height stream)))
+                :height (* length (stream-line-height stream)))
        (scroll-extent stream 0 0))))
 
 (defgeneric goto-location (location))
@@ -351,9 +350,10 @@ Each newline and following whitespace is replaced by a single space."
 function (explicitly via `flet' or `labels', does not expand
 macros or similar). If no such form can be found, return NIL."
   (labels ((locally-binding-p (form)
-             (find-if #'(lambda (symbol)
-                          (form-equal syntax (form-operator form) (string symbol)))
-                      *local-function-definers*))
+             (when (form-operator form)
+               (find-if #'(lambda (symbol)
+                            (form-equal syntax (form-operator form) (string symbol)))
+                        *local-function-definers*)))
            (match (form-operator)
              (when form-operator
                (form-equal syntax form-operator symbol-form)))
@@ -419,15 +419,14 @@ macros or similar). If no such form can be found, return NIL."
                   (with-drawing-options (stream :ink +dark-blue+
                                                 :text-style (make-text-style :fixed nil nil))
                     (princ (dspec item) stream))))
-           (let ((stream (climacs-gui:typeout-window
-                          (format nil "~10T~A ~A" type symbol))))
+           (climacs-gui:with-typeout (stream (format nil "~A ~A" type symbol))
              (loop for xref in xrefs
                 do (with-output-as-presentation (stream xref 'xref)
                      (printer xref stream))
                 (terpri stream)
                 count xref into length
                 finally (change-space-requirements stream
-                                                   :height (* length (stream-line-height stream)))
+                         :height (* length (stream-line-height stream)))
                 (scroll-extent stream 0 0)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

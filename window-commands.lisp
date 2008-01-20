@@ -99,11 +99,7 @@ clone of `(current-view)' for the new window."
 
 (define-presentation-to-command-translator blank-area-to-switch-to-this-window
     (blank-area com-switch-to-this-window window-table
-                :echo nil
-                ;; Putting the point in typeout-panes can cause errors.
-                :tester ((object presentation)
-                         (declare (ignore presentation))
-                         (not (typep object 'typeout-pane))))
+                :echo nil)
     (window x y)
   (list window x y))
 
@@ -152,26 +148,10 @@ clone of `(current-view)' for the new window."
 	 'window-table
 	 '((#\x :control) (#\1)))
 
-(defun scroll-typeout-window (window y)
-  "Scroll `window' down by `y' device units, but taking care not
-to scroll past the size of `window'. If `window' does not have a
-viewport, do nothing."
-  (let ((viewport (pane-viewport window)))
-    (unless (null viewport)            ; Can't scroll without viewport
-      (multiple-value-bind (x-displacement y-displacement)
-          (transform-position (sheet-transformation window) 0 0)
-        (scroll-extent window
-                       (- x-displacement)
-                       (max 0 (min (+ (- y-displacement) y)
-                                   (- (bounding-rectangle-height window)
-                                      (bounding-rectangle-height viewport)))))))))
-
 (define-command (com-scroll-other-window :name t :command-table window-table) ()
   (let ((other-window (second (windows *application-frame*))))
     (when other-window
-      (if (typeout-pane-p other-window)
-          (scroll-typeout-window other-window (bounding-rectangle-height (pane-viewport other-window)))
-          (page-down (view other-window))))))
+      (page-down other-window (view other-window)))))
 
 (set-key 'com-scroll-other-window
 	 'window-table
@@ -180,9 +160,7 @@ viewport, do nothing."
 (define-command (com-scroll-other-window-up :name t :command-table window-table) ()
   (let ((other-window (second (windows *application-frame*))))
     (when other-window
-      (if (typeout-pane-p other-window)
-          (scroll-typeout-window other-window (- (bounding-rectangle-height (pane-viewport other-window))))
-          (page-up (view other-window))))))
+      (page-up other-window (view other-window)))))
 
 (set-key 'com-scroll-other-window-up
 	 'window-table

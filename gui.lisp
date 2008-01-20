@@ -8,6 +8,8 @@
 ;;;           Matthieu Villeneuve (matthieu.villeneuve@free.fr)
 ;;;  (c) copyright 2005 by
 ;;;           Aleksandar Bakic (a_bakic@yahoo.com)
+;;;  (c) copyright 2006-2008 by
+;;;           Troels Henriksen (athas@sigkill.dk)
 
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -142,23 +144,6 @@ window"))
   (with-accessors ((views views)) (pane-frame pane)
     (full-redisplay pane)))
 
-(defclass typeout-pane (application-pane esa-pane-mixin)
-  ((%active :accessor active
-            :initform nil
-            :initarg :active)))
-
-(defun typeout-pane-p (pane)
-  "Return true if `pane' is a typeout pane."
-  (typep pane 'typeout-pane))
-
-(defmethod buffer ((pane typeout-pane)))
-
-(defmethod point-of ((pane typeout-pane)))
-
-(defmethod mark-of ((pane typeout-pane)))
-
-(defmethod full-redisplay ((pane typeout-pane)))
-
 (defgeneric buffer-pane-p (pane)
   (:documentation "Returns T when a pane contains a buffer."))
 
@@ -224,18 +209,6 @@ window"))
 ;;; command tables is a bad thing.
 (make-command-table 'climacs-help-table :inherit-from '(help-table)
                     :errorp nil)
-
-;;; We have a special command table for typeout panes because we want
-;;; to keep being able to do window, buffer, etc, management, but we do
-;;; not want any actual editing commands.
-(make-command-table 'typeout-pane-table
-                    :errorp nil
-                    :inherit-from '(global-esa-table
-                                    base-table
-                                    pane-table
-                                    window-table
-                                    development-table
-                                    climacs-help-table))
 
 (make-command-table 'global-climacs-table
                     :errorp nil
@@ -448,6 +421,12 @@ displayed in any window. If necessary, clone a view on display."
   (:documentation "Display interesting information about
 `view' (which is in `master-pane') to `info-pane'."))
 
+(defgeneric display-view-status-to-info-pane (info-pane master-pane view)
+  (:documentation "Display interesting information about the
+status of `view' (which is in `master-pane') to `info-pane'. The
+status should be things like whether it is modified, read-only,
+etc."))
+
 (defmethod display-view-info-to-info-pane ((info-pane climacs-info-pane)
                                            (master-pane climacs-pane)
                                            (view drei-syntax-view))
@@ -487,23 +466,36 @@ displayed in any window. If necessary, clone a view on display."
                                           "Isearch"))
     (princ #\) info-pane)))
 
+(defmethod display-view-info-to-info-pane ((info-pane climacs-info-pane)
+                                           (master-pane climacs-pane)
+                                           (view typeout-view)))
+
+(defmethod display-view-status-to-info-pane ((info-pane climacs-info-pane)
+                                             (master-pane climacs-pane)
+                                             (view drei-syntax-view))
+  (with-output-as-presentation (info-pane view 'read-only)
+    (princ (cond
+             ((read-only-p (buffer view)) "%")
+             ((needs-saving (buffer view)) "*")
+             (t "-"))
+           info-pane))
+  (with-output-as-presentation (info-pane view 'modified)
+    (princ (cond
+             ((needs-saving (buffer view)) "*")
+             ((read-only-p (buffer view)) "%")
+             (t "-"))
+           info-pane))
+  (princ "  " info-pane))
+
+(defmethod display-view-status-to-info-pane ((info-pane climacs-info-pane)
+                                             (master-pane climacs-pane)
+                                             (view typeout-view)))
+
 (defun display-info (frame pane)
   (let* ((master-pane (master-pane pane))
 	 (view (view master-pane)))
     (princ "   " pane)
-    (with-output-as-presentation (pane view 'read-only)
-      (princ (cond
-               ((read-only-p (buffer view)) "%")
-               ((needs-saving (buffer view)) "*")
-               (t "-"))
-             pane))
-    (with-output-as-presentation (pane view 'modified)
-      (princ (cond
-               ((needs-saving (buffer view)) "*")
-               ((read-only-p (buffer view)) "%")
-               (t "-"))
-             pane))
-    (princ "  " pane)
+    (display-view-status-to-info-pane pane master-pane view)
     (with-text-face (pane :bold)
       (with-output-as-presentation (pane view 'view)
         (format pane "~A" (subscripted-name view)))
@@ -628,14 +620,10 @@ pane to a clone of the view in `orig-pane', provided that
 `orig-pane' has a view."))
 
 (defmethod setup-split-pane ((orig-pane climacs-pane) (new-pane climacs-pane) clone-view)
-  (setf (offset (point (buffer (view orig-pane)))) (offset (point (view orig-pane)))
-        (view new-pane) (if clone-view
-                            (clone-view-for-climacs (pane-frame orig-pane) (view orig-pane))
-                            (any-preferably-undisplayed-view))))
-
-(defmethod setup-split-pane ((orig-pane typeout-pane) (new-pane climacs-pane) clone-view)
+  (when (buffer-view-p (view orig-pane))
+    (setf (offset (point (buffer (view orig-pane)))) (offset (point (view orig-pane)))))
   (setf (view new-pane) (if clone-view
-                            (any-undisplayed-view)
+                            (clone-view-for-climacs (pane-frame orig-pane) (view orig-pane))
                             (any-preferably-undisplayed-view))))
 
 (defun split-window (&optional (vertically-p nil) (clone-view nil) (pane (current-window)))
@@ -651,35 +639,6 @@ pane to a clone of the view in `orig-pane', provided that
 	(full-redisplay new-pane)
         (activate-window pane)
 	new-pane))))
-
-(defun make-typeout-constellation (&key label pane)
-  (let* ((typeout-pane
-          (or pane
-              (make-pane 'typeout-pane :foreground *foreground-color*
-                                       :background *background-color*
-                                       :width 900 :height 400 :display-time nil :name label)))
-	 (label
-	  (make-pane 'label-pane :label label))
-	 (vbox
-	  (vertically ()
-	    (scrolling (:scroll-bar :vertical) typeout-pane) label)))
-    (values vbox typeout-pane)))
-
-(defun typeout-window (&optional (label "Typeout") (pane (current-window)))
-  "Get a typeout pane labelled `label'. If a pane with this label
-already exists, it will be returned. Otherwise, a new pane will
-be created."
-  (with-look-and-feel-realization
-      ((frame-manager *esa-instance*) *esa-instance*)
-    (or (find label (windows *esa-instance*) :key #'pane-name)
-        (multiple-value-bind (vbox new-pane) (make-typeout-constellation :label label)
-          (let* ((current-window pane)
-                 (constellation-root (find-parent current-window)))
-            (push new-pane (windows *esa-instance*))
-            (other-window)
-            (replace-constellation constellation-root vbox t)
-            (full-redisplay current-window)
-            new-pane)))))
 
 (defun delete-window (&optional (window (current-window)))
   (unless (null (cdr (windows *esa-instance*)))
@@ -719,99 +678,6 @@ be created."
 
 ;;; For the ESA help functions.
 
-(defmethod help-stream ((frame climacs) title)
-  (typeout-window (format nil "~10T~A" title)))
-
-;;; An implementation of the Gray streams protocol that uses a Climacs
-;;; typeout pane to draw the output.
-
-(defclass typeout-stream (fundamental-character-output-stream)
-  ((%typeout-pane :accessor typeout-pane
-                  :initform nil
-                  :initarg :typeout-pane
-                  :documentation "The typeout pane that output
-will be performed on.")
-   (%climacs :reader climacs-instance
-             :initform (error "Must provide a Climacs instance for typeout streams")
-             :initarg :climacs)
-   (%label :reader label
-           :initform (error "A typeout stream must have a label")
-           :initarg :label))
-  (:documentation "An output stream that performs output on
-a (single) Climacs typeout pane. If the typeout pane is deleted
-manually by the user, the stream will recreate it the next time
-output is performed."))
-
-(defmethod initialize-instance :after ((stream typeout-stream) &rest args)
-  (declare (ignore args))
-  (setf (typeout-pane stream)
-        (with-look-and-feel-realization ((frame-manager (climacs-instance stream))
-                                         (climacs-instance stream))
-          (make-pane 'typeout-pane :foreground *foreground-color*
-                                   :background *background-color*
-                                   :width 900 :height 400 :display-time nil :name (label stream)))))
-
-(defgeneric ensure-typeout-pane-for-stream (stream)
-  (:documentation "Ensure that `stream' has a typeout pane that
-it can display output to, and that this pane is on display."))
-
-(defmethod ensure-typeout-pane-for-stream ((stream typeout-stream))
-  (with-look-and-feel-realization ((frame-manager (climacs-instance stream))
-                                   (climacs-instance stream))
-    (unless (member (typeout-pane stream) (windows (climacs-instance stream)))
-      (setf (sheet-parent (typeout-pane stream)) nil)
-      (multiple-value-bind (vbox new-pane) (make-typeout-constellation :pane (typeout-pane stream)
-                                                                       :label (label stream))
-        (let* ((current-window (current-window))
-               (constellation-root (find-parent current-window)))
-          (push new-pane (windows *esa-instance*))
-          (other-window)
-          (replace-constellation constellation-root vbox t)
-          (full-redisplay current-window))))))
-
-(defmethod stream-write-char ((stream typeout-stream) char)
-  (ensure-typeout-pane-for-stream stream)
-  (stream-write-char (typeout-pane stream) char))
-
-(defmethod stream-line-column ((stream typeout-stream))
-  (ensure-typeout-pane-for-stream stream)
-  (stream-line-column (typeout-pane stream)))
-
-(defmethod stream-start-line-p ((stream typeout-stream))
-  (ensure-typeout-pane-for-stream stream)
-  (stream-start-line-p (typeout-pane stream)))
-
-(defmethod stream-write-string ((stream typeout-stream) string &optional (start 0) end)
-  (ensure-typeout-pane-for-stream stream)
-  (stream-write-string (typeout-pane stream) string start end))
-
-(defmethod stream-terpri ((stream typeout-stream))
-  (ensure-typeout-pane-for-stream stream)
-  (stream-terpri (typeout-pane stream)))
-
-(defmethod stream-fresh-line ((stream typeout-stream))
-  (ensure-typeout-pane-for-stream stream)
-  (stream-fresh-line (typeout-pane stream)))
-
-(defmethod stream-finish-output ((stream typeout-stream))
-  (ensure-typeout-pane-for-stream stream)
-  (stream-finish-output (typeout-pane stream)))
-
-(defmethod stream-force-output ((stream typeout-stream))
-  (ensure-typeout-pane-for-stream stream)
-  (stream-force-output (typeout-pane stream)))
-
-(defmethod stream-clear-output ((stream typeout-stream))
-  (ensure-typeout-pane-for-stream stream)
-  (stream-clear-output (typeout-pane stream)))
-
-(defmethod stream-advance-to-column ((stream typeout-stream) (column integer))
-  (ensure-typeout-pane-for-stream stream)
-  (stream-advance-to-column (typeout-pane stream) column))
-
-(defmethod interactive-stream-p ((stream typeout-stream))
-  (ensure-typeout-pane-for-stream stream)
-  (interactive-stream-p (typeout-pane stream)))
-
-(defun make-typeout-stream (climacs label)
-  (make-instance 'typeout-stream :climacs climacs :label label))
+(defmethod invoke-with-help-stream ((frame climacs) title continuation)
+  (with-typeout (stream title)
+    (funcall continuation stream)))

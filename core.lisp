@@ -56,13 +56,6 @@ displayed by a Drei instance."))
 (defmethod switch-to-view ((drei climacs-pane) (view drei-view))
   (setf (view drei) view))
 
-(defmethod switch-to-view ((drei typeout-pane) (view drei-view))
-  (let ((usable-pane (or (find-if #'(lambda (pane)
-                                      (typep pane 'drei))
-                                  (windows *application-frame*))
-                         (split-window t))))
-    (switch-to-view usable-pane view)))
-
 (defmethod switch-to-view (pane (name string))
   (let ((view (find name (views (pane-frame pane))
                :key #'subscripted-name :test #'string=)))
@@ -124,7 +117,8 @@ it will be replaced by some other view."))
     ;; view will be kept in the buffer, and the view will thus not be
     ;; garbage-collected. So create a circular reference structure
     ;; that can be garbage-collected instead.
-    (setf (buffer view) (dummy-buffer))
+    (when (buffer-view-p view)
+      (setf (buffer view) (dummy-buffer)))
     (full-redisplay (current-window))
     (current-view)))
 

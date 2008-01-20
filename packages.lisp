@@ -39,7 +39,6 @@
              #:climacs-buffer #:external-format
              #:climacs-pane
              #:climacs-info-pane
-             #:typeout-pane #:typeout-pane-p
              #:kill-ring
 
              ;; View-stuff
@@ -47,13 +46,12 @@
              #:view-setting-error #:view
              #:unknown-view
              #:view-already-displayed #:window
-             #:switch-to-pane #:remove-other-use #:remove-other-pane #:clone-view #:cancel
+             #:remove-other-use #:remove-other-pane #:clone-view #:cancel
              #:any-view #:any-undisplayed-view
              #:clone-view-for-climacs
              #:make-new-view-for-climacs
 
              ;; GUI functions follow.
-
              #:point
              #:syntax
              #:mark
@@ -63,15 +61,14 @@
              #:groups
              #:display-window
              #:split-window
-             #:typeout-window
              #:delete-window
              #:other-window
              #:buffer-pane-p
+             #:display-view-info-to-info-pane
+             #:display-view-status-to-info-pane
              
            
              ;; Some configuration variables
-             #:*bg-color*
-             #:*fg-color*
              #:*info-bg-color*
              #:*info-fg-color*
              #:*mini-bg-color*
@@ -85,7 +82,11 @@
              #:base-table #:buffer-table #:case-table 
              #:development-table
              #:info-table #:pane-table
-             #:window-table))
+             #:window-table
+
+             ;; Typeout
+             #:typeout-view #:typeout-view-p
+             #:with-typeout #:invoke-with-typeout))
 
 (defpackage :climacs-core
   (:use :clim-lisp :drei-base :drei-buffer :drei-fundamental-syntax
@@ -100,8 +101,6 @@
            
            #:switch-to-view #:switch-or-move-to-view
            #:make-new-buffer
-           #:make-new-named-buffer
-           #:erase-buffer
            #:kill-view
 
            #:filepath-filename
