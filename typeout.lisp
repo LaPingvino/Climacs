@@ -30,9 +30,13 @@
 that will be replayed whenever the views contents are shown.")
    (%dirty :accessor dirty
            :initform t
-           :initarg :dirty
            :documentation "This value indicates whether the
-output has changed since it was last replayed."))
+output has changed since it was last replayed.")
+   (%cursor-position :accessor last-cursor-position
+                     :initform nil
+                     :documentation "A list (X Y) specifying
+where drawing ended the last time, and where it should start the
+next time. If NIL, no previous position has been recorded."))
   (:metaclass modual-class)
   (:documentation "A noneditable Drei view displaying an output
 record history."))
@@ -112,7 +116,12 @@ of the created typeout view."
                                   pane))))
     (let ((new-record (with-output-to-output-record (pane-with-typeout)
                         (with-output-recording-options (pane-with-typeout :record t :draw t)
-                          (funcall continuation pane-with-typeout)))))
+                          (when (last-cursor-position typeout-view)
+                            (setf (stream-cursor-position pane-with-typeout)
+                                  (values-list (last-cursor-position typeout-view))))
+                          (funcall continuation pane-with-typeout)
+                          (setf (last-cursor-position typeout-view)
+                                (multiple-value-list (stream-cursor-position pane-with-typeout)))))))
       (add-output-record new-record (output-history typeout-view))
       (setf (dirty typeout-view) t))))
 
