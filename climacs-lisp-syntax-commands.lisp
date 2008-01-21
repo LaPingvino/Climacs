@@ -74,6 +74,33 @@ The expanded expression will be displayed in a
         (macroexpand-token (current-syntax) token t)
         (esa:display-message "Nothing to expand at point."))))
 
+(define-command (com-print-last-expression :name t :command-table climacs-lisp-table)
+    ()
+  "Evaluate the expression before point in the local Lisp image
+and print the resulting value to the \"*Results*\"-buffer."
+  (let* ((token (form-before (current-syntax) (offset (point)))))
+    (if token
+        (let ((*read-base* (base (current-syntax)))
+              (exp (form-to-object (current-syntax) token :read t)))
+          (let ((values (multiple-value-list
+                         (handler-case (eval exp)
+                           (error (condition)
+                             (progn (beep)
+                                    (display-message "~a" condition)
+                                    (return-from
+                                     com-print-last-expression nil)))))))
+            (let* ((current-view (esa-current-window *esa-instance*))
+                   (view (climacs-core:switch-or-move-to-view (current-window) "*Results*")))
+              (set-syntax view "Lisp")
+              (end-of-buffer (point))
+              (unless (beginning-of-buffer-p (point))
+                (insert-object (point) #\Newline))
+              (insert-sequence (point)
+                               (format nil "~{~A~%~}" values))
+              (insert-object (point) #\Newline)
+              (climacs-gui:other-window current-view))))
+        (esa:display-message "Nothing to evaluate at point."))))
+
 (define-command (com-compile-and-load-file :name t :command-table climacs-lisp-table)
     ()
   "Compile and load the current file.
@@ -139,6 +166,10 @@ Definition command was issued."
 (esa:set-key 'com-eval-defun
              'climacs-lisp-table
              '((#\x :control :meta)))
+
+(esa:set-key 'com-print-last-expression
+             'climacs-lisp-table
+             '((#\c :control) (#\p :control)))
 
 (esa:set-key 'com-macroexpand-1
              'climacs-lisp-table

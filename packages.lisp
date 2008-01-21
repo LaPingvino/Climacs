@@ -46,7 +46,8 @@
              #:view-setting-error #:view
              #:unknown-view
              #:view-already-displayed #:window
-             #:remove-other-use #:remove-other-pane #:clone-view #:cancel
+             ;; Restarts
+             #:switch-to-pane #:remove-other-use #:remove-other-pane #:clone-view #:cancel
              #:any-view #:any-undisplayed-view
              #:clone-view-for-climacs
              #:make-new-view-for-climacs
