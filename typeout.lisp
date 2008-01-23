@@ -47,8 +47,8 @@ record history."))
 
 (defmethod handle-redisplay ((pane drei-pane) (view typeout-view) (region region))
   (if (and (not (dirty view))
-           (find (output-history view)
-                 (output-record-children (stream-output-history pane))))
+           (eq (output-record-parent (output-history view))
+               (stream-output-history pane)))
       (replay (stream-output-history pane) pane region)
       (call-next-method)))
 
