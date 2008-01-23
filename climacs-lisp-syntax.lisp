@@ -358,13 +358,14 @@ macros or similar). If no such form can be found, return NIL."
              (when form-operator
                (form-equal syntax form-operator symbol-form)))
            (find-local-binding (form)
-             (or (when (locally-binding-p form)
-                   (loop for binding in (form-children (first (form-operands form)))
-                      when (and (form-list-p binding)
-                                (match (form-operator binding)))
-                      return binding))
-                 (unless (form-at-top-level-p form)
-                   (find-local-binding (parent form))))))
+             (when form
+               (or (when (locally-binding-p form)
+                     (loop for binding in (form-children (first (form-operands form)))
+                        when (and (form-list-p binding)
+                                  (match (form-operator binding)))
+                        return binding))
+                   (unless (form-at-top-level-p form)
+                     (find-local-binding (parent form)))))))
     (find-local-binding (list-at-mark syntax (start-offset symbol-form)))))
 
 (defun edit-definition (symbol &optional type)
