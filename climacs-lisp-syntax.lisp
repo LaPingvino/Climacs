@@ -370,7 +370,8 @@ macros or similar). If no such form can be found, return NIL."
 
 (defun edit-definition (symbol &optional type)
   (let ((all-definitions (find-definitions-for-drei
-                          (get-usable-image (current-syntax))
+                          (get-usable-image (when (syntax-view-p (current-view))
+                                              (current-syntax)))
                           symbol)))
     (let ((definitions (if (not type)
                            all-definitions
@@ -384,7 +385,8 @@ macros or similar). If no such form can be found, return NIL."
              (goto-definition symbol definitions))))))
 
 (defun goto-definition (name definitions)
-  (push (list (offset (point)) (current-view)) *find-definition-stack*)
+  (when (point-mark-view-p (current-view))
+    (push (list (offset (point)) (current-view)) *find-definition-stack*))
   (cond ((null (cdr definitions))
          (let* ((def (car definitions))
                 (xref (make-xref def)))
