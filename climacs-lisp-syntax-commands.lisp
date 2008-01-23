@@ -139,6 +139,11 @@ that file."
     (presentation)
     (list (presentation-object presentation)))
 
+(define-command (com-edit-definition :name t :command-table climacs-lisp-table)
+    ((symbol 'symbol))
+  "Edit definition of the symbol."
+  (edit-definition symbol))
+
 (define-command (com-edit-this-definition :command-table climacs-lisp-table)
     ()
   "Edit definition of the symbol at point.

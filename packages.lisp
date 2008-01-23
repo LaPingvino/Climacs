@@ -199,5 +199,6 @@ editing Java(tm) code."))
   (:use :clim-lisp :clim :clim-sys :clim-extensions :climacs-gui :drei)
   (:export #:climacs
            #:climacs-rv
-           #:edit-definition)
+           #:edit-definition
+           #:edit-file)
   (:documentation "Package containing entry points to Climacs."))

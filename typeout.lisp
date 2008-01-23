@@ -111,7 +111,7 @@ viewport, do nothing."
   "Call `continuation' with a single argument, a
 stream meant for typeout. `Climacs' is the Climacs instance in
 which the typeout pane should be shown, and `label' is the name
-of the created typeout view."
+of the created typeout view. Returns NIL."
   (let* ((typeout-view (ensure-typeout-view climacs label))
          (pane-with-typeout (or (find typeout-view (windows climacs)
                                  :key #'view)
@@ -127,7 +127,8 @@ of the created typeout view."
                           (setf (last-cursor-position typeout-view)
                                 (multiple-value-list (stream-cursor-position pane-with-typeout)))))))
       (add-output-record new-record (output-history typeout-view))
-      (setf (dirty typeout-view) t))))
+      (setf (dirty typeout-view) t)
+      nil)))
 
 (defmacro with-typeout ((stream &optional (label "Typeout")) &body body)
   "Evaluate `body' with `stream' bound to a stream that can be
