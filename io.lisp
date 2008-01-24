@@ -62,4 +62,5 @@ the buffer `buffer' and the filepath `filepath'."
 (defmethod frame-make-buffer-from-stream ((application-frame climacs) stream)
   (let* ((buffer (make-new-buffer)))
     (input-from-stream stream buffer 0)
+    (clear-undo-history buffer)
     buffer))
