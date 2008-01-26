@@ -137,6 +137,11 @@ window"))
                  (cancel ()
                   :report "Cancel the setting of the windows view and just return nil")))
               (t (call-next-method)))
+      ;; Move view to the front of the view-list, doesn't carry
+      ;; semantic significance, but makes view-switching more
+      ;; convenient.
+      (setf (views (pane-frame pane))
+            (cons view (delete view (views (pane-frame pane)))))
       (when old-view-active
         (ensure-only-view-active (pane-frame pane) view)))))
 

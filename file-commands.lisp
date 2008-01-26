@@ -137,7 +137,9 @@ Signals and error if the file does not exist."
 ;;; Buffer commands
 
 (define-command (com-switch-to-view :name t :command-table pane-table)
-    ((view 'view :default (or (second (views *application-frame*))
+    ;; Perhaps the default should be an undisplayed view?
+    ((view 'view :default (or (find (current-view) (views *application-frame*)
+                               :test (complement #'eq))
                               (any-view))))
   "Prompt for a buffer name and switch to that buffer.
 If the a buffer with that name does not exist, create it. Uses
