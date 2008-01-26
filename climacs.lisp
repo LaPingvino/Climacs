@@ -77,7 +77,8 @@ can be a filename (edit the file) or symbol (edit its function definition)."
            (t (error 'type-error :datum thing
                      :expected-type '(or null string pathname symbol))))))
     (if climacs-frame
-        (execute-frame-command climacs-frame command)
+        (when command
+          (execute-frame-command climacs-frame command))
         (apply #'climacs-common command :new-process t args)))
   t)
 
