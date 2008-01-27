@@ -353,7 +353,7 @@ file if necessary."
                        (name buffer) (filepath-filename filepath))
                  (setf (current-view (current-window)) view)
                  (evaluate-attribute-line view)
-                 (setf (filepath buffer) filepath
+                 (setf (filepath buffer) (pathname filepath)
                        (read-only-p buffer) readonlyp)
                  (beginning-of-buffer (point view))
                  buffer)))))))
@@ -375,7 +375,7 @@ directory will be returned."
 	(user-homedir-pathname)))))
 
 (defmethod frame-set-visited-filename ((application-frame climacs) filepath buffer)
-  (setf (filepath buffer) filepath
+  (setf (filepath buffer) (pathname filepath)
 	(file-saved-p buffer) nil
 	(file-write-time buffer) nil
 	(name buffer) (filepath-filename filepath)
