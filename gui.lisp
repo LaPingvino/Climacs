@@ -226,17 +226,47 @@ window"))
                                     global-esa-table
                                     esa-io-table))
 
+;; This command table is what assembles the various other command
+;; tables for the commands actually accessible by the user.
 (defclass climacs-command-table (standard-command-table)
   ())
 
 (defmethod command-table-inherit-from ((table climacs-command-table))
-  (append (when (typep (current-window) 'climacs-pane)
-            (view-command-tables (current-view)))
+  (append (view-command-tables (current-view))
           '(global-climacs-table)
-          (when (and (typep (current-window) 'climacs-pane)
-                     (use-editor-commands-p (current-view)))
+          (when (use-editor-commands-p (current-view))
             '(editor-table))
           (call-next-method)))
+
+;; This is the actual command table that will be used for Climacs.
+(make-command-table 'climacs-global-table
+ :inherit-from (list (make-instance 'climacs-command-table
+                      :name 'climacs-dispatching-table))
+ :menu `(("File" :menu ,(make-command-table nil
+                         :inherit-from 'esa-io-table
+                         :menu `(("Find File"
+                                  :command (com-find-file ,*unsupplied-argument-marker*))
+                                 ("Find File (read-only)"
+                                  :command (com-find-file-read-only ,*unsupplied-argument-marker*))
+                                 ("Save Buffer"
+                                  :command (com-save-buffer))
+                                 ("Save Bufer As"
+                                  :command (com-write-buffer ,*unsupplied-argument-marker*))
+                                 ("Set Visited File Name"
+                                  :command (com-set-visited-file-name ,*unsupplied-argument-marker*))
+                                 (nil :divider :line)
+                                 ("Quit" :command com-quit))))
+         ("Help" :menu ,(make-command-table nil
+                         :inherit-from 'help-table
+                         :menu `(("Where is" :command com-where-is)
+                                 ("Describe Bindings" :command (com-describe-bindings nil))
+                                 ("Describe Bindings (sorted)" :command (com-describe-bindings t))
+                                 ("Describe Key" :command com-describe-key)
+                                 ("Describe Command"
+                                  :command (com-describe-command ,*unsupplied-argument-marker*))
+                                 ("Apropos Command"
+                                  :command (com-apropos-command ,*unsupplied-argument-marker*))))))
+ :errorp nil)
 
 (define-application-frame climacs (esa-frame-mixin
 				   standard-application-frame)
@@ -244,14 +274,13 @@ window"))
    (%groups :initform (make-hash-table :test #'equal) :accessor groups)
    (%active-group :initform nil :accessor active-group)
    (%kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring)
-   (%command-table :initform (make-instance 'climacs-command-table
-                                            :name 'climacs-dispatching-table)
+   (%command-table :initform (find-command-table 'climacs-global-table)
                    :accessor find-applicable-command-table
                    :accessor frame-command-table)
    (%output-stream :accessor output-stream
                    :initform nil
                    :initarg :output-stream))
-  (:menu-bar nil)
+  (:menu-bar climacs-global-table)
   (:panes
    (climacs-window
     (let* ((*esa-instance* *application-frame*)
