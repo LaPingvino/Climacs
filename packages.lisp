@@ -82,8 +82,8 @@
              #:global-climacs-table #:keyboard-macro-table #:climacs-help-table
              #:base-table #:buffer-table #:case-table 
              #:development-table
-             #:info-table #:pane-table
-             #:window-table
+             #:info-table
+             #:window-table #:window-menu-table
 
              ;; Typeout
              #:typeout-view #:typeout-view-p

@@ -136,35 +136,6 @@ Signals and error if the file does not exist."
 ;;; 
 ;;; Buffer commands
 
-(define-command (com-switch-to-view :name t :command-table pane-table)
-    ;; Perhaps the default should be an undisplayed view?
-    ((view 'view :default (or (find (current-view) (views *application-frame*)
-                               :test (complement #'eq))
-                              (any-view))))
-  "Prompt for a buffer name and switch to that buffer.
-If the a buffer with that name does not exist, create it. Uses
-the name of the next buffer (if any) as a default."
-  (handler-case (switch-to-view (current-window) view)
-    (view-already-displayed (condition)
-      (other-window (window condition)))))
-
-(set-key `(com-switch-to-view ,*unsupplied-argument-marker*)
-	 'pane-table
-	 '((#\x :control) (#\b)))
-
-(define-command (com-kill-view :name t :command-table pane-table)
-    ((view 'view :prompt "Kill view"
-                 :default (current-view)))
-  "Prompt for a view name and kill that view.
-If the view is of a buffer and the buffer needs saving, you will
-be prompted to do so before killing it. Uses the current view
-as a default."
-  (kill-view view))
-
-(set-key `(com-kill-view ,*unsupplied-argument-marker*)
-	 'pane-table
-	 '((#\x :control) (#\k)))
-
 (define-command (com-toggle-read-only :name t :command-table buffer-table)
     ((buffer 'buffer :default (current-buffer *application-frame*)))
   (setf (read-only-p buffer) (not (read-only-p buffer))))

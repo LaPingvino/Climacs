@@ -203,8 +203,6 @@ window"))
 (make-command-table 'buffer-table :errorp nil)
 ;;; Commands used for climacs development
 (make-command-table 'development-table :errorp nil)
-;;; Panes
-(make-command-table 'pane-table :errorp nil)
 ;;; Windows
 (make-command-table 'window-table :errorp nil)
 
@@ -219,7 +217,6 @@ window"))
                     :errorp nil
                     :inherit-from '(base-table
                                     buffer-table
-                                    pane-table
                                     window-table
                                     development-table
                                     climacs-help-table
@@ -242,30 +239,10 @@ window"))
 (make-command-table 'climacs-global-table
  :inherit-from (list (make-instance 'climacs-command-table
                       :name 'climacs-dispatching-table))
- :menu `(("File" :menu ,(make-command-table nil
-                         :inherit-from 'esa-io-table
-                         :menu `(("Find File"
-                                  :command (com-find-file ,*unsupplied-argument-marker*))
-                                 ("Find File (read-only)"
-                                  :command (com-find-file-read-only ,*unsupplied-argument-marker*))
-                                 ("Save Buffer"
-                                  :command (com-save-buffer))
-                                 ("Save Bufer As"
-                                  :command (com-write-buffer ,*unsupplied-argument-marker*))
-                                 ("Set Visited File Name"
-                                  :command (com-set-visited-file-name ,*unsupplied-argument-marker*))
-                                 (nil :divider :line)
-                                 ("Quit" :command com-quit))))
-         ("Help" :menu ,(make-command-table nil
-                         :inherit-from 'help-table
-                         :menu `(("Where is" :command com-where-is)
-                                 ("Describe Bindings" :command (com-describe-bindings nil))
-                                 ("Describe Bindings (sorted)" :command (com-describe-bindings t))
-                                 ("Describe Key" :command com-describe-key)
-                                 ("Describe Command"
-                                  :command (com-describe-command ,*unsupplied-argument-marker*))
-                                 ("Apropos Command"
-                                  :command (com-apropos-command ,*unsupplied-argument-marker*))))))
+ :menu `(("File" :menu esa-io-menu-table)
+         ("Macros" :menu keyboard-macro-menu-table)
+         ("Windows" :menu window-menu-table)
+         ("Help" :menu help-menu-table))
  :errorp nil)
 
 (define-application-frame climacs (esa-frame-mixin
