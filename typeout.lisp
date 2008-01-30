@@ -45,6 +45,9 @@ record history."))
   "Return true if `view' is a typeout view, false otherwise."
   (typep view 'typeout-view))
 
+(defmethod clear-redisplay-information ((view typeout-view))
+  (setf (dirty view) t))
+
 (defmethod handle-redisplay ((pane drei-pane) (view typeout-view) (region region))
   (if (and (not (dirty view))
            (eq (output-record-parent (output-history view))
