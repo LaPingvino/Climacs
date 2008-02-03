@@ -362,6 +362,9 @@ active."
   (setf (views frame) (list (make-new-view-for-climacs
                              frame 'textual-drei-syntax-view))))
 
+(defmethod command-for-unbound-gestures ((frame climacs) gestures)
+  (command-for-unbound-gestures (esa-current-window frame) gestures))
+
 (defun make-view-subscript-generator (climacs)
   #'(lambda (name)
       (1+ (reduce #'max (remove name (views climacs)
@@ -521,7 +524,7 @@ etc."))
 
 (defmethod handle-drei-condition ((drei climacs-pane) condition)
   (call-next-method)
-  (display-drei drei))
+  (display-drei drei :redisplay-minibuffer t))
 
 (defmethod execute-frame-command :around ((frame climacs) command)
   (if (eq frame *esa-instance*)
