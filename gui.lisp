@@ -270,20 +270,22 @@ window"))
       (setf (windows *application-frame*) (list climacs-pane)
 	    (views *application-frame*) (list (view climacs-pane)))
       (vertically ()
-	(if *with-scrollbars*
-	    (scrolling ()
-	      climacs-pane)
-	    climacs-pane)
-	info-pane)))
+        (if *with-scrollbars*
+            (scrolling ()
+              climacs-pane)
+            climacs-pane)
+        info-pane)))
    (minibuffer (make-pane 'climacs-minibuffer-pane)))
   (:layouts
    (default
-       (vertically (:scroll-bars nil)
-	 climacs-window
-	 minibuffer)))
+       (overlaying ()
+         (vertically (:scroll-bars nil)
+           climacs-window
+           minibuffer))))
   (:top-level ((lambda (frame)
                  (let ((*kill-ring* (kill-ring frame)))
-                   (esa-top-level frame :prompt "M-x "))))))
+                   (with-frame-manager ((make-instance 'climacs-frame-manager))
+                     (esa-top-level frame :prompt "M-x ")))))))
 
 (define-esa-top-level ((frame climacs) command-parser
                        command-unparser
@@ -693,5 +695,5 @@ pane to a clone of the view in `orig-pane', provided that
 ;;; For the ESA help functions.
 
 (defmethod invoke-with-help-stream ((frame climacs) title continuation)
-  (with-typeout (stream title)
+  (with-typeout-view (stream title)
     (funcall continuation stream)))

@@ -87,6 +87,7 @@
 
              ;; Typeout
              #:typeout-view #:typeout-view-p
+             #:with-typeout-view #:invoke-with-typeout-view
              #:with-typeout #:invoke-with-typeout))
 
 (defpackage :climacs-core
