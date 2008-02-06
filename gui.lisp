@@ -695,5 +695,5 @@ pane to a clone of the view in `orig-pane', provided that
 ;;; For the ESA help functions.
 
 (defmethod invoke-with-help-stream ((frame climacs) title continuation)
-  (with-typeout-view (stream title)
+  (with-typeout-view (stream title t)
     (funcall continuation stream)))

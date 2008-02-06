@@ -56,6 +56,16 @@ record history."))
 (defmethod clear-redisplay-information ((view typeout-view))
   (setf (dirty view) t))
 
+(defun blank-typeout-view (view)
+  "Blank out the contents of the typeout view `view'."
+  (setf (output-history view) (make-instance 'standard-tree-output-record)
+        (last-cursor-position view) nil)
+  (clear-redisplay-information view)
+  ;; If it's on display, clear the window too.
+  (let ((window (find view (windows *application-frame*)
+                 :key #'view)))
+    (when window (window-clear window))))
+
 (defmethod handle-redisplay ((pane drei-pane) (view typeout-view) (region region))
   (if (and (not (dirty view))
            (eq (output-record-parent (output-history view))
@@ -106,24 +116,27 @@ viewport, do nothing."
   (scroll-typeout-window
    pane (- (bounding-rectangle-height (pane-viewport pane)))))
 
-(defun ensure-typeout-view (climacs label)
+(defun ensure-typeout-view (climacs label erase)
   "Ensure that `climacs' has a typeout view with the name
-`label', and return that view."
+`label', and return that view. If `erase' is true, clear any
+already existing typeout view by that name first."
   (check-type label string)
-  (or (find-if #'(lambda (view)
-                   (and (typeout-view-p view)
-                        (string= (name view) label)))
-               (views climacs))
+  (or (let ((view (find-if #'(lambda (view)
+                               (and (typeout-view-p view)
+                                    (string= (name view) label)))
+                           (views climacs))))
+        (when (and view erase) (blank-typeout-view view))
+        view)
       (make-new-view-for-climacs climacs 'typeout-view
        :name label)))
 
 ;; Because specialising on the type of `climacs' is so useful...
-(defun invoke-with-typeout-view (climacs label continuation)
+(defun invoke-with-typeout-view (climacs label erase continuation)
   "Call `continuation' with a single argument, a
 stream meant for typeout. `Climacs' is the Climacs instance in
 which the typeout pane should be shown, and `label' is the name
 of the created typeout view. Returns NIL."
-  (let* ((typeout-view (ensure-typeout-view climacs label))
+  (let* ((typeout-view (ensure-typeout-view climacs label erase))
          (pane-with-typeout-view (or (find typeout-view (windows climacs)
                                  :key #'view)
                                 (let ((pane (split-window t)))
@@ -141,11 +154,13 @@ of the created typeout view. Returns NIL."
       (setf (dirty typeout-view) t)
       nil)))
 
-(defmacro with-typeout-view ((stream &optional (label "Typeout")) &body body)
+(defmacro with-typeout-view ((stream &optional (label "Typeout") erase)
+                             &body body)
   "Evaluate `body' with `stream' bound to a stream that can be
 used for typeout. `Label' is the name of the created typeout
-view."
-  `(invoke-with-typeout-view *esa-instance* ,label
+view. If `erase' is true, clear the contents of any existing
+typeout view with that name."
+  `(invoke-with-typeout-view *esa-instance* ,label ,erase
                         #'(lambda (,stream)
                             ,@body)))
 
