@@ -1273,7 +1273,8 @@
   (with-slots (drei-syntax::lexemes) (lexer syntax)
     (let* ((index (lexeme-index pump-state))
 	   (offset (pump-state-offset pump-state))
-	   (line (line-containing-offset syntax offset))
+	   (line (line-containing-offset view offset))
+           (line-end-offset (end-offset line))
 	   (lexeme (and index (element* drei-syntax::lexemes index))))
       (cond
 	((or 
@@ -1281,17 +1282,17 @@
 	  (null index)
 	  ;; if we're not in a lexeme, by definition we
 	  ;; have blank space
-	  (< (line-end-offset line) (start-offset lexeme)))
+	  (< line-end-offset (start-offset lexeme)))
 	 (setf (stroke-start-offset stroke) offset
-	       (stroke-end-offset stroke) (line-end-offset line)
+	       (stroke-end-offset stroke) line-end-offset
 	       (stroke-drawing-options stroke) +default-drawing-options+)
-	 (setf (pump-state-offset pump-state) (1+ (line-end-offset line)))
+	 (setf (pump-state-offset pump-state) (1+ line-end-offset))
 	 pump-state)
-	((< (line-end-offset line) (end-offset lexeme))
+	((< line-end-offset (end-offset lexeme))
 	 (setf (stroke-start-offset stroke) offset
-	       (stroke-end-offset stroke) (line-end-offset line)
+	       (stroke-end-offset stroke) line-end-offset
 	       (stroke-drawing-options stroke) (drawing-options pump-state))
-	 (setf (pump-state-offset pump-state) (1+ (line-end-offset line)))
+	 (setf (pump-state-offset pump-state) (1+ line-end-offset))
 	 pump-state)
 	(t
 	 ;; before deciding what happens next, we need to ensure that
@@ -1306,11 +1307,11 @@
 	    (let* ((new-index (1+ index))
 		   (new-lexeme (lexeme (lexer syntax) new-index))
 		   (end-offset (min (start-offset new-lexeme) 
-				    (line-end-offset line))))
+				    line-end-offset)))
 	      (setf (stroke-start-offset stroke) offset
 		    (stroke-end-offset stroke) end-offset
 		    (stroke-drawing-options stroke) (drawing-options pump-state))
-	      (setf (pump-state-offset pump-state) (if (= end-offset (line-end-offset line))
+	      (setf (pump-state-offset pump-state) (if (= end-offset line-end-offset)
 						       (1+ end-offset)
 						       end-offset)
 		    (drawing-options pump-state) (%drawing-options-for-lexeme-index syntax new-index)
@@ -1321,7 +1322,7 @@
 	      (setf (stroke-start-offset stroke) offset
 		    (stroke-end-offset stroke) end-offset
 		    (stroke-drawing-options stroke) (drawing-options pump-state))
-	      (setf (pump-state-offset pump-state) (if (= end-offset (line-end-offset line))
+	      (setf (pump-state-offset pump-state) (if (= end-offset line-end-offset)
 						       (1+ end-offset)
 						       end-offset)
 		    (drawing-options pump-state) +default-drawing-options+
