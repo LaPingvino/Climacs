@@ -250,7 +250,6 @@ window"))
   ((%views :initform '() :accessor views)
    (%groups :initform (make-hash-table :test #'equal) :accessor groups)
    (%active-group :initform nil :accessor active-group)
-   (%kill-ring :initform (make-instance 'kill-ring :max-size 7) :accessor kill-ring)
    (%command-table :initform (find-command-table 'climacs-global-table)
                    :accessor find-applicable-command-table
                    :accessor frame-command-table)
@@ -283,9 +282,8 @@ window"))
            climacs-window
            minibuffer))))
   (:top-level ((lambda (frame)
-                 (let ((*kill-ring* (kill-ring frame)))
-                   (with-frame-manager ((make-instance 'climacs-frame-manager))
-                     (esa-top-level frame :prompt "M-x ")))))))
+                 (with-frame-manager ((make-instance 'climacs-frame-manager))
+                   (esa-top-level frame :prompt "M-x "))))))
 
 (define-esa-top-level ((frame climacs) command-parser
                        command-unparser
