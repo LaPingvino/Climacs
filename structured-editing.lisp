@@ -259,7 +259,7 @@ after the point."
 
 (set-key `(com-wrap-expression ,*numeric-argument-marker*)
          'structedit-table
-         '((#\( :meta :shift)))
+         '((#\( :meta)))
 
 (set-key 'com-close-list-and-newline
          'structedit-table
@@ -279,7 +279,7 @@ after the point."
 
 (set-key `(com-wrap-expression-in-doublequote ,*numeric-argument-marker*)
          'structedit-table
-         '((#\" :meta :shift)))
+         '((#\" :meta)))
 
 (set-key `(com-splice-list ,*numeric-argument-marker*)
          'structedit-table

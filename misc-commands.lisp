@@ -39,7 +39,7 @@ when deciding whether to prompt you to save the buffer before killing it."
 
 (set-key 'com-not-modified
 	 'buffer-table
-	 '((#\~ :meta :shift)))
+	 '((#\~ :meta)))
 
 (define-command (com-what-cursor-position :name t :command-table info-table) ()
   "Print information about point.

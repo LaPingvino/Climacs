@@ -164,7 +164,7 @@ clone of `(current-view)' for the new window."
 
 (set-key 'com-scroll-other-window-up
 	 'window-table
-	 '((#\V :control :meta :shift)))
+	 '((#\V :control :meta)))
 
 (define-command (com-delete-window :name t :command-table window-table) ()
   (delete-window))
