@@ -109,14 +109,20 @@ either `end-offset' or `begin-offset', `at-border-fn' is a
 function used to determine whether or not `(point)' is at the end
 of a structural object."
   (let ((immediate-form (funcall immediate-form-fn (current-syntax) (offset (point))))
-        (form-around (form-around (current-syntax) (offset (point)))))
+        (form-around (form-around (current-syntax) (offset (point))))
+        (list-at-mark (list-at-mark (current-syntax) (point)))
+        (string-at-mark (form-of-type-at-mark (current-syntax) (point) #'form-string-p)))
     (cond ((and (or (form-string-p immediate-form)
                     (form-list-p immediate-form))
                 (= (funcall border-offset-fn immediate-form)
                    (offset (point))))
            (funcall move-fn (point)))
-          ((funcall at-border-fn (current-syntax) (point))
-           (when (null (form-children (list-at-mark (current-syntax) (point))))
+          ((and (funcall at-border-fn (current-syntax) (point))
+                form-around)
+           (when (or (and list-at-mark
+                          (null (form-children list-at-mark)))
+                     (and string-at-mark
+                          (= (size string-at-mark) 2)))
              (delete-form (current-buffer) form-around)))
           ((and (form-character-p immediate-form)
                 (= (funcall border-offset-fn immediate-form)
@@ -244,14 +250,16 @@ after the point."
                                            2 0)))
                ;; Delete from point until end of line.
                (kill-region (point) (end-of-line (clone-mark (point))))))
-          ((= (buffer-line-number (current-buffer) (start-offset form-after))
-              (line-number (point)))
+          ((and form-after
+                (= (buffer-line-number (current-buffer) (start-offset form-after))
+                   (line-number (point))))
            (forward-kill-expression (point) (current-syntax))
            (loop for form-after = (form-after (current-syntax) (offset (point)))
-              while (and form-after
-                         (= (buffer-line-number (current-buffer) (start-offset form-after))
-                            (line-number (point))))
-              do (forward-kill-expression (point) (current-syntax) 1 t))))))
+                 while (and form-after
+                            (= (buffer-line-number (current-buffer) (start-offset form-after))
+                               (line-number (point))))
+                 do (forward-kill-expression (point) (current-syntax) 1 t)))
+          (t (forward-kill-line (point) (current-syntax) 1 t nil)))))
 
 (set-key `(com-open-list ,*numeric-argument-marker* ,*numeric-argument-marker*)
          'structedit-table
