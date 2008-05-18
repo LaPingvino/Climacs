@@ -180,7 +180,6 @@ window"))
 (defclass climacs-minibuffer-pane (minibuffer-pane)
   ()
   (:default-initargs
-   :height 20 :max-height 20 :min-height 20
    :default-view +textual-view+
    :background *mini-bg-color*
    :foreground *mini-fg-color*
