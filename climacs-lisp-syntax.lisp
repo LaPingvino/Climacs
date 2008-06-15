@@ -422,7 +422,7 @@ macros or similar). If no such form can be found, return NIL."
                   (with-drawing-options (stream :ink +dark-blue+
                                                 :text-style (make-text-style :fixed nil nil))
                     (princ (dspec item) stream))))
-           (climacs-gui:with-typeout-view (stream (format nil "~A ~A" type symbol))
+           (climacs-gui:with-typeout-view (stream (format-sym "~A ~A" type symbol))
              (loop for xref in xrefs
                 do (with-output-as-presentation (stream xref 'xref)
                      (printer xref stream))

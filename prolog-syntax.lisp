@@ -98,7 +98,7 @@
 (defmethod syntactic-lexeme ((lexeme prolog-lexeme))
   lexeme)
 (macrolet ((def ((name &optional tokenp) &rest subs)
-	     (flet ((f (x) (intern (format nil "~A-~A" x '#:lexeme))))
+	     (flet ((f (x) (intern (format-sym "~A-~A" x '#:lexeme))))
 	       `(progn
 		  (defclass ,(f name) (prolog-lexeme) ())
 
