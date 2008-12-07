@@ -46,7 +46,7 @@ files.")
   "A function for creating targets for commands potentially
 acting over multiple views.")
 
-(defvar *climacs-text-style* (make-text-style nil nil nil)
+(defvar *climacs-text-style* (make-text-style :fix nil nil)
   "The default CLIM text style used in Climacs panes.")
 
 (defclass climacs-buffer (drei-buffer)
