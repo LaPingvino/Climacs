@@ -70,7 +70,14 @@ record history."))
   (if (and (not (dirty view))
            (eq (output-record-parent (output-history view))
                (stream-output-history pane)))
-      (replay (stream-output-history pane) pane region)
+      (unless (region-equal region +nowhere+)
+        (let ((region (if (region-equal region +everywhere+)
+                          (sheet-region pane)
+                          (bounding-rectangle region))))
+          (with-bounding-rectangle* (x1 y1 x2 y2) region
+            (with-output-recording-options (pane :record nil)
+              (draw-rectangle* pane x1 y1 x2 y2 :filled t :ink +background-ink+)))
+          (replay (stream-output-history pane) pane region)))
       (call-next-method)))
 
 (defmethod display-drei-view-contents ((pane pane) (view typeout-view))
@@ -138,12 +145,12 @@ which the typeout pane should be shown, and `label' is the name
 of the created typeout view. Returns NIL."
   (let* ((typeout-view (ensure-typeout-view climacs label erase))
          (pane-with-typeout-view (or (find typeout-view (windows climacs)
-                                 :key #'view)
-                                (let ((pane (split-window t)))
-                                  (setf (view pane) typeout-view)
-                                  pane))))
+                                      :key #'view)
+                                     (let ((pane (split-window t)))
+                                       (setf (view pane) typeout-view)
+                                       pane))))
     (let ((new-record (with-output-to-output-record (pane-with-typeout-view)
-                        (with-output-recording-options (pane-with-typeout-view :record t :draw t)
+                        (with-output-recording-options (pane-with-typeout-view :record t :draw nil)
                           (when (last-cursor-position typeout-view)
                             (setf (stream-cursor-position pane-with-typeout-view)
                                   (values-list (last-cursor-position typeout-view))))
@@ -161,8 +168,8 @@ used for typeout. `Label' is the name of the created typeout
 view. If `erase' is true, clear the contents of any existing
 typeout view with that name."
   `(invoke-with-typeout-view *esa-instance* ,label ,erase
-                        #'(lambda (,stream)
-                            ,@body)))
+                             #'(lambda (,stream)
+                                 ,@body)))
 
 ;;; An implementation of the Gray streams protocol that uses a Climacs
 ;;; typeout view to draw the output.
