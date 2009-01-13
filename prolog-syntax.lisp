@@ -1238,6 +1238,10 @@
   ((drawing-options :initarg :drawing-options :accessor drawing-options)
    (lexeme-index :initarg :lexeme-index :accessor lexeme-index)
    (offset :initarg :offset :accessor pump-state-offset)))
+(defmethod print-object ((o pump-state) s)
+  (print-unreadable-object (o s :type t)
+    (with-slots (lexeme-index offset) o
+      (format s "~S ~S" lexeme-index offset))))
 
 (defun make-pump-state (drawing-options lexeme-index offset)
   (make-instance 'pump-state :drawing-options drawing-options 
@@ -1274,15 +1278,18 @@
     (let* ((index (lexeme-index pump-state))
 	   (offset (pump-state-offset pump-state))
 	   (line (line-containing-offset view offset))
+           (line-start-offset (start-offset line))
            (line-end-offset (end-offset line))
 	   (lexeme (and index (element* drei-syntax::lexemes index))))
       (cond
 	((or 
-	  ;; in theory, if INDEX is null everything should be blank lines
+	  ;; in theory, if INDEX is null
 	  (null index)
-	  ;; if we're not in a lexeme, by definition we
-	  ;; have blank space
+          ;; or if we're actually past the lexeme
+          (> line-start-offset (end-offset lexeme))
+	  ;; or somehow before the lexeme 
 	  (< line-end-offset (start-offset lexeme)))
+         ;; then we have blank space
 	 (setf (stroke-start-offset stroke) offset
 	       (stroke-end-offset stroke) line-end-offset
 	       (stroke-drawing-options stroke) +default-drawing-options+)
