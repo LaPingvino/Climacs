@@ -38,17 +38,19 @@
                (frame-manager-frames frame-manager)))))
 
 (defun climacs (&rest args &key new-process (process-name "Climacs")
+		(text-style *climacs-text-style*)
                 (width 900) (height 400))
   "Starts up a climacs session"
-  (declare (ignore new-process process-name width height))
+  (declare (ignore new-process process-name width height text-style))
   (apply #'climacs-common nil args))
 
 (defun climacs-rv (&rest args &key new-process (process-name "Climacs")
+		   (text-style *climacs-text-style*)
                    (width 900) (height 400))
   "Starts up a climacs session with alternative colors."
   ;; SBCL doesn't inherit dynamic bindings when starting new
   ;; processes, so start a new processes and THEN setup the colors.
-  (declare (ignore width height))
+  (declare (ignore text-style width height))
   (flet ((run ()
            (let ((*background-color* +black+)
                  (*foreground-color* +gray+)
@@ -62,10 +64,11 @@
         (run))))
 
 (defun edit-file (thing &rest args
-                  &key (process-name "Climacs") (width 900) (height 400))
+                  &key (process-name "Climacs") (width 900) (height 400)
+		  (text-style *climacs-text-style*))
   "Edit THING in an existing climacs process or start a new one. THING
 can be a filename (edit the file) or symbol (edit its function definition)."
-  (declare (ignore process-name width height))
+  (declare (ignore process-name width height text-style))
   (let ((climacs-frame (find-climacs-frame))
         (command 
          (typecase thing
@@ -83,8 +86,10 @@ can be a filename (edit the file) or symbol (edit its function definition)."
   t)
 
 (defun climacs-common (command &key new-process (process-name "Climacs")
+		       (text-style *climacs-text-style*)
                        (width 900) (height 400))
   (let* ((frame (make-application-frame 'climacs :width width :height height))
+	 (*climacs-text-style* text-style)
          (*application-frame* frame)
          (esa:*esa-instance* frame))
     (adopt-frame (find-frame-manager) *application-frame*)
