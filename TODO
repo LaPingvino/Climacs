@@ -1,0 +1,37 @@
+- modify standard-buffer to use an obinseq-based structure for faster
+  line operations
+
+- speed up com-goto-line (when possible)
+
+- replace the use of the scroller pane by custom pane
+
+Cyrus' Feature Requests/Bug Reports
+
+- vertical scrolling
+
+- fix horizontal scrolling such that the scrollbar can be used to move
+  the point offscreen
+
+- speaking of which, why have typeout panes at all? Or at least why
+  not make them full-fledged climacs panes such that one can type in
+  them, copy/paste, etc...?
+
+- support M-Right and M-Left in structedit mode
+
+- C-k at the end of a line breaks in structedit mode
+
+- support cycling through possible choices for windows to switch to in
+  C-x b
+
+- allow for selecting among possibilities in a DEFINITION view
+
+- allow for closing individual panes
+
+- make tab (or double-tab) in M-x command entry pane show
+  possibilities
+
+- the choice of buffer for C-x b should be smarter
+
+- weird flicker in creating/removing views (C-x 1, 2 or 3)
+
+- delete region on really large regions is prohibitively slow

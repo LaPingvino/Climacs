@@ -1,0 +1,239 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename climacs-internals
+@settitle Climacs Internals
+@c %**end of header
+
+@copying
+The Climacs Internals manual
+
+Copyright @copyright{} 2004 Robert Strandh.
+
+@end copying
+
+@titlepage
+@title Climacs Internals
+
+@sp 5
+@center @titlefont{Essential Protocols}
+@sp 2
+@center @titlefont{and}
+@sp 2
+@center @titlefont{Implementation Hints}
+@sp 2
+@author Robert Strandh
+
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+
+@end titlepage
+
+@contents
+
+@alias glossentry = b
+
+@alias gloss = t
+@alias class = t
+@alias genfun = t
+@alias mac = t
+@alias gadget = t
+@alias pane = t
+@alias initarg = t
+@alias methcomp = t
+@alias slot = t
+@alias cl = t
+
+@chapter Introduction
+
+You are reading the Climacs internals manual.  This document contains a
+detailed description of various Climacs protocols and other internal
+details.
+
+@chapter Group facilities
+
+@section Overview
+
+The Climacs group functionality is implemented through a simple protocol
+that permits the definition of new kinds of groups, as well as a number
+of utility functions and macros based on the protocol. Specific groups
+are stored in an @code{equalp} hash table in the Climacs frame object
+with groups keyed by their name as a string (the choice of @code{equalp}
+as the hash table test means that group names are not
+case-sensitive). Persistent groups are stored in a global @code{equalp}
+hash table, also keyed by the name of the group as a string.
+@footnote{The use of a global hash table means that two Climacs sessions
+running in the same image might clobber each others group settings -
+this is bad and indicative of a larger problem regarding running
+multiple Climacs sessions.} The active group is also stored in the
+Climacs frame object, typically as a ``synonym'' group, that forwards
+protocol methods to a group with a specified name. This is done so that
+it is possible to redefine a specific group while it is selected, and
+have the changes reflected in the selected group. Since redefinition of
+a group merely means creating and inserting a new object for the key in
+the hash table, the slot in the Climacs frame object would continue to
+refer to the old definition of the group, if this added indirection was
+not done.
+
+The group protocol and its implementation is still very basic, and may
+fail when faced with situations such as file access rights changing and
+killing of buffers at unpredicted times.
+
+@section Basic group protocol
+
+@deftp {Protocol Class} group
+The base class for all group objects. This class is not meant to be
+instantiated.
+@end deftp
+
+@deftp {Initarg} :name
+The name of the group. The @var{:name} initarg is mandatory, because
+every group must have a name.
+@end deftp
+
+@deftp {Class} group-element
+Objects of this class designate a single element, either a buffer or a
+file. A subclass of @code{group}.
+@end deftp
+
+@deftp {Initarg} :element
+This initarg provides the element that the @code{group-element} instance
+should designate.
+@end deftp
+
+@deftp {Class} standard-group
+Objects of this class designate a sequence of elements, normally
+instances of @code{group-element}.
+@end deftp
+
+@deftp {Initarg} :elements
+This initarg provides the elements that the @code{standard-group}
+instance should designate.
+@end deftp
+
+@deftp {Class} current-buffer-group
+Objects of this class designate the ``current buffer''. That is,
+whenever instances of this class are queried for a list of buffers (for
+example, via @code{group-buffers}), they will respond with a list of one
+element, the currently active buffer.
+@end deftp
+
+@deffn {Generic Function} {group-buffers} group
+Get a list of buffers in @var{group}. Only already existing buffers will
+be returned, use @code{ensure-group-buffers} if you want all buffers
+defined by the group.
+@end deffn
+
+@deffn {Generic Function} {ensure-group-buffers} group
+For each pathname in @var{group} that does not have a corresponding
+buffer, open a buffer for that pathname.
+@end deffn
+
+@deffn {Generic Function} {select-group} group
+Tell the group object @var{group} that the user has selected it. This
+method is responsible for setting the active group. If @var{group} needs
+additional information, it should query the user when this method is
+invoked. The standard method should be sufficient for most group
+classes.
+@end deffn
+
+@deffn {Generic Function} {display-group-contents} group
+Display the contents of @var{group} to @var{stream}. Basically, this
+should describe which buffers or files would be affected by group-aware
+commands if @var{group} was the active group. There is no standard
+format for the output, but it is intended for displaying to the user. It
+is acceptable to only define methods where @var{stream} is a CLIM
+@code{extended-output-stream}.
+@end deffn
+
+@section Group management
+
+A number of functions are provided to manage definition and management
+of groups. It is not possible to remove groups (excluding using
+@code{remhash} explicitly), but there are functions to add and get groups
+based on their name.
+
+@deffn {Function} {add-group} name elements
+Define a group called @var{name} (a string) containing the elements
+@var{elements}, which must be a list of pathnames and/or buffers, and
+add it to the list of defined groups.
+@end deffn
+
+@deffn {Function} {get-group} name
+Return the group with the name @var{name}.
+@end deffn
+
+@deffn {Function} {get-active-group}
+Return the currently active group.
+@end deffn
+
+@deffn {Function} {deselect-group}
+Deselect the currently active group.
+@end deffn
+
+@section Expanded group facilities
+
+On top of the basic protocol, a number of additional and useful classes,
+functions and macros have been defined.
+
+@deffn {Macro} {with-group-buffers} (buffers group &key keep) &body body
+Make sure that all files designated by @var{group} are open in buffers
+during the evaluation of @var{body}. If @var{keep} is NIL, all buffers
+created by this macro will be saved and killed after @var{body} has
+run. Also, @var{buffers} will be bound to a list of the buffers
+containing the files designated by @var{group} while @var{body} is run.
+@end deffn
+
+@deffn {Macro} {define-group} name (group-arg &rest args) &body body
+Define a persistent group named @var{name}. @var{Body} should return a
+list of pathnames and will be used to calculate which files are
+designated by the group. @var{Args} should be two-element lists, with
+the first element bound to the result of evaluating the second
+element. The second element will be evaluated when the group is
+selected to be the active group by the user.
+@end deffn
+
+@deftp {Error Condition} group-not-found
+This condition is signaled whenever a synonym group is unable to find
+the group that it is supposed to forward method invocations to.
+@end deftp
+
+@deftp {Method} {group-name} (condition @code{group-not-found})
+When invoked, this method returns the name of the group that could not
+be found.
+@end deftp
+
+@deftp {Class} synonym-group
+Objects of this class forwards all calls of group protocol methods to a
+group with a specified name. If a group of the requested name cannot be
+found, a condition of type @code{group-not-found} will be signalled.
+@end deftp
+
+@deftp {Initarg} :other-name
+The name of the buffer an instance of @code{synonym-group} should
+forward method calls to.
+@end deftp
+
+@deftp {Class} custom-group
+Instances of this class will call a provided function when it is
+selected or asked for pathnames.
+@end deftp
+
+@deftp {Initarg} :pathname-lister
+The function that will be called for the @code{custom-group} object to
+retrieve the pathnames that the group designates. This should be a
+function of one required argument, the group object, and it should
+return a list of pathname objects.
+@end deftp
+
+@deftp {Initarg} :select-response
+The function that will be called when the @code{custom-group} object is
+selected as the active group. This should be a function of a single
+required argument, the group object, and it is called for side effects.
+@end deftp
+
+@unnumbered Index
+
+@printindex cp
+
+@bye

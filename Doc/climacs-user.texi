@@ -1,0 +1,946 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename climacs-user
+@settitle Climacs User Manual
+@c %**end of header
+
+@copying
+The Climacs User manual
+
+Copyright @copyright{} 2005 Robert Strandh.
+
+@end copying
+
+@titlepage
+@title Climacs User Manual
+@sp 2
+@author Robert Strandh
+
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+
+@end titlepage
+
+@contents
+
+@macro climacs{}
+Climacs
+@end macro
+
+@macro cl{}
+Common Lisp
+@end macro
+
+@node Top
+@top
+
+@menu
+* Introduction::
+* Conventions::
+* Concepts::
+* Basic editing commands::
+* Different editing modes::
+* Kill ring::
+* Groups::
+* Advanced editing commands::
+* Getting help::
+* Proposal for new buffer/pane relations::
+* Key Index::
+* Concept Index::
+@end menu
+
+
+@node Introduction
+@chapter Introduction
+
+@climacs{} is a text editor in the Emacs family.  However, @climacs{}
+differs from Emacs in various ways.  
+
+For one thing, @climacs{} is written in Common Lisp rather than Emacs
+Lisp.  Common Lisp is a much more complete language than Emacs Lisp
+with essential features such as packages, classes, etc.
+
+Moreover, @climacs{} uses the Common-Lisp Interface Manager (CLIM) as its
+substrate for managing everything that has to do with user
+interaction, including event handling, text rendering, and
+multi-windowing (called panes in CLIM terminology). 
+
+Also, since @climacs{} uses CLIM, there is no need for @climacs{} itself to
+serve as the basis for other applications such as news readers, mail
+readers, directory editors, web browsers, etc. the way it is done with
+Emacs.  Instead, such applications are better written as stand-alone
+CLIM applications that can then communicate with @climacs{} using CLIM
+and Common Lisp as the common substrate. 
+
+The main purpose of @climacs{} is not to replace Emacs.  Instead, it is
+primarily intended as a text editor for Common Lisp developers.
+Notice that this is not the same as a text editor for Common Lisp
+@emph{development}, since Common Lisp developers might need other
+features such as editing HTML or spell checking, etc., not directly
+related to Common Lisp development. 
+
+@node Conventions
+@chapter Conventions
+
+Many @climacs{} commands are invoked by typing a sequence of
+keystrokes.  A complete sequence of keystrokes invokes a
+@climacs{} @emph{command} which has a @emph{name}.  Sometimes it is
+useful to know that name, even though the command is usually invoked
+by typing the key sequence.  For that reason, in this manual we often
+give the corresponding command name together with the key sequence to
+invoke it. 
+
+@node Concepts
+@chapter Concepts
+
+In order to use @climacs{} effectively, you need to know some concepts
+that are used by it, and referred to in this manual.
+
+@menu
+* Buffer::
+* Window and pane::
+* Mark and point::
+* Key sequence::
+@end menu
+
+@node Buffer
+@section Buffer
+
+A @climacs{} @emph{buffer}
+@cindex buffer
+is a named, editable sequence of arbitrary @cl{} objects.  If the buffer
+contains text, most of those objects will be @emph{Unicode
+characters}. When editing a file, the contents of the file will be
+loaded into a buffer with a name corresponding to the name of the file
+(creating the buffer in the process), and all editing operations will be
+performed on the buffer. Upon saving, the contents of the buffer will be
+written to the file associated with it. @xref{Editing the contents of a
+file}. A buffer does not necessarily have a file associated with it, for
+example, the @emph{*scratch*} buffer automatically created upon
+@climacs{} startup is not associated with any file.
+@cindex character
+@cindex Unicode
+
+@node Window and pane
+@section Window and pane
+
+A @climacs{} buffer may or may not be on display.  If it is, it is on
+display in a @emph{pane}
+@cindex pane
+or a @emph{window}.
+@cindex window
+A pane does not necessarily contain a buffer, it may just be a pane
+containing output from Climacs. These panes are known as @emph{typeout
+panes},
+@cindex typeout pane
+and their contents are lost when they are destroyed.
+
+@node Mark and point
+@section Mark and point
+
+Positions into a @climacs{} buffer are determined by @emph{marks}
+@cindex mark
+which can be either @emph{left sticky},
+@cindex left sticky
+meaning that if an object is inserted where such a mark is, it ends up
+@emph{to the left} of the newly inserted object, or @emph{right
+sticky},
+@cindex right sticky
+meaning that if an object is inserted where such a mark is, it ends up
+@emph{to the right} of the newly inserted object.
+
+A distinguished mark that is associated with each @climacs{} pane is
+called the @emph{point}.
+@cindex point
+There is a point associated with each window.  Each of several windows
+that display the same buffer has its own point.  In addition, a buffer
+that is not on display has a point that is taken over by the first
+window that displays the buffer.  Points are right-sticky marks, even
+when a language such as Arabic is edited, simply because by
+convention, the @climacs{} buffer is considered as being organized
+from left to right.  It is a question of @emph{rendering} as to whether
+the objects in the buffer are actually displayed from left to right,
+from right to left, or in any other appropriate order. 
+
+@node Key sequence
+@section Key sequence
+
+Typically, @climacs{} is operated by @emph{key sequences}
+@cindex key sequence
+issued by the user.  A key sequence is a sequence of key strokes,
+where a key stroke can be a simple character such as @kbd{f} or
+@kbd{&}, or a key with one or more @emph{modifiers}
+@cindex modifier
+such as @key{Control}, @key{Shift}, @key{Meta}, etc.
+
+Some key sequences result in the execution of a @climacs{}
+@emph{command}.
+@cindex command
+Such a key sequence is called a @emph{complete key sequence}
+@cindex complete key sequence
+or a @emph{gesture}.
+@cindex gesture
+
+@node Basic editing commands
+@chapter Basic editing commands
+
+The basic editing commands of @climacs{} are identical or at least
+similar to the corresponding Emacs commands.  This is deliberate.  We
+do not believe in introducing gratuitous differences where such
+differences have little or no importance.  A typical Emacs user
+should therefore feel quite comfortable with the basic editing
+commands of @climacs{}.
+
+@menu
+* Entering and exiting Climacs::
+* Numeric arguments::
+* Entering and deleting text::
+* Moving around::
+* Extended commands::
+* Editing the contents of a file::
+@end menu
+
+@node Entering and exiting Climacs
+@section Entering and exiting Climacs
+
+The typical way of entering @climacs{} is to type a @cl{}
+@emph{expression} at the prompt of a @cl{} @emph{listener} such as:
+
+@lisp
+CL-USER> (climacs:climacs)
+@end lisp
+
+@climacs{} also has an option to start in a new thread:
+
+@lisp
+CL-USER> (climacs:climacs :new-process t)
+@end lisp
+
+You exit from @climacs{} by typing @kbd{C-x C-c} (@command{Quit}).
+@kindex C-x C-c
+If you have buffers
+associated with files that have not been saved to their respective
+files, @climacs{} will ask whether you would like those buffers
+saved.  In addition, if you answer no to any of those questions, you
+will be asked to confirm that you want to quit @climacs{} anyway.  The
+reason for this pestering on the part of @climacs{} is that currently
+when you quit @climacs{}, the buffer contents are lost.
+
+@node Numeric arguments
+@section Numeric arguments
+
+Many @climacs{} commands allow the use of a @emph{numeric argument}.
+@cindex numeric argument
+A numeric argument is used as a prefix to a @climacs{} command, and
+modifies the behavior of that command in some useful way which varies
+from command to command.
+
+Typically, a numeric argument prefix makes the command repeat its
+action a number of times indicated by the numeric argument prefix.
+For instance, the command @command{Delete Object}, usually associated
+with the gesture @kbd{C-d}, normally deletes a single object from the
+buffer.  However, if given a numeric argument, it deletes that many
+objects. 
+
+Other commands modify their behavior according to whether a numeric
+argument has been given, but do not take into account the specific
+numeric value indicated.  For instance, the command @command{Delete
+Horizontal Space}, when given no numeric argument, deletes whitespace
+both before and after point.  With a numeric argument, it deletes only
+whitespace @emph{before} point.
+
+Yet other commands may both modify what they do and repeat according
+to the numeric value of the argument.  For instance, the command
+@command{Kill Line}, when given no numeric argument, kills to the end
+of the line if point is not already at the end of the line, but does
+not kill the newline character at the end of the line and kills the
+newline character if point is at the end of a line.  However, if given
+a numeric argument, @command{Kill Line} kills that many lines.
+
+There are two ways of giving a numeric argument to a @climacs{}
+command.  One way is to first type @kbd{C-u}, 
+@kindex C-u
+then a sequence of
+decimal digits, and finally the gesture that invokes the command.  For
+instance, to delete the next 15 objects after point, you could type
+@kbd{C-u 1 5 C-d}.  The other way is to hold down the @key{Meta} key
+(usually the one marked @key{Alt}) while typing the decimal digits, as
+in @kbd{M-1 M-5 C-d}.
+
+Some commands accept negative numeric arguments.  In that case, start
+the sequence with the minus sign as in @kbd{C-u - 1 5 C-d}, which in
+this case will delete buffer objects @emph{before} the point rather
+than after. 
+
+@node Entering and deleting text
+@section Entering and deleting text
+
+@menu
+* Entering text::
+* Deleting by objects::
+* Deleting by words::
+* Deleting by lines::
+@end menu
+
+@node Entering text
+@subsection Entering text
+
+In contrast to other text editors such as VI, @climacs{} does not have
+a specific @emph{insert mode}.  Instead, @climacs{} is always in
+insert mode, in that characters that are typed on the keyboard
+immediately get inserted at the @emph{point}.
+
+@node Deleting by objects
+@subsection Deleting by objects
+
+To erase objects that have been inserted, you can use the
+@key{Backspace} (@command{Backward Delete Object}
+key, which deletes the object immediately to the left of the point.
+To delete an object @emph{to the right} of the point, use the
+@kbd{C-d} 
+@kindex C-d
+(@command{Delete Object}) gesture.  When used with a numeric
+argument, these commands delete that many objects. 
+
+@node Deleting by words
+@subsection Deleting by words
+
+It is also possible to delete larger chunks of buffer contents.  The
+gesture @kbd{M-d} 
+@kindex M-d
+(@command{Kill Word}) is used to delete the @emph{word}
+@cindex word
+@emph{following} point.  If point is not at the beginning of a word,
+then the part of the word that follows point is deleted.  the gesture
+@kbd{M-@key{Backspace}} 
+@kindex M-@key{Backspace}
+(@command{Backward Kill Word}) is used to
+delete the word @emph{preceding} point.  If point is not at the end of
+a word, then the part of the word that precedes point is deleted.
+When used with a numeric argument, these commands delete that many
+words.  Since these command names contain the word @emph{kill}, they
+use the kill-ring (@pxref{kill-ring}).
+
+@node Deleting by lines
+@subsection Deleting by lines
+
+@climacs{} allows you to delete buffer objects one or more lines at a
+time.  The gesture @kbd{C-k}
+@kindex C-k
+(@command{Kill Line}) lets you do this.  When point is @emph{not} at
+the end of a line, then this command kills the buffer contents from
+point up to, but not including the following newline object.  When
+instead point @emph{is} at the end of a line, only the following
+newline object is removed. 
+
+When used with a numeric argument, this command is not simply repeated
+that many times.  Instead, the number of lines indicated by the
+numeric argument are removed.  
+
+Because this command name contains the word @emph{kill} it saves the
+deleted objects on the @emph{kill ring} (@pxref{kill-ring}).
+
+@node Moving around
+@section Moving around
+
+@menu
+* Moving by objects::
+* Moving by words::
+* Moving by lines::
+@end menu
+
+@node Moving by objects
+@subsection Moving by objects
+
+@climacs{} allows you to move around in the buffer in various ways. 
+The most frequent way of moving around is by one buffer position at a
+time.  
+
+The gesture @kbd{C-f}
+@kindex C-f
+(@command{Forward Object}) allows you to
+advance the position of point by one position.  If given a numeric
+argument, it advances by that many positions.  The @command{Forward
+Object} command is also associated with the @emph{right-arrow key}. 
+
+The gesture @kbd{C-b} 
+@kindex C-b
+(@command{Backward Object}) allows you to move the
+position of point backward by one position.  If given a numeric
+argument, it moves back by that many positions.  The @command{Backward
+Object} command is also associated with the @emph{left-arrow key}.
+
+@node Moving by words
+@subsection Moving by words
+
+@climacs{} will allow you to move around by larger units than
+objects.
+
+The gesture @kbd{M-f}
+@kindex M-f
+(@command{Forward Word}) lets you move forward over the @emph{word}
+@cindex word
+following point. With a numeric argument, this command moves point
+forward that many words. 
+
+The gesture @kbd{M-b}
+@kindex M-b
+(@command{Backward Word}) lets you move backward over the @emph{word}
+@cindex word
+preceding point. With a numeric argument, this command moves point
+backward that many words. 
+
+Notice the analogy between the commands for moving by objects
+(@kbd{C-f}, @kbd{C-b}) and those for moving by words (@kbd{M-f},
+@kbd{M-b}). 
+
+@node Moving by lines
+@subsection Moving by lines
+
+@climacs{} has commands to move by one or several @emph{lines} at a
+time.  
+
+The gesture @kbd{C-p}
+@kindex C-p
+(@command{Previous Line}) allows you to
+move point @emph{up} to the previous line.  If given a numeric
+argument, it moves up by that many lines.  The command
+@command{Previous Line} is also associated with the @emph{up-arrow
+key}.  
+
+The gesture @kbd{C-n}
+@kindex C-n
+(@command{Next Line}) allows you to
+move point @emph{down} to the next line.  If given a numeric
+argument, it moves down by that many lines.  The command
+@command{Next Line} is also associated with the @emph{down-arrow
+key}.  
+
+When you move by lines, @climacs{} tries to be smart about which
+@emph{column} point ends up in, in the following way: when a sequence
+of commands that move by lines is given, the initial column of point
+is remembered (this is called the @emph{goal column}).  @climacs{}
+then tries to position point in that column of the target line.  If
+the target line has fewer than that many columns, point is positioned
+at the end of the target line.  The goal column is discarded when the
+sequence of commands is interrupted by some unrelated command. 
+
+@node Extended commands
+@section Extended commands
+
+In order to make editing as efficient as possible, many @climacs{}
+commands can be invoked by key sequences.  It is, however, possible to
+invoke most @climacs{} commands by using the gesture @kbd{M-x} which
+invokes the command @command{Extended Command} which lets you type the
+@emph{name} of the command in the minibuffer at the prompt.
+In general, you do not have to type the full name of the command,
+because @climacs{} uses CLIM's completion mechanism so that you can
+complete the name by typing some prefix and then use the @key{TAB} key
+to complete. 
+
+Some @climacs{} commands @emph{must} be invoked through the use of
+@command{Extended Command}.  The reason for this is that key sequences
+are a precious resource, and for rarely-used commands, it is better
+not to waste a key sequence. 
+
+@node Editing the contents of a file
+@section Editing the contents of a file
+
+Transfering the contents of a text file into a @climacs{} buffer is
+referred to as @emph{finding} the file.
+@cindex finding a file
+
+There are two ways of transfering the contents of a buffer to a file.
+One is to @emph{save} the buffer, which means to transfer the contents
+to the file that is already associated with the buffer.  The other is
+to @emph{write} the buffer, which means to transfer the contents to a
+different file than that associated with the buffer, or to write the
+contents of a buffer that has no associated file to some file.
+
+@menu 
+* Finding a file::	Moving text from a file to a @climacs{} buffer
+* Saving a buffer::	Moving text from a buffer to the associated file
+* Writing a buffer::	Moving text from a buffer to a different file  
+@end menu
+
+@node Finding a file
+@subsection Finding a file
+
+To find a file, use the gesture @kbd{C-x C-f}
+@kindex C-x C-f
+(@command{Find File}).
+
+@climacs{} will prompt for the name of a file.  For typing the file
+name, you can use @emph{completion} (using the @key{TAB} key), or you
+can use the right mouse button to get a list of all the files that
+match the prefix you typed.
+
+The result of finding a file is that a @emph{buffer} will be created
+that has the name of the file, and the file will be associated with
+that buffer when the content is saved.
+
+@node Saving a buffer
+@subsection Saving a buffer
+
+To save a buffer, use the gesture @kbd{C-x C-s}
+@kindex C-x C-s
+(@command{Save Buffer}).
+The contents of the buffer will be transfered to the file associated
+with the buffer if there is one.  If the buffer has no file name
+associated with it, then this command behaves just like @command{Write
+Buffer} (@pxref{write-buffer}).
+
+@node Writing a buffer
+@subsection Writing a buffer
+@anchor{write-buffer}
+
+To write a buffer to a file, use the gesture @kbd{C-x C-w}
+@kindex C-x C-w
+(@command{Write Buffer}).  @climacs{} will prompt for the name of a
+file to save the buffer contents in.  Completion (by using the
+@key{TAB} key, or by using the right mouse button) can be used if the
+name is that of an existing file.
+
+@node Different editing modes
+@chapter Different editing modes
+
+@menu
+* Overwrite mode::
+@end menu
+
+@node Overwrite mode
+@section Overwrite mode
+
+Normally, typing ordinary characters to @climacs{} results in these
+characters being @emph{inserted} at point.  Sometimes, however, it is
+useful to treat a line of objects as being of @emph{fixed length}, and
+have @climacs{} @emph{replace} objects as new ones are being typed.  
+
+This is exactly the purpose of @climacs{} @emph{overwrite mode}.  This
+mode alters the insert commands so that the object after point is
+first deleted. 
+
+You can toggle between the normal mode of operation and overwrite mode
+by using the @key{Insert} 
+@kindex @key{Insert}
+(@command{Toggle Overwrite Mode}) key.  
+
+@node Kill ring
+@chapter Kill ring
+@anchor{kill-ring}
+
+Many @climacs{} commands that remove objects from a buffer save these
+objects on a global @emph{kill ring}.
+@cindex kill ring
+
+@node Groups
+@chapter Groups
+
+@menu
+* The group metaphor::
+* Group commands::
+@end menu
+
+@node The group metaphor
+@section The group metaphor
+
+@climacs{} supports a useful and powerful concept called @emph{groups}.
+@cindex group
+Groups are conceptually just lists of buffers or files, and when used in
+conjunction with a command, means that the command operates on all
+buffers or files designated by the group. For example, a
+string-replaceable command might perform string-replacement in several
+buffers, and not just the current one. A command that supports
+operations on multiple files or buffers at a time, via groups, is called
+a @emph{group-aware command}.
+@cindex group-aware command. 
+However, a group is not limited to designating a simple list of static
+elements, the exact elements designated by a group may depend on the
+context in which a group-using command is invoked - for example, a group
+may designate ``all files in the same directory as the current
+buffer''. In this case, the specific files designated by the group can
+change if the user switches to another buffer. Every group has a unique
+name and all references to the group are performed with this name as the
+key.
+
+At all times, Climacs may have an @emph{active group}.
+@cindex active group
+The active group is used to control the scope of effect of group-aware
+commands - when such a command is executed, it will look at the active
+group to get a list of files and buffers, and perform its operations on
+all elements in the group. The exact behavior of commands with respect
+to groups is dependent on the command itself, though. The act of setting
+the active group is called @emph{selecting a group},
+@cindex selecting a group
+specifically, selecting the group that is set as the active group. It is
+also possible to deselect the active group, in which case most
+group-aware commands will simply perform their operations on the current
+buffer.
+
+Specifically, there are two different kind of groups - @emph{specific
+groups}
+@cindex specific groups
+and @emph{persistent groups}.
+@cindex persistent groups
+Specific groups can be defined by the user through the command
+interface, @pxref{Group commands}. They are simple lists of buffers or
+files, and if a buffer named in a group is killed, it will be removed
+from the group. Creating a buffer with the same name, or the same file,
+will not result in the buffer being re-added to the group. Specific
+groups are also lost when @climacs{} is terminated. Persistent groups,
+on the other hand, are usually pre-defined groups with more complex
+behavior. Their exact list of designated files and buffers is usually
+context-dependent and not calculated until they are needed. It is not
+currently possible to define persistent groups through the command
+interface, though some persistent groups support user-defined filters
+and options. When a persistent group is selected as the active group, it
+may query the user for values - for example, a persistent group
+designating all files in a given directory, may ask the user for a
+directory when it is selected.
+
+@node Group commands
+@section Group commands
+
+Specific groups can be defined by using the gesture @kbd{C-x g d}
+@kindex C-x g d
+(@command{Define Group}). You will be queried for a name for the group
+and a list of buffers, and a group with the specified name and buffers
+will be created and selected as the active group. Alternatively, you can
+use the gesture @kbd{C-x g f}
+@kindex C-x g f
+(@command{Define File Group}, which will query for files instead of
+buffers. If you wish to select an already existing group (persistent or
+specific) as the active group, you can use the gesture @kbd{C-x g s}.
+@kindex C-x g s
+You can deselect the active group with the gesture @kbd{C-x g u}
+@kindex C-x g u
+(@command{Deselect Group}) - this will usually make all group-aware
+commands operate on just the current buffer. To see which group is the
+active group, use the gesture @kbd{C-x g c}
+@kindex C-x g c
+(@command{Current Group}), and to see the buffers and files designated
+by the active group, use @kbd{C-x g l} (@command{List Group Contents}).
+
+@node Advanced editing commands
+@chapter Advanced editing commands
+
+@menu 
+* Keyboard macros::
+* Searching and replacing::
+@end menu
+
+@node Keyboard macros
+@section Keyboard macros
+
+Sometimes, it is useful to be able to repeat a sequence of keystrokes
+several times.  @climacs{} allows you to do this through a feature
+called @emph{keyboard macros}.
+@cindex keyboard macro
+@climacs{} does this by @emph{recording} whatever the user types on
+the keyboard, and then making it possibly to @emph{replay} the
+recorded sequence.
+
+To start recording a sequence of keystrokes, use the gesture @kbd{C-x (}
+@kindex C-x (
+(@command{Start Kbd Macro}).  You will see the word @samp{Def}
+appearing on the mode line, indicating that a keyboard macro is being
+defined.  As long as recording is in effect, every keystroke will be
+saved for later use.  
+
+To stop recording a sequence of keystrokes, use the gesture @kbd{C-x )}
+@kindex C-x )
+(@command{End Kbd Macro}).  The word @samp{Def} will disappear from
+the mode line, indicating that keystrokes are no longer being
+recorded. 
+
+To replay a previously recorded sequence of keystrokes, use the gesture
+@kbd{C-x e}
+@kindex C-x e
+(@command{Call Last Kbd Macro}).  When used with a numeric argument,
+this command will repeat the sequence of keystrokes that many times. 
+
+@node Searching and replacing
+@section Searching and replacing
+
+@climacs{} has a number of useful searching and replacing commands. The
+replacing commands come in two flavors - querying commands and
+non-querying commands. The former will unconditionally replace all
+matches, while the latter will query before each replacement. Note that
+the searching and replacing commands only affect the buffer contents
+after point.
+
+@menu
+* Simple search::
+* Incremental search::
+* The isearch command loop::
+* Replacing single strings::
+* Replacing multiple different strings::
+* The query-replace command loop::
+@end menu
+
+@node Simple search
+@subsection Simple search
+
+The simplest search command is @command{String Search}. It prompts for a
+string and moves point to after the next occurrence of the
+string. @command{Reverse String Search} is similar, but searches
+backwards from point, and puts point before the first occurrence of the
+string.
+
+The commands @command{Word Search} and @command{Reverse Word Search} are
+very similar to @command{String Search} and @command{Reverse String
+Search}, but only finds matches that are whole words.
+
+The commands @command{Regex Search Forward} and @command{Regex Search
+Backward} are similar to @command{String Search} and @command{Reverse
+Word Search}, but do not search for plain strings. Instead, they ask the
+user to enter a regular expression and attempts to find a match in the
+buffer.
+
+You can use the command @command{How Many} to count the number of
+matches in the buffer for a given regular expression. When invoked, the
+command will ask for a regular expression, and then proceed to search
+through the buffer, counting each match for the regular expression, and
+finally print the number of matches to the minibuffer.
+
+@node Incremental search
+@subsection Incremental search
+
+Incremental search, or @emph{isearch} in common speech, is different
+from string search, in that point is moved to matches in the buffer,
+while the search string is being entered, thus, the user receives
+immediate feedback while entering the search string. Incremental search
+is controlled through a command loop. @xref{The isearch command loop}.
+
+Incremental search can be entered via two gestures, @kbd{C-s}
+@kindex C-s
+(@command{Isearch Forward}) and  @kbd{C-r}
+@kindex C-r
+(@command{Isearch Backward}). These commands starts a command loop that
+searches forwards and backwards by default, respectively. Note that the
+search direction can be changed from inside the command loop, no matter
+which of these commands were used to start it.
+
+@node The isearch command loop
+@subsection The isearch command loop
+
+The isearch command loop consists of the user typing in characters for
+the search string, and @climacs{} moving point ahead to the most immediate
+instance of the provided string, while the user is typing. Apart from
+simply entering text, the user can manipulate the command loop by
+entering the following gestures:
+
+@table @kbd
+@item C-s
+Move to next match for current search string and set the search
+direction to forward.
+@item C-r
+Move to previous match for current search string and set the search
+direction to backward.
+@item C-j
+Append a ``newline'' character to the current search string.
+@item C-w
+Append the word at point to the current search string.
+@item C-y 
+Append the line at point to the current search string.
+@item M-y
+Append the head of the kill ring to the search string.
+@item @key{Backspace}
+Delete the last element of the search string. This is not the same as
+deleting the last character - for example, if the word at point has been
+appended to the search string via @kbd{C-w}, this gesture will delete the
+entire word, not just the last character of the word.
+@item @key{Newline}
+Exit the isearch command loop.
+@end table
+
+@node Replacing single strings
+@subsection Replacing single strings
+
+The basic string-replacement command can be accessed through the gesture
+@kbd{C-x e}
+@kindex C-x e
+(@command{Replace String}). This command will prompt for two strings,
+and replace all instances of the first string following point in the
+current buffer, with the second string. This command is not querying,
+and will thus not prompt before each replacement, so if you desire this
+behavior, use the gesture @kbd{M-%}
+@kindex M-%
+(@command{Query Replace}) instead. @xref{The query-replace command loop}.
+
+@node Replacing multiple different strings
+@subsection Replacing multiple different strings
+
+It is often desirable to be able to replace multiple, different strings
+with one command - for instance, you might want to replace all
+occurrences of ``foo'' with ``bar'' and all occurrences of ``bar'' with
+``baz'', without having the replacements affect each other. For this,
+@climacs{} provides the command @command{Multiple Query Replace}, which
+will prompt for pairs of strings, replacing the first with the second.
+Entering an empty search string stops the prompting and starts the
+query-replace command loop. It is also possible to use @command{Multiple
+Query Replace From Buffer}, which will read the string pairs from a
+buffer provided by the user.
+
+If you wish to exchange two strings for one another, use the command
+@command{Query Exchange}, which will prompt for two strings, and replace
+them for each other in the current buffer.
+
+@node The query-replace command loop
+@subsection The query-replace command loop
+
+When invoking one of the querying replace commands, you will enter a
+command loop with specialized commands for manipulating the replacement
+process.
+
+The command loop will loop across the buffer, and for each match, the
+command loop will read a gesture from the user. The following gestures and
+their corresponding commands are available:
+
+@table @kbd
+@item y, @key{Space}
+Replace the current match with the provided string, go to next
+match.
+@item n, @key{Rubout}, @key{Backspace}
+Do not replace the current match, go to next match.
+@item q, @key{Newline}
+Quit the command loop, preserving all replacements already made.
+@item .
+Replace the current match with the provided string and quit the
+command loop.
+@item !
+Replace all matches with the provided replacement strings.
+@end table
+
+@node Getting help
+@chapter Getting help
+
+In addition to this manual, @climacs{} contains an online help
+facility.  There are several different topics that you can get help
+with.  Most of these topics are obtained by some gesture using the
+@kbd{C-h}
+@kindex C-h
+prefix key.  The key following @kbd{C-h} determines what kind of help
+information is displayed. 
+
+@menu 
+* Help with a command::
+* Help with a key binding::
+* Help with a particular key sequence::
+* Help finding a command::
+* Help finding a gesture for a command::
+@end menu
+
+@node Help with a command
+@section Help with a command
+
+To get documentation about a particular command, use the gesture @kbd{C-h
+f} 
+@kindex C-h f
+(@command{Describe Command}). You will be prompted for the name of a
+command, and if you provide a valid command name, a typeout pane
+containing information about which function the command calls, which
+gestures the command can be invoked through, as well as a description of
+the command, will be displayed.
+
+@node Help with a key binding
+@section Help with a key binding
+
+To obtain a list of all gestures and the associated commands that are
+valid in a particular context, use the gesture @kbd{C-h b}
+@kindex C-h b
+(@command{Describe Bindings}).  A table with each command name and
+associated gesture (if any) is displayed in a new window. 
+
+@node Help with a particular key sequence
+@section Help with a particular key sequence
+
+To obtain a description of what some putative gesture will do, use the
+gesture @kbd{C-h c}p
+@kindex C-h c
+(@command{Describe Key Briefly}).  You will be prompted for a key
+sequence.  If the key sequence you type is bound to a command, the
+command name will be displayed in the minibuffer.  Otherwise, a message
+indicating that the key is not bound to a command will be displayed.
+
+For more detailed information, use the gesture @kbd{C-h c} 
+@kindex C-h k
+(@command{Describe Key}). You will be prompted for a key sequence, and
+if the key sequence you provide is bound to a command, documentation for
+that command, as well as any arguments the given key binding calls the
+command with, will be shown in a typeout pane.
+
+@node Help finding a command
+@section Help finding a command
+
+If you do not know which commands are applicable to a given situation,
+you can use the gesture @kbd{C-h a}
+@kindex C-h a
+(@command{Apropos Command}) to perform a keyword-based search for
+commands. You will be prompted for a keyword, after which @climacs{}
+will search through the available commands for commands that are
+connected to the keyword. If commands are found, they will be displayed
+in a typeout pane along with the gestures you can use to invoke
+them. You can also click on the names of the commands to get more
+thorough documentation.
+
+@node Help finding a gesture for a command
+@section Help finding a gesture for a command
+
+Sometimes, you know the name of a command, and would like to find out
+whether it is bound to any gesture, and if so, which one(s).  For that,
+you can use the gesture @kbd{C-h w}
+@kindex C-h w
+(@command{Where Is}).  You will be prompted for a command name
+(completion can be used as usual), and if the command name given is
+bound to a a gesture, that gesture will displayed in the minibuffer.
+Otherwise, a message indicating that the command is not bound to any
+gesture will be displayed. 
+
+@node Proposal for new buffer/pane relations
+@chapter Proposal for new buffer/pane relations
+
+There is a proposal on the table to make the way @climacs{} manages
+buffers and panes incompatible with that of Emacs, and in the process
+thus cleaning up 30 years of baggage. 
+
+The proposal is to no longer allow buffers without panes.  Instead, a
+buffer will always be associated with at least one pane, though that
+pane could be adopted or disowned to make it visible or invisible. 
+The advantage of this organization is that a buffer will no longer
+contain a point.  Also, panes can contain other things that buffers
+such as buffer lists, debugger applications, etc.
+
+For this to work, we need to define how the effect of certain
+commands related to buffers and windows will be altered.  The proposal
+is: 
+
+C-x 2 creates an additional pane with its own point and that shares
+the buffer of the current pane.  It also adopts the new pane by the
+same mechanism used now (creating a vbox pane containing the two.  C-x
+3 is similar except that it uses a hbox instead.
+
+C-x 0 does not destroy the pane, but just disowns it (by replacing the
+rack it is in by the pane itself).  
+
+C-x 1 does the equivalent of C-x 0 on all other visible panes.
+
+C-x k kills the current pane.  If that happens to be the last pane
+containing a particular buffer, then the buffer is lost as well.
+
+C-x b replaces the current pane by some arbitrary pane displaying the
+buffer that has been requested (or creates a new buffer and a new pane
+if the buffer requested does not exist?).
+
+@node Key Index
+@unnumbered Key Index
+
+@printindex ky
+
+@node Concept Index
+@unnumbered Concept Index
+
+@printindex cp
+
+@bye
