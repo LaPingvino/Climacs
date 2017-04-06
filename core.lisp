@@ -320,8 +320,14 @@ file if necessary."
 	 (display-message "No file name given.")
 	 (beep))
 	((directory-pathname-p filepath)
-	 (display-message "~A is a directory name." filepath)
-	 (beep))
+     (let* ((output (make-string-input-stream
+                     (format nil "~{~A~%~}" (directory (format nil "~a*.*" filepath)))))
+            (buffer (make-buffer-from-stream output))
+            (view (make-new-view-for-climacs
+                   *esa-instance* 'textual-drei-syntax-view
+                   :name (namestring filepath)
+                   :buffer buffer)))
+       (setf (current-view (current-window)) view)))
         (t
          (let ((existing-view (find-view-with-pathname filepath)))
            (if (and existing-view (if readonlyp (read-only-p (buffer existing-view)) t))
