@@ -51,13 +51,17 @@ the buffer `buffer' and the filepath `filepath'."
         (display-message "Cannot save to file, buffer contains non-character object"))))
 
 (defun input-from-stream (stream buffer offset)
-  (let* ((seq (make-string (file-length stream)))
-         (count (#+mcclim read-sequence #-mcclim cl:read-sequence
-                          seq stream)))
-    (insert-buffer-sequence buffer offset
-                            (if (= count (length seq))
-                                seq
-                                (subseq seq 0 count)))))
+  (let* ((seq (make-string 10)))
+    (loop for count = (#+mcclim read-sequence #-mcclim cl:read-sequence
+                                seq stream)
+       while (> count 0)
+       do
+         (progn
+           (insert-buffer-sequence buffer offset
+                                   (if (= count (length seq))
+                                       seq
+                                       (subseq seq 0 count)))
+           (incf offset count)))))
 
 (defmethod frame-make-buffer-from-stream ((application-frame climacs) stream)
   (let* ((buffer (make-new-buffer)))
