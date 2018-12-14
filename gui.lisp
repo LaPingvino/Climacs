@@ -277,7 +277,7 @@ window"))
   (:layouts
    (default
        (overlaying ()
-         (vertically (:scroll-bars nil)
+         (vertically ()
            climacs-window
            minibuffer))))
   (:top-level ((lambda (frame)
