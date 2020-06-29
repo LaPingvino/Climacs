@@ -28,10 +28,9 @@ are not found neither in Goatee nor in Portable Hemlock:
 How to contribute
 -----------------
 
-Discussion happens on the mailing lists accessible from
-<URL:http://common-lisp.net/project/climacs/>; arcives are likewise
-accessible.  Contributions to make the framework and the editor a
-nicer environment are actively sought.
+The official page of this project is/was http://common-lisp.net/project/climacs/ and
+archives should likewise be accessible.  Contributions to make the framework and the editor a
+nicer environment are very welcome.
 
 The project website still refers to the CVS repository. That doesn't
 exist any more and for a long time I thought the history was lost.
