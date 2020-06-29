@@ -33,6 +33,14 @@ Discussion happens on the mailing lists accessible from
 accessible.  Contributions to make the framework and the editor a
 nicer environment are actively sought.
 
+The project website still refers to the CVS repository. That doesn't
+exist any more and for a long time I thought the history was lost.
+Turns out the actual history can be found on the common-lisp.net
+gitlab and the information needs to be updated. I updated this 
+repository on https://github.com/LaPingvino/Climacs to be up to date
+with the official conversion of the CVS history at the GitLab instance
+https://gitlab.common-lisp.net/climacs/climacs
+
 What to work on
 ---------------
 
